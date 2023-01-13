@@ -7,13 +7,13 @@ load(
 )
 
 # Change these to have code signing work for you
-BUNDLE_ID = "com.brentleyjones.rules-xcodeproj-demo"
+BUNDLE_ID = "com.matthewpauly.epsilon"
 
 MANAGED_PROFILE = True
 
 PROFILE_NAME = "iOS Team Provisioning Profile: {}".format(BUNDLE_ID)
 
-TEAMID = "V82V4GQZXM"
+TEAMID = "QVSG4RRSDG"
 
 ios_application(
     name = "App",

@@ -42,7 +42,7 @@ _SCHEMES = [
 
 xcodeproj(
     name = "xcodeproj",
-    project_name = "Demo",
+    project_name = "Epsilon",
     schemes = _SCHEMES,
     top_level_targets = _TOP_LEVEL_TARGETS,
 )
@@ -52,7 +52,7 @@ xcodeproj(
     focused_targets = [
         "//Sources/App",
     ],
-    project_name = "Demo-Focused",
+    project_name = "Epsilon-Focused",
     schemes = _SCHEMES,
     top_level_targets = _TOP_LEVEL_TARGETS,
 )

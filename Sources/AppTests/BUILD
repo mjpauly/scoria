@@ -3,7 +3,7 @@ load("@build_bazel_rules_swift//swift:swift.bzl", "swift_library")
 
 ios_unit_test(
     name = "AppTests",
-    bundle_id = "com.brentleyjones.rules-xcodeproj-demo.AppTests",
+    bundle_id = "com.matthewpauly.epsilon.AppTests",
     minimum_os_version = "15.0",
     test_host = "//Sources/App",
     visibility = ["//visibility:public"],
