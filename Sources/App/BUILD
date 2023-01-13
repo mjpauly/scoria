@@ -19,7 +19,7 @@ ios_application(
     name = "App",
     app_icons = glob(["Resources/Assets.xcassets/AppIcon.appiconset/**"]),
     bundle_id = BUNDLE_ID,
-    bundle_name = "App",
+    bundle_name = "Epsilon",
     families = ["iphone"],
     frameworks = [
         "//Sources/UI:UIFramework",
