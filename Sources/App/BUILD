@@ -26,7 +26,7 @@ ios_application(
     ],
     infoplists = [":Info.plist"],
     launch_storyboard = "Resources/Launch.storyboard",
-    minimum_os_version = "15.0",
+    minimum_os_version = "16.0",
     provisioning_profile = select({
         ":device_build": ":xcode_profile",
         "//conditions:default": None,

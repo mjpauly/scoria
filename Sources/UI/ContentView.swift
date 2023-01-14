@@ -3,14 +3,22 @@ import SwiftUI
 
 public struct ContentView: View {
     public init() {}
-
+    
     public var body: some View {
-        VStack {
-            Image("Logo", bundle: .resources)
-            Text("The answer to life, the universe, and everything is: **...**")
-                .multilineTextAlignment(.center)
-                .padding(64)
-        }
+        TabView {
+            SenseView()
+                .tabItem {
+                    Label("Sense", systemImage: "waveform")
+                }
+            AnalyzeView()
+                .tabItem {
+                    Label("Analyze", systemImage: "chart.xyaxis.line")
+                }
+            Text("Settings view here")
+                .tabItem {
+                    Label("Settings", systemImage: "gear")
+                }
+        }.environmentObject(MyLocationManager())
     }
 }
 
@@ -19,9 +27,10 @@ struct ContentView_Previews: PreviewProvider {
         ContentView()
     }
 }
-
+/*
 private class ResourceHandle {}
 
 extension Bundle {
     static let resources = Bundle(for: ResourceHandle.self)
 }
+*/

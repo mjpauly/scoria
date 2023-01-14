@@ -4,7 +4,6 @@ load("@build_bazel_rules_swift//swift:swift.bzl", "swift_library")
 swift_library(
     name = "UI",
     srcs = glob(["**/*.swift"]),
-    copts = ["-application-extension"],
     data = glob(
         ["Resources/**"],
         exclude = ["**/.DS_Store"],
@@ -24,7 +23,7 @@ ios_framework(
     extension_safe = True,
     families = ["iphone"],
     infoplists = ["Info.plist"],
-    minimum_os_version = "15.0",
+    minimum_os_version = "16.0",
     visibility = ["//visibility:public"],
     deps = [":UI"],
 )
