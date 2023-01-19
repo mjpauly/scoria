@@ -2,6 +2,17 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UIApplicationSupportsMultipleScenes</key>
+		<false/>
+		<key>UISceneConfigurations</key>
+		<dict/>
+	</dict>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Your location data is securely stored in your data vault and lets you analyze your location history.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Your location data is securely stored in your data vault and lets you analyze your location history.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>location</string>
