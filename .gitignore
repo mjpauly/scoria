@@ -8,8 +8,8 @@ user.bazelrc
 # Based on https://github.com/github/gitignore/blob/main/Rust.gitignore
 
 # compiled files and executables
-Sources/RustLib/target
-Sources/RustLib/debug
+src/RustLib/target
+src/RustLib/debug
 
 # rustfmt backup files
 **/*.rs.bk

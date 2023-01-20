@@ -22,7 +22,7 @@ ios_application(
     bundle_name = "Epsilon",
     families = ["iphone"],
     frameworks = [
-        "//Sources/UI:UIFramework",
+        "//src/UI:UIFramework",
     ],
     infoplists = [":Info.plist"],
     launch_storyboard = "Resources/Launch.storyboard",
@@ -54,9 +54,9 @@ swift_library(
     srcs = [":gen_App.swift"],
     module_name = "App",
     tags = ["manual"],
-    visibility = ["//Sources/AppTests:__subpackages__"],
+    visibility = ["//src/AppTests:__subpackages__"],
     deps = [
-        "//Sources/UI",
+        "//src/UI",
     ],
 )
 

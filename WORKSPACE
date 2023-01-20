@@ -103,8 +103,8 @@ load("@rules_rust//crate_universe:defs.bzl", "crate", "crates_repository", "rend
 
 crates_repository(
     name = "crate_index_rustlib",
-    cargo_lockfile = "//Sources/RustLib:Cargo.lock",
-    lockfile = "//Sources/RustLib:Cargo.Bazel.lock",
+    cargo_lockfile = "//src/RustLib:Cargo.lock",
+    lockfile = "//src/RustLib:Cargo.Bazel.lock",
     packages = {
         "rand": crate.spec(  # example
             version = "0.8.5",

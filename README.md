@@ -3,7 +3,7 @@
 Run the app in the simulator with:
 
 ```
-bazel run //Sources/App
+bazel run //src/App
 ```
 
 `rules_xcodeproj` is used to generate the Xcode project from Bazel BUILD files,
@@ -16,7 +16,7 @@ bazel run //:xcodeproj
 ## Testing RustLib
 
 ```
-bazel test //Sources/RustLib:tests
+bazel test //src/RustLib:tests
 ```
 
 To view the output of the test produced by Cargo add the argument

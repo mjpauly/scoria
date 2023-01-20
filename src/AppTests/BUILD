@@ -5,7 +5,7 @@ ios_unit_test(
     name = "AppTests",
     bundle_id = "com.matthewpauly.epsilon.AppTests",
     minimum_os_version = "16.0",
-    test_host = "//Sources/App",
+    test_host = "//src/App",
     visibility = ["//visibility:public"],
     deps = [":AppTests.library"],
 )
@@ -18,6 +18,6 @@ swift_library(
     tags = ["manual"],
     deps = [
         "@com_acme//:SuperSecret",
-        "//Sources/App:App.library",
+        "//src/App:App.library",
     ],
 )

@@ -12,7 +12,7 @@ swift_library(
     tags = ["manual"],
     visibility = ["//visibility:public"],
     deps = [
-        "//Sources/RustLib",
+        "//src/RustLib",
     ],
     alwayslink = True,
 )

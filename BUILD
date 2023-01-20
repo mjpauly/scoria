@@ -7,30 +7,30 @@ load(
 
 _TOP_LEVEL_TARGETS = [
     top_level_target(
-        "//Sources/App",
+        "//src/App",
         target_environments = [
             "device",
             "simulator",
         ],
     ),
-    "//Sources/AppTests",
-    "//Sources/OtherTests",
-    "//Sources/RustLib:tests",
+    "//src/AppTests",
+    "//src/OtherTests",
+    "//src/RustLib:tests",
 ]
 
 _SCHEMES = [
     xcode_schemes.scheme(
         name = "App",
         build_action = xcode_schemes.build_action(
-            targets = ["//Sources/App"],
+            targets = ["//src/App"],
         ),
         launch_action = xcode_schemes.launch_action(
-            "//Sources/App",
+            "//src/App",
         ),
         test_action = xcode_schemes.test_action(
             [
-                "//Sources/AppTests",
-                "//Sources/OtherTests",
+                "//src/AppTests",
+                "//src/OtherTests",
             ],
             diagnostics = xcode_schemes.diagnostics(
                 sanitizers = xcode_schemes.sanitizers(
@@ -51,7 +51,7 @@ xcodeproj(
 xcodeproj(
     name = "xcodeproj-focused",
     focused_targets = [
-        "//Sources/App",
+        "//src/App",
     ],
     project_name = "Epsilon-Focused",
     schemes = _SCHEMES,
