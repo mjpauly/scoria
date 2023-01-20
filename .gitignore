@@ -3,3 +3,13 @@
 **/*.xcodeproj
 
 user.bazelrc
+
+# Rust
+# Based on https://github.com/github/gitignore/blob/main/Rust.gitignore
+
+# compiled files and executables
+Sources/RustLib/target
+Sources/RustLib/debug
+
+# rustfmt backup files
+**/*.rs.bk

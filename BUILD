@@ -15,6 +15,7 @@ _TOP_LEVEL_TARGETS = [
     ),
     "//Sources/AppTests",
     "//Sources/OtherTests",
+    "//Sources/RustLib:tests",
 ]
 
 _SCHEMES = [
