@@ -1,5 +1,8 @@
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
+
+# rules_xcodeproj
+
 http_archive(
     name = "com_github_buildbuddy_io_rules_xcodeproj",
     sha256 = "b4e71c7740bb8cfa4bc0b91c0f18ac512debcc111ebe471280e24f579a3b0782",
@@ -12,6 +15,9 @@ load(
 )
 
 xcodeproj_rules_dependencies()
+
+
+# apple / swift support
 
 load(
     "@build_bazel_rules_apple//apple:repositories.bzl",
@@ -50,6 +56,9 @@ provisioning_profile_repository(
     name = "local_provisioning_profiles",
 )
 
+
+# rules_rust
+
 http_archive(
     name = "rules_rust",
     sha256 = "0cc7e6b39e492710b819e00d48f2210ae626b717a3ab96e048c43ab57e61d204",
@@ -71,6 +80,9 @@ rust_register_toolchains(
         "x86_64-apple-ios",
     ],
 )
+
+
+# third party repo
 
 local_repository(
     name = "com_acme",

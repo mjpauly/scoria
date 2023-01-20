@@ -1,6 +1,6 @@
-import Foundation
 import SwiftUI
 import CoreLocation
+
 
 struct LocationConfigView: View {
     
@@ -15,13 +15,15 @@ struct LocationConfigView: View {
             }
             .foregroundColor(.accentColor)
             .padding(.bottom, 20)
+            
             Text("Current Location:")
                 .font(.headline)
-            Text("xx, yy")
+            Text("\(myLocationManager.currentLocation.coordinate.latitude), \(myLocationManager.currentLocation.coordinate.longitude)")
                 .padding(.bottom, 20)
-            Text("Num data points this hour: xx")
-            Text("xx updates/minute")
+            Text("Num data points this hour: \(myLocationManager.updatesThisHour)")
+            Text("\(String(format: "%.2f", Float(myLocationManager.updatesThisHour) / getMinutesDecimal())) updates/minute")
                 .padding(.bottom, 20)
+            
             Button(action: shareLocationLog) {
               Text("Share log")
             }
@@ -39,35 +41,9 @@ struct LocationConfigView_Previews: PreviewProvider {
     }
 }
 
-// SHARE SHEET
-func shareFile(file: URL) {
-    var filesToShare = [Any]()  // Create the Array which includes the files to share
-    filesToShare.append(file)
-    // Make the activityViewContoller which shows the share-view
-    let activityViewController = UIActivityViewController(activityItems: filesToShare, applicationActivities: nil)
-    
-    // Show the share-view
-    //UIApplication.shared.windows.first?.rootViewController?.present(activityViewController, animated: true, completion: nil)
-    // Get the first window from the connectedScenes object
-    if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene {
-        // Get the root view controller of the first window
-        let rootViewController = windowScene.windows.first?.rootViewController
-        
-        // Present the share sheet to the user
-        rootViewController?.present(activityViewController, animated: true, completion: nil)
-    }
-}
 
 func getMinutesDecimal() -> Float {
     let mins = Float(Calendar.current.component(.minute, from: Date()))
     let secs = Float(Calendar.current.component(.second, from: Date()))
     return mins + secs / 60
-}
-
-func getDocumentsDirectory() -> URL {
-    // find all possible documents directories for this user
-    let paths = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
-    
-    // just send back the first one, which ought to be the only one
-    return paths[0]
 }

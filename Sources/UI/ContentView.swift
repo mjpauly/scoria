@@ -4,6 +4,8 @@ import SwiftUI
 public struct ContentView: View {
     public init() {}
     
+    @StateObject var myLocationManager = MyLocationManager()
+    
     public var body: some View {
         TabView {
             SenseView()
@@ -18,7 +20,8 @@ public struct ContentView: View {
                 .tabItem {
                     Label("Settings", systemImage: "gear")
                 }
-        }.environmentObject(MyLocationManager())
+        }
+        .environmentObject(myLocationManager)
     }
 }
 
@@ -27,10 +30,3 @@ struct ContentView_Previews: PreviewProvider {
         ContentView()
     }
 }
-/*
-private class ResourceHandle {}
-
-extension Bundle {
-    static let resources = Bundle(for: ResourceHandle.self)
-}
-*/

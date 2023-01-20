@@ -12,6 +12,6 @@ struct SenseView: View {
 
 struct SenseView_Previews: PreviewProvider {
     static var previews: some View {
-        SenseView()
+        SenseView().environmentObject(MyLocationManager())
     }
 }

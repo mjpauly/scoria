@@ -20,7 +20,6 @@ swift_library(
 ios_framework(
     name = "UIFramework",
     bundle_id = "com.matthewpauly.epsilon.UI",
-    extension_safe = True,
     families = ["iphone"],
     infoplists = ["Info.plist"],
     minimum_os_version = "16.0",
