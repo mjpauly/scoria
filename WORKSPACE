@@ -81,6 +81,8 @@ load(
 rules_rust_dependencies()
 
 rust_register_toolchains(
+    edition = "2021",
+    versions = ["1.66.1"],
     extra_target_triples = [
         "aarch64-apple-ios-sim",
         "aarch64-apple-ios",
@@ -108,6 +110,16 @@ crates_repository(
     packages = {
         "rand": crate.spec(  # example
             version = "0.8.5",
+        ),
+        "sqlx": crate.spec(
+            version = "0.6.2",
+            default_features = False,
+            features = ["runtime-tokio-native-tls", "sqlite"],
+        ),
+        "tokio": crate.spec(
+            version = "1.24.2",
+            default_features = False,
+            features = ["full"],
         ),
     },
 

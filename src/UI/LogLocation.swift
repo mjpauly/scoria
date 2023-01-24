@@ -1,4 +1,5 @@
 import CoreLocation
+import RustLib
 
 
 class MyLocationManager: NSObject, CLLocationManagerDelegate, ObservableObject {
@@ -28,6 +29,15 @@ class MyLocationManager: NSObject, CLLocationManagerDelegate, ObservableObject {
         calcUpdatesThisHour()  // must come before updating currentLocation
         appendLocationToFile(location: newLocation)
         currentLocation = newLocation
+        
+        // test printing value from rust
+        let val = LogLocation(
+            newLocation.coordinate.latitude,
+            newLocation.coordinate.longitude,
+            newLocation.horizontalAccuracy,
+            newLocation.speed,
+            newLocation.course
+        )
     }
     
     func calcUpdatesThisHour() {
