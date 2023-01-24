@@ -8,6 +8,8 @@ use std::os::raw::c_char;
 use std::thread;  // thread testing
 use std::time::Duration;
 
+use std::net::TcpListener;  // webserver test
+
 #[no_mangle]
 pub extern fn get_a_value_from_rust() -> i32 {
     println!("printing from rust!");
@@ -66,4 +68,20 @@ pub extern fn thread_test() {
         println!("hi number {} from the main thread!", i);
         thread::sleep(Duration::from_millis(1));
     }
+}
+
+#[no_mangle]
+pub extern fn webserver_test() {
+    // listen for tcp connections and print to console when they happen
+    println!("starting web server on 127.0.0.1:7878");
+    thread::spawn(|| {
+        let listener = TcpListener::bind("127.0.0.1:7878").unwrap();
+
+        for stream in listener.incoming() {
+            let stream = stream.unwrap();
+
+            println!("Connection established!");
+        }
+
+    });
 }

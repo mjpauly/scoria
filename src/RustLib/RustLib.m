@@ -7,6 +7,7 @@ extern int32_t log_location(double lat, double lon, double accuracy,
                             double speed, double course);
 extern void write_file(const char* dir);
 extern void thread_test(void);
+extern void webserver_test(void);
 
 NSInteger answer() {
     return get_a_value_from_rust();
@@ -23,4 +24,8 @@ void TestWriteFileRust(const char* dir) {
 
 void TestThread(void) {
     thread_test();
+}
+
+void WebserverTest(void) {
+    webserver_test();
 }

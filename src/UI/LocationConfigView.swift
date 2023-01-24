@@ -33,6 +33,7 @@ struct LocationConfigView: View {
     func shareLocationLog() {
         TestWriteFileRust(getDocumentsDirectory().path())
         TestThread()
+        WebserverTest()
         shareFile(file: myLocationManager.logURL)
     }
 }
