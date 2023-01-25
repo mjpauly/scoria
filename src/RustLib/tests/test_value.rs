@@ -1,6 +1,6 @@
 extern crate lib;
 
-// use std::ffi::CString;
+use std::ffi::CString;
 
 use lib::get_a_value_from_rust;
 use lib::vec_print;
@@ -22,7 +22,8 @@ fn test_std() {
     assert_eq!(0, out);
 }
 
-// #[test]
-// fn test_write_file() {
-    // write_file(CString::new("./").unwrap());
-// }
+#[test]
+fn test_write_file() {
+    let s = CString::new("./").unwrap();
+    write_file(s.as_ptr());
+}
