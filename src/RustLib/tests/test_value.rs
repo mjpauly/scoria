@@ -3,8 +3,8 @@ extern crate lib;
 use std::ffi::CString;
 
 use lib::get_a_value_from_rust;
-use lib::vec_print;
 use lib::rand_check;
+use lib::vec_print;
 use lib::write_file;
 
 #[test]
