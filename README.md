@@ -58,3 +58,12 @@ Useful arguments:
 - `--test_output=all`: View the output of the test produced by Cargo.
 - `--test_arg=--nocapture`: Tell Cargo to show outputs from the tests.
 - `--cache_test_results=no`: Rerun a test without caching.
+
+### Generate the Project Tree for rust-analyzer
+
+Since the project isn't structured as a Cargo project, so we need to generate
+a rust-project.json for rust-analyzer to use.
+
+```
+bazel run //src/RustLib:projtree
+```

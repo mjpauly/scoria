@@ -90,6 +90,18 @@ rust_register_toolchains(
     ],
 )
 
+
+# rust analyzer
+# Our project isn't structured as a Cargo project, so we need to generate the
+# rust-project.json for rust-analyzer to use.
+# The rust-analyzer binary must be in your path.
+
+load("@rules_rust//tools/rust_analyzer:deps.bzl", "rust_analyzer_dependencies")
+
+rust_analyzer_dependencies()
+
+
+# crate universe
 # manage external Rust dependencies using the Crate Universe rules
 # docs: https://bazelbuild.github.io/rules_rust/crate_universe.html
 # example: https://github.com/bazelbuild/rules_rust/tree/main/examples/crate_universe/no_cargo_manifests

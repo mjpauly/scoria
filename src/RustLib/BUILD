@@ -55,3 +55,11 @@ cc_library(
     name = "alloc",
     srcs = ["alloc.cc"],
 )
+
+# rust-project.json for rust-analyzer
+# $ bazel run :projtree
+
+alias(
+    name = "projtree",
+    actual = "@rules_rust//tools/rust_analyzer:gen_rust_project",
+)

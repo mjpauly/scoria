@@ -13,3 +13,6 @@ src/RustLib/debug
 
 # rustfmt backup files
 **/*.rs.bk
+
+# rust-analyzer
+rust-project.json
