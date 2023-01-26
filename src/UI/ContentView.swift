@@ -1,8 +1,12 @@
 import RustLib
 import SwiftUI
+import RustLib
 
 public struct ContentView: View {
-    public init() {}
+    public init() {
+        // Set the documents directory known to the core library
+        SetDocumentsDir(getDocumentsDirectory().path())
+    }
     
     @StateObject var myLocationManager = MyLocationManager()
     

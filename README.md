@@ -10,23 +10,23 @@
 
 - Bazel ([repo](https://github.com/bazelbuild/bazel), [docs](https://bazel.build/docs))
     - Build system used to manage the toolchain, compilation, and building at the highest level.
+    - Rulesets
+        - rules_xcodeproj ([repo](https://github.com/buildbuddy-io/rules_xcodeproj/), [docs](https://github.com/buildbuddy-io/rules_xcodeproj/tree/main/docs))
+            - Bazel rules for generating the Xcode project from source files.
+            - [Bazel+rules_xcodeproj example](https://github.com/brentleyjones/rules_xcodeproj-demo)
+        - rules_rust ([repo](https://github.com/bazelbuild/rules_rust), [docs](https://bazelbuild.github.io/rules_rust/))
+- Rust ([docs](https://doc.rust-lang.org/book/))
+    - Language that the core app functionality is written in.
+    - Standard Rust features
+        - LocalKey ([docs](https://doc.rust-lang.org/std/thread/struct.LocalKey.html))
+            - Used to provide thread_local global variables
+    - External Rust dependencies
+        - sqlx ([repo](https://github.com/launchbadge/sqlx))
+            - SQLite database interface
+        - tokio ([repo](https://github.com/tokio-rs/tokio))
 - Swift ([docs](https://docs.swift.org/swift-book/LanguageGuide/TheBasics.html))
     - Language that the UI and sensing modules are written in.
     - Apple Swift APIs used include SwiftUI, CoreLocation.
-- Rust ([docs](https://doc.rust-lang.org/book/))
-    - Language that the core app functionality is written in.
-- Bazel rulesets
-    - rules_xcodeproj ([repo](https://github.com/buildbuddy-io/rules_xcodeproj/), [docs](https://github.com/buildbuddy-io/rules_xcodeproj/tree/main/docs))
-        - Bazel rules for generating the Xcode project from source files.
-        - [Bazel+rules_xcodeproj example](https://github.com/brentleyjones/rules_xcodeproj-demo)
-    - rules_rust ([repo](https://github.com/bazelbuild/rules_rust), [docs](https://bazelbuild.github.io/rules_rust/))
-- External Rust dependencies
-    - sqlx ([repo](https://github.com/launchbadge/sqlx))
-        - SQLite database interface
-    - tokio ([repo](https://github.com/tokio-rs/tokio))
-- Rust features
-    - LocalKey ([docs](https://doc.rust-lang.org/std/thread/struct.LocalKey.html))
-        - Used to provide thread_local global variables
 
 ## Dev Flow
 

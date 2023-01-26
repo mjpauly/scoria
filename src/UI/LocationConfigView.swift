@@ -1,6 +1,5 @@
 import SwiftUI
 import CoreLocation
-import RustLib
 
 
 struct LocationConfigView: View {
@@ -31,9 +30,6 @@ struct LocationConfigView: View {
         }
     }
     func shareLocationLog() {
-        TestWriteFileRust(getDocumentsDirectory().path())
-        TestThread()
-        WebserverTest()
         shareFile(file: myLocationManager.logURL)
     }
 }

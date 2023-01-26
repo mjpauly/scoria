@@ -38,6 +38,7 @@ class MyLocationManager: NSObject, CLLocationManagerDelegate, ObservableObject {
             newLocation.speed,
             newLocation.course
         )
+        print(Calendar.current.component(.nanosecond, from: newLocation.timestamp))
     }
     
     func calcUpdatesThisHour() {

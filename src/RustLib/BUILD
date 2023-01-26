@@ -1,4 +1,4 @@
-load("@rules_rust//rust:defs.bzl", "rust_library", "rust_test")
+load("@rules_rust//rust:defs.bzl", "rust_library", "rust_test", "rust_doc")
 
 rust_library(
     name = "lib",
@@ -14,7 +14,11 @@ rust_library(
 rust_test(
     name = "unit_tests",
     crate = ":lib",
-    visibility = ["//visibility:public"],
+)
+
+rust_doc(
+    name = "lib_doc",
+    crate = ":lib",
 )
 
 # Integration tests of the library's public interface.
