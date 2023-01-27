@@ -10,9 +10,9 @@ use std::os::raw::c_char;
 
 use rand::prelude::*;
 
-mod db;
+mod database;
 mod paths;
-mod rt;
+mod runtime;
 
 // Convert a const char* reference from C into an owned Rust String.
 fn cstr_to_string(cstr: *const c_char) -> String {
@@ -45,7 +45,7 @@ mod tests {
 
 #[no_mangle]
 pub extern "C" fn log_location(lat: f64, lon: f64, accuracy: f64, speed: f64, course: f64) -> i32 {
-    db::log_location(lat, lon, accuracy, speed, course);
+    database::log_location(lat, lon, accuracy, speed, course);
     0
 }
 
