@@ -3,15 +3,16 @@
 //! Responsible for database interactions, visualizations, and server
 //! communication.
 
-use rand::prelude::*;
+use std::ffi::CStr;
 use std::fs::File;
 use std::io::prelude::*;
-
-use std::ffi::CStr;
 use std::os::raw::c_char;
+
+use rand::prelude::*;
 
 mod db;
 mod paths;
+mod rt;
 
 // Convert a const char* reference from C into an owned Rust String.
 fn cstr_to_string(cstr: *const c_char) -> String {

@@ -7,6 +7,8 @@ rust_library(
     deps = [
         ":alloc",
         "@crate_index_rustlib//:rand",
+        "@crate_index_rustlib//:sqlx",
+        "@crate_index_rustlib//:tokio",
     ],
 )
 
