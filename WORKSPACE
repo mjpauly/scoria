@@ -125,14 +125,16 @@ crates_repository(
         ),
         "sqlx": crate.spec(
             version = "0.6.2",
-            default_features = False,
-            features = ["runtime-tokio-native-tls", "sqlite"],
+            features = ["runtime-tokio-native-tls", "sqlite", "time"],
         ),
         "tokio": crate.spec(
             version = "1.24.2",
-            default_features = False,
             features = ["full"],
         ),
+        # "time": crate.spec(
+            # version = "0.3.17",
+            # features = ["macros"],
+        # ),
     },
 
     # NOTE: this is left here from the example in the docs, probably safe to

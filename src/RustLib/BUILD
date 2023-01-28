@@ -16,6 +16,7 @@ rust_library(
 rust_test(
     name = "unit_tests",
     crate = ":lib",
+    size = "small",  # 20 MB RAM, 1 min timeout
 )
 
 rust_doc(

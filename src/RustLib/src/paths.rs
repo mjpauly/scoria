@@ -4,7 +4,8 @@ use std::cell::RefCell;
 use std::error::Error;
 use std::fmt;
 
-static DB_FNAME: &str = "mydata.sqlite";
+static DB_PREFIX: &str = "sqlite://";
+static DB_FNAME: &str = "data.db";
 
 // Our state data is stored in CTX
 // We don't know the contents during runtime initialization so it starts empty
@@ -24,7 +25,10 @@ pub struct StorageDirNotSetError;
 impl Error for StorageDirNotSetError {}
 impl fmt::Display for StorageDirNotSetError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Storage directory not set!")
+        write!(
+            f,
+            "Storage directory not set! Call set_storage_dir() at startup."
+        )
     }
 }
 
@@ -50,9 +54,15 @@ pub fn get_storage_dir() -> Result<String, StorageDirNotSetError> {
 
 /// Get the database path as a string.
 pub fn get_db_path() -> Result<String, StorageDirNotSetError> {
-    let mut storage_dir = get_storage_dir()?;
-    storage_dir.push_str(DB_FNAME); // TODO: safe path appending
-    Ok(storage_dir)
+    let storage_dir = get_storage_dir()?;
+    // let db_path = format!("{}{}{}", DB_PREFIX, storage_dir, DB_FNAME);
+    let db_path = format!(
+        "{}{}",
+        DB_PREFIX,
+        std::path::Path::new(&storage_dir).join(DB_FNAME).display()
+    );
+    // TODO: safe path appending
+    Ok(db_path)
 }
 
 #[cfg(test)]
@@ -65,9 +75,8 @@ mod tests {
         assert!(get_db_path().is_err());
         let dir = String::from("./");
         set_storage_dir(dir.clone());
-        let mut expected = dir;
-        assert_eq!(get_storage_dir().unwrap(), expected);
-        expected.push_str(DB_FNAME);
+        assert_eq!(get_storage_dir().unwrap(), dir);
+        let expected = format!("{}{}{}", DB_PREFIX, dir, DB_FNAME);
         assert_eq!(get_db_path().unwrap(), expected);
     }
 }

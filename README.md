@@ -21,9 +21,11 @@
         - LocalKey ([docs](https://doc.rust-lang.org/std/thread/struct.LocalKey.html))
             - Used to provide thread_local global variables
     - External Rust dependencies
-        - sqlx ([repo](https://github.com/launchbadge/sqlx))
+        - sqlx ([repo](https://github.com/launchbadge/sqlx) [docs@0.6.2](https://docs.rs/sqlx/0.6.2/sqlx/))
             - SQLite database interface
-        - tokio ([repo](https://github.com/tokio-rs/tokio))
+        - tokio ([repo](https://github.com/tokio-rs/tokio) [docs@1.24.2](https://docs.rs/tokio/1.24.2/tokio/))
+            - async runtime
+        - time ([repo](https://github.com/time-rs/time) [docs@0.3.17](https://docs.rs/time/0.3.17/time/) [book](https://time-rs.github.io/book/index.html))
 - Swift ([docs](https://docs.swift.org/swift-book/LanguageGuide/TheBasics.html))
     - Language that the UI and sensing modules are written in.
     - Apple Swift APIs used include SwiftUI, CoreLocation.
