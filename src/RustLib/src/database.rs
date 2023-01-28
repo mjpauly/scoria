@@ -18,8 +18,22 @@ struct User {
     time: time::OffsetDateTime, // OffsetDateTime is timezone aware
 }
 
+static SCHEMA: &str = "
+CREATE TABLE IF NOT EXISTS location
+(
+    id          INTEGER PRIMARY KEY NOT NULL,
+    lat         REAL                NOT NULL,
+    lon         REAL                NOT NULL,
+    accuracy    REAL                NOT NULL,
+    speed       REAL                NOT NULL,
+    course      REAL                NOT NULL,
+    time        DATETIME            NOT NULL
+);
+";
+
 async fn create_db_if_missing() -> Result<(), Box<dyn Error>> {
     let db_path = paths::get_db_path()?;
+    println!("in create db if missing");
     if !Sqlite::database_exists(&db_path).await.unwrap_or(false) {
         println!("Creating database {}", db_path);
         match Sqlite::create_database(&db_path).await {
@@ -32,13 +46,14 @@ async fn create_db_if_missing() -> Result<(), Box<dyn Error>> {
 
     let conn = SqlitePool::connect(&db_path).await.unwrap();
 
-    // let result = sqlx::query(
+    let result = sqlx::query(SCHEMA).execute(&conn).await.unwrap();
+    println!("Create table result: {:?}", result);
 
     Ok(())
 }
 
 async fn get_db_pool() -> Result<SqlitePool, Box<dyn Error>> {
-    create_db_if_missing();
+    create_db_if_missing().await?;
     let db_path = paths::get_db_path()?;
     Ok(SqlitePool::connect(&db_path).await?)
 }
@@ -60,6 +75,7 @@ mod tests {
             .is::<paths::StorageDirNotSetError>());
         paths::set_storage_dir(String::from("./"));
         // println!("{}", get_db_pool().await.err().unwrap());
+        assert!(get_db_pool().await.is_ok());
     }
 }
 
