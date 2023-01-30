@@ -72,7 +72,7 @@ mod tests {
             .await
             .err()
             .unwrap()
-            .is::<paths::StorageDirNotSetError>());
+            .is::<paths::PathError>());
         paths::set_storage_dir(String::from("./"));
         // println!("{}", get_db_pool().await.err().unwrap());
         assert!(get_db_pool().await.is_ok());

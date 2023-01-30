@@ -25,6 +25,8 @@
             - SQLite database interface
         - tokio ([repo](https://github.com/tokio-rs/tokio) [docs@1.24.2](https://docs.rs/tokio/1.24.2/tokio/))
             - async runtime
+        - thiserror ([repo](https://github.com/dtolnay/thiserror) [docs@1.0.38](https://docs.rs/thiserror/1.0.38/thiserror/))
+            - custom errors with less boilerplate
         - time ([repo](https://github.com/time-rs/time) [docs@0.3.17](https://docs.rs/time/0.3.17/time/) [book](https://time-rs.github.io/book/index.html))
 - Swift ([docs](https://docs.swift.org/swift-book/LanguageGuide/TheBasics.html))
     - Language that the UI and sensing modules are written in.

@@ -115,6 +115,8 @@ load("@rules_rust//crate_universe:defs.bzl", "crate", "crates_repository", "rend
 
 # crate repository for the RustLib core of the app
 
+# NOTE: don't forget to add the dependency to the rust_library target!
+# e.g. deps = [ ... , "@crate_index_rustlib//:tokio", ]
 crates_repository(
     name = "crate_index_rustlib",
     cargo_lockfile = "//src/RustLib:Cargo.lock",
@@ -130,6 +132,9 @@ crates_repository(
         "tokio": crate.spec(
             version = "1.24.2",
             features = ["full"],
+        ),
+        "thiserror": crate.spec(
+            version = "1.0.38",
         ),
         # "time": crate.spec(
             # version = "0.3.17",

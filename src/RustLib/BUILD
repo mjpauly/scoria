@@ -9,6 +9,7 @@ rust_library(
         "@crate_index_rustlib//:rand",
         "@crate_index_rustlib//:sqlx",
         "@crate_index_rustlib//:tokio",
+        "@crate_index_rustlib//:thiserror",
     ],
 )
 

@@ -1,5 +1,5 @@
 {
-  "checksum": "5eccf5eb4eb0dea2708a964ef2843cb33be8e2bf94bae7f207c1594adaacbad8",
+  "checksum": "917b813af01c3ba2b93bba2534f71ad88aaf910b7cdfc4c78363be63a4156b02",
   "crates": {
     "ahash 0.7.6": {
       "name": "ahash",
@@ -817,6 +817,10 @@
             {
               "id": "sqlx 0.6.2",
               "target": "sqlx"
+            },
+            {
+              "id": "thiserror 1.0.38",
+              "target": "thiserror"
             },
             {
               "id": "tokio 1.24.2",
