@@ -8,6 +8,7 @@ class MyLocationManager: NSObject, CLLocationManagerDelegate, ObservableObject {
     @Published var currentLocation: CLLocation = CLLocation()
     @Published var updatesThisHour: Int = 0
     let logURL: URL = getDocumentsDirectory().appendingPathComponent("gps_log.txt")
+    let sqlURL: URL = getDocumentsDirectory().appendingPathComponent("data.db")
     
     override init() {
         super.init()
@@ -30,15 +31,17 @@ class MyLocationManager: NSObject, CLLocationManagerDelegate, ObservableObject {
         appendLocationToFile(location: newLocation)
         currentLocation = newLocation
         
-        // test printing value from rust
-        let val = LogLocation(
+        // Log the location in RustLib with SQL
+        LogLocation(
             newLocation.coordinate.latitude,
             newLocation.coordinate.longitude,
             newLocation.horizontalAccuracy,
             newLocation.speed,
-            newLocation.course
+            newLocation.course,
+            Int(round(newLocation.timestamp.timeIntervalSince1970))
         )
-        print(Calendar.current.component(.nanosecond, from: newLocation.timestamp))
+        //print(newLocation.timestamp.timeIntervalSince1970)
+        //print(Int(round(newLocation.timestamp.timeIntervalSince1970)))
     }
     
     func calcUpdatesThisHour() {

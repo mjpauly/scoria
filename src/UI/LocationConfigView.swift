@@ -24,13 +24,19 @@ struct LocationConfigView: View {
             Text("\(String(format: "%.2f", Float(myLocationManager.updatesThisHour) / getMinutesDecimal())) updates/minute")
                 .padding(.bottom, 20)
             
-            Button(action: shareLocationLog) {
-              Text("Share log")
+            Button(action: shareTextLocationLog) {
+              Text("Share text log")
+            }
+            Button(action: shareSQLiteLocationLog) {
+              Text("Share SQLite log")
             }
         }
     }
-    func shareLocationLog() {
+    func shareTextLocationLog() {
         shareFile(file: myLocationManager.logURL)
+    }
+    func shareSQLiteLocationLog() {
+        shareFile(file: myLocationManager.sqlURL)
     }
 }
 

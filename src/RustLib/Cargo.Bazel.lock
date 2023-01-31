@@ -1,5 +1,5 @@
 {
-  "checksum": "0ecfbd888410d2463e4fe0cbdc6e2991891b611f796ae375cc846b837462e735",
+  "checksum": "917b813af01c3ba2b93bba2534f71ad88aaf910b7cdfc4c78363be63a4156b02",
   "crates": {
     "ahash 0.7.6": {
       "name": "ahash",
@@ -821,10 +821,6 @@
             {
               "id": "thiserror 1.0.38",
               "target": "thiserror"
-            },
-            {
-              "id": "time 0.3.17",
-              "target": "time"
             },
             {
               "id": "tokio 1.24.2",

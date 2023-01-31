@@ -13,7 +13,7 @@ void SetDocumentsDir(const char* dir) {
 // test examples
 extern int32_t get_a_value_from_rust(void);
 extern int32_t log_location(double lat, double lon, double accuracy,
-                            double speed, double course);
+                            double speed, double course, long datetime_epoch);
 extern void write_file(const char* dir);
 
 
@@ -22,8 +22,8 @@ NSInteger answer() {
 }
 
 int LogLocation(double lat, double lon, double accuracy, double speed,
-                double course) {
-    return log_location(lat, lon, accuracy, speed, course);
+                double course, long datetime_epoch) {
+    return log_location(lat, lon, accuracy, speed, course, datetime_epoch);
 }
 
 void TestWriteFileRust(const char* dir) {

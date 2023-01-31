@@ -52,7 +52,19 @@ pub extern "C" fn log_location(
     course: f64,
     datetime_epoch: i64,
 ) -> i32 {
-    database::log_location(lat, lon, accuracy, speed, course, datetime_epoch);
+    let binding = runtime::get_runtime_binding();
+    let rt = binding.borrow();
+    rt.block_on(async {
+        database::log_location(
+            lat,
+            lon,
+            accuracy,
+            speed,
+            course,
+            datetime_epoch,
+        )
+        .await;
+    });
     0
 }
 
