@@ -44,8 +44,15 @@ mod tests {
 }
 
 #[no_mangle]
-pub extern "C" fn log_location(lat: f64, lon: f64, accuracy: f64, speed: f64, course: f64) -> i32 {
-    database::log_location(lat, lon, accuracy, speed, course);
+pub extern "C" fn log_location(
+    lat: f64,
+    lon: f64,
+    accuracy: f64,
+    speed: f64,
+    course: f64,
+    datetime_epoch: i64,
+) -> i32 {
+    database::log_location(lat, lon, accuracy, speed, course, datetime_epoch);
     0
 }
 

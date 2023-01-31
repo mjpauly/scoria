@@ -3,8 +3,8 @@
 use std::cell::RefCell;
 use thiserror::Error;
 
-static DB_PREFIX: &str = "sqlite://";
-static DB_FNAME: &str = "data.db";
+const DB_PREFIX: &str = "sqlite://";
+const DB_FNAME: &str = "data.db";
 
 // Our state data is stored in CTX
 // We don't know the contents during runtime initialization so it starts empty
@@ -31,7 +31,6 @@ pub enum PathError {
 pub fn set_storage_dir(dir: String) {
     CTX.with(|ctx| {
         let mut ctx = ctx.borrow_mut();
-        println!("Set storage path to: {}", dir);
         ctx.storage_dir = Some(dir);
     });
 }
@@ -49,13 +48,11 @@ pub fn get_storage_dir() -> Result<String, PathError> {
 /// Get the database path as a string.
 pub fn get_db_path() -> Result<String, PathError> {
     let storage_dir = get_storage_dir()?;
-    // let db_path = format!("{}{}{}", DB_PREFIX, storage_dir, DB_FNAME);
     let db_path = format!(
         "{}{}",
         DB_PREFIX,
         std::path::Path::new(&storage_dir).join(DB_FNAME).display()
     );
-    // TODO: safe path appending
     Ok(db_path)
 }
 

@@ -69,14 +69,15 @@ Useful arguments:
 - `--test_output=all`: View the output of the test produced by Cargo.
 - `--test_arg=--nocapture`: Tell Cargo to show outputs from the tests.
 - `--cache_test_results=no`: Rerun a test without caching.
+- `__test_arg=[test_fn_name]`: Run a particular test.
 
-### Generate the Project Tree for rust-analyzer
+### Generate the Project Tree for `rust-analyzer`
 
-Since the project isn't structured as a Cargo project, so we need to generate
-a rust-project.json for rust-analyzer to use. This is necessary to enable rust
+Since the project isn't structured as a Cargo project, we need to generate a
+`rust-project.json` for `rust-analyzer` to use. This is necessary to enable Rust
 language server integrations in editors. See
 [this guide](https://sharksforarms.dev/posts/neovim-rust/) for more on Neovim
-setup.
+language server setup in particular.
 
 ```
 bazel run //src/RustLib:projtree
