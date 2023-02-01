@@ -136,7 +136,14 @@ crates_repository(
         "thiserror": crate.spec(
             version = "1.0.38",
         ),
-        # "time": crate.spec(
+        # "plotly": crate.spec(
+            # version = "0.8.3",
+        # ),
+        "plotly": crate.spec(
+            # version = "0.8.3",
+            git = "https://github.com/mjpauly/plotly"
+        ),
+        # "time": crate.spec(  # available from sqlx::types::time
             # version = "0.3.17",
             # features = ["macros"],
         # ),

@@ -3,7 +3,7 @@
 use std::error::Error;
 
 use sqlx::types::time;
-use sqlx::{migrate::MigrateDatabase, FromRow, Row, Sqlite, SqlitePool};
+use sqlx::{migrate::MigrateDatabase, FromRow, Sqlite, SqlitePool};
 
 use crate::paths;
 
@@ -27,13 +27,13 @@ CREATE TABLE IF NOT EXISTS location
 /// Struct representation of a Location row in the table
 #[derive(Clone, FromRow, Debug)]
 pub struct Location {
-    id: i64,
-    lat: f64,
-    lon: f64,
-    accuracy: f64,
-    speed: f64,
-    course: f64,
-    datetime: time::OffsetDateTime, // OffsetDateTime is timezone aware
+    pub id: i64,
+    pub lat: f64,
+    pub lon: f64,
+    pub accuracy: f64,
+    pub speed: f64,
+    pub course: f64,
+    pub datetime: time::OffsetDateTime, // OffsetDateTime is timezone aware
 }
 
 /// Create a SQLite database with the given schema if one doesn't exist.

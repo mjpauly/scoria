@@ -13,6 +13,7 @@ use rand::prelude::*;
 mod database;
 mod paths;
 mod runtime;
+mod viz;
 
 // Convert a const char* reference from C into an owned Rust String.
 fn cstr_to_string(cstr: *const c_char) -> String {
@@ -43,6 +44,7 @@ mod tests {
     }
 }
 
+/// Log a location into the SQLite database
 #[no_mangle]
 pub extern "C" fn log_location(
     lat: f64,
@@ -68,8 +70,17 @@ pub extern "C" fn log_location(
     0
 }
 
+/// Generate a visualization of the past week
+#[no_mangle]
+pub extern "C" fn gen_past_week_viz() {
+    let binding = runtime::get_runtime_binding();
+    let rt = binding.borrow();
+    rt.block_on(async {
+        viz::gen_past_week_viz().await;
+    });
+}
+
 // TODO: functions to implement
-// log location
 // make heatmap viz
 // create marker (space / time)
 //      lookup marker from public DB (apple maps?, openstreetmap?)
