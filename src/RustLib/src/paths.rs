@@ -1,7 +1,8 @@
 //! Manages the paths used to access files in the app.
 
 use std::cell::RefCell;
-use thiserror::Error;
+
+use anyhow::{bail, Result};
 
 const DB_PREFIX: &str = "sqlite://";
 const DB_FNAME: &str = "data.db";
@@ -20,35 +21,28 @@ struct Ctx {
     storage_dir: Option<String>,
 }
 
-/// Error type returned by paths module. StorageDirNotSet is the variant format
-/// when the storage directory has not yet been updated.
-#[derive(Error, Debug)]
-pub enum PathError {
-    #[error("Storage directory not set! Call set_storage_dir() at startup.")]
-    StorageDirNotSet,
-}
-
 /// Sets the storage directory in the thread_local storage, consuming the
 /// string.
 pub fn set_storage_dir(dir: String) {
     CTX.with(|ctx| {
-        let mut ctx = ctx.borrow_mut();
-        ctx.storage_dir = Some(dir);
+        ctx.borrow_mut().storage_dir = Some(dir);
     });
 }
 
 /// Get the storage directory in the thread_local storage, returning an ownable
 /// string.
-pub fn get_storage_dir() -> Result<String, PathError> {
+pub fn get_storage_dir() -> Result<String> {
     let dir = CTX.with(|ctx| (*ctx.borrow()).storage_dir.clone());
     match dir {
         Some(path) => Ok(path),
-        None => Err(PathError::StorageDirNotSet),
+        None => bail!(
+            "Storage directory not set! Call set_storage_dir() at startup."
+        ),
     }
 }
 
 /// Get the database path as a string.
-pub fn get_db_path() -> Result<String, PathError> {
+pub fn get_db_path() -> Result<String> {
     let storage_dir = get_storage_dir()?;
     let db_path = format!(
         "{}{}",

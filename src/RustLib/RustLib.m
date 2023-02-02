@@ -35,12 +35,7 @@ void GenViz(long datetime_epoch_start, long datetime_epoch_end,
 // test examples
 
 extern int32_t get_a_value_from_rust(void);
-extern void write_file(const char* dir);
 
 NSInteger answer() {
     return get_a_value_from_rust();
-}
-
-void TestWriteFileRust(const char* dir) {
-    write_file(dir);
 }

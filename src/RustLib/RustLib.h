@@ -9,4 +9,3 @@ void GenViz(long datetime_epoch_start, long datetime_epoch_end,
 
 // test examples
 NSInteger answer();
-void TestWriteFileRust(const char* dir);

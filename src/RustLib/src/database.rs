@@ -34,6 +34,8 @@ pub struct Location {
 }
 
 // Shared database pool
+// RefCell provides interior mutability so it can be initialized with the
+// database handle when it is created. The Option is None until that happens.
 thread_local!(static DB: RefCell<Option<SqlitePool>> = RefCell::new(None));
 
 /// Initialized the shared database pool given its path.
