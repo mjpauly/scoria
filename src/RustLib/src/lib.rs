@@ -27,13 +27,17 @@ fn cstr_to_string(cstr: *const c_char) -> String {
 #[no_mangle]
 pub extern "C" fn set_documents_dir(dir: *const c_char) {
     // paths::set_storage_dir(cstr_to_string(dir));
-    init(cstr_to_string(dir));
+    let binding = runtime::get_runtime_binding();
+    let rt = binding.borrow();
+    rt.block_on(async {
+        init(cstr_to_string(dir)).await;
+    });
 }
 
 /// Initializes the rust library with the given storage directory.
-pub fn init(storage_dir: String) {
+pub async fn init(storage_dir: String) {
     paths::set_storage_dir(storage_dir);
-    database::init_db().unwrap();
+    database::init_db().await.unwrap();
 }
 
 #[cfg(test)]
@@ -41,9 +45,9 @@ pub mod tests {
     use super::*;
     use std::ffi::CString;
 
-    pub fn test_setup(dir: &str) {
+    pub async fn test_setup(dir: &str) {
         std::fs::create_dir_all(dir).unwrap();
-        init(String::from(dir));
+        init(String::from(dir)).await;
     }
 
     #[test]
@@ -69,7 +73,7 @@ pub extern "C" fn log_location(
     let binding = runtime::get_runtime_binding();
     let rt = binding.borrow();
     rt.block_on(async {
-        database::log_location(
+        let result = database::log_location(
             lat,
             lon,
             accuracy,
@@ -78,6 +82,10 @@ pub extern "C" fn log_location(
             datetime_epoch,
         )
         .await;
+        match result {
+            Err(e) => println!("Failed to log location due to error: {}", e),
+            _ => (),
+        };
     });
     0
 }
@@ -111,8 +119,11 @@ pub extern "C" fn gen_viz(
 }
 
 // TODO: functions to implement
-// make heatmap viz
-// create marker (space / time)
+// scatter plot:
+//      colorscale based on data value
+//      marker size
+//      nice way to close the WebView
+// create personal marker (space / time)
 //      lookup marker from public DB (apple maps?, openstreetmap?)
 // perform queries
 //      visits (last time, first time, total, time spent, when visits happen)

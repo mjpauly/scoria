@@ -117,55 +117,51 @@ mod tests {
     use sqlx::types::time;
 
     use crate::database;
-    use crate::runtime;
-
     use crate::tests::test_setup;
 
     use super::*;
 
-    #[test]
-    fn test_plot() {
-        let test_dir = "/tmp/test_plot/"; // can view outputs in /tmp directory
-                                          // since writing there is allowed from
-                                          // the macos sandbox
+    async fn viz_test_setup(test_dir: &str) {
         if std::fs::metadata(test_dir).is_ok() {
             // need to clear it manually if left over from previous test
             std::fs::remove_dir_all(test_dir).unwrap();
         }
-        test_setup(test_dir);
-
-        let binding = runtime::get_runtime_binding();
-        let rt = binding.borrow();
-        rt.block_on(async {
-            let now = time::OffsetDateTime::now_utc().unix_timestamp();
-            database::log_location(37.5, -122.0, 0.0, 0.0, 0.0, now).await;
-            database::log_location(37.6, -122.0, 0.0, 0.0, 0.0, now).await;
-            database::log_location(37.6, -122.1, 0.0, 0.0, 0.0, now).await;
-            database::log_location(37.5, -122.1, 0.0, 0.0, 0.0, now).await;
-            gen_past_week_viz().await;
-        });
+        test_setup(test_dir).await;
     }
 
-    #[test]
-    fn test_custom_plot() {
-        let test_dir = "/tmp/test_custom_plot/"; // can view outputs in /tmp directory
-                                                 // since writing there is allowed from
-                                                 // the macos sandbox
-        if std::fs::metadata(test_dir).is_ok() {
-            // need to clear it manually if left over from previous test
-            std::fs::remove_dir_all(test_dir).unwrap();
-        }
-        test_setup(test_dir);
+    async fn log_test_data(now: i64) {
+        use database::log_location;
+        log_location(37.59, -122.09, 0.0, 0.0, 0.0, now)
+            .await
+            .unwrap();
+        log_location(37.6, -122.09, 0.0, 0.0, 0.0, now - 10)
+            .await
+            .unwrap();
+        log_location(37.6, -122.1, 0.0, 0.0, 0.0, now)
+            .await
+            .unwrap();
+        log_location(37.59, -122.1, 0.0, 0.0, 0.0, now - 10)
+            .await
+            .unwrap();
+    }
 
-        let binding = runtime::get_runtime_binding();
-        let rt = binding.borrow();
-        rt.block_on(async {
-            let now = time::OffsetDateTime::now_utc().unix_timestamp();
-            database::log_location(37.5, -122.0, 0.0, 0.0, 0.0, now).await;
-            database::log_location(37.6, -122.0, 0.0, 0.0, 0.0, now - 10).await;
-            database::log_location(37.6, -122.1, 0.0, 0.0, 0.0, now).await;
-            database::log_location(37.5, -122.1, 0.0, 0.0, 0.0, now - 10).await;
-            gen_viz(now - 5, now, 0.9, 0.05, 0.5, 0.5).await;
-        });
+    #[tokio::test]
+    async fn test_plot() {
+        // can view outputs in /tmp directory since writing there is allowed
+        // from the macos sandbox
+        viz_test_setup("/tmp/test_plot/").await;
+
+        let now = time::OffsetDateTime::now_utc().unix_timestamp();
+        log_test_data(now).await;
+        gen_past_week_viz().await;
+    }
+
+    #[tokio::test]
+    async fn test_custom_plot() {
+        viz_test_setup("/tmp/test_custom_plot/").await;
+
+        let now = time::OffsetDateTime::now_utc().unix_timestamp();
+        log_test_data(now).await;
+        gen_viz(now - 5, now, 0.9, 0.05, 0.5, 0.5).await;
     }
 }
