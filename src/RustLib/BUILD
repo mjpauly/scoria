@@ -10,6 +10,7 @@ rust_library(
         "@crate_index_rustlib//:sqlx",
         "@crate_index_rustlib//:tokio",
         "@crate_index_rustlib//:thiserror",
+        "@crate_index_rustlib//:anyhow",
         "@crate_index_rustlib//:plotly",
     ],
 )

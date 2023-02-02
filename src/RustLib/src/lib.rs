@@ -26,13 +26,25 @@ fn cstr_to_string(cstr: *const c_char) -> String {
 /// This should be called first thing when the app is launched.
 #[no_mangle]
 pub extern "C" fn set_documents_dir(dir: *const c_char) {
-    paths::set_storage_dir(cstr_to_string(dir));
+    // paths::set_storage_dir(cstr_to_string(dir));
+    init(cstr_to_string(dir));
+}
+
+/// Initializes the rust library with the given storage directory.
+pub fn init(storage_dir: String) {
+    paths::set_storage_dir(storage_dir);
+    database::init_db().unwrap();
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
     use super::*;
     use std::ffi::CString;
+
+    pub fn test_setup(dir: &str) {
+        std::fs::create_dir_all(dir).unwrap();
+        init(String::from(dir));
+    }
 
     #[test]
     fn test_storage_dir_update() {

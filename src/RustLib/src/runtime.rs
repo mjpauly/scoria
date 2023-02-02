@@ -16,6 +16,9 @@ thread_local!(static RT: Rc<RefCell<Runtime>> =
 /// Usage:
 ///     let binding = get_runtime_binding();
 ///     let rt = binding.borrow();
+///     rt.block_on(async {
+///         func().await;
+///     });
 pub fn get_runtime_binding() -> Rc<RefCell<Runtime>> {
     RT.with(|rt| Rc::clone(rt))
 }

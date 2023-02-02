@@ -136,6 +136,9 @@ crates_repository(
         "thiserror": crate.spec(
             version = "1.0.38",
         ),
+        "anyhow": crate.spec(
+            version = "1.0.68",
+        ),
         # "plotly": crate.spec(
             # version = "0.8.3",
         # ),

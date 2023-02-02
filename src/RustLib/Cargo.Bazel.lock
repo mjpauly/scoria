@@ -1,5 +1,5 @@
 {
-  "checksum": "fecfd7a69157934a932446bcaecdf0cb0160c7628b3bfde0fda39aeaee18d725",
+  "checksum": "4814e234c121c9e93c82d07ac4f14b39b18de81d5b200c82d585cc4b56e904cf",
   "crates": {
     "ahash 0.7.6": {
       "name": "ahash",
@@ -118,6 +118,63 @@
         "version": "0.1.5"
       },
       "license": "MIT/Apache-2.0"
+    },
+    "anyhow 1.0.68": {
+      "name": "anyhow",
+      "version": "1.0.68",
+      "repository": {
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/anyhow/1.0.68/download",
+          "sha256": "2cb2f989d18dd141ab8ae82f64d1a8cdd37e0840f73a406896cf5e99502fab61"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "anyhow",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        },
+        {
+          "BuildScript": {
+            "crate_name": "build_script_build",
+            "crate_root": "build.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "anyhow",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "crate_features": [
+          "default",
+          "std"
+        ],
+        "deps": {
+          "common": [
+            {
+              "id": "anyhow 1.0.68",
+              "target": "build_script_build"
+            }
+          ],
+          "selects": {}
+        },
+        "edition": "2018",
+        "version": "1.0.68"
+      },
+      "build_script_attrs": {
+        "data_glob": [
+          "**"
+        ]
+      },
+      "license": "MIT OR Apache-2.0"
     },
     "askama 0.11.1": {
       "name": "askama",
@@ -1655,6 +1712,10 @@
         ],
         "deps": {
           "common": [
+            {
+              "id": "anyhow 1.0.68",
+              "target": "anyhow"
+            },
             {
               "id": "plotly 0.8.3",
               "target": "plotly"
