@@ -114,6 +114,22 @@ pub async fn get_records_past_week() -> Vec<Location> {
     result
 }
 
+pub async fn get_records_time_range(
+    start_epoch: i64,
+    end_epoch: i64,
+) -> Vec<Location> {
+    let conn = get_db_pool().await.unwrap();
+    let result = sqlx::query_as::<_, Location>(
+        "SELECT * FROM location WHERE datetime >= (?) AND datetime <= (?)",
+    )
+    .bind(time::OffsetDateTime::from_unix_timestamp(start_epoch).unwrap())
+    .bind(time::OffsetDateTime::from_unix_timestamp(end_epoch).unwrap())
+    .fetch_all(&conn)
+    .await
+    .unwrap();
+    result
+}
+
 #[cfg(test)]
 mod tests {
     use crate::tests::test_setup;
@@ -157,6 +173,27 @@ mod tests {
             log_location(0.0, 0.0, 0.0, 0.0, 0.0, 0).await; // 1970
             let records = get_records_past_week().await;
             // old record should not appear
+            assert_eq!(records.len(), 1);
+            // small integer floats can be exactly compared
+            assert!(records[0].lat == 1.0);
+            assert!(records[0].lon == 2.0);
+            assert!(records[0].accuracy == 3.0);
+            assert!(records[0].speed == 4.0);
+            assert!(records[0].course == 5.0);
+        });
+    }
+
+    #[test]
+    fn test_records_time_range() {
+        test_setup("test_records_time_range/");
+
+        let binding = runtime::get_runtime_binding();
+        let rt = binding.borrow();
+        rt.block_on(async {
+            // 5 and 10 seconds past the epoch
+            log_location(1.0, 2.0, 3.0, 4.0, 5.0, 5).await;
+            log_location(0.0, 0.0, 0.0, 0.0, 0.0, 10).await;
+            let records = get_records_time_range(3, 7).await; // get the first
             assert_eq!(records.len(), 1);
             // small integer floats can be exactly compared
             assert!(records[0].lat == 1.0);

@@ -33,7 +33,6 @@ mod tests {
         let binding = get_runtime_binding();
         let rt = binding.borrow();
         rt.block_on(async {
-            println!("inside runtime");
             assert_eq!(1, 1);
         });
     }

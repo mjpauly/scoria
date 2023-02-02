@@ -6,6 +6,8 @@ use thiserror::Error;
 const DB_PREFIX: &str = "sqlite://";
 const DB_FNAME: &str = "data.db";
 
+const VIZ_FNAME: &str = "viz.html";
+
 // Our state data is stored in CTX
 // We don't know the contents during runtime initialization so it starts empty
 thread_local!(static CTX: RefCell<Ctx> = RefCell::new(
@@ -54,6 +56,11 @@ pub fn get_db_path() -> Result<String, PathError> {
         std::path::Path::new(&storage_dir).join(DB_FNAME).display()
     );
     Ok(db_path)
+}
+
+/// Get the path to the vizualization file.
+pub fn get_viz_path() -> std::path::PathBuf {
+    std::path::Path::new(&get_storage_dir().unwrap()).join(VIZ_FNAME)
 }
 
 #[cfg(test)]

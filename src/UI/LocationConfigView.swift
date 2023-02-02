@@ -26,10 +26,10 @@ struct LocationConfigView: View {
             
             Button(action: shareTextLocationLog) {
               Text("Share text log")
-            }
+            }.buttonStyle(.bordered)
             Button(action: shareSQLiteLocationLog) {
               Text("Share SQLite log")
-            }
+            }.buttonStyle(.bordered)
         }
     }
     func shareTextLocationLog() {

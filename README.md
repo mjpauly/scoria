@@ -91,3 +91,15 @@ is placed in the project root.
 on the command line.
 - For more detail, open Google Chrome's `chrome://tracing/` page and drag the
 json file onto the page to see a nice graph representation.
+
+### Visualize Dependency Graph
+
+Prere
+
+```
+$ bazel query 'deps(//src/App)' --output graph > graph_full.in
+$ cat graph_full.in | grep -v "@" | grep -v "label" > graph_pruned.in
+$ dot -Tpng < graph_pruned.in > graph_pruned.png
+```
+
+Install graphviz (includes `dot`) with `brew install graphviz`.

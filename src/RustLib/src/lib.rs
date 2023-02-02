@@ -92,6 +92,24 @@ pub extern "C" fn gen_past_week_viz() {
     });
 }
 
+/// Generate a visualization with the given options
+#[no_mangle]
+pub extern "C" fn gen_viz(
+    datetime_epoch_start: i64,
+    datetime_epoch_end: i64,
+    r: f64,
+    g: f64,
+    b: f64,
+    a: f64,
+) {
+    let binding = runtime::get_runtime_binding();
+    let rt = binding.borrow();
+    rt.block_on(async {
+        viz::gen_viz(datetime_epoch_start, datetime_epoch_end, r, g, b, a)
+            .await;
+    });
+}
+
 // TODO: functions to implement
 // make heatmap viz
 // create marker (space / time)
