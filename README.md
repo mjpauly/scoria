@@ -35,6 +35,16 @@
         - time ([repo](https://github.com/time-rs/time),
             [docs@0.3.17](https://docs.rs/time/0.3.17/time/),
             [book](https://time-rs.github.io/book/index.html))
+            - used for timestamping measurements in the database
+            - not imported on its own, but with `sqlx::types::time`
+            - exact version used with `sqlx` might be different than the
+                versions linked
+        - plotly ([repo](https://github.com/igiagkiozis/plotly),
+            [docs@0.8.3](https://docs.rs/plotly/0.8.3/plotly/))
+            - used to generate visualizations
+            - doesn't currently support compiling for iOS, so it is vendored in
+                at this repo: https://github.com/mjpauly/plotly/
+
 - Swift ([docs](https://docs.swift.org/swift-book/LanguageGuide/TheBasics.html))
     - Language that the UI and sensing modules are written in.
     - Apple Swift APIs used include SwiftUI, CoreLocation.

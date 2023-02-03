@@ -68,8 +68,6 @@ cat > $@ <<EOF
 import SwiftUI
 import UI
 
-let internalValue = 42
-
 @main
 struct iOSApp: App {
     var body: some Scene {

@@ -14,6 +14,5 @@ swift_library(
     testonly = True,
     srcs = glob(["**/*.swift"]),
     module_name = "OtherTests",
-    deps = ["@com_acme//:SuperSecret"],
     tags = ["manual"],
 )

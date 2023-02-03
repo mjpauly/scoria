@@ -1,5 +1,5 @@
 {
-  "checksum": "4814e234c121c9e93c82d07ac4f14b39b18de81d5b200c82d585cc4b56e904cf",
+  "checksum": "a1f286ab62cf3db35ca7194af36a0f7b6c1655e869f8bff4c4a27bfea139fbbb",
   "crates": {
     "ahash 0.7.6": {
       "name": "ahash",
@@ -1721,16 +1721,8 @@
               "target": "plotly"
             },
             {
-              "id": "rand 0.8.5",
-              "target": "rand"
-            },
-            {
               "id": "sqlx 0.6.2",
               "target": "sqlx"
-            },
-            {
-              "id": "thiserror 1.0.38",
-              "target": "thiserror"
             },
             {
               "id": "tokio 1.24.2",

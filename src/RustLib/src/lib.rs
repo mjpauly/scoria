@@ -4,8 +4,6 @@
 //! communication.
 
 use std::ffi::CStr;
-use std::fs::File;
-use std::io::prelude::*;
 use std::os::raw::c_char;
 
 mod database;
@@ -118,9 +116,3 @@ pub extern "C" fn gen_viz(
 //      visits (last time, first time, total, time spent, when visits happen)
 //      traveling (different modes, time spent, num trips, when it happens)
 //      trends
-
-#[no_mangle]
-pub extern "C" fn get_a_value_from_rust() -> i32 {
-    println!("printing from rust!");
-    42
-}

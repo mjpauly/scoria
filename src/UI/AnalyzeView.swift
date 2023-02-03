@@ -5,8 +5,7 @@ import RustLib
 struct AnalyzeView: View {
     
     @State private var showWebView = false
-    @State private var markerColor =
-    Color(.sRGB, red: 1.0, green: 0.27, blue: 0.0, opacity: 0.8)
+    @State private var markerColor = Color(.sRGB, red: 1.0, green: 0.27, blue: 0.0, opacity: 0.8)
     @State private var startDate = Date(timeIntervalSinceNow: TimeInterval(-7*24*60*60))
     @State private var endDate = Date()
   

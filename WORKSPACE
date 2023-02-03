@@ -122,9 +122,6 @@ crates_repository(
     cargo_lockfile = "//src/RustLib:Cargo.lock",
     lockfile = "//src/RustLib:Cargo.Bazel.lock",
     packages = {
-        "rand": crate.spec(  # example
-            version = "0.8.5",
-        ),
         "sqlx": crate.spec(
             version = "0.6.2",
             features = ["runtime-tokio-native-tls", "sqlite", "time"],
@@ -133,23 +130,13 @@ crates_repository(
             version = "1.24.2",
             features = ["full"],
         ),
-        "thiserror": crate.spec(
-            version = "1.0.38",
-        ),
         "anyhow": crate.spec(
             version = "1.0.68",
         ),
-        # "plotly": crate.spec(
-            # version = "0.8.3",
-        # ),
         "plotly": crate.spec(
-            # version = "0.8.3",
-            git = "https://github.com/mjpauly/plotly"
+            # version = "0.8.3",  # if compiling for iOS gets fixed
+            git = "https://github.com/mjpauly/plotly"  # for now we vendor it in
         ),
-        # "time": crate.spec(  # available from sqlx::types::time
-            # version = "0.3.17",
-            # features = ["macros"],
-        # ),
     },
 
     # NOTE: this is left here from the example in the docs, probably safe to
@@ -184,11 +171,3 @@ crate_repositories()
 # load("@crate_index_new//:defs.bzl", "crate_repositories")
 # 
 # crate_repositories()
-
-
-# third party repo
-
-local_repository(
-    name = "com_acme",
-    path = "fake_third_party/com_acme",
-)

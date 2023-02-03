@@ -17,7 +17,6 @@ swift_library(
     module_name = "AppTests",
     tags = ["manual"],
     deps = [
-        "@com_acme//:SuperSecret",
         "//src/App:App.library",
     ],
 )

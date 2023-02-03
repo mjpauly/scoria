@@ -6,10 +6,8 @@ rust_library(
     edition = "2021",
     deps = [
         ":alloc",
-        "@crate_index_rustlib//:rand",
         "@crate_index_rustlib//:sqlx",
         "@crate_index_rustlib//:tokio",
-        "@crate_index_rustlib//:thiserror",
         "@crate_index_rustlib//:anyhow",
         "@crate_index_rustlib//:plotly",
     ],
