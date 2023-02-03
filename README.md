@@ -1,10 +1,27 @@
 # Epsilon App
 
+## TODO
+
+- new features
+    - scatter plot:
+         - colorscale based on data value
+         - marker size
+         - nice way to close the WebView
+    - create custom markers (space / time)
+         - lookup marker from public DB (apple maps?, openstreetmap?)
+    - perform queries
+         - visits (last time, first time, total, time spent, when visits happen)
+         - traveling (different modes, time spent, num trips, when it happens)
+         - trends
+- proper database migrations
+- RustLib integration tests
+- App integration tests
+
 ## Structure
 
 - UI, sensing modules (Swift)
-    - database management, visualization, marketplace (Rust)
-    - visualizations are generated in Rust and shown in a Swift WebKit WKWebView
+- database management, visualization, marketplace (Rust)
+- visualizations are generated in Rust and shown in a Swift WebKit WKWebView
 
 ## Toolchain Resources
 
@@ -81,6 +98,10 @@ Useful arguments:
 - `--cache_test_results=no`: Rerun a test without caching.
 - `--test_arg=[test_fn_name]`: Run a particular test.
 
+```
+bazel test //src/RustLib:unit_tests --test_output=all --test_arg=--nocapture --test_arg=test_get_rt
+```
+
 ### Generate the Project Tree for `rust-analyzer`
 
 Since the project isn't structured as a Cargo project, we need to generate a
@@ -95,6 +116,7 @@ bazel run //src/RustLib:projtree
 
 ### Profiling Slow Bazel Builds, Tests, and Runs
 
+- `time bazel build ...`: View how long you're actually waiting.
 - `--profile=profile.json`: Generate a profile of the bazel invocation. The file
 is placed in the project root.
 - `bazel analyze-profile profile.json`: Output a brief summary of the profile
@@ -111,3 +133,10 @@ $ dot -Tpng < graph_pruned.in > graph_pruned.png
 ```
 
 Prereq: install graphviz (includes `dot`) with `brew install graphviz`.
+
+### Rust Debug Output
+
+- Use the `dbg!(var_name)` macro for quicker debugging than with printing!
+- `.unwrap_or_else(|err| { println("got error {}", err); return; })`
+    - if return type is `()` on success: `if let Err(e) = run(config) {`
+- `eprintln` for stderr

@@ -16,12 +16,9 @@ pub async fn gen_past_week_viz() {
     let records = database::get_records_past_week().await;
 
     // filter out records where accuracy is worse (larger) than 20m
-    let records = records
-        .iter()
-        .filter(|x| x.accuracy < 20.0)
-        .collect::<Vec<&database::Location>>();
-    let lats: Vec<f64> = records.iter().map(|x| x.lat).collect();
-    let lons: Vec<f64> = records.iter().map(|x| x.lon).collect();
+    let records_iter = records.iter().filter(|x| x.accuracy < 20.0);
+    let lats: Vec<_> = records_iter.clone().map(|x| x.lat).collect();
+    let lons: Vec<_> = records_iter.map(|x| x.lon).collect();
 
     // calculate where to put the center
     let mean_lat = lats.iter().sum::<f64>() / lats.len() as f64;
@@ -69,12 +66,9 @@ pub async fn gen_viz(
         database::get_records_time_range(start_epoch, end_epoch).await;
 
     // filter out records where accuracy is worse (larger) than 20m
-    let records = records
-        .iter()
-        .filter(|x| x.accuracy < 20.0)
-        .collect::<Vec<&database::Location>>();
-    let lats: Vec<f64> = records.iter().map(|x| x.lat).collect();
-    let lons: Vec<f64> = records.iter().map(|x| x.lon).collect();
+    let records_iter = records.iter().filter(|x| x.accuracy < 20.0);
+    let lats: Vec<_> = records_iter.clone().map(|x| x.lat).collect();
+    let lons: Vec<_> = records_iter.map(|x| x.lon).collect();
 
     // calculate where to put the center
     let mean_lat = lats.iter().sum::<f64>() / lats.len() as f64;

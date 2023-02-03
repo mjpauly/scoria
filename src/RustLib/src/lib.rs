@@ -104,15 +104,3 @@ pub extern "C" fn gen_viz(
             .await;
     });
 }
-
-// TODO: functions to implement
-// scatter plot:
-//      colorscale based on data value
-//      marker size
-//      nice way to close the WebView
-// create personal marker (space / time)
-//      lookup marker from public DB (apple maps?, openstreetmap?)
-// perform queries
-//      visits (last time, first time, total, time spent, when visits happen)
-//      traveling (different modes, time spent, num trips, when it happens)
-//      trends

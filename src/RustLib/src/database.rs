@@ -8,7 +8,7 @@ use sqlx::{migrate::MigrateDatabase, FromRow, Sqlite, SqlitePool};
 
 use crate::paths;
 
-const SCHEMA: &str = "
+const SCHEMA: &str = "\
 CREATE TABLE IF NOT EXISTS location
 (
     id          INTEGER PRIMARY KEY NOT NULL,
@@ -18,8 +18,7 @@ CREATE TABLE IF NOT EXISTS location
     speed       REAL                NOT NULL,
     course      REAL                NOT NULL,
     datetime    DATETIME            NOT NULL
-);
-";
+);";
 
 /// Struct representation of a Location row in the table
 #[derive(Clone, FromRow, Debug)]
@@ -73,15 +72,18 @@ pub async fn log_location(
 ) -> Result<()> {
     let conn = get_db_pool().await?;
     let datetime = time::OffsetDateTime::from_unix_timestamp(datetime_epoch)?;
-    sqlx::query("INSERT INTO location (lat, lon, accuracy, speed, course, datetime) VALUES (?,?,?,?,?,?)")
-        .bind(lat)
-        .bind(lon)
-        .bind(accuracy)
-        .bind(speed)
-        .bind(course)
-        .bind(datetime)
-        .execute(&conn)
-        .await?;
+    sqlx::query(
+        "INSERT INTO location (lat, lon, accuracy, speed, course, datetime)
+VALUES (?,?,?,?,?,?)",
+    )
+    .bind(lat)
+    .bind(lon)
+    .bind(accuracy)
+    .bind(speed)
+    .bind(course)
+    .bind(datetime)
+    .execute(&conn)
+    .await?;
     Ok(())
 }
 
