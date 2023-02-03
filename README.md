@@ -79,7 +79,7 @@ Useful arguments:
 - `--test_output=all`: View the output of the test produced by Cargo.
 - `--test_arg=--nocapture`: Tell Cargo to show outputs from the tests.
 - `--cache_test_results=no`: Rerun a test without caching.
-- `__test_arg=[test_fn_name]`: Run a particular test.
+- `--test_arg=[test_fn_name]`: Run a particular test.
 
 ### Generate the Project Tree for `rust-analyzer`
 
@@ -104,12 +104,10 @@ json file onto the page to see a nice graph representation.
 
 ### Visualize Dependency Graph
 
-Prere
-
 ```
 $ bazel query 'deps(//src/App)' --output graph > graph_full.in
 $ cat graph_full.in | grep -v "@" | grep -v "label" > graph_pruned.in
 $ dot -Tpng < graph_pruned.in > graph_pruned.png
 ```
 
-Install graphviz (includes `dot`) with `brew install graphviz`.
+Prereq: install graphviz (includes `dot`) with `brew install graphviz`.

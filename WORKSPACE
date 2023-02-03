@@ -68,8 +68,8 @@ provisioning_profile_repository(
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
     name = "rules_rust",
-    sha256 = "aaaa4b9591a5dad8d8907ae2dbe6e0eb49e6314946ce4c7149241648e56a1277",
-    urls = ["https://github.com/bazelbuild/rules_rust/releases/download/0.16.1/rules_rust-v0.16.1.tar.gz"],
+    sha256 = "d125fb75432dc3b20e9b5a19347b45ec607fabe75f98c6c4ba9badaab9c193ce",
+    urls = ["https://github.com/bazelbuild/rules_rust/releases/download/0.17.0/rules_rust-v0.17.0.tar.gz"],
 )
 
 load(
@@ -91,16 +91,6 @@ rust_register_toolchains(
 )
 
 
-# rust analyzer
-# Our project isn't structured as a Cargo project, so we need to generate the
-# rust-project.json for rust-analyzer to use.
-# The rust-analyzer binary must be in your path.
-
-load("@rules_rust//tools/rust_analyzer:deps.bzl", "rust_analyzer_dependencies")
-
-rust_analyzer_dependencies()
-
-
 # crate universe
 # manage external Rust dependencies using the Crate Universe rules
 # docs: https://bazelbuild.github.io/rules_rust/crate_universe.html
@@ -112,7 +102,6 @@ crate_universe_dependencies()
 
 load("@rules_rust//crate_universe:defs.bzl", "crate", "crates_repository", "render_config")
 
-
 # crate repository for the RustLib core of the app
 
 # NOTE: don't forget to add the dependency to the rust_library target!
@@ -121,6 +110,8 @@ crates_repository(
     name = "crate_index_rustlib",
     cargo_lockfile = "//src/RustLib:Cargo.lock",
     lockfile = "//src/RustLib:Cargo.Bazel.lock",
+    isolated = False,  # cache results of the previous invocation to
+                       # ${HOME}/.cargo so using it is fast
     packages = {
         "sqlx": crate.spec(
             version = "0.6.2",
@@ -135,7 +126,7 @@ crates_repository(
         ),
         "plotly": crate.spec(
             # version = "0.8.3",  # if compiling for iOS gets fixed
-            git = "https://github.com/mjpauly/plotly"  # for now we vendor it in
+            git = "https://github.com/mjpauly/plotly",  # for now we do this
         ),
     },
 
@@ -155,19 +146,11 @@ load("@crate_index_rustlib//:defs.bzl", "crate_repositories")
 crate_repositories()
 
 
-# future crate repository for a separate library, called "crate_index_new"
+# rust analyzer
+# Our project isn't structured as a Cargo project, so we need to generate the
+# rust-project.json for rust-analyzer to use.
+# The rust-analyzer binary must be in your path.
 
-# crates_repository(
-    # name = "crate_index_new",
-    # cargo_lockfile = "//:Cargo.lock",
-    # lockfile = "//:Cargo.Bazel.lock",
-    # packages = {
-        # "mockall": crate.spec(  # example
-            # version = "0.10.2",
-        # ),
-    # },
-# )
-# 
-# load("@crate_index_new//:defs.bzl", "crate_repositories")
-# 
-# crate_repositories()
+load("@rules_rust//tools/rust_analyzer:deps.bzl", "rust_analyzer_dependencies")
+
+rust_analyzer_dependencies()
