@@ -20,6 +20,12 @@ class MyLocationManager: NSObject, CLLocationManagerDelegate, ObservableObject {
         // need to set this along with enabling in project background capabilities to get background updates:
         locationManager.allowsBackgroundLocationUpdates = true
         locationManager.startUpdatingLocation()
+        locationManager.distanceFilter = CLLocationDistance(5.0)
+    }
+    
+    // Set the minimum distance in meters the device must move horizontally before an update event is generated.
+    func setDistanceFilter(distance: Double) {
+        locationManager.distanceFilter = CLLocationDistance(distance)
     }
     
     // The locationManager() method of the CLLocationManagerDelegate protocol is called when the location manager receives new location data
@@ -40,8 +46,14 @@ class MyLocationManager: NSObject, CLLocationManagerDelegate, ObservableObject {
             newLocation.course,
             Int(round(newLocation.timestamp.timeIntervalSince1970))
         )
-        //print(newLocation.timestamp.timeIntervalSince1970)
-        //print(Int(round(newLocation.timestamp.timeIntervalSince1970)))
+        
+        // testing:
+        if let fileURL = Bundle.main.url(forResource: "filetobundle", withExtension: "txt") {
+            print("found url of file in bundle: \(fileURL)")
+        } else {
+            print("didn't find file")
+        }
+        print(logURL)
     }
     
     func calcUpdatesThisHour() {

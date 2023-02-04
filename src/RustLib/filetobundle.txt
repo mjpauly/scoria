@@ -1,0 +1,2 @@
+This file is to be bundled into the app so that it is accessible to the program
+while it runs.

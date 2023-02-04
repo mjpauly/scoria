@@ -31,6 +31,7 @@ ios_application(
         ":device_build": ":xcode_profile",
         "//conditions:default": None,
     }),
+    resources = ["//src/RustLib:libfiles"],
     visibility = ["//visibility:public"],
     deps = [":App.library"],
 )

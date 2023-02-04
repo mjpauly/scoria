@@ -67,3 +67,12 @@ alias(
     name = "projtree",
     actual = "@rules_rust//tools/rust_analyzer:gen_rust_project",
 )
+
+# testing bundling files into the app
+filegroup(
+    name = "libfiles",
+    srcs = [
+        "filetobundle.txt",
+    ],
+    visibility = ["//visibility:public"],
+)

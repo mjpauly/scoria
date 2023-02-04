@@ -1,12 +1,14 @@
 # Epsilon App
 
-## TODO
+## To Do
 
+- more efficient data collection
 - new features
     - scatter plot:
          - colorscale based on data value
          - marker size
          - nice way to close the WebView
+    - web UI?
     - create custom markers (space / time)
          - lookup marker from public DB (apple maps?, openstreetmap?)
     - perform queries
@@ -46,9 +48,6 @@
         - tokio ([repo](https://github.com/tokio-rs/tokio),
             [docs@1.24.2](https://docs.rs/tokio/1.24.2/tokio/))
             - async runtime
-        - thiserror ([repo](https://github.com/dtolnay/thiserror),
-            [docs@1.0.38](https://docs.rs/thiserror/1.0.38/thiserror/))
-            - custom errors with less boilerplate
         - time ([repo](https://github.com/time-rs/time),
             [docs@0.3.17](https://docs.rs/time/0.3.17/time/),
             [book](https://time-rs.github.io/book/index.html))
