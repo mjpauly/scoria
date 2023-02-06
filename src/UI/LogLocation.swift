@@ -38,7 +38,7 @@ class MyLocationManager: NSObject, CLLocationManagerDelegate, ObservableObject {
         currentLocation = newLocation
         
         // Log the location in RustLib with SQL
-        LogLocation(
+        log_location(
             newLocation.coordinate.latitude,
             newLocation.coordinate.longitude,
             newLocation.horizontalAccuracy,

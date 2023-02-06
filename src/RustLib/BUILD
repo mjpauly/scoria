@@ -48,7 +48,6 @@ cc_library(
 
 objc_library(
     name = "RustLib",
-    srcs = ["RustLib.m"],
     hdrs = ["RustLib.h"],
     module_name = "RustLib",
     visibility = ["//visibility:public"],

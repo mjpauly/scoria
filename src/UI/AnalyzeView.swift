@@ -2,11 +2,16 @@ import Foundation
 import SwiftUI
 import RustLib
 
+struct TimeConstants {
+    static let weekSeconds = 7*24*60*60.0
+    static let daySeconds = 24*60*60.0
+}
+
 struct AnalyzeView: View {
     
     @State private var showWebView = false
     @State private var markerColor = Color(.sRGB, red: 1.0, green: 0.27, blue: 0.0, opacity: 0.8)
-    @State private var startDate = Date(timeIntervalSinceNow: TimeInterval(-7*24*60*60))
+    @State private var startDate = Date(timeIntervalSinceNow: TimeInterval(-TimeConstants.weekSeconds))
     @State private var endDate = Date()
   
     var body: some View {
@@ -49,7 +54,7 @@ struct AnalyzeView: View {
                 WebView(url: getDocumentsDirectory().appendingPathComponent("viz.html"))
             }
         }
-        .padding(.leading, 30).padding(.trailing, 30)
+        .padding([.leading, .trailing], 30)
     }
     
 //    func genWeekView() {
@@ -57,7 +62,7 @@ struct AnalyzeView: View {
 //    }
     func genViz() {
         let colorComponents = $markerColor.wrappedValue.cgColor?.components
-        GenViz(
+        gen_viz(
             Int(round(startDate.timeIntervalSince1970)),
             Int(round(endDate.timeIntervalSince1970)),
             Double(colorComponents?[0] ?? 1.0),
@@ -72,10 +77,10 @@ struct AnalyzeView: View {
         startDate = Date(timeIntervalSinceNow: -secs)
     }
     func datesPast7Days() {
-        datesPastSeconds(secs: 7*24*60*60)
+        datesPastSeconds(secs: TimeConstants.weekSeconds)
     }
     func datesPast24Hours() {
-        datesPastSeconds(secs: 24*60*60)
+        datesPastSeconds(secs: TimeConstants.daySeconds)
     }
     func datesToday() {
         endDate = Date()

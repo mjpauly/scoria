@@ -52,7 +52,8 @@ struct LocationConfigView: View {
             Button(action: shareSQLiteLocationLog) {
               Text("Share SQLite log")
             }.buttonStyle(.bordered)
-        }.padding(.leading, 30).padding(.trailing, 30)
+        }
+        .padding([.leading, .trailing], 30)
     }
     func shareTextLocationLog() {
         shareFile(file: myLocationManager.logURL)

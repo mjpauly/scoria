@@ -1,11 +1,14 @@
 import RustLib
 import SwiftUI
-import RustLib
 
 public struct ContentView: View {
     public init() {
         // Set the documents directory known to the core library
-        SetDocumentsDir(getDocumentsDirectory().path())
+        set_documents_dir(getDocumentsDirectory().path())
+        // TODO: also set other directories
+        // getLibraryDirectory()  // persistent non-user data
+        // getTemporaryDirectory()  // temporarily cached data
+        // getBundlePath()  // bundle directory for things bundled with the app
     }
     
     @StateObject var myLocationManager = MyLocationManager()
