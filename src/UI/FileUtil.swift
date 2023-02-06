@@ -27,6 +27,19 @@ func getDocumentsDirectory() -> URL {
     return paths[0]
 }
 
+func getLibraryDirectory() -> URL {
+    let paths = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask)
+    return paths[0]
+}
+
+func getTemporaryDirectoryPath() -> String {
+    return NSTemporaryDirectory()
+}
+
+func getBundlePath() -> String {
+    return Bundle.main.bundlePath
+}
+
 // appendToFile tries to append data to a file, and if the file doesn't exist it creates it
 func appendToFile(file: String, dataString: String) {
     /* try to append to file if file exists, otherwise create new file with data */

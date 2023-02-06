@@ -4,7 +4,10 @@ import SwiftUI
 public struct ContentView: View {
     public init() {
         // Set the documents directory known to the core library
-        set_documents_dir(getDocumentsDirectory().path())
+        set_app_dirs(getDocumentsDirectory().path(),
+                     getLibraryDirectory().path(),
+                     getTemporaryDirectoryPath(),
+                     getBundlePath())
         // TODO: also set other directories
         // getLibraryDirectory()  // persistent non-user data
         // getTemporaryDirectory()  // temporarily cached data

@@ -5,6 +5,7 @@
 
 use std::ffi::CStr;
 use std::os::raw::c_char;
+use std::path::PathBuf;
 
 mod database;
 mod paths;
@@ -17,19 +18,36 @@ fn cstr_to_string(cstr: *const c_char) -> String {
     String::from_utf8_lossy(cstr.to_bytes()).to_string()
 }
 
-/// Initializes the rust library with the given storage directory.
-async fn init(storage_dir: String) {
-    paths::set_storage_dir(storage_dir);
+/// Initializes the rust library with the given app directories.
+async fn init(paths_to_set: paths::Paths) {
+    paths::set_app_dirs(paths_to_set);
     database::init_db().await.unwrap();
 }
 
-/// Set the documents directory known to the Rust library.
+/// Set the directories known to the Rust library.
 ///
 /// This should be called first thing when the app is launched.
+///
+/// The directories and their functions are:
+///     - documents: stores persistent user data
+///     - library: stores persistent application data
+///     - temp: stores temporary data
+///     - bundle: stores read-only data that is packaged with the app
 #[no_mangle]
-pub extern "C" fn set_documents_dir(dir: *const c_char) {
+pub extern "C" fn set_app_dirs(
+    documents_dir: *const c_char,
+    library_dir: *const c_char,
+    temp_dir: *const c_char,
+    bundle_dir: *const c_char,
+) {
+    let paths_to_set = paths::Paths::new(
+        Some(PathBuf::from(cstr_to_string(documents_dir))),
+        Some(PathBuf::from(cstr_to_string(library_dir))),
+        Some(PathBuf::from(cstr_to_string(temp_dir))),
+        Some(PathBuf::from(cstr_to_string(bundle_dir))),
+    );
     runtime::get_runtime().block_on(async {
-        init(cstr_to_string(dir)).await;
+        init(paths_to_set).await;
     });
 }
 
@@ -38,18 +56,55 @@ pub mod tests {
     use super::*;
     use std::ffi::CString;
 
-    pub async fn test_setup(dir: &str) {
-        std::fs::create_dir_all(dir).unwrap();
-        init(String::from(dir)).await;
+    /// Create the subdirectories needed for testing the app and return a vector
+    /// of the subdirectory paths
+    fn create_subdirs(dir: &str) -> Vec<PathBuf> {
+        let dir = PathBuf::from(dir);
+        let subdirs = vec!["Documents", "Library", "tmp", "Bundle"];
+        let fullsubdirs: Vec<_> =
+            subdirs.iter().map(|subdir| dir.join(subdir)).collect();
+        for fullsubdir in &fullsubdirs {
+            std::fs::create_dir_all(fullsubdir).unwrap();
+        }
+        fullsubdirs
     }
 
+    /// Set the directories to use for the test given a top level directory.
+    pub async fn test_setup(dir: &str) {
+        let fullsubdirs = create_subdirs(dir);
+        let paths_to_set = paths::Paths::new(
+            Some(fullsubdirs[0].clone()),
+            Some(fullsubdirs[1].clone()),
+            Some(fullsubdirs[2].clone()),
+            Some(fullsubdirs[3].clone()),
+        );
+        init(paths_to_set).await;
+    }
+
+    /// Test the top level C interface
     #[test]
-    fn test_storage_dir_update() {
-        assert!(paths::get_storage_dir().is_err());
-        let dir = CString::new("./").unwrap();
-        set_documents_dir(dir.as_ptr());
-        let expected = dir.into_string().unwrap();
-        assert_eq!(paths::get_storage_dir().unwrap(), expected);
+    fn test_app_dir_update() {
+        assert!(paths::get_documents_dir().is_err());
+        let fullsubdirs = create_subdirs("./");
+        let cstrings: Vec<_> = fullsubdirs
+            .iter()
+            .map(|s| {
+                CString::new(
+                    (s.clone()).into_os_string().into_string().unwrap(),
+                )
+                .unwrap()
+            })
+            .collect();
+        set_app_dirs(
+            cstrings[0].as_ptr(),
+            cstrings[1].as_ptr(),
+            cstrings[2].as_ptr(),
+            cstrings[3].as_ptr(),
+        );
+        assert_eq!(
+            paths::get_documents_dir().unwrap(),
+            PathBuf::from("./Documents")
+        );
     }
 }
 
