@@ -22,7 +22,7 @@ ios_application(
     bundle_name = "Epsilon",
     families = ["iphone"],
     frameworks = [
-        "//src/UI:UIFramework",
+        "//src/app/ios/ui:UIFramework",
     ],
     infoplists = [":Info.plist"],
     launch_storyboard = "Resources/Launch.storyboard",
@@ -31,7 +31,7 @@ ios_application(
         ":device_build": ":xcode_profile",
         "//conditions:default": None,
     }),
-    resources = ["//src/RustLib:libfiles"],
+    resources = ["//src/app/stem:libfiles"],
     visibility = ["//visibility:public"],
     deps = [":App.library"],
 )
@@ -55,9 +55,9 @@ swift_library(
     srcs = [":gen_App.swift"],
     module_name = "App",
     tags = ["manual"],
-    visibility = ["//src/AppTests:__subpackages__"],
+    visibility = ["//src/app/ios/tests:__subpackages__"],
     deps = [
-        "//src/UI",
+        "//src/app/ios/ui:UI",
     ],
 )
 

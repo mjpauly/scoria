@@ -1,4 +1,4 @@
-extern crate lib;
+extern crate stem;
 
 // use lib::func;
 

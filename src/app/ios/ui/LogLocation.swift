@@ -1,5 +1,5 @@
 import CoreLocation
-import RustLib
+import StemLib
 
 
 class MyLocationManager: NSObject, CLLocationManagerDelegate, ObservableObject {
@@ -37,7 +37,7 @@ class MyLocationManager: NSObject, CLLocationManagerDelegate, ObservableObject {
         appendLocationToFile(location: newLocation)
         currentLocation = newLocation
         
-        // Log the location in RustLib with SQL
+        // Log the location in StemLib with SQL
         log_location(
             newLocation.coordinate.latitude,
             newLocation.coordinate.longitude,

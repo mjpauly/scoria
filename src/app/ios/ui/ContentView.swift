@@ -1,4 +1,4 @@
-import RustLib
+import StemLib
 import SwiftUI
 
 public struct ContentView: View {

@@ -2,6 +2,9 @@
 
 ## To Do
 
+- [_] refactor file tree for extensibility
+- [_] initial barebones yew UI
+
 - proper database migrations with files in app bundle why does it crop. 
 - new features
     - scatter plot:
@@ -70,7 +73,7 @@
 ### Running the App in the Simulator
 
 ```
-bazel run //src/App
+bazel run //:iosapp
 ```
 
 ### Generate the Xcode Project
@@ -86,9 +89,9 @@ The Xcode project itself uses Bazel for building and running the app.
 
 ### Testing the RustLib Core Library
 
-- `bazel test //src/RustLib:unit_tests`: Run the unit tests embedded in the library.
-- `bazel test //src/RustLib:int_tests`: Run the integration tests of the library's interface.
-- `bazel test //src/RustLib:all`: Run both the unit tests and the integration tests.
+- `bazel test //src/app/stem:unit_tests`: Run the unit tests embedded in the library.
+- `bazel test //src/app/stem:int_tests`: Run the integration tests of the library's interface.
+- `bazel test //src/app/stem:all`: Run both the unit tests and the integration tests.
 
 Useful arguments:
 
@@ -98,7 +101,7 @@ Useful arguments:
 - `--test_arg=[test_fn_name]`: Run a particular test.
 
 ```
-bazel test //src/RustLib:unit_tests --test_output=all --test_arg=--nocapture --test_arg=test_get_rt
+bazel test //src/app/stem:unit_tests --test_output=all --test_arg=--nocapture --test_arg=test_get_rt
 ```
 
 ### Generate the Project Tree for `rust-analyzer`
@@ -110,7 +113,7 @@ language server integrations in editors. See
 language server setup in particular.
 
 ```
-bazel run //src/RustLib:projtree
+bazel run //:rustanalyzer
 ```
 
 ### Profiling Slow Bazel Builds, Tests, and Runs
@@ -126,7 +129,7 @@ json file onto the page to see a nice graph representation.
 ### Visualize Dependency Graph
 
 ```
-$ bazel query 'deps(//src/App)' --output graph > graph_full.in
+$ bazel query 'deps(//:iosapp)' --output graph > graph_full.in
 $ cat graph_full.in | grep -v "@" | grep -v "label" > graph_pruned.in
 $ dot -Tpng < graph_pruned.in > graph_pruned.png
 ```

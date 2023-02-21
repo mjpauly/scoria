@@ -102,14 +102,13 @@ crate_universe_dependencies()
 
 load("@rules_rust//crate_universe:defs.bzl", "crate", "crates_repository", "render_config")
 
-# crate repository for the RustLib core of the app
-
+# crate repository for the `stem` core of the app
 # NOTE: don't forget to add the dependency to the rust_library target!
-# e.g. deps = [ ... , "@crate_index_rustlib//:tokio", ]
+# e.g. deps = [ ... , "@stem_crate_index//:tokio", ]
 crates_repository(
-    name = "crate_index_rustlib",
-    cargo_lockfile = "//src/RustLib:Cargo.lock",
-    lockfile = "//src/RustLib:Cargo.Bazel.lock",
+    name = "stem_crate_index",
+    cargo_lockfile = "//src/app/stem:Cargo.lock",
+    lockfile = "//src/app/stem:Cargo.Bazel.lock",
     isolated = False,  # cache results of the previous invocation to
                        # ${HOME}/.cargo so using it is fast
     packages = {
@@ -130,9 +129,6 @@ crates_repository(
         ),
     },
 
-    # NOTE: this is left here from the example in the docs, probably safe to
-    # delete since it's "optional?"
-
     # Setting the default package name to `""` forces the use of the macros defined in this repository
     # to always use the root package when looking for dependencies or aliases. This should be considered
     # optional as the repository also exposes alises for easy access to all dependencies.
@@ -141,7 +137,7 @@ crates_repository(
     ),
 )
 
-load("@crate_index_rustlib//:defs.bzl", "crate_repositories")
+load("@stem_crate_index//:defs.bzl", "crate_repositories")
 
 crate_repositories()
 

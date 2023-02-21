@@ -1,6 +1,6 @@
 import Foundation
 import SwiftUI
-import RustLib
+import StemLib
 
 struct TimeConstants {
     static let weekSeconds = 7*24*60*60.0

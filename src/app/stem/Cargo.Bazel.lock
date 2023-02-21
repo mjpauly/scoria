@@ -1,5 +1,5 @@
 {
-  "checksum": "a1f286ab62cf3db35ca7194af36a0f7b6c1655e869f8bff4c4a27bfea139fbbb",
+  "checksum": "a45010b68cc6a424521c8c45b9cbb694de73b5ddd534ec0d61026bc7d4509606",
   "crates": {
     "ahash 0.7.6": {
       "name": "ahash",

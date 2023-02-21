@@ -1,28 +1,28 @@
 load("@rules_rust//rust:defs.bzl", "rust_library", "rust_test", "rust_doc")
 
 rust_library(
-    name = "lib",
-    srcs = glob(["src/*.rs"]),
+    name = "stem",
+    srcs = glob(["pith/*.rs"]),
     edition = "2021",
     deps = [
         ":alloc",
-        "@crate_index_rustlib//:sqlx",
-        "@crate_index_rustlib//:tokio",
-        "@crate_index_rustlib//:anyhow",
-        "@crate_index_rustlib//:plotly",
+        "@stem_crate_index//:sqlx",
+        "@stem_crate_index//:tokio",
+        "@stem_crate_index//:anyhow",
+        "@stem_crate_index//:plotly",
     ],
 )
 
 # Unit tests embedded within the library.
 rust_test(
     name = "unit_tests",
-    crate = ":lib",
+    crate = ":stem",
     size = "small",  # 20 MB RAM, 1 min timeout
 )
 
 rust_doc(
-    name = "lib_doc",
-    crate = ":lib",
+    name = "stem_doc",
+    crate = ":stem",
 )
 
 # Integration tests of the library's public interface.
@@ -31,7 +31,7 @@ rust_test(
     srcs = glob(["tests/*.rs"]),
     edition = "2021",
     deps = [
-        ":lib",
+        ":stem",
     ],
     visibility = ["//visibility:public"],
 )
@@ -39,32 +39,25 @@ rust_test(
 
 # Objective c and c glue
 
-# This being required is a bug in objc_library, ideally 'RustLib' could depend
-# directly on 'lib'
+# This being required is a bug in objc_library, ideally 'StemLib' could depend
+# directly on 'stem'
 cc_library(
-    name = "lib_shim",
-    deps = [":lib"],
+    name = "stem_shim",
+    deps = [":stem"],
 )
 
+# The objective C library we can import into Swift
 objc_library(
-    name = "RustLib",
-    hdrs = ["RustLib.h"],
-    module_name = "RustLib",
+    name = "StemLib",
+    hdrs = ["StemLib.h"],
+    module_name = "StemLib",
     visibility = ["//visibility:public"],
-    deps = [":lib_shim"],
+    deps = [":stem_shim"],
 )
 
 cc_library(
     name = "alloc",
     srcs = ["alloc.cc"],
-)
-
-# rust-project.json for rust-analyzer
-# $ bazel run :projtree
-
-alias(
-    name = "projtree",
-    actual = "@rules_rust//tools/rust_analyzer:gen_rust_project",
 )
 
 # testing bundling files into the app
