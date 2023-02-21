@@ -8,6 +8,8 @@ use sqlx::{migrate::MigrateDatabase, FromRow, Sqlite, SqlitePool};
 
 use crate::paths;
 
+// TODO: use sqlx's migrate!() macro to embed the migrations into the binary
+
 const SCHEMA: &str = "\
 CREATE TABLE IF NOT EXISTS location
 (

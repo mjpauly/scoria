@@ -8,6 +8,7 @@
          - colorscale based on data value
          - marker size
          - nice way to close the WebView
+    - sensing: environmental noise
     - create custom markers (space / time)
          - lookup marker from public DB (apple maps?, openstreetmap?)
     - perform queries

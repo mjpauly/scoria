@@ -47,13 +47,14 @@ class MyLocationManager: NSObject, CLLocationManagerDelegate, ObservableObject {
             Int(round(newLocation.timestamp.timeIntervalSince1970))
         )
         
+        /*
         // testing:
         if let fileURL = Bundle.main.url(forResource: "filetobundle", withExtension: "txt") {
             print("found url of file in bundle: \(fileURL)")
         } else {
             print("didn't find file")
         }
-        print(logURL)
+         */
     }
     
     func calcUpdatesThisHour() {
