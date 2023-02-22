@@ -21,9 +21,6 @@ ios_application(
     bundle_id = BUNDLE_ID,
     bundle_name = "App",
     families = ["iphone"],
-    frameworks = [
-        "//src/app/ios/ui:UIFramework",
-    ],
     infoplists = [":Info.plist"],
     launch_storyboard = "Resources/Launch.storyboard",
     minimum_os_version = "16.0",
@@ -32,7 +29,8 @@ ios_application(
         "//conditions:default": None,
     }),
     resources = [
-        "//src/app/stem/front:front_wasm",
+        # "//src/app/stem/front:front_wasm",
+        ":index",
     ],
     visibility = ["//visibility:public"],
     deps = [":App.library"],
@@ -54,34 +52,15 @@ local_provisioning_profile(
 
 swift_library(
     name = "App.library",
-    srcs = [":gen_App.swift"],
+    srcs = glob(["*.swift"]),
     module_name = "App",
     tags = ["manual"],
     visibility = ["//src/app/ios/tests:__subpackages__"],
-    deps = [
-        "//src/app/ios/ui:UI",
-    ],
 )
 
-genrule(
-    name = "gen_App.swift",
-    outs = ["App.swift"],
-    cmd = """\
-cat > $@ <<EOF
-import SwiftUI
-import UI
-
-@main
-struct iOSApp: App {
-    var body: some Scene {
-        WindowGroup {
-            ContentView()
-        }
-    }
-}
-EOF
-""",
-    tags = ["manual"],
+filegroup(
+    name = "index",
+    srcs = ["index.html"],
 )
 
 config_setting(
