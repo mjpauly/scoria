@@ -67,6 +67,26 @@ pub fn get_documents_dir() -> Result<PathBuf> {
     }
 }
 
+pub fn get_library_dir() -> Result<PathBuf> {
+    let dir = PATHS.with(|p| (*p.borrow()).library_dir.clone());
+    match dir {
+        Some(path) => Ok(path),
+        None => bail!(
+            "Documents directory not set! Call set_app_dirs() at startup."
+        ),
+    }
+}
+
+pub fn get_bundle_dir() -> Result<PathBuf> {
+    let dir = PATHS.with(|p| (*p.borrow()).bundle_dir.clone());
+    match dir {
+        Some(path) => Ok(path),
+        None => bail!(
+            "Documents directory not set! Call set_app_dirs() at startup."
+        ),
+    }
+}
+
 /// Get the database path as a string.
 pub fn get_db_path() -> Result<String> {
     let documents_dir = get_documents_dir()?;

@@ -51,7 +51,8 @@ struct AnalyzeView: View {
                 Text("Show Visualization")
             }.buttonStyle(.borderedProminent)
             .sheet(isPresented: $showWebView) {
-                WebView(url: getDocumentsDirectory().appendingPathComponent("viz.html"))
+                //WebView(url: getDocumentsDirectory().appendingPathComponent("viz.html"))
+                WebView(url: URL(string: "http://127.0.0.1:8080") ?? getDocumentsDirectory().appendingPathComponent("viz.html"))
             }
         }
         .padding([.leading, .trailing], 30)

@@ -10,7 +10,13 @@ use std::path::PathBuf;
 mod database;
 mod paths;
 mod runtime;
+mod startup;
 mod viz;
+
+// #[no_mangle]
+// pub extern "C" fn start_ui() {
+// startup::run("127.0.0.1", 8080);
+// }
 
 // Convert a const char* reference from C into an owned Rust String.
 fn cstr_to_string(cstr: *const c_char) -> String {
@@ -22,6 +28,7 @@ fn cstr_to_string(cstr: *const c_char) -> String {
 async fn init(paths_to_set: paths::Paths) {
     paths::set_app_dirs(paths_to_set);
     database::init_db().await.unwrap();
+    startup::run("127.0.0.1", 8080);
 }
 
 /// Set the directories known to the Rust library.

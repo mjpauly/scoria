@@ -31,7 +31,9 @@ ios_application(
         ":device_build": ":xcode_profile",
         "//conditions:default": None,
     }),
-    resources = ["//src/app/stem:libfiles"],
+    resources = [
+        "//src/app/stem/front:front_wasm",
+    ],
     visibility = ["//visibility:public"],
     deps = [":App.library"],
 )

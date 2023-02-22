@@ -2,8 +2,10 @@
 
 ## To Do
 
-- [_] refactor file tree for extensibility
-- [_] initial barebones yew UI
+- [x] refactor file tree for extensibility
+- [x] initial barebones yew UI
+- [_] wasm artifact building with rules_rust
+- [_] refactor to WebView (storyboard instead of swiftUI base?)
 
 - proper database migrations with files in app bundle why does it crop. 
 - new features

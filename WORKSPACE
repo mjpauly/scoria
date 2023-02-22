@@ -127,6 +127,15 @@ crates_repository(
             # version = "0.8.3",  # if compiling for iOS gets fixed
             git = "https://github.com/mjpauly/plotly",  # for now we do this
         ),
+        "actix-web": crate.spec(
+            version = "4.3.0",
+        ),
+        "actix-files": crate.spec(
+            version = "0.6.2",
+        ),
+        "zip": crate.spec(
+            version = "0.6.4",
+        ),
     },
 
     # Setting the default package name to `""` forces the use of the macros defined in this repository

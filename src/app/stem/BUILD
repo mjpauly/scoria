@@ -1,8 +1,9 @@
-load("@rules_rust//rust:defs.bzl", "rust_library", "rust_test", "rust_doc")
+load("@rules_rust//rust:defs.bzl", "rust_library", "rust_binary", "rust_test")
+
 
 rust_library(
     name = "stem",
-    srcs = glob(["pith/*.rs"]),
+    srcs = glob(["back/*.rs"]),
     edition = "2021",
     deps = [
         ":alloc",
@@ -10,6 +11,9 @@ rust_library(
         "@stem_crate_index//:tokio",
         "@stem_crate_index//:anyhow",
         "@stem_crate_index//:plotly",
+        "@stem_crate_index//:actix-web",
+        "@stem_crate_index//:actix-files",
+        "@stem_crate_index//:zip",
     ],
 )
 
@@ -18,11 +22,6 @@ rust_test(
     name = "unit_tests",
     crate = ":stem",
     size = "small",  # 20 MB RAM, 1 min timeout
-)
-
-rust_doc(
-    name = "stem_doc",
-    crate = ":stem",
 )
 
 # Integration tests of the library's public interface.
@@ -58,13 +57,4 @@ objc_library(
 cc_library(
     name = "alloc",
     srcs = ["alloc.cc"],
-)
-
-# testing bundling files into the app
-filegroup(
-    name = "libfiles",
-    srcs = [
-        "filetobundle.txt",
-    ],
-    visibility = ["//visibility:public"],
 )

@@ -11,6 +11,11 @@ user.bazelrc
 src/app/stem/target
 src/app/stem/debug
 
+src/app/stem/front/target
+src/app/stem/front/debug
+src/app/stem/front/dist
+
+
 # rustfmt backup files
 **/*.rs.bk
 
