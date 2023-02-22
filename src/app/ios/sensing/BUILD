@@ -4,10 +4,6 @@ load("@build_bazel_rules_swift//swift:swift.bzl", "swift_library")
 swift_library(
     name = "sensing",
     srcs = glob(["**/*.swift"]),
-    data = glob(  # TODO: move Logo.png over to top level Resources
-        ["Resources/**"],
-        exclude = ["**/.DS_Store"],
-    ),
     module_name = "Sensing",
     tags = ["manual"],
     visibility = ["//visibility:public"],
