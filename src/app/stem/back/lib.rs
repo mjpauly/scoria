@@ -53,6 +53,7 @@ pub extern "C" fn set_app_dirs(
         Some(PathBuf::from(cstr_to_string(temp_dir))),
         Some(PathBuf::from(cstr_to_string(bundle_dir))),
     );
+    println!("setting app dirs");
     runtime::get_runtime().block_on(async {
         init(paths_to_set).await;
     });
@@ -125,6 +126,7 @@ pub extern "C" fn log_location(
     course: f64,
     datetime_epoch: i64,
 ) -> i32 {
+    println!("logging location");
     runtime::get_runtime().block_on(async {
         let result = database::log_location(
             lat,

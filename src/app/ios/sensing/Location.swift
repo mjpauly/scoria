@@ -23,6 +23,12 @@ class MyLocationManager: NSObject, CLLocationManagerDelegate, ObservableObject {
         locationManager.distanceFilter = CLLocationDistance(5.0)
     }
     
+    // If myLocationManager is stored as a global variable, it is lazily initialized.
+    // `touch` does an access so that it becomes initialized.
+    func touch() {
+        print("Initializing location manager")
+    }
+    
     // Set the minimum distance in meters the device must move horizontally before an update event is generated.
     func setDistanceFilter(distance: Double) {
         locationManager.distanceFilter = CLLocationDistance(distance)
