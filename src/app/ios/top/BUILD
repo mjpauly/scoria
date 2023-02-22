@@ -21,6 +21,9 @@ ios_application(
     bundle_id = BUNDLE_ID,
     bundle_name = "App",
     families = ["iphone"],
+    frameworks = [
+        "//src/app/ios/sensing:sensing_framework",
+    ],
     infoplists = [":Info.plist"],
     launch_storyboard = "Resources/Launch.storyboard",
     minimum_os_version = "16.0",
@@ -56,6 +59,9 @@ swift_library(
     module_name = "App",
     tags = ["manual"],
     visibility = ["//src/app/ios/tests:__subpackages__"],
+    deps = [
+        "//src/app/ios/sensing",
+    ],
 )
 
 filegroup(
