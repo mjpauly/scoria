@@ -1,3 +1,9 @@
+/* Global style applied to all elements, which can be overridden */
+
+* {
+    font-family: sans-serif;
+}
+
 h1 {
-    color: aqua;
+    color: green;
 }

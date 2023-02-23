@@ -33,7 +33,6 @@ ios_application(
     }),
     resources = [
         "//src/app/stem/front:front_wasm",
-        ":index",
     ],
     visibility = ["//visibility:public"],
     deps = [":App.library"],
@@ -62,11 +61,6 @@ swift_library(
     deps = [
         "//src/app/ios/sensing",
     ],
-)
-
-filegroup(
-    name = "index",
-    srcs = ["index.html"],
 )
 
 config_setting(

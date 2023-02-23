@@ -72,6 +72,16 @@
 
 ## Dev Flow
 
+### Setup
+
+Some tools used come from the system rather than a Bazel toolchain. This is a
+temporary workaround where the Bazel toolchain was challenging to implement.
+These need to be installed separately.
+
+- Trunk: used to build the frontend webassembly application
+    - First install Rust onto your system, then do
+        `cargo install --locked --version 0.16.0 trunk`
+
 ### Running the App in the Simulator
 
 ```
