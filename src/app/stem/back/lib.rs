@@ -13,11 +13,6 @@ mod runtime;
 mod startup;
 mod viz;
 
-// #[no_mangle]
-// pub extern "C" fn start_ui() {
-// startup::run("127.0.0.1", 8080);
-// }
-
 // Convert a const char* reference from C into an owned Rust String.
 fn cstr_to_string(cstr: *const c_char) -> String {
     let cstr: &CStr = unsafe { CStr::from_ptr(cstr) };
@@ -53,7 +48,6 @@ pub extern "C" fn set_app_dirs(
         Some(PathBuf::from(cstr_to_string(temp_dir))),
         Some(PathBuf::from(cstr_to_string(bundle_dir))),
     );
-    println!("setting app dirs");
     runtime::get_runtime().block_on(async {
         init(paths_to_set).await;
     });
@@ -126,7 +120,6 @@ pub extern "C" fn log_location(
     course: f64,
     datetime_epoch: i64,
 ) -> i32 {
-    println!("logging location");
     runtime::get_runtime().block_on(async {
         let result = database::log_location(
             lat,
@@ -143,28 +136,4 @@ pub extern "C" fn log_location(
         };
     });
     0
-}
-
-/// Generate a visualization of the past week
-#[no_mangle]
-pub extern "C" fn gen_past_week_viz() {
-    runtime::get_runtime().block_on(async {
-        viz::gen_past_week_viz().await;
-    });
-}
-
-/// Generate a visualization with the given options
-#[no_mangle]
-pub extern "C" fn gen_viz(
-    datetime_epoch_start: i64,
-    datetime_epoch_end: i64,
-    r: f64,
-    g: f64,
-    b: f64,
-    a: f64,
-) {
-    runtime::get_runtime().block_on(async {
-        viz::gen_viz(datetime_epoch_start, datetime_epoch_end, r, g, b, a)
-            .await;
-    });
 }

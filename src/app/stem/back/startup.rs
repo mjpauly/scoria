@@ -38,5 +38,4 @@ fn unzip_dist() {
         .unwrap()
         .extract(destination.clone())
         .unwrap();
-    println!("Zip extraction success");
 }

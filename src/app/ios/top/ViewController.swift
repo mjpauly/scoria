@@ -13,8 +13,6 @@ class ViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         // Do any additional setup after loading the view.
-
-        print("loaded view controller")
         
         view.addSubview(webView)
         NSLayoutConstraint.activate([
@@ -27,9 +25,9 @@ class ViewController: UIViewController {
         let contentController = self.webView.configuration.userContentController
         contentController.add(self, name: "toggleMessageHandler")
         
-        if let url = Bundle.main.url(forResource: "index", withExtension: "html") {
-            webView.loadFileURL(url, allowingReadAccessTo: url.deletingLastPathComponent())
-        }
+        let url = URL(string: "http://127.0.0.1:8080")
+        let req = URLRequest(url: url!)
+        webView.load(req)
     }
     
     private lazy var webView: WKWebView = {
