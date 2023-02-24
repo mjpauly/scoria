@@ -1,9 +1,63 @@
 /* Global style applied to all elements, which can be overridden */
 
+:root {
+  --emph-color: #0099ff;  /* light blue */
+  --box-color: #333333;  /* dark gray */
+}
+
 * {
+    color: white;
     font-family: sans-serif;
+    font-weight: 300;
+    text-align: center;
+}
+
+html,body {
+    height: 100%;
+    background-color: black;
+    margin: 0;
+    padding: 0;
 }
 
 h1 {
-    color: green;
+    color: var(--emph-color);
+}
+
+p {
+    margin-top: 0;
+    margin-bottom: 0;
+}
+
+button {
+    background-color: var(--box-color);
+    border: none;
+    color: var(--emph-color);
+    border-radius: 0.5em;
+    padding: 0.5em;
+    padding-top: 0.7em;
+}
+
+.bold {
+    font-weight: 600;
+}
+
+.linebreak {
+    margin-bottom: 1em;
+}
+
+.vertical-center {
+    margin: 0;
+    position: absolute;
+    top: 50%;
+    -ms-transform: translateY(-50%);
+    transform: translateY(-50%);
+}
+
+.center {
+  margin: 0;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  -ms-transform: translate(-50%, -50%);
+  transform: translate(-50%, -50%);
 }

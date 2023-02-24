@@ -1,24 +1,29 @@
-use stylist::{css, style, yew::styled_component};
+// use stylist::{css, style, yew::styled_component};
 use yew::prelude::*;
 
 #[function_component]
-fn App() -> Html {
-    let counter = use_state(|| 0);
-    let onclick = {
-        let counter = counter.clone();
-        move |_| {
-            let value = *counter + 1;
-            counter.set(value);
-        }
-    };
-
+fn LocationConfig() -> Html {
     html! {
-        <div>
-            <h1>{"First header"}</h1>
-            <h1 class={css!("color: blue;")}>{"Second header custom style"}</h1>
+        <>
+            <h1>{"Location"}</h1>
+            <p class="bold">{"Current Location:"}</p>
+            <p class="linebreak"> {"xxx, yyy"} </p>
 
-            <button {onclick}>{ "+1" }</button>
-            <p>{ *counter }</p>
+            <p>{"Num data points this hour: xxx"}</p>
+            <p class="linebreak">{"xxx updates/minute"}</p>
+
+            <p class="linebreak">{"Distance Filter ____"}</p>
+
+            <button>{"Share SQLite log"}</button>
+        </>
+    }
+}
+
+#[function_component]
+fn App() -> Html {
+    html! {
+        <div class="center">
+            <LocationConfig />
         </div>
     }
 }
