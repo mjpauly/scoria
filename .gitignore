@@ -14,6 +14,7 @@ src/app/stem/debug
 src/app/stem/front/target
 src/app/stem/front/debug
 src/app/stem/front/dist
+src/app/stem/front/styles/output.css
 
 
 # rustfmt backup files

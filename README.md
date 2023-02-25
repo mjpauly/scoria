@@ -4,10 +4,14 @@
 
 - [x] refactor file tree for extensibility
 - [x] initial barebones yew UI
-- [_] wasm artifact building with rules_rust
-- [_] refactor to WebView (storyboard instead of swiftUI base?)
+- [x] refactor to WebView (storyboard instead of swiftUI base?)
+- [_] *reach feature parity with SwiftUI*
+- [_] CI pipeline
+- [_] integration tests
+- [_] secure the UI from other apps (max 1 connection, random port, authenticate
+        with number passcode, shut down when not in use)
 
-- proper database migrations with files in app bundle why does it crop. 
+- proper database migrations included in compiled source with `migrate!` macro
 - new features
     - scatter plot:
          - colorscale based on data value
@@ -20,9 +24,11 @@
          - visits (last time, first time, total, time spent, when visits happen)
          - traveling (different modes, time spent, num trips, when it happens)
          - trends
-- RustLib integration tests
+- `stem` integration tests
 - App integration tests
 - more battery-efficient data collection
+
+- [_] wasm artifact building with rules_rust
 
 ## Structure
 
@@ -81,12 +87,28 @@ These need to be installed separately.
 - Trunk: used to build the frontend webassembly application
     - First install Rust onto your system, then do
         `cargo install --locked --version 0.16.0 trunk`
+- tailwindcss: used for CSS utility classes in the UI
+    - install npm/node with `brew install npm node`
+    - install tailwind cli with `npm install -g tailwindcss`
+    - instructions [here](https://tailwindcss.com/docs/installation)
 
 ### Running the App in the Simulator
 
 ```
 bazel run //:iosapp
 ```
+
+### Interactively Developing the UI
+
+Navigate to `src/app/stem/front` and run these commands in separate terminals:
+
+```
+npx tailwindcss -i ./styles/input.css -o ./styles/output.css --watch
+trunk serve --open
+```
+
+Then open `localhost:8080` in a browser. In Firefox, the responsive web design
+mode lets you change the page aspect ratio to that of a phone.
 
 ### Generate the Xcode Project
 
@@ -99,7 +121,7 @@ bazel run //:xcodeproj
 
 The Xcode project itself uses Bazel for building and running the app.
 
-### Testing the RustLib Core Library
+### Testing the `stem` Core Library
 
 - `bazel test //src/app/stem:unit_tests`: Run the unit tests embedded in the library.
 - `bazel test //src/app/stem:int_tests`: Run the integration tests of the library's interface.
