@@ -6,6 +6,7 @@
 - [x] initial barebones yew UI
 - [x] refactor to WebView (storyboard instead of swiftUI base?)
 - [_] *reach feature parity with SwiftUI*
+- [_] prevent unwanted scrolling in the WKWebView
 - [_] CI pipeline
 - [_] integration tests
 - [_] secure the UI from other apps (max 1 connection, random port, authenticate

@@ -3,6 +3,13 @@ name = "front"
 version = "0.1.0"
 edition = "2021"
 
+# we use 'rs' instead of 'src' since the bazel sandbox gives us a handle to our
+# repository root, which is also named 'src'
+[[bin]]
+name = "front_main"
+path = "rs/main.rs"
+
+
 [dependencies]
 yew = { version = "0.20.0", features = ["csr"] }
 stylist = { version = "0.12.0", features = ["yew"] }

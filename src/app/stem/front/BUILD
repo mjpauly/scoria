@@ -5,17 +5,22 @@ genrule(
     name = "front_wasm",
     srcs = [
         "index.html",
-        "index.scss",
-        "main.rs",
+        "styles/input.css",
+        "rs/main.rs",
         "Cargo.toml",
         "Cargo.lock",
+        "tailwind.config.js",
     ],
     cmd = """
+mkdir rs
+mkdir styles
 cp $(location index.html) .
-cp $(location index.scss) .
-cp $(location main.rs) .
+cp $(location styles/input.css) styles
+cp $(location rs/main.rs) rs
 cp $(location Cargo.toml) .
 cp $(location Cargo.lock) .
+cp $(location tailwind.config.js) .
+npx tailwindcss -i ./styles/input.css -o ./styles/output.css
 trunk build
 zip -r $@ dist
     """,
