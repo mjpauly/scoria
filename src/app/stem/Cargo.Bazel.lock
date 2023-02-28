@@ -1,5 +1,5 @@
 {
-  "checksum": "216c0fbece21d9d41c3be38c2ba4da42ed3443016269db820ccdc87edae81acb",
+  "checksum": "5f4dbb3693fc7cd7395f15b4b3f2e4e7baddf5e9a880c6afb043b77600c57d71",
   "crates": {
     "actix-codec 0.5.0": {
       "name": "actix-codec",
@@ -823,7 +823,7 @@
               "target": "socket2"
             },
             {
-              "id": "time 0.3.17",
+              "id": "time 0.3.20",
               "target": "time"
             },
             {
@@ -1277,6 +1277,36 @@
       },
       "license": "MIT OR Apache-2.0"
     },
+    "anymap2 0.13.0": {
+      "name": "anymap2",
+      "version": "0.13.0",
+      "repository": {
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/anymap2/0.13.0/download",
+          "sha256": "d301b3b94cb4b2f23d7917810addbbaff90738e0ca2be692bd027e70d7e0330c"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "anymap2",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "anymap2",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "edition": "2018",
+        "version": "0.13.0"
+      },
+      "license": "MIT/Apache-2.0"
+    },
     "askama 0.11.1": {
       "name": "askama",
       "version": "0.11.1",
@@ -1684,6 +1714,45 @@
       },
       "license": "Apache-2.0 OR MIT"
     },
+    "bincode 1.3.3": {
+      "name": "bincode",
+      "version": "1.3.3",
+      "repository": {
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/bincode/1.3.3/download",
+          "sha256": "b1f45e9417d87227c7a56d22e471c6206462cba514c7590c09aff4cf6d1ddcad"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "bincode",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "bincode",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "deps": {
+          "common": [
+            {
+              "id": "serde 1.0.152",
+              "target": "serde"
+            }
+          ],
+          "selects": {}
+        },
+        "edition": "2015",
+        "version": "1.3.3"
+      },
+      "license": "MIT"
+    },
     "bitflags 1.3.2": {
       "name": "bitflags",
       "version": "1.3.2",
@@ -1755,6 +1824,36 @@
         "version": "0.10.3"
       },
       "license": "MIT OR Apache-2.0"
+    },
+    "boolinator 2.4.0": {
+      "name": "boolinator",
+      "version": "2.4.0",
+      "repository": {
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/boolinator/2.4.0/download",
+          "sha256": "cfa8873f51c92e232f9bac4065cddef41b714152812bfc5f7672ba16d6ef8cd9"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "boolinator",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "boolinator",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "edition": "2015",
+        "version": "2.4.0"
+      },
+      "license": "MIT/Apache-2.0"
     },
     "brotli 3.3.4": {
       "name": "brotli",
@@ -2331,6 +2430,49 @@
       },
       "license": "Apache-2.0"
     },
+    "console_error_panic_hook 0.1.7": {
+      "name": "console_error_panic_hook",
+      "version": "0.1.7",
+      "repository": {
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/console_error_panic_hook/0.1.7/download",
+          "sha256": "a06aeb73f470f66dcdbf7223caeebb85984942f22f1adb2a088cf9668146bbbc"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "console_error_panic_hook",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "console_error_panic_hook",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "deps": {
+          "common": [
+            {
+              "id": "cfg-if 1.0.0",
+              "target": "cfg_if"
+            },
+            {
+              "id": "wasm-bindgen 0.2.84",
+              "target": "wasm_bindgen"
+            }
+          ],
+          "selects": {}
+        },
+        "edition": "2015",
+        "version": "0.1.7"
+      },
+      "license": "Apache-2.0/MIT"
+    },
     "constant_time_eq 0.1.5": {
       "name": "constant_time_eq",
       "version": "0.1.5",
@@ -2440,7 +2582,7 @@
               "target": "percent_encoding"
             },
             {
-              "id": "time 0.3.17",
+              "id": "time 0.3.20",
               "target": "time"
             }
           ],
@@ -3485,8 +3627,20 @@
               "target": "sqlx"
             },
             {
+              "id": "stylist 0.12.0",
+              "target": "stylist"
+            },
+            {
+              "id": "time 0.3.20",
+              "target": "time"
+            },
+            {
               "id": "tokio 1.24.2",
               "target": "tokio"
+            },
+            {
+              "id": "yew 0.2.0",
+              "target": "yew"
             },
             {
               "id": "zip 0.6.4",
@@ -4017,6 +4171,70 @@
       },
       "license": "MIT OR Apache-2.0"
     },
+    "futures 0.3.26": {
+      "name": "futures",
+      "version": "0.3.26",
+      "repository": {
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/futures/0.3.26/download",
+          "sha256": "13e2792b0ff0340399d58445b88fd9770e3489eff258a4cbc1523418f12abf84"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "futures",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "futures",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "crate_features": [
+          "alloc",
+          "async-await",
+          "std"
+        ],
+        "deps": {
+          "common": [
+            {
+              "id": "futures-channel 0.3.26",
+              "target": "futures_channel"
+            },
+            {
+              "id": "futures-core 0.3.26",
+              "target": "futures_core"
+            },
+            {
+              "id": "futures-io 0.3.26",
+              "target": "futures_io"
+            },
+            {
+              "id": "futures-sink 0.3.26",
+              "target": "futures_sink"
+            },
+            {
+              "id": "futures-task 0.3.26",
+              "target": "futures_task"
+            },
+            {
+              "id": "futures-util 0.3.26",
+              "target": "futures_util"
+            }
+          ],
+          "selects": {}
+        },
+        "edition": "2018",
+        "version": "0.3.26"
+      },
+      "license": "MIT OR Apache-2.0"
+    },
     "futures-channel 0.3.26": {
       "name": "futures-channel",
       "version": "0.3.26",
@@ -4053,6 +4271,7 @@
         ],
         "crate_features": [
           "alloc",
+          "default",
           "futures-sink",
           "sink",
           "std"
@@ -4246,6 +4465,86 @@
       },
       "license": "MIT OR Apache-2.0"
     },
+    "futures-io 0.3.26": {
+      "name": "futures-io",
+      "version": "0.3.26",
+      "repository": {
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/futures-io/0.3.26/download",
+          "sha256": "bfb8371b6fb2aeb2d280374607aeabfc99d95c72edfe51692e42d3d7f0d08531"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "futures_io",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "futures_io",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "crate_features": [
+          "std"
+        ],
+        "edition": "2018",
+        "version": "0.3.26"
+      },
+      "license": "MIT OR Apache-2.0"
+    },
+    "futures-macro 0.3.26": {
+      "name": "futures-macro",
+      "version": "0.3.26",
+      "repository": {
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/futures-macro/0.3.26/download",
+          "sha256": "95a73af87da33b5acf53acfebdc339fe592ecf5357ac7c0a7734ab9d8c876a70"
+        }
+      },
+      "targets": [
+        {
+          "ProcMacro": {
+            "crate_name": "futures_macro",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "futures_macro",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "deps": {
+          "common": [
+            {
+              "id": "proc-macro2 1.0.50",
+              "target": "proc_macro2"
+            },
+            {
+              "id": "quote 1.0.23",
+              "target": "quote"
+            },
+            {
+              "id": "syn 1.0.107",
+              "target": "syn"
+            }
+          ],
+          "selects": {}
+        },
+        "edition": "2018",
+        "version": "0.3.26"
+      },
+      "license": "MIT OR Apache-2.0"
+    },
     "futures-sink 0.3.26": {
       "name": "futures-sink",
       "version": "0.3.26",
@@ -4374,7 +4673,15 @@
         ],
         "crate_features": [
           "alloc",
+          "async-await",
+          "async-await-macro",
+          "channel",
+          "futures-channel",
+          "futures-io",
+          "futures-macro",
           "futures-sink",
+          "io",
+          "memchr",
           "sink",
           "slab",
           "std"
@@ -4382,8 +4689,16 @@
         "deps": {
           "common": [
             {
+              "id": "futures-channel 0.3.26",
+              "target": "futures_channel"
+            },
+            {
               "id": "futures-core 0.3.26",
               "target": "futures_core"
+            },
+            {
+              "id": "futures-io 0.3.26",
+              "target": "futures_io"
             },
             {
               "id": "futures-sink 0.3.26",
@@ -4396,6 +4711,10 @@
             {
               "id": "futures-util 0.3.26",
               "target": "build_script_build"
+            },
+            {
+              "id": "memchr 2.5.0",
+              "target": "memchr"
             },
             {
               "id": "pin-project-lite 0.2.9",
@@ -4413,6 +4732,15 @@
           "selects": {}
         },
         "edition": "2018",
+        "proc_macro_deps": {
+          "common": [
+            {
+              "id": "futures-macro 0.3.26",
+              "target": "futures_macro"
+            }
+          ],
+          "selects": {}
+        },
         "version": "0.3.26"
       },
       "build_script_attrs": {
@@ -4543,6 +4871,737 @@
         },
         "edition": "2018",
         "version": "0.2.8"
+      },
+      "license": "MIT OR Apache-2.0"
+    },
+    "gloo 0.8.0": {
+      "name": "gloo",
+      "version": "0.8.0",
+      "repository": {
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/gloo/0.8.0/download",
+          "sha256": "3a4bef6b277b3ab073253d4bca60761240cf8d6998f4bd142211957b69a61b20"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "gloo",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "gloo",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "crate_features": [
+          "default"
+        ],
+        "deps": {
+          "common": [
+            {
+              "id": "gloo-console 0.2.3",
+              "target": "gloo_console"
+            },
+            {
+              "id": "gloo-dialogs 0.1.1",
+              "target": "gloo_dialogs"
+            },
+            {
+              "id": "gloo-events 0.1.2",
+              "target": "gloo_events"
+            },
+            {
+              "id": "gloo-file 0.2.3",
+              "target": "gloo_file"
+            },
+            {
+              "id": "gloo-history 0.1.3",
+              "target": "gloo_history"
+            },
+            {
+              "id": "gloo-net 0.2.6",
+              "target": "gloo_net"
+            },
+            {
+              "id": "gloo-render 0.1.1",
+              "target": "gloo_render"
+            },
+            {
+              "id": "gloo-storage 0.2.2",
+              "target": "gloo_storage"
+            },
+            {
+              "id": "gloo-timers 0.2.6",
+              "target": "gloo_timers"
+            },
+            {
+              "id": "gloo-utils 0.1.6",
+              "target": "gloo_utils"
+            },
+            {
+              "id": "gloo-worker 0.2.1",
+              "target": "gloo_worker"
+            }
+          ],
+          "selects": {}
+        },
+        "edition": "2018",
+        "version": "0.8.0"
+      },
+      "license": "MIT/Apache-2.0"
+    },
+    "gloo-console 0.2.3": {
+      "name": "gloo-console",
+      "version": "0.2.3",
+      "repository": {
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/gloo-console/0.2.3/download",
+          "sha256": "82b7ce3c05debe147233596904981848862b068862e9ec3e34be446077190d3f"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "gloo_console",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "gloo_console",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "deps": {
+          "common": [
+            {
+              "id": "gloo-utils 0.1.6",
+              "target": "gloo_utils"
+            },
+            {
+              "id": "js-sys 0.3.61",
+              "target": "js_sys"
+            },
+            {
+              "id": "serde 1.0.152",
+              "target": "serde"
+            },
+            {
+              "id": "wasm-bindgen 0.2.84",
+              "target": "wasm_bindgen"
+            },
+            {
+              "id": "web-sys 0.3.61",
+              "target": "web_sys"
+            }
+          ],
+          "selects": {}
+        },
+        "edition": "2018",
+        "version": "0.2.3"
+      },
+      "license": "MIT OR Apache-2.0"
+    },
+    "gloo-dialogs 0.1.1": {
+      "name": "gloo-dialogs",
+      "version": "0.1.1",
+      "repository": {
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/gloo-dialogs/0.1.1/download",
+          "sha256": "67062364ac72d27f08445a46cab428188e2e224ec9e37efdba48ae8c289002e6"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "gloo_dialogs",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "gloo_dialogs",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "deps": {
+          "common": [
+            {
+              "id": "wasm-bindgen 0.2.84",
+              "target": "wasm_bindgen"
+            },
+            {
+              "id": "web-sys 0.3.61",
+              "target": "web_sys"
+            }
+          ],
+          "selects": {}
+        },
+        "edition": "2018",
+        "version": "0.1.1"
+      },
+      "license": "MIT OR Apache-2.0"
+    },
+    "gloo-events 0.1.2": {
+      "name": "gloo-events",
+      "version": "0.1.2",
+      "repository": {
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/gloo-events/0.1.2/download",
+          "sha256": "68b107f8abed8105e4182de63845afcc7b69c098b7852a813ea7462a320992fc"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "gloo_events",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "gloo_events",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "deps": {
+          "common": [
+            {
+              "id": "wasm-bindgen 0.2.84",
+              "target": "wasm_bindgen"
+            },
+            {
+              "id": "web-sys 0.3.61",
+              "target": "web_sys"
+            }
+          ],
+          "selects": {}
+        },
+        "edition": "2018",
+        "version": "0.1.2"
+      },
+      "license": "MIT/Apache-2.0"
+    },
+    "gloo-file 0.2.3": {
+      "name": "gloo-file",
+      "version": "0.2.3",
+      "repository": {
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/gloo-file/0.2.3/download",
+          "sha256": "a8d5564e570a38b43d78bdc063374a0c3098c4f0d64005b12f9bbe87e869b6d7"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "gloo_file",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "gloo_file",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "crate_features": [
+          "default"
+        ],
+        "deps": {
+          "common": [
+            {
+              "id": "gloo-events 0.1.2",
+              "target": "gloo_events"
+            },
+            {
+              "id": "js-sys 0.3.61",
+              "target": "js_sys"
+            },
+            {
+              "id": "wasm-bindgen 0.2.84",
+              "target": "wasm_bindgen"
+            },
+            {
+              "id": "web-sys 0.3.61",
+              "target": "web_sys"
+            }
+          ],
+          "selects": {}
+        },
+        "edition": "2018",
+        "version": "0.2.3"
+      },
+      "license": "MIT/Apache-2.0"
+    },
+    "gloo-history 0.1.3": {
+      "name": "gloo-history",
+      "version": "0.1.3",
+      "repository": {
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/gloo-history/0.1.3/download",
+          "sha256": "dd451019e0b7a2b8a7a7b23e74916601abf1135c54664e57ff71dcc26dfcdeb7"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "gloo_history",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "gloo_history",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "crate_features": [
+          "default",
+          "query",
+          "serde_urlencoded",
+          "thiserror"
+        ],
+        "deps": {
+          "common": [
+            {
+              "id": "gloo-events 0.1.2",
+              "target": "gloo_events"
+            },
+            {
+              "id": "gloo-utils 0.1.6",
+              "target": "gloo_utils"
+            },
+            {
+              "id": "serde 1.0.152",
+              "target": "serde"
+            },
+            {
+              "id": "serde-wasm-bindgen 0.4.5",
+              "target": "serde_wasm_bindgen"
+            },
+            {
+              "id": "serde_urlencoded 0.7.1",
+              "target": "serde_urlencoded"
+            },
+            {
+              "id": "thiserror 1.0.38",
+              "target": "thiserror"
+            },
+            {
+              "id": "wasm-bindgen 0.2.84",
+              "target": "wasm_bindgen"
+            },
+            {
+              "id": "web-sys 0.3.61",
+              "target": "web_sys"
+            }
+          ],
+          "selects": {}
+        },
+        "edition": "2018",
+        "version": "0.1.3"
+      },
+      "license": "MIT OR Apache-2.0"
+    },
+    "gloo-net 0.2.6": {
+      "name": "gloo-net",
+      "version": "0.2.6",
+      "repository": {
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/gloo-net/0.2.6/download",
+          "sha256": "9902a044653b26b99f7e3693a42f171312d9be8b26b5697bd1e43ad1f8a35e10"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "gloo_net",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "gloo_net",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "crate_features": [
+          "default",
+          "eventsource",
+          "futures-channel",
+          "futures-core",
+          "futures-sink",
+          "http",
+          "json",
+          "pin-project",
+          "serde",
+          "serde_json",
+          "websocket"
+        ],
+        "deps": {
+          "common": [
+            {
+              "id": "futures-channel 0.3.26",
+              "target": "futures_channel"
+            },
+            {
+              "id": "futures-core 0.3.26",
+              "target": "futures_core"
+            },
+            {
+              "id": "futures-sink 0.3.26",
+              "target": "futures_sink"
+            },
+            {
+              "id": "gloo-utils 0.1.6",
+              "target": "gloo_utils"
+            },
+            {
+              "id": "js-sys 0.3.61",
+              "target": "js_sys"
+            },
+            {
+              "id": "pin-project 1.0.12",
+              "target": "pin_project"
+            },
+            {
+              "id": "serde 1.0.152",
+              "target": "serde"
+            },
+            {
+              "id": "serde_json 1.0.91",
+              "target": "serde_json"
+            },
+            {
+              "id": "thiserror 1.0.38",
+              "target": "thiserror"
+            },
+            {
+              "id": "wasm-bindgen 0.2.84",
+              "target": "wasm_bindgen"
+            },
+            {
+              "id": "wasm-bindgen-futures 0.4.34",
+              "target": "wasm_bindgen_futures"
+            },
+            {
+              "id": "web-sys 0.3.61",
+              "target": "web_sys"
+            }
+          ],
+          "selects": {}
+        },
+        "edition": "2018",
+        "version": "0.2.6"
+      },
+      "license": "MIT OR Apache-2.0"
+    },
+    "gloo-render 0.1.1": {
+      "name": "gloo-render",
+      "version": "0.1.1",
+      "repository": {
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/gloo-render/0.1.1/download",
+          "sha256": "2fd9306aef67cfd4449823aadcd14e3958e0800aa2183955a309112a84ec7764"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "gloo_render",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "gloo_render",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "deps": {
+          "common": [
+            {
+              "id": "wasm-bindgen 0.2.84",
+              "target": "wasm_bindgen"
+            },
+            {
+              "id": "web-sys 0.3.61",
+              "target": "web_sys"
+            }
+          ],
+          "selects": {}
+        },
+        "edition": "2018",
+        "version": "0.1.1"
+      },
+      "license": "MIT OR Apache-2.0"
+    },
+    "gloo-storage 0.2.2": {
+      "name": "gloo-storage",
+      "version": "0.2.2",
+      "repository": {
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/gloo-storage/0.2.2/download",
+          "sha256": "5d6ab60bf5dbfd6f0ed1f7843da31b41010515c745735c970e821945ca91e480"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "gloo_storage",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "gloo_storage",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "deps": {
+          "common": [
+            {
+              "id": "gloo-utils 0.1.6",
+              "target": "gloo_utils"
+            },
+            {
+              "id": "js-sys 0.3.61",
+              "target": "js_sys"
+            },
+            {
+              "id": "serde 1.0.152",
+              "target": "serde"
+            },
+            {
+              "id": "serde_json 1.0.91",
+              "target": "serde_json"
+            },
+            {
+              "id": "thiserror 1.0.38",
+              "target": "thiserror"
+            },
+            {
+              "id": "wasm-bindgen 0.2.84",
+              "target": "wasm_bindgen"
+            },
+            {
+              "id": "web-sys 0.3.61",
+              "target": "web_sys"
+            }
+          ],
+          "selects": {}
+        },
+        "edition": "2018",
+        "version": "0.2.2"
+      },
+      "license": "MIT OR Apache-2.0"
+    },
+    "gloo-timers 0.2.6": {
+      "name": "gloo-timers",
+      "version": "0.2.6",
+      "repository": {
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/gloo-timers/0.2.6/download",
+          "sha256": "9b995a66bb87bebce9a0f4a95aed01daca4872c050bfcb21653361c03bc35e5c"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "gloo_timers",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "gloo_timers",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "crate_features": [
+          "default"
+        ],
+        "deps": {
+          "common": [
+            {
+              "id": "js-sys 0.3.61",
+              "target": "js_sys"
+            },
+            {
+              "id": "wasm-bindgen 0.2.84",
+              "target": "wasm_bindgen"
+            }
+          ],
+          "selects": {}
+        },
+        "edition": "2018",
+        "version": "0.2.6"
+      },
+      "license": "MIT/Apache-2.0"
+    },
+    "gloo-utils 0.1.6": {
+      "name": "gloo-utils",
+      "version": "0.1.6",
+      "repository": {
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/gloo-utils/0.1.6/download",
+          "sha256": "a8e8fc851e9c7b9852508bc6e3f690f452f474417e8545ec9857b7f7377036b5"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "gloo_utils",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "gloo_utils",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "crate_features": [
+          "default",
+          "serde"
+        ],
+        "deps": {
+          "common": [
+            {
+              "id": "js-sys 0.3.61",
+              "target": "js_sys"
+            },
+            {
+              "id": "serde 1.0.152",
+              "target": "serde"
+            },
+            {
+              "id": "serde_json 1.0.91",
+              "target": "serde_json"
+            },
+            {
+              "id": "wasm-bindgen 0.2.84",
+              "target": "wasm_bindgen"
+            },
+            {
+              "id": "web-sys 0.3.61",
+              "target": "web_sys"
+            }
+          ],
+          "selects": {}
+        },
+        "edition": "2018",
+        "version": "0.1.6"
+      },
+      "license": "MIT/Apache-2.0"
+    },
+    "gloo-worker 0.2.1": {
+      "name": "gloo-worker",
+      "version": "0.2.1",
+      "repository": {
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/gloo-worker/0.2.1/download",
+          "sha256": "13471584da78061a28306d1359dd0178d8d6fc1c7c80e5e35d27260346e0516a"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "gloo_worker",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "gloo_worker",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "crate_features": [
+          "default"
+        ],
+        "deps": {
+          "common": [
+            {
+              "id": "anymap2 0.13.0",
+              "target": "anymap2"
+            },
+            {
+              "id": "bincode 1.3.3",
+              "target": "bincode"
+            },
+            {
+              "id": "gloo-console 0.2.3",
+              "target": "gloo_console"
+            },
+            {
+              "id": "gloo-utils 0.1.6",
+              "target": "gloo_utils"
+            },
+            {
+              "id": "js-sys 0.3.61",
+              "target": "js_sys"
+            },
+            {
+              "id": "serde 1.0.152",
+              "target": "serde"
+            },
+            {
+              "id": "wasm-bindgen 0.2.84",
+              "target": "wasm_bindgen"
+            },
+            {
+              "id": "wasm-bindgen-futures 0.4.34",
+              "target": "wasm_bindgen_futures"
+            },
+            {
+              "id": "web-sys 0.3.61",
+              "target": "web_sys"
+            }
+          ],
+          "selects": {}
+        },
+        "edition": "2018",
+        "version": "0.2.1"
       },
       "license": "MIT OR Apache-2.0"
     },
@@ -5277,6 +6336,49 @@
       },
       "license": "MIT OR Apache-2.0"
     },
+    "implicit-clone 0.3.5": {
+      "name": "implicit-clone",
+      "version": "0.3.5",
+      "repository": {
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/implicit-clone/0.3.5/download",
+          "sha256": "40fc102e70475c320b185cd18c1e48bba2d7210b63970a4d581ef903e4368ef7"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "implicit_clone",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "implicit_clone",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "crate_features": [
+          "indexmap",
+          "map"
+        ],
+        "deps": {
+          "common": [
+            {
+              "id": "indexmap 1.9.2",
+              "target": "indexmap"
+            }
+          ],
+          "selects": {}
+        },
+        "edition": "2021",
+        "version": "0.3.5"
+      },
+      "license": "MIT OR Apache-2.0"
+    },
     "indexmap 1.9.2": {
       "name": "indexmap",
       "version": "1.9.2",
@@ -5377,6 +6479,12 @@
         "compile_data_glob": [
           "**"
         ],
+        "crate_features": [
+          "js-sys",
+          "wasm-bindgen",
+          "wasm-bindgen_rs",
+          "web-sys"
+        ],
         "deps": {
           "common": [
             {
@@ -5384,7 +6492,53 @@
               "target": "cfg_if"
             }
           ],
-          "selects": {}
+          "selects": {
+            "asmjs-unknown-emscripten": [
+              {
+                "id": "js-sys 0.3.61",
+                "target": "js_sys"
+              },
+              {
+                "id": "wasm-bindgen 0.2.84",
+                "target": "wasm_bindgen",
+                "alias": "wasm_bindgen_rs"
+              },
+              {
+                "id": "web-sys 0.3.61",
+                "target": "web_sys"
+              }
+            ],
+            "wasm32-unknown-emscripten": [
+              {
+                "id": "js-sys 0.3.61",
+                "target": "js_sys"
+              },
+              {
+                "id": "wasm-bindgen 0.2.84",
+                "target": "wasm_bindgen",
+                "alias": "wasm_bindgen_rs"
+              },
+              {
+                "id": "web-sys 0.3.61",
+                "target": "web_sys"
+              }
+            ],
+            "wasm32-unknown-unknown": [
+              {
+                "id": "js-sys 0.3.61",
+                "target": "js_sys"
+              },
+              {
+                "id": "wasm-bindgen 0.2.84",
+                "target": "wasm_bindgen",
+                "alias": "wasm_bindgen_rs"
+              },
+              {
+                "id": "web-sys 0.3.61",
+                "target": "web_sys"
+              }
+            ]
+          }
         },
         "edition": "2018",
         "version": "0.1.12"
@@ -5806,6 +6960,49 @@
         "links": "cplusplus"
       },
       "license": "MIT OR Apache-2.0"
+    },
+    "litrs 0.3.0": {
+      "name": "litrs",
+      "version": "0.3.0",
+      "repository": {
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/litrs/0.3.0/download",
+          "sha256": "b487d13a3f4b465df87895a37b24e364907019afa12d943528df5b7abe0836f1"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "litrs",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "litrs",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "crate_features": [
+          "default",
+          "proc-macro2"
+        ],
+        "deps": {
+          "common": [
+            {
+              "id": "proc-macro2 1.0.50",
+              "target": "proc_macro2"
+            }
+          ],
+          "selects": {}
+        },
+        "edition": "2018",
+        "version": "0.3.0"
+      },
+      "license": "MIT/Apache-2.0"
     },
     "local-channel 0.1.3": {
       "name": "local-channel",
@@ -7568,6 +8765,58 @@
       },
       "license": "MIT OR Apache-2.0"
     },
+    "pinned 0.1.0": {
+      "name": "pinned",
+      "version": "0.1.0",
+      "repository": {
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/pinned/0.1.0/download",
+          "sha256": "a829027bd95e54cfe13e3e258a1ae7b645960553fb82b75ff852c29688ee595b"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "pinned",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "pinned",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "deps": {
+          "common": [
+            {
+              "id": "futures 0.3.26",
+              "target": "futures"
+            },
+            {
+              "id": "thiserror 1.0.38",
+              "target": "thiserror"
+            }
+          ],
+          "selects": {}
+        },
+        "edition": "2021",
+        "proc_macro_deps": {
+          "common": [
+            {
+              "id": "rustversion 1.0.11",
+              "target": "rustversion"
+            }
+          ],
+          "selects": {}
+        },
+        "version": "0.1.0"
+      },
+      "license": "MIT OR Apache-2.0"
+    },
     "pkg-config 0.3.26": {
       "name": "pkg-config",
       "version": "0.3.26",
@@ -7769,6 +9018,226 @@
       },
       "license": "MIT/Apache-2.0"
     },
+    "prettyplease 0.1.23": {
+      "name": "prettyplease",
+      "version": "0.1.23",
+      "repository": {
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/prettyplease/0.1.23/download",
+          "sha256": "e97e3215779627f01ee256d2fad52f3d95e8e1c11e9fc6fd08f7cd455d5d5c78"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "prettyplease",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        },
+        {
+          "BuildScript": {
+            "crate_name": "build_script_build",
+            "crate_root": "build.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "prettyplease",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "deps": {
+          "common": [
+            {
+              "id": "prettyplease 0.1.23",
+              "target": "build_script_build"
+            },
+            {
+              "id": "proc-macro2 1.0.50",
+              "target": "proc_macro2"
+            },
+            {
+              "id": "syn 1.0.107",
+              "target": "syn"
+            }
+          ],
+          "selects": {}
+        },
+        "edition": "2021",
+        "version": "0.1.23"
+      },
+      "build_script_attrs": {
+        "data_glob": [
+          "**"
+        ],
+        "links": "prettyplease01"
+      },
+      "license": "MIT OR Apache-2.0"
+    },
+    "proc-macro-error 1.0.4": {
+      "name": "proc-macro-error",
+      "version": "1.0.4",
+      "repository": {
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/proc-macro-error/1.0.4/download",
+          "sha256": "da25490ff9892aab3fcf7c36f08cfb902dd3e71ca0f9f9517bea02a73a5ce38c"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "proc_macro_error",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        },
+        {
+          "BuildScript": {
+            "crate_name": "build_script_build",
+            "crate_root": "build.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "proc_macro_error",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "crate_features": [
+          "default",
+          "syn",
+          "syn-error"
+        ],
+        "deps": {
+          "common": [
+            {
+              "id": "proc-macro-error 1.0.4",
+              "target": "build_script_build"
+            },
+            {
+              "id": "proc-macro2 1.0.50",
+              "target": "proc_macro2"
+            },
+            {
+              "id": "quote 1.0.23",
+              "target": "quote"
+            },
+            {
+              "id": "syn 1.0.107",
+              "target": "syn"
+            }
+          ],
+          "selects": {}
+        },
+        "edition": "2018",
+        "proc_macro_deps": {
+          "common": [
+            {
+              "id": "proc-macro-error-attr 1.0.4",
+              "target": "proc_macro_error_attr"
+            }
+          ],
+          "selects": {}
+        },
+        "version": "1.0.4"
+      },
+      "build_script_attrs": {
+        "data_glob": [
+          "**"
+        ],
+        "deps": {
+          "common": [
+            {
+              "id": "version_check 0.9.4",
+              "target": "version_check"
+            }
+          ],
+          "selects": {}
+        }
+      },
+      "license": "MIT OR Apache-2.0"
+    },
+    "proc-macro-error-attr 1.0.4": {
+      "name": "proc-macro-error-attr",
+      "version": "1.0.4",
+      "repository": {
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/proc-macro-error-attr/1.0.4/download",
+          "sha256": "a1be40180e52ecc98ad80b184934baf3d0d29f979574e439af5a55274b35f869"
+        }
+      },
+      "targets": [
+        {
+          "ProcMacro": {
+            "crate_name": "proc_macro_error_attr",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        },
+        {
+          "BuildScript": {
+            "crate_name": "build_script_build",
+            "crate_root": "build.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "proc_macro_error_attr",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "deps": {
+          "common": [
+            {
+              "id": "proc-macro-error-attr 1.0.4",
+              "target": "build_script_build"
+            },
+            {
+              "id": "proc-macro2 1.0.50",
+              "target": "proc_macro2"
+            },
+            {
+              "id": "quote 1.0.23",
+              "target": "quote"
+            }
+          ],
+          "selects": {}
+        },
+        "edition": "2018",
+        "version": "1.0.4"
+      },
+      "build_script_attrs": {
+        "data_glob": [
+          "**"
+        ],
+        "deps": {
+          "common": [
+            {
+              "id": "version_check 0.9.4",
+              "target": "version_check"
+            }
+          ],
+          "selects": {}
+        }
+      },
+      "license": "MIT OR Apache-2.0"
+    },
     "proc-macro2 1.0.50": {
       "name": "proc-macro2",
       "version": "1.0.50",
@@ -7828,6 +9297,85 @@
         "data_glob": [
           "**"
         ]
+      },
+      "license": "MIT OR Apache-2.0"
+    },
+    "prokio 0.1.0": {
+      "name": "prokio",
+      "version": "0.1.0",
+      "repository": {
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/prokio/0.1.0/download",
+          "sha256": "03b55e106e5791fa5a13abd13c85d6127312e8e09098059ca2bc9b03ca4cf488"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "prokio",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "prokio",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "crate_features": [
+          "default"
+        ],
+        "deps": {
+          "common": [
+            {
+              "id": "futures 0.3.26",
+              "target": "futures"
+            },
+            {
+              "id": "pin-project 1.0.12",
+              "target": "pin_project"
+            },
+            {
+              "id": "pinned 0.1.0",
+              "target": "pinned"
+            }
+          ],
+          "selects": {
+            "cfg(not(target_arch = \"wasm32\"))": [
+              {
+                "id": "num_cpus 1.15.0",
+                "target": "num_cpus"
+              },
+              {
+                "id": "once_cell 1.17.0",
+                "target": "once_cell"
+              },
+              {
+                "id": "tokio 1.24.2",
+                "target": "tokio"
+              },
+              {
+                "id": "tokio-stream 0.1.11",
+                "target": "tokio_stream"
+              }
+            ],
+            "cfg(target_arch = \"wasm32\")": [
+              {
+                "id": "gloo 0.8.0",
+                "target": "gloo"
+              },
+              {
+                "id": "wasm-bindgen-futures 0.4.34",
+                "target": "wasm_bindgen_futures"
+              }
+            ]
+          }
+        },
+        "edition": "2021",
+        "version": "0.1.0"
       },
       "license": "MIT OR Apache-2.0"
     },
@@ -8267,6 +9815,59 @@
       },
       "license": "MIT/Apache-2.0"
     },
+    "rustversion 1.0.11": {
+      "name": "rustversion",
+      "version": "1.0.11",
+      "repository": {
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/rustversion/1.0.11/download",
+          "sha256": "5583e89e108996506031660fe09baa5011b9dd0341b89029313006d1fb508d70"
+        }
+      },
+      "targets": [
+        {
+          "ProcMacro": {
+            "crate_name": "rustversion",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        },
+        {
+          "BuildScript": {
+            "crate_name": "build_script_build",
+            "crate_root": "build/build.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "rustversion",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "deps": {
+          "common": [
+            {
+              "id": "rustversion 1.0.11",
+              "target": "build_script_build"
+            }
+          ],
+          "selects": {}
+        },
+        "edition": "2018",
+        "version": "1.0.11"
+      },
+      "build_script_attrs": {
+        "data_glob": [
+          "**"
+        ]
+      },
+      "license": "MIT OR Apache-2.0"
+    },
     "ryu 1.0.12": {
       "name": "ryu",
       "version": "1.0.12",
@@ -8651,6 +10252,53 @@
       },
       "license": "MIT OR Apache-2.0"
     },
+    "serde-wasm-bindgen 0.4.5": {
+      "name": "serde-wasm-bindgen",
+      "version": "0.4.5",
+      "repository": {
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/serde-wasm-bindgen/0.4.5/download",
+          "sha256": "e3b4c031cd0d9014307d82b8abf653c0290fbdaeb4c02d00c63cf52f728628bf"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "serde_wasm_bindgen",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "serde_wasm_bindgen",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "deps": {
+          "common": [
+            {
+              "id": "js-sys 0.3.61",
+              "target": "js_sys"
+            },
+            {
+              "id": "serde 1.0.152",
+              "target": "serde"
+            },
+            {
+              "id": "wasm-bindgen 0.2.84",
+              "target": "wasm_bindgen"
+            }
+          ],
+          "selects": {}
+        },
+        "edition": "2018",
+        "version": "0.4.5"
+      },
+      "license": "MIT"
+    },
     "serde_derive 1.0.152": {
       "name": "serde_derive",
       "version": "1.0.152",
@@ -8947,7 +10595,7 @@
               "target": "serde_json"
             },
             {
-              "id": "time 0.3.17",
+              "id": "time 0.3.20",
               "target": "time",
               "alias": "time_0_3"
             }
@@ -9639,7 +11287,7 @@
               "target": "thiserror"
             },
             {
-              "id": "time 0.3.17",
+              "id": "time 0.3.20",
               "target": "time"
             },
             {
@@ -9814,6 +11462,54 @@
       },
       "license": "MIT OR Apache-2.0"
     },
+    "stdweb 0.3.0": {
+      "name": "stdweb",
+      "version": "0.3.0",
+      "repository": {
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/stdweb/0.3.0/download",
+          "sha256": "7b9c504d47623c911c70686c17a3321a3400942e57970d2a2959a7b3b2ade630"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "stdweb",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "stdweb",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "crate_features": [
+          "default",
+          "serde",
+          "serde_json"
+        ],
+        "deps": {
+          "common": [
+            {
+              "id": "serde 1.0.152",
+              "target": "serde"
+            },
+            {
+              "id": "serde_json 1.0.91",
+              "target": "serde_json"
+            }
+          ],
+          "selects": {}
+        },
+        "edition": "2015",
+        "version": "0.3.0"
+      },
+      "license": "MIT/Apache-2.0"
+    },
     "stringprep 0.1.2": {
       "name": "stringprep",
       "version": "0.1.2",
@@ -9884,6 +11580,220 @@
         ],
         "edition": "2015",
         "version": "0.10.0"
+      },
+      "license": "MIT"
+    },
+    "stylist 0.12.0": {
+      "name": "stylist",
+      "version": "0.12.0",
+      "repository": {
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/stylist/0.12.0/download",
+          "sha256": "5a8dccf52b4a6dda7a7e229b712b5a31f3270e77365e2655cfeb13fd713535bf"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "stylist",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "stylist",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "crate_features": [
+          "debug_parser",
+          "debug_style_locations",
+          "default",
+          "macros",
+          "random",
+          "stylist-macros",
+          "yew"
+        ],
+        "deps": {
+          "common": [
+            {
+              "id": "fastrand 1.8.0",
+              "target": "fastrand"
+            },
+            {
+              "id": "instant 0.1.12",
+              "target": "instant"
+            },
+            {
+              "id": "once_cell 1.17.0",
+              "target": "once_cell"
+            },
+            {
+              "id": "serde 1.0.152",
+              "target": "serde"
+            },
+            {
+              "id": "stylist-core 0.12.0",
+              "target": "stylist_core"
+            },
+            {
+              "id": "wasm-bindgen 0.2.84",
+              "target": "wasm_bindgen"
+            },
+            {
+              "id": "web-sys 0.3.61",
+              "target": "web_sys"
+            },
+            {
+              "id": "yew 0.20.0",
+              "target": "yew"
+            }
+          ],
+          "selects": {}
+        },
+        "edition": "2021",
+        "proc_macro_deps": {
+          "common": [
+            {
+              "id": "stylist-macros 0.12.0",
+              "target": "stylist_macros"
+            }
+          ],
+          "selects": {}
+        },
+        "version": "0.12.0"
+      },
+      "license": "MIT"
+    },
+    "stylist-core 0.12.0": {
+      "name": "stylist-core",
+      "version": "0.12.0",
+      "repository": {
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/stylist-core/0.12.0/download",
+          "sha256": "f115d7e07846b817a0527d4ca7b9bca3342c2387fcda17330702f839c69380a1"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "stylist_core",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "stylist_core",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "crate_features": [
+          "parser"
+        ],
+        "deps": {
+          "common": [
+            {
+              "id": "nom 7.1.3",
+              "target": "nom"
+            },
+            {
+              "id": "once_cell 1.17.0",
+              "target": "once_cell"
+            },
+            {
+              "id": "serde 1.0.152",
+              "target": "serde"
+            },
+            {
+              "id": "thiserror 1.0.38",
+              "target": "thiserror"
+            },
+            {
+              "id": "wasm-bindgen 0.2.84",
+              "target": "wasm_bindgen"
+            }
+          ],
+          "selects": {}
+        },
+        "edition": "2021",
+        "version": "0.12.0"
+      },
+      "license": "MIT"
+    },
+    "stylist-macros 0.12.0": {
+      "name": "stylist-macros",
+      "version": "0.12.0",
+      "repository": {
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/stylist-macros/0.12.0/download",
+          "sha256": "7ba494c8364859e8cddf7b18598ab556803dbef994c13efaf9888a65ca0bb775"
+        }
+      },
+      "targets": [
+        {
+          "ProcMacro": {
+            "crate_name": "stylist_macros",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "stylist_macros",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "deps": {
+          "common": [
+            {
+              "id": "itertools 0.10.5",
+              "target": "itertools"
+            },
+            {
+              "id": "litrs 0.3.0",
+              "target": "litrs"
+            },
+            {
+              "id": "log 0.4.17",
+              "target": "log"
+            },
+            {
+              "id": "nom 7.1.3",
+              "target": "nom"
+            },
+            {
+              "id": "proc-macro-error 1.0.4",
+              "target": "proc_macro_error"
+            },
+            {
+              "id": "proc-macro2 1.0.50",
+              "target": "proc_macro2"
+            },
+            {
+              "id": "quote 1.0.23",
+              "target": "quote"
+            },
+            {
+              "id": "stylist-core 0.12.0",
+              "target": "stylist_core"
+            },
+            {
+              "id": "syn 1.0.107",
+              "target": "syn"
+            }
+          ],
+          "selects": {}
+        },
+        "edition": "2021",
+        "version": "0.12.0"
       },
       "license": "MIT"
     },
@@ -10211,13 +12121,13 @@
       },
       "license": "MIT OR Apache-2.0"
     },
-    "time 0.3.17": {
+    "time 0.3.20": {
       "name": "time",
-      "version": "0.3.17",
+      "version": "0.3.20",
       "repository": {
         "Http": {
-          "url": "https://crates.io/api/v1/crates/time/0.3.17/download",
-          "sha256": "a561bf4617eebd33bca6434b988f39ed798e527f51a1e797d0ee4f61c0a38376"
+          "url": "https://crates.io/api/v1/crates/time/0.3.20/download",
+          "sha256": "cd0cbfecb4d19b5ea75bb31ad904eb5b9fa13f21079c3b92017ebdf4999a5890"
         }
       },
       "targets": [
@@ -10267,13 +12177,13 @@
         "proc_macro_deps": {
           "common": [
             {
-              "id": "time-macros 0.2.6",
+              "id": "time-macros 0.2.8",
               "target": "time_macros"
             }
           ],
           "selects": {}
         },
-        "version": "0.3.17"
+        "version": "0.3.20"
       },
       "license": "MIT OR Apache-2.0"
     },
@@ -10307,13 +12217,13 @@
       },
       "license": "MIT OR Apache-2.0"
     },
-    "time-macros 0.2.6": {
+    "time-macros 0.2.8": {
       "name": "time-macros",
-      "version": "0.2.6",
+      "version": "0.2.8",
       "repository": {
         "Http": {
-          "url": "https://crates.io/api/v1/crates/time-macros/0.2.6/download",
-          "sha256": "d967f99f534ca7e495c575c62638eebc2898a8c84c119b89e250477bc4ba16b2"
+          "url": "https://crates.io/api/v1/crates/time-macros/0.2.8/download",
+          "sha256": "fd80a657e71da814b8e5d60d3374fc6d35045062245d80224748ae522dd76f36"
         }
       },
       "targets": [
@@ -10347,7 +12257,7 @@
           "selects": {}
         },
         "edition": "2021",
-        "version": "0.2.6"
+        "version": "0.2.8"
       },
       "license": "MIT OR Apache-2.0"
     },
@@ -10849,8 +12759,11 @@
           "**"
         ],
         "crate_features": [
+          "attributes",
+          "default",
           "log",
-          "std"
+          "std",
+          "tracing-attributes"
         ],
         "deps": {
           "common": [
@@ -10874,7 +12787,63 @@
           "selects": {}
         },
         "edition": "2018",
+        "proc_macro_deps": {
+          "common": [
+            {
+              "id": "tracing-attributes 0.1.23",
+              "target": "tracing_attributes"
+            }
+          ],
+          "selects": {}
+        },
         "version": "0.1.37"
+      },
+      "license": "MIT"
+    },
+    "tracing-attributes 0.1.23": {
+      "name": "tracing-attributes",
+      "version": "0.1.23",
+      "repository": {
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/tracing-attributes/0.1.23/download",
+          "sha256": "4017f8f45139870ca7e672686113917c71c7a6e02d4924eda67186083c03081a"
+        }
+      },
+      "targets": [
+        {
+          "ProcMacro": {
+            "crate_name": "tracing_attributes",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "tracing_attributes",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "deps": {
+          "common": [
+            {
+              "id": "proc-macro2 1.0.50",
+              "target": "proc_macro2"
+            },
+            {
+              "id": "quote 1.0.23",
+              "target": "quote"
+            },
+            {
+              "id": "syn 1.0.107",
+              "target": "syn"
+            }
+          ],
+          "selects": {}
+        },
+        "edition": "2018",
+        "version": "0.1.23"
       },
       "license": "MIT"
     },
@@ -11518,6 +13487,60 @@
       },
       "license": "MIT/Apache-2.0"
     },
+    "wasm-bindgen-futures 0.4.34": {
+      "name": "wasm-bindgen-futures",
+      "version": "0.4.34",
+      "repository": {
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/wasm-bindgen-futures/0.4.34/download",
+          "sha256": "f219e0d211ba40266969f6dbdd90636da12f75bee4fc9d6c23d1260dadb51454"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "wasm_bindgen_futures",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "wasm_bindgen_futures",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "deps": {
+          "common": [
+            {
+              "id": "cfg-if 1.0.0",
+              "target": "cfg_if"
+            },
+            {
+              "id": "js-sys 0.3.61",
+              "target": "js_sys"
+            },
+            {
+              "id": "wasm-bindgen 0.2.84",
+              "target": "wasm_bindgen"
+            }
+          ],
+          "selects": {
+            "cfg(target_feature = \"atomics\")": [
+              {
+                "id": "web-sys 0.3.61",
+                "target": "web_sys"
+              }
+            ]
+          }
+        },
+        "edition": "2018",
+        "version": "0.4.34"
+      },
+      "license": "MIT/Apache-2.0"
+    },
     "wasm-bindgen-macro 0.2.84": {
       "name": "wasm-bindgen-macro",
       "version": "0.2.84",
@@ -11673,6 +13696,125 @@
           "**"
         ],
         "links": "wasm_bindgen"
+      },
+      "license": "MIT/Apache-2.0"
+    },
+    "web-sys 0.3.61": {
+      "name": "web-sys",
+      "version": "0.3.61",
+      "repository": {
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/web-sys/0.3.61/download",
+          "sha256": "e33b99f4b23ba3eec1a53ac264e35a755f00e966e0065077d6027c0f575b0b97"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "web_sys",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "web_sys",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "crate_features": [
+          "AbortSignal",
+          "AddEventListenerOptions",
+          "AnimationEvent",
+          "BinaryType",
+          "Blob",
+          "BlobPropertyBag",
+          "CharacterData",
+          "CloseEvent",
+          "CloseEventInit",
+          "DedicatedWorkerGlobalScope",
+          "Document",
+          "DocumentFragment",
+          "DomException",
+          "DragEvent",
+          "Element",
+          "ErrorEvent",
+          "Event",
+          "EventInit",
+          "EventSource",
+          "EventTarget",
+          "File",
+          "FileList",
+          "FilePropertyBag",
+          "FileReader",
+          "FocusEvent",
+          "FormData",
+          "Headers",
+          "History",
+          "HtmlCollection",
+          "HtmlElement",
+          "HtmlHeadElement",
+          "HtmlInputElement",
+          "HtmlScriptElement",
+          "HtmlStyleElement",
+          "HtmlTextAreaElement",
+          "InputEvent",
+          "InputEventInit",
+          "KeyboardEvent",
+          "Location",
+          "MessageEvent",
+          "MouseEvent",
+          "Node",
+          "NodeList",
+          "ObserverCallback",
+          "Performance",
+          "PerformanceTiming",
+          "PointerEvent",
+          "ProgressEvent",
+          "ReadableStream",
+          "ReferrerPolicy",
+          "Request",
+          "RequestCache",
+          "RequestCredentials",
+          "RequestInit",
+          "RequestMode",
+          "RequestRedirect",
+          "Response",
+          "ResponseType",
+          "ShadowRoot",
+          "Storage",
+          "SubmitEvent",
+          "Text",
+          "TouchEvent",
+          "TransitionEvent",
+          "UiEvent",
+          "Url",
+          "UrlSearchParams",
+          "WebSocket",
+          "WheelEvent",
+          "Window",
+          "Worker",
+          "WorkerGlobalScope",
+          "WorkerOptions",
+          "console"
+        ],
+        "deps": {
+          "common": [
+            {
+              "id": "js-sys 0.3.61",
+              "target": "js_sys"
+            },
+            {
+              "id": "wasm-bindgen 0.2.84",
+              "target": "wasm_bindgen"
+            }
+          ],
+          "selects": {}
+        },
+        "edition": "2018",
+        "version": "0.3.61"
       },
       "license": "MIT/Apache-2.0"
     },
@@ -12414,6 +14556,232 @@
       },
       "license": "MIT OR Apache-2.0"
     },
+    "yew 0.2.0": {
+      "name": "yew",
+      "version": "0.2.0",
+      "repository": {
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/yew/0.2.0/download",
+          "sha256": "dc83322483cccffb7229522fc45bdfbf811ecde19c583b38e1ac5c77f84c2d87"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "yew",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "yew",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "crate_features": [
+          "default"
+        ],
+        "deps": {
+          "common": [
+            {
+              "id": "serde 1.0.152",
+              "target": "serde"
+            },
+            {
+              "id": "serde_json 1.0.91",
+              "target": "serde_json"
+            },
+            {
+              "id": "stdweb 0.3.0",
+              "target": "stdweb"
+            }
+          ],
+          "selects": {}
+        },
+        "edition": "2015",
+        "version": "0.2.0"
+      },
+      "license": "MIT/Apache-2.0"
+    },
+    "yew 0.20.0": {
+      "name": "yew",
+      "version": "0.20.0",
+      "repository": {
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/yew/0.20.0/download",
+          "sha256": "5dbecfe44343b70cc2932c3eb445425969ae21754a8ab3a0966981c1cf7af1cc"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "yew",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "yew",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "deps": {
+          "common": [
+            {
+              "id": "console_error_panic_hook 0.1.7",
+              "target": "console_error_panic_hook"
+            },
+            {
+              "id": "futures 0.3.26",
+              "target": "futures"
+            },
+            {
+              "id": "gloo 0.8.0",
+              "target": "gloo"
+            },
+            {
+              "id": "implicit-clone 0.3.5",
+              "target": "implicit_clone"
+            },
+            {
+              "id": "indexmap 1.9.2",
+              "target": "indexmap"
+            },
+            {
+              "id": "js-sys 0.3.61",
+              "target": "js_sys"
+            },
+            {
+              "id": "prokio 0.1.0",
+              "target": "prokio"
+            },
+            {
+              "id": "serde 1.0.152",
+              "target": "serde"
+            },
+            {
+              "id": "slab 0.4.7",
+              "target": "slab"
+            },
+            {
+              "id": "thiserror 1.0.38",
+              "target": "thiserror"
+            },
+            {
+              "id": "tracing 0.1.37",
+              "target": "tracing"
+            },
+            {
+              "id": "wasm-bindgen 0.2.84",
+              "target": "wasm_bindgen"
+            },
+            {
+              "id": "web-sys 0.3.61",
+              "target": "web_sys"
+            }
+          ],
+          "selects": {
+            "cfg(not(target_arch = \"wasm32\"))": [
+              {
+                "id": "tokio 1.24.2",
+                "target": "tokio"
+              }
+            ],
+            "cfg(target_arch = \"wasm32\")": [
+              {
+                "id": "wasm-bindgen-futures 0.4.34",
+                "target": "wasm_bindgen_futures"
+              }
+            ]
+          }
+        },
+        "edition": "2021",
+        "proc_macro_deps": {
+          "common": [
+            {
+              "id": "rustversion 1.0.11",
+              "target": "rustversion"
+            },
+            {
+              "id": "yew-macro 0.20.0",
+              "target": "yew_macro"
+            }
+          ],
+          "selects": {}
+        },
+        "version": "0.20.0"
+      },
+      "license": "MIT OR Apache-2.0"
+    },
+    "yew-macro 0.20.0": {
+      "name": "yew-macro",
+      "version": "0.20.0",
+      "repository": {
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/yew-macro/0.20.0/download",
+          "sha256": "b64c253c1d401f1ea868ca9988db63958cfa15a69f739101f338d6f05eea8301"
+        }
+      },
+      "targets": [
+        {
+          "ProcMacro": {
+            "crate_name": "yew_macro",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "yew_macro",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "deps": {
+          "common": [
+            {
+              "id": "boolinator 2.4.0",
+              "target": "boolinator"
+            },
+            {
+              "id": "once_cell 1.17.0",
+              "target": "once_cell"
+            },
+            {
+              "id": "prettyplease 0.1.23",
+              "target": "prettyplease"
+            },
+            {
+              "id": "proc-macro-error 1.0.4",
+              "target": "proc_macro_error"
+            },
+            {
+              "id": "proc-macro2 1.0.50",
+              "target": "proc_macro2"
+            },
+            {
+              "id": "quote 1.0.23",
+              "target": "quote"
+            },
+            {
+              "id": "syn 1.0.107",
+              "target": "syn"
+            }
+          ],
+          "selects": {}
+        },
+        "edition": "2021",
+        "version": "0.20.0"
+      },
+      "license": "MIT OR Apache-2.0"
+    },
     "zip 0.6.4": {
       "name": "zip",
       "version": "0.6.4",
@@ -12492,7 +14860,7 @@
               "target": "sha1"
             },
             {
-              "id": "time 0.3.17",
+              "id": "time 0.3.20",
               "target": "time"
             },
             {
@@ -12831,6 +15199,7 @@
       "aarch64-pc-windows-msvc"
     ],
     "aarch64-uwp-windows-msvc": [],
+    "asmjs-unknown-emscripten": [],
     "cfg(all(any(target_arch = \"x86_64\", target_arch = \"aarch64\"), target_os = \"hermit\"))": [],
     "cfg(all(target_arch = \"aarch64\", target_os = \"linux\"))": [
       "aarch64-unknown-linux-gnu"
@@ -13008,6 +15377,32 @@
       "x86_64-unknown-freebsd",
       "x86_64-unknown-linux-gnu"
     ],
+    "cfg(not(target_arch = \"wasm32\"))": [
+      "aarch64-apple-darwin",
+      "aarch64-apple-ios",
+      "aarch64-apple-ios-sim",
+      "aarch64-linux-android",
+      "aarch64-pc-windows-msvc",
+      "aarch64-unknown-linux-gnu",
+      "arm-unknown-linux-gnueabi",
+      "armv7-linux-androideabi",
+      "armv7-unknown-linux-gnueabi",
+      "i686-apple-darwin",
+      "i686-linux-android",
+      "i686-pc-windows-msvc",
+      "i686-unknown-freebsd",
+      "i686-unknown-linux-gnu",
+      "powerpc-unknown-linux-gnu",
+      "riscv32imc-unknown-none-elf",
+      "riscv64gc-unknown-none-elf",
+      "s390x-unknown-linux-gnu",
+      "x86_64-apple-darwin",
+      "x86_64-apple-ios",
+      "x86_64-linux-android",
+      "x86_64-pc-windows-msvc",
+      "x86_64-unknown-freebsd",
+      "x86_64-unknown-linux-gnu"
+    ],
     "cfg(not(windows))": [
       "aarch64-apple-darwin",
       "aarch64-apple-ios",
@@ -13042,6 +15437,7 @@
       "i686-pc-windows-msvc",
       "x86_64-pc-windows-msvc"
     ],
+    "cfg(target_feature = \"atomics\")": [],
     "cfg(target_os = \"android\")": [
       "aarch64-linux-android",
       "armv7-linux-androideabi",
@@ -13090,6 +15486,10 @@
     ],
     "i686-uwp-windows-gnu": [],
     "i686-uwp-windows-msvc": [],
+    "wasm32-unknown-emscripten": [],
+    "wasm32-unknown-unknown": [
+      "wasm32-unknown-unknown"
+    ],
     "x86_64-pc-windows-gnu": [],
     "x86_64-pc-windows-gnullvm": [],
     "x86_64-pc-windows-msvc": [

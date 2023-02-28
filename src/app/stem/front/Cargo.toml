@@ -3,6 +3,9 @@ name = "front"
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+path = "rs/lib.rs"
+
 # we use 'rs' instead of 'src' since the bazel sandbox gives us a handle to our
 # repository root, which is also named 'src'
 [[bin]]
@@ -12,5 +15,10 @@ path = "rs/main.rs"
 
 [dependencies]
 yew = { version = "0.20.0", features = ["csr"] }
+yew-router = "0.17.0"
+web-sys = "0.3.61"
+log = "0.4.17"
+wasm-logger = "0.2.0"
+
 stylist = { version = "0.12.0", features = ["yew"] }
 time = "0.3.19"

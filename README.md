@@ -151,6 +151,12 @@ language server setup in particular.
 bazel run //:rustanalyzer
 ```
 
+Unfortunately, the presence of the `rust-project.json` prevents `rust-analyzer`
+from detecting cargo workspaces, like the frontend. If only working on the
+frontend, one can simply delete the `rust-project.json` file and regenerate it
+when returning to work on the backend. But there is not yet a good solution for
+developing on both at once.
+
 ### Profiling Slow Bazel Builds, Tests, and Runs
 
 - `time bazel build ...`: View how long you're actually waiting.
@@ -177,3 +183,9 @@ Prereq: install graphviz (includes `dot`) with `brew install graphviz`.
 - `.unwrap_or_else(|err| { println("got error {}", err); return; })`
     - if return type is `()` on success: `if let Err(e) = run(config) {`
 - `eprintln` for stderr
+
+## Style Notes
+
+- Code lines set to 80 characters or shorter
+- Parent functions should come before the children that they call. This imrpoves
+    readability.
