@@ -112,7 +112,7 @@ pub fn Navbar() -> Html {
             Callback::from(move |_e: MouseEvent| navigator.push(&route))
         };
         // Style the current button blue if we are on it
-        let mut style = vec![];
+        let mut style = vec!["py-8"];
         if let Some(r) = &curr_route {
             if *route == *r {
                 style.push("text-sky-500");
@@ -122,7 +122,7 @@ pub fn Navbar() -> Html {
     });
     html! {
         <nav class="fixed inset-x-0 bottom-0 bg-neutral-900 \
-                    py-8 flex justify-evenly">
+                    grid grid-cols-3 justify-items-stretch">
             {for items}
         </nav>
     }

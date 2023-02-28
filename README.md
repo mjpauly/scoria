@@ -6,6 +6,8 @@
 - [x] initial barebones yew UI
 - [x] refactor to WebView (storyboard instead of swiftUI base?)
 - [_] *reach feature parity with SwiftUI*
+    - [x] make navbar buttons bigger
+    - [_] add navbar icons
 - [_] prevent unwanted scrolling in the WKWebView
 - [_] CI pipeline
 - [_] integration tests
