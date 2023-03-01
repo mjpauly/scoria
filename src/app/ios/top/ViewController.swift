@@ -25,7 +25,7 @@ class ViewController: UIViewController {
         let contentController = self.webView.configuration.userContentController
         contentController.add(self, name: "toggleMessageHandler")
         
-        let url = URL(string: "http://127.0.0.1:8080")
+        let url = URL(string: "http://127.0.0.1:8081")
         let req = URLRequest(url: url!)
         webView.load(req)
     }

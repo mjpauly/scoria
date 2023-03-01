@@ -8,7 +8,9 @@ use crate::NavbarWrapper;
 pub fn Analyze() -> Html {
     html! {
         <NavbarWrapper>
-            <h1>{"Analyze!"}</h1>
+            <h1 class="text-sky-500 text-3xl mb-6">
+                {"Analyze!"}
+            </h1>
         </NavbarWrapper>
     }
 }

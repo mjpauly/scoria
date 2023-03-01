@@ -20,5 +20,10 @@ web-sys = "0.3.61"
 log = "0.4.17"
 wasm-logger = "0.2.0"
 
+yew_icons = {version = "0.7", features = [
+    "BootstrapSoundwave", "BootstrapExclamationTriangle", "BootstrapTools",
+    "BootstrapMap",
+]}
+
 stylist = { version = "0.12.0", features = ["yew"] }
 time = "0.3.19"

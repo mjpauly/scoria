@@ -7,24 +7,12 @@ use std::ffi::CStr;
 use std::os::raw::c_char;
 use std::path::PathBuf;
 
+mod app_state;
 mod database;
 mod paths;
 mod runtime;
 mod startup;
 mod viz;
-
-// Convert a const char* reference from C into an owned Rust String.
-fn cstr_to_string(cstr: *const c_char) -> String {
-    let cstr: &CStr = unsafe { CStr::from_ptr(cstr) };
-    String::from_utf8_lossy(cstr.to_bytes()).to_string()
-}
-
-/// Initializes the rust library with the given app directories.
-async fn init(paths_to_set: paths::Paths) {
-    paths::set_app_dirs(paths_to_set);
-    database::init_db().await.unwrap();
-    startup::run("127.0.0.1", 8080);
-}
 
 /// Set the directories known to the Rust library.
 ///
@@ -51,6 +39,19 @@ pub extern "C" fn set_app_dirs(
     runtime::get_runtime().block_on(async {
         init(paths_to_set).await;
     });
+}
+
+// Convert a const char* reference from C into an owned Rust String.
+fn cstr_to_string(cstr: *const c_char) -> String {
+    let cstr: &CStr = unsafe { CStr::from_ptr(cstr) };
+    String::from_utf8_lossy(cstr.to_bytes()).to_string()
+}
+
+/// Initializes the rust library with the given app directories.
+async fn init(paths_to_set: paths::Paths) {
+    paths::set_app_dirs(paths_to_set);
+    database::init_db().await.unwrap();
+    startup::run("127.0.0.1", 8081);
 }
 
 #[cfg(test)]

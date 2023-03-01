@@ -4,27 +4,13 @@ use actix_web::{web, App, HttpServer};
 use actix_web::{HttpResponse, Responder};
 
 use crate::paths;
-
-async fn health_check() -> impl Responder {
-    HttpResponse::Ok()
-}
+use crate::{app_state, app_state::AppState};
 
 pub fn run(base_url: &str, port: u16) {
     unzip_dist();
-    let server = build(base_url, port);
+    let state = app_state::get_app_state();
+    let server = build(base_url, port, state);
     let _ = tokio::spawn(async move { server.await });
-}
-
-fn build(base_url: &str, port: u16) -> Server {
-    let dist = paths::get_library_dir().unwrap().join("dist"); // static files
-    HttpServer::new(move || {
-        App::new()
-            .route("/health_check", web::get().to(health_check))
-            .service(fs::Files::new("/", dist.clone()).index_file("index.html"))
-    })
-    .bind(format!("{}:{}", base_url, port))
-    .unwrap()
-    .run()
 }
 
 /// Unzip the frontend components from the bundle into {library_dir}/dist
@@ -38,4 +24,22 @@ fn unzip_dist() {
         .unwrap()
         .extract(destination.clone())
         .unwrap();
+}
+
+fn build(base_url: &str, port: u16, state: AppState) -> Server {
+    let dist = paths::get_library_dir().unwrap().join("dist"); // static files
+    let state = web::Data::new(state);
+    HttpServer::new(move || {
+        App::new()
+            .route("/health_check", web::get().to(health_check))
+            .service(fs::Files::new("/", dist.clone()).index_file("index.html"))
+            .app_data(state.clone())
+    })
+    .bind(format!("{}:{}", base_url, port))
+    .unwrap()
+    .run()
+}
+
+async fn health_check() -> impl Responder {
+    HttpResponse::Ok()
 }
