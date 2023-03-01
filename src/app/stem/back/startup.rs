@@ -7,23 +7,27 @@ use crate::paths;
 use crate::{app_state, app_state::AppState};
 
 pub fn run(base_url: &str, port: u16) {
-    unzip_dist();
+    if let Err(e) = unzip_dist() {
+        eprintln!("{}", e);
+        return;
+    }
     let state = app_state::get_app_state();
     let server = build(base_url, port, state);
     let _ = tokio::spawn(async move { server.await });
 }
 
 /// Unzip the frontend components from the bundle into {library_dir}/dist
-fn unzip_dist() {
+fn unzip_dist() -> Result<(), String> {
     let archive = paths::get_bundle_dir().unwrap().join("dist.zip");
     if !archive.exists() {
-        panic!("Can't find 'dist.zip' in bundle");
+        return Err("Can't find 'dist.zip' in bundle".to_string());
     }
     let destination = paths::get_library_dir().unwrap();
     let _result = zip::ZipArchive::new(std::fs::File::open(archive).unwrap())
         .unwrap()
         .extract(destination.clone())
         .unwrap();
+    Ok(())
 }
 
 fn build(base_url: &str, port: u16, state: AppState) -> Server {

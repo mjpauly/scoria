@@ -9,13 +9,13 @@ pub struct AppStateContents {
     distance_filter: f32,
 }
 
-pub type AppState = Arc<Mutex<AppState>>;
+pub type AppState = Arc<Mutex<AppStateContents>>;
 
 pub fn get_app_state() -> AppState {
-    Arc::new(Mutex::new(AppState {
+    Arc::new(Mutex::new(AppStateContents {
         // TODO: read from file or do default
         location_is_enabled: false,
-        distance_filter: 5,
+        distance_filter: 5.0,
     }))
 }
 

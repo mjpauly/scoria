@@ -111,17 +111,9 @@ mod tests {
     use sqlx::types::time;
 
     use crate::database;
-    use crate::tests::test_setup;
+    use crate::tests::test_setup_clean;
 
     use super::*;
-
-    async fn viz_test_setup(test_dir: &str) {
-        if std::fs::metadata(test_dir).is_ok() {
-            // need to clear it manually if left over from previous test
-            std::fs::remove_dir_all(test_dir).unwrap();
-        }
-        test_setup(test_dir).await;
-    }
 
     async fn log_test_data(now: i64) {
         use database::log_location;
@@ -143,7 +135,7 @@ mod tests {
     async fn test_plot() {
         // can view outputs in /tmp directory since writing there is allowed
         // from the macos sandbox
-        viz_test_setup("/tmp/test_plot/").await;
+        test_setup_clean("/tmp/test_plot/").await;
 
         let now = time::OffsetDateTime::now_utc().unix_timestamp();
         log_test_data(now).await;
@@ -152,7 +144,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_custom_plot() {
-        viz_test_setup("/tmp/test_custom_plot/").await;
+        test_setup_clean("/tmp/test_custom_plot/").await;
 
         let now = time::OffsetDateTime::now_utc().unix_timestamp();
         log_test_data(now).await;

@@ -119,7 +119,7 @@ pub async fn get_records_time_range(
 
 #[cfg(test)]
 mod tests {
-    use crate::tests::test_setup;
+    use crate::tests::test_setup_clean;
 
     use super::*;
 
@@ -128,14 +128,14 @@ mod tests {
         // haven't set the storage path, so we expect an error
         assert!(get_db_pool().await.is_err());
 
-        test_setup("test_get_db_pool/").await;
+        test_setup_clean("test_get_db_pool/").await;
 
         assert!(get_db_pool().await.is_ok());
     }
 
     #[tokio::test]
     async fn test_log_location() {
-        test_setup("test_log_location/").await;
+        test_setup_clean("test_log_location/").await;
 
         let now = time::OffsetDateTime::now_utc();
         log_location(1.0, 2.0, 3.0, 4.0, 5.0, now.unix_timestamp())
@@ -156,7 +156,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_records_time_range() {
-        test_setup("test_records_time_range/").await;
+        test_setup_clean("test_records_time_range/").await;
 
         // 5 and 10 seconds past the epoch
         log_location(1.0, 2.0, 3.0, 4.0, 5.0, 5).await.unwrap();

@@ -54,14 +54,25 @@ async fn init(paths_to_set: paths::Paths) {
     startup::run("127.0.0.1", 8081);
 }
 
-#[cfg(test)]
-pub mod tests {
+/// Local setup either for development or testing.
+pub mod local {
     use super::*;
-    use std::ffi::CString;
+
+    /// Set the directories to use for the test given a top level directory.
+    pub async fn local_setup(dir: &str) {
+        let fullsubdirs = create_subdirs(dir);
+        let paths_to_set = paths::Paths::new(
+            Some(fullsubdirs[0].clone()),
+            Some(fullsubdirs[1].clone()),
+            Some(fullsubdirs[2].clone()),
+            Some(fullsubdirs[3].clone()),
+        );
+        init(paths_to_set).await;
+    }
 
     /// Create the subdirectories needed for testing the app and return a vector
     /// of the subdirectory paths
-    fn create_subdirs(dir: &str) -> Vec<PathBuf> {
+    pub fn create_subdirs(dir: &str) -> Vec<PathBuf> {
         let dir = PathBuf::from(dir);
         let subdirs = vec!["Documents", "Library", "tmp", "Bundle"];
         let fullsubdirs: Vec<_> =
@@ -71,17 +82,23 @@ pub mod tests {
         }
         fullsubdirs
     }
+}
 
-    /// Set the directories to use for the test given a top level directory.
-    pub async fn test_setup(dir: &str) {
-        let fullsubdirs = create_subdirs(dir);
-        let paths_to_set = paths::Paths::new(
-            Some(fullsubdirs[0].clone()),
-            Some(fullsubdirs[1].clone()),
-            Some(fullsubdirs[2].clone()),
-            Some(fullsubdirs[3].clone()),
-        );
-        init(paths_to_set).await;
+#[cfg(test)]
+pub mod tests {
+    use super::*;
+    use std::ffi::CString;
+
+    use local::create_subdirs;
+    pub use local::local_setup as test_setup;
+
+    /// Run test_setup but clear the contents of the test directory first
+    pub async fn test_setup_clean(test_dir: &str) {
+        if std::fs::metadata(test_dir).is_ok() {
+            // need to clear it manually if left over from previous test
+            std::fs::remove_dir_all(test_dir).unwrap();
+        }
+        test_setup(test_dir).await;
     }
 
     /// Test the top level C interface

@@ -35,6 +35,15 @@ rust_test(
     visibility = ["//visibility:public"],
 )
 
+# Stem runner for development of the frontend and backend. Using ibazel allows
+# for hot reloading
+rust_binary(
+    name = "dev",
+    srcs = ["dev/main.rs"],
+    edition = "2021",
+    deps = [":stem"],
+)
+
 
 # Objective c and c glue
 
