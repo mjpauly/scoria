@@ -1,19 +1,24 @@
 use actix_files as fs;
-use actix_web::dev::Server;
+use actix_web::dev::{Server, ServerHandle};
 use actix_web::{web, App, HttpServer};
 use actix_web::{HttpResponse, Responder};
 
 use crate::paths;
 use crate::{app_state, app_state::AppState};
 
-pub fn run(base_url: &str, port: u16) {
+/// Start the server backend in a new tokio task, returning a handle to the
+/// server
+//TODO: refactor so this module keeps the handle itself
+pub fn run(base_url: &str, port: u16) -> Result<ServerHandle, String> {
     if let Err(e) = unzip_dist() {
         eprintln!("{}", e);
-        return;
+        return Err("Could not unzip dist".to_string());
     }
     let state = app_state::get_app_state();
     let server = build(base_url, port, state);
+    let server_handle = server.handle();
     let _ = tokio::spawn(async move { server.await });
+    Ok(server_handle)
 }
 
 /// Unzip the frontend components from the bundle into {library_dir}/dist

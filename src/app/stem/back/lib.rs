@@ -7,12 +7,14 @@ use std::ffi::CStr;
 use std::os::raw::c_char;
 use std::path::PathBuf;
 
-mod app_state;
-mod database;
-mod paths;
-mod runtime;
-mod startup;
-mod viz;
+use actix_web::dev::ServerHandle;
+
+pub mod app_state;
+pub mod database;
+pub mod paths;
+pub mod runtime;
+pub mod startup;
+pub mod viz;
 
 /// Set the directories known to the Rust library.
 ///
@@ -48,27 +50,15 @@ fn cstr_to_string(cstr: *const c_char) -> String {
 }
 
 /// Initializes the rust library with the given app directories.
-async fn init(paths_to_set: paths::Paths) {
+pub async fn init(paths_to_set: paths::Paths) -> Result<ServerHandle, String> {
     paths::set_app_dirs(paths_to_set);
     database::init_db().await.unwrap();
-    startup::run("127.0.0.1", 8081);
+    startup::run("127.0.0.1", 8081)
 }
 
 /// Local setup either for development or testing.
 pub mod local {
     use super::*;
-
-    /// Set the directories to use for the test given a top level directory.
-    pub async fn local_setup(dir: &str) {
-        let fullsubdirs = create_subdirs(dir);
-        let paths_to_set = paths::Paths::new(
-            Some(fullsubdirs[0].clone()),
-            Some(fullsubdirs[1].clone()),
-            Some(fullsubdirs[2].clone()),
-            Some(fullsubdirs[3].clone()),
-        );
-        init(paths_to_set).await;
-    }
 
     /// Create the subdirectories needed for testing the app and return a vector
     /// of the subdirectory paths
@@ -90,7 +80,18 @@ pub mod tests {
     use std::ffi::CString;
 
     use local::create_subdirs;
-    pub use local::local_setup as test_setup;
+
+    /// Set the directories to use for the test given a top level directory.
+    pub async fn test_setup(dir: &str) {
+        let fullsubdirs = create_subdirs(dir);
+        let paths_to_set = paths::Paths::new(
+            Some(fullsubdirs[0].clone()),
+            Some(fullsubdirs[1].clone()),
+            Some(fullsubdirs[2].clone()),
+            Some(fullsubdirs[3].clone()),
+        );
+        init(paths_to_set).await;
+    }
 
     /// Run test_setup but clear the contents of the test directory first
     pub async fn test_setup_clean(test_dir: &str) {

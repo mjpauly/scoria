@@ -11,7 +11,7 @@ use sense::Sense;
 use test_page::TestPage;
 
 mod analyze;
-mod components;
+// mod components;
 mod sense;
 mod test_page;
 

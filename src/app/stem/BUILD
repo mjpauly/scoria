@@ -41,7 +41,11 @@ rust_binary(
     name = "dev",
     srcs = ["dev/main.rs"],
     edition = "2021",
-    deps = [":stem"],
+    data = ["//src/app/stem/front:front_wasm"],
+    deps = [
+        ":stem",
+        "@stem_crate_index//:tokio",
+    ],
 )
 
 
