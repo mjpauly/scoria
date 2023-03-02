@@ -1,5 +1,8 @@
 //! Runs the app backend and frontend locally
 
+use std::fs;
+use std::os::unix::fs::PermissionsExt;
+
 use tokio::signal::unix::{signal, SignalKind};
 
 extern crate stem;
@@ -13,20 +16,22 @@ async fn main() {
         Some(dirs[2].clone()),
         Some(dirs[3].clone()),
     );
-    // copy our bundle into the expected location
+
+    // Copy our bundle into the expected location
     let bundle_path = "src/app/stem/front/dist.zip";
-    println!("Bundle exists: {}", std::fs::metadata(bundle_path).is_ok());
-
-    //DEBUG
-    let paths = std::fs::read_dir("dev_instance/Bundle").unwrap();
-    for path in paths {
-        println!("Name: {}", path.unwrap().path().display())
-    }
-
     let dest = "dev_instance/Bundle/dist.zip";
+    println!("Bundle exists: {}", fs::metadata(bundle_path).is_ok());
+    println!("Copying...");
+    // This will fail if we didn't set writable permissions last time.
+    fs::copy(bundle_path, dest).unwrap();
+
+    // dist.zip is a genrule output, so it is read-only by default. We change it
+    // to writable so that future invocations of fs::copy will work if the
+    // sandbox is not cleared
+    fs::set_permissions(dest, fs::Permissions::from_mode(0o666)).unwrap();
     println!(
-        "Copy over success: {}",
-        std::fs::copy(bundle_path, dest).is_ok()
+        "Copied and set dist.zip permissions to: {:#o} (hopefully 0o100666)",
+        fs::metadata(dest).unwrap().permissions().mode()
     );
 
     // Finish startup now that our bundle is in the right spot
@@ -47,4 +52,5 @@ async fn main() {
     println!("Shutting down the server gracefully");
     // `true` tells actix to do a graceful shutdown
     server_handle.stop(true).await;
+    println!("Server shut down, exiting.");
 }

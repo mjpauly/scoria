@@ -76,8 +76,8 @@
                 at this repo: https://github.com/mjpauly/plotly/
 
 - Swift ([docs](https://docs.swift.org/swift-book/LanguageGuide/TheBasics.html))
-    - Language that the UI and sensing modules are written in.
-    - Apple Swift APIs used include SwiftUI, CoreLocation.
+    - Language that the sensing modules are written in.
+    - Apple Swift APIs used include CoreLocation.
 
 ## Dev Flow
 
@@ -87,6 +87,15 @@ Some tools used come from the system rather than a Bazel toolchain. This is a
 temporary workaround where the Bazel toolchain was challenging to implement.
 These need to be installed separately.
 
+- Bazel: build system for the project
+    - `brew install bazelisk`
+    - Bazelisk is the launcher for Bazel. It does stuff like discover the
+        desired bazel version to run from the `.bazelversion` file in the repo
+        root.
+- iBazel: tool for automatically rerunning a Bazel command when the sources
+    change.
+    - `brew install ibazel`
+    - Use it just like bazel but replace `bazel` with `ibazel`.
 - Trunk: used to build the frontend webassembly application
     - First install Rust onto your system, then do
         `cargo install --locked --version 0.16.0 trunk`
@@ -102,6 +111,13 @@ bazel run //:iosapp
 ```
 
 ### Interactively Developing the UI
+
+Navigate to `src/app/stem` and run `ibazel run :dev`.
+
+Then open `localhost:8081` in a browser. In Firefox, the responsive web design
+mode lets you change the page aspect ratio to that of a phone (opt-cmd-M).
+
+#### Deprecated method for developing the UI (no backend)
 
 Navigate to `src/app/stem/front` and run these commands in separate terminals:
 
