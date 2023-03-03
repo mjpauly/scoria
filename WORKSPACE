@@ -87,8 +87,15 @@ rust_register_toolchains(
         "aarch64-apple-ios-sim",
         "aarch64-apple-ios",
         "x86_64-apple-ios",
+        "wasm32-unknown-unknown",
     ],
 )
+
+# WASM for the webapp-based mobile UI
+
+load("@rules_rust//wasm_bindgen:repositories.bzl", "rust_wasm_bindgen_repositories")
+
+rust_wasm_bindgen_repositories()
 
 
 # crate universe
@@ -100,7 +107,7 @@ load("@rules_rust//crate_universe:repositories.bzl", "crate_universe_dependencie
 
 crate_universe_dependencies()
 
-load("@rules_rust//crate_universe:defs.bzl", "crate", "crates_repository", "render_config")
+load("@rules_rust//crate_universe:defs.bzl", "crate", "crates_repository", "render_config", "splicing_config")
 
 # crate repository for the `stem` core of the app
 # NOTE: don't forget to add the dependency to the rust_library target!
@@ -136,7 +143,36 @@ crates_repository(
         "zip": crate.spec(
             version = "0.6.4",
         ),
+
+        # frontend
+        "yew": crate.spec(
+            version = "0.20.0",
+        ),
+        "yew-router": crate.spec(
+            version = "0.17.0",
+        ),
+        "web-sys": crate.spec(  # last web-sys ok with wasm-bindgen 0.2.83
+            version = "0.3.60",
+        ),
+        "log": crate.spec(
+            version = "0.4.17",
+        ),
+        "wasm-logger": crate.spec(
+            version = "0.2.0",
+        ),
+        "yew_icons": crate.spec(
+            version = "0.7.0",
+            features = ["BootstrapSoundwave",
+                        "BootstrapExclamationTriangle",
+                        "BootstrapTools",
+                        "BootstrapMap",
+            ],
+        ),
+        "wasm-bindgen": crate.spec(  # unresolved bug if we upgrade to 0.2.84
+            version = "=0.2.83",
+        ),
     },
+    splicing_config = splicing_config(resolver_version = "2"),
 
     # Setting the default package name to `""` forces the use of the macros defined in this repository
     # to always use the root package when looking for dependencies or aliases. This should be considered
@@ -164,8 +200,6 @@ rust_analyzer_dependencies()
 # ==============================================================================
 
 # nodejs rules for tailwindcss
-
-# TODO: migrate to rules_js
 
 http_archive(
     name = "build_bazel_rules_nodejs",

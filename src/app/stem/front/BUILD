@@ -1,6 +1,43 @@
-# generate our wasm with trunk (ideally this would be done with rules_rust)
-# install trunk with $ cargo install --locked trunk
+load("@rules_rust//rust:defs.bzl", "rust_library", "rust_binary")
+load("@rules_rust//wasm_bindgen:wasm_bindgen.bzl", "rust_wasm_bindgen")
 
+# top-level wasm app
+rust_wasm_bindgen(
+    name = "front_wasm",
+    target = "web",
+    wasm_file = ":front_app",
+)
+
+# binary that runs the app
+rust_binary(
+    name = "front_app",
+    srcs = glob(["rs/main.rs"]),
+    edition = "2021",
+    deps = [
+        ":front",
+        "@rules_rust//wasm_bindgen/3rdparty:wasm_bindgen",
+        "@stem_crate_index//:yew",
+        "@stem_crate_index//:log",
+        "@stem_crate_index//:wasm-logger",
+    ],
+)
+
+# library of the app that gets run by :front_app
+rust_library(
+    name = "front",
+    srcs = glob(["rs/**/*.rs"]),
+    edition = "2021",
+    deps = [
+        "@stem_crate_index//:yew",
+        "@stem_crate_index//:yew-router",
+        "@stem_crate_index//:web-sys",
+        "@stem_crate_index//:log",
+        "@stem_crate_index//:wasm-logger",
+        "@stem_crate_index//:yew_icons",
+    ],
+)
+
+'''
 genrule(
     name = "front_wasm",
     srcs = [
@@ -50,6 +87,7 @@ zip -r $@ dist
     outs = ["dist.zip"],
     visibility = ["//visibility:public"],
 )
+'''
 
 genrule(
     name = "tailwind",
