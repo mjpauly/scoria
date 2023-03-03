@@ -8,13 +8,11 @@ user.bazelrc
 # Based on https://github.com/github/gitignore/blob/main/Rust.gitignore
 
 # compiled files and executables
-src/app/stem/target
-src/app/stem/debug
+/target
+/debug
 
-src/app/stem/front/target
-src/app/stem/front/debug
 src/app/stem/front/dist
-src/app/stem/front/styles/output.css
+src/app/stem/front/tailwind.css
 
 
 # rustfmt backup files
