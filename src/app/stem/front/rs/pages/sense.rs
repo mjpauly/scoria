@@ -3,7 +3,7 @@
 use yew::prelude::*;
 // use yew_icons::{Icon, IconId};
 
-use crate::NavbarWrapper;
+use crate::components::NavbarWrapper;
 
 #[function_component]
 pub fn Sense() -> Html {
@@ -54,7 +54,7 @@ fn EnableLocation() -> Html {
                 <input type="checkbox" checked={*location_is_enabled}
                     onclick={on_click} class="mr-4"/>
                 if *location_is_enabled {
-                    <span class="text-green-500">{"Enabled"}</span>
+                    <span class="text-sky-500">{"Enabled"}</span>
                 } else {
                     <span class="text-neutral-500">{"Disabled"}</span>
                 }

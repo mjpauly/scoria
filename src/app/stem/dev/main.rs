@@ -23,8 +23,12 @@ async fn main() {
     println!("Bundle exists: {}", fs::metadata(bundle_path).is_ok());
     println!("Copying...");
     // This will fail if we didn't set writable permissions last time.
-    fs::copy(bundle_path, dest).unwrap();
-
+    if let Err(e) = fs::copy(bundle_path, dest) {
+        panic!(
+            "Failed to copy bundle due to error {e}. \
+               Is the destination writable?"
+        );
+    }
     // dist.zip is a genrule output, so it is read-only by default. We change it
     // to writable so that future invocations of fs::copy will work if the
     // sandbox is not cleared

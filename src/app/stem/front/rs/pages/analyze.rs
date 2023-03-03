@@ -2,7 +2,7 @@
 
 use yew::prelude::*;
 
-use crate::NavbarWrapper;
+use crate::components::NavbarWrapper;
 
 #[function_component]
 pub fn Analyze() -> Html {
