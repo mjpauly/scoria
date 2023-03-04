@@ -5,9 +5,10 @@
 - [x] refactor file tree for extensibility
 - [x] initial barebones yew UI
 - [x] refactor to WebView (storyboard instead of swiftUI base?)
+- [x] build frontend wasm with bazel
 - [_] *reach feature parity with SwiftUI*
     - [x] make navbar buttons bigger
-    - [_] add navbar icons
+    - [x] add navbar icons
 - [_] prevent unwanted scrolling in the WKWebView
 - [_] CI pipeline
 - [_] integration tests
@@ -35,9 +36,27 @@
 
 ## Structure
 
-- UI, sensing modules (Swift)
-- database management, visualization, marketplace (Rust)
-- visualizations are generated in Rust and shown in a Swift WebKit WKWebView
+- Native Swift code interfaces with the phone's sensors and launches `stem`, the
+    core app functionality.
+- `stem` contains an http server which serves a web app frontend, which is shown
+    in a Swift WebKit WKWebView
+
+```
+src
+└── app
+    ├── ios
+    │   ├── sensing                     Native swift code for phone sensors
+    │   ├── tests                       App integration tests
+    │   ├── top                         Top-level app source
+    │   └── xcodeproj                   Xcode project generator
+    │       └── Epsilon.xcodeproj       The generated Xcode project
+    │
+    └── stem                            Rust sources for the core app functions
+        ├── back                        App backend logic (database, server, ..)
+        ├── dev                         Local development runner
+        ├── front                       Webapp frontend for the app
+        └── tests                       Stem integration tests
+```
 
 ## Toolchain Resources
 
@@ -205,5 +224,5 @@ Prereq: install graphviz (includes `dot`) with `brew install graphviz`.
 ## Style Notes
 
 - Code lines set to 80 characters or shorter
-- Parent functions should come before the children that they call. This imrpoves
+- Parent functions should come before the children that they call. This improves
     readability.

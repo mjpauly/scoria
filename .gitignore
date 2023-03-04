@@ -1,25 +1,18 @@
 /bazel-*
 
-**/*.xcodeproj
-
 user.bazelrc
 
-# Rust
-# Based on https://github.com/github/gitignore/blob/main/Rust.gitignore
-
-# compiled files and executables
-/target
-/debug
-
-src/app/stem/front/dist
-src/app/stem/front/tailwind.css
-
+# generated xcode project
+**/*.xcodeproj
 
 # rustfmt backup files
 **/*.rs.bk
 
 # rust-analyzer
-rust-project.json
+/rust-project.json
 
 # bazel profiling
-profile.json
+/profile.json
+
+# dependency graph
+/graph_pruned.png
