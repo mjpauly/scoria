@@ -32,7 +32,7 @@ ios_application(
         "//conditions:default": None,
     }),
     resources = [
-        "//src/app/stem/front:front_wasm",
+        "//src/app/stem/front:dist",
     ],
     visibility = ["//visibility:public"],
     deps = [":App.library"],

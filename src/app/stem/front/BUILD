@@ -1,7 +1,20 @@
 load("@rules_rust//rust:defs.bzl", "rust_library", "rust_binary")
 load("@rules_rust//wasm_bindgen:wasm_bindgen.bzl", "rust_wasm_bindgen")
+load("@rules_pkg//pkg:zip.bzl", "pkg_zip")
 
-# top-level wasm app
+# all of the files we need for an http server to serve the frontend, bundled
+# into a zip archive
+pkg_zip(
+    name = "dist",
+    srcs = [
+        ":front_wasm",
+        ":tailwind",
+        "index.html",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+# top wasm app binary
 rust_wasm_bindgen(
     name = "front_wasm",
     target = "web",

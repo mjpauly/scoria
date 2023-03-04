@@ -27,7 +27,7 @@ fn unzip_dist() -> Result<(), String> {
     if !archive.exists() {
         return Err("Can't find 'dist.zip' in bundle".to_string());
     }
-    let destination = paths::get_library_dir().unwrap();
+    let destination = paths::get_library_dir().unwrap().join("dist");
     let _result = zip::ZipArchive::new(std::fs::File::open(archive).unwrap())
         .unwrap()
         .extract(destination.clone())

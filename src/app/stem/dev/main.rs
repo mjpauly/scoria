@@ -8,34 +8,28 @@ use tokio::signal::unix::{signal, SignalKind};
 extern crate stem;
 
 #[tokio::main]
-async fn main() {
-    let dirs = stem::local::create_subdirs("dev_instance/");
-    let paths_to_set = stem::paths::Paths::new(
-        Some(dirs[0].clone()),
-        Some(dirs[1].clone()),
-        Some(dirs[2].clone()),
-        Some(dirs[3].clone()),
-    );
+async fn main() -> Result<(), std::io::Error> {
+    let dev_fs = "dev_fs/"; // our iOS-like filesystem for running locally
+    if fs::metadata(dev_fs).is_ok() {
+        // clean it out if it's left over from last time
+        fs::remove_dir_all(dev_fs)?;
+    }
+    fs::create_dir(dev_fs)?;
+
+    let paths_to_set = stem::local::create_subdirs(dev_fs);
 
     // Copy our bundle into the expected location
     let bundle_path = "src/app/stem/front/dist.zip";
-    let dest = "dev_instance/Bundle/dist.zip";
-    println!("Bundle exists: {}", fs::metadata(bundle_path).is_ok());
-    println!("Copying...");
-    // This will fail if we didn't set writable permissions last time.
-    if let Err(e) = fs::copy(bundle_path, dest) {
-        panic!(
-            "Failed to copy bundle due to error {e}. \
-               Is the destination writable?"
-        );
-    }
-    // dist.zip is a genrule output, so it is read-only by default. We change it
-    // to writable so that future invocations of fs::copy will work if the
-    // sandbox is not cleared
-    fs::set_permissions(dest, fs::Permissions::from_mode(0o666)).unwrap();
+    let dest = std::path::Path::new(dev_fs).join("Bundle/dist.zip");
+    fs::copy(bundle_path, dest.clone())?;
+    // dist.zip is a bazel output, so it is read-only by default. We change it
+    // to writable so that future invocations of fs::copy will work even if the
+    // sandbox is not cleared, and also so that the read-only permissions don't
+    // propagate further
+    fs::set_permissions(dest.clone(), fs::Permissions::from_mode(0o666))?;
     println!(
-        "Copied and set dist.zip permissions to: {:#o} (hopefully 0o100666)",
-        fs::metadata(dest).unwrap().permissions().mode()
+        "Copied dist.zip and set permissions to: {:#o} (hopefully 0o100666)",
+        fs::metadata(dest.clone())?.permissions().mode()
     );
 
     // Finish startup now that our bundle is in the right spot
@@ -53,8 +47,9 @@ async fn main() {
         _ = sigterm.recv() => println!("\nReceived SIGTERM"),
     }
 
-    println!("Shutting down the server gracefully");
+    println!("Shutting down the server gracefully.");
     // `true` tells actix to do a graceful shutdown
     server_handle.stop(true).await;
-    println!("Server shut down, exiting.");
+
+    Ok(())
 }

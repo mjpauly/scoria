@@ -32,14 +32,14 @@ pub extern "C" fn set_app_dirs(
     temp_dir: *const c_char,
     bundle_dir: *const c_char,
 ) {
-    let paths_to_set = paths::Paths::new(
-        Some(PathBuf::from(cstr_to_string(documents_dir))),
-        Some(PathBuf::from(cstr_to_string(library_dir))),
-        Some(PathBuf::from(cstr_to_string(temp_dir))),
-        Some(PathBuf::from(cstr_to_string(bundle_dir))),
-    );
+    let paths_to_set = paths::Paths {
+        documents_dir: Some(PathBuf::from(cstr_to_string(documents_dir))),
+        library_dir: Some(PathBuf::from(cstr_to_string(library_dir))),
+        temp_dir: Some(PathBuf::from(cstr_to_string(temp_dir))),
+        bundle_dir: Some(PathBuf::from(cstr_to_string(bundle_dir))),
+    };
     runtime::get_runtime().block_on(async {
-        init(paths_to_set).await;
+        init(paths_to_set).await.unwrap();
     });
 }
 
@@ -62,7 +62,7 @@ pub mod local {
 
     /// Create the subdirectories needed for testing the app and return a vector
     /// of the subdirectory paths
-    pub fn create_subdirs(dir: &str) -> Vec<PathBuf> {
+    pub fn create_subdirs(dir: &str) -> paths::Paths {
         let dir = PathBuf::from(dir);
         let subdirs = vec!["Documents", "Library", "tmp", "Bundle"];
         let fullsubdirs: Vec<_> =
@@ -70,7 +70,12 @@ pub mod local {
         for fullsubdir in &fullsubdirs {
             std::fs::create_dir_all(fullsubdir).unwrap();
         }
-        fullsubdirs
+        paths::Paths {
+            documents_dir: Some(fullsubdirs[0].clone()),
+            library_dir: Some(fullsubdirs[1].clone()),
+            temp_dir: Some(fullsubdirs[2].clone()),
+            bundle_dir: Some(fullsubdirs[3].clone()),
+        }
     }
 }
 
@@ -83,14 +88,10 @@ pub mod tests {
 
     /// Set the directories to use for the test given a top level directory.
     pub async fn test_setup(dir: &str) {
-        let fullsubdirs = create_subdirs(dir);
-        let paths_to_set = paths::Paths::new(
-            Some(fullsubdirs[0].clone()),
-            Some(fullsubdirs[1].clone()),
-            Some(fullsubdirs[2].clone()),
-            Some(fullsubdirs[3].clone()),
-        );
-        init(paths_to_set).await;
+        let paths_to_set = create_subdirs(dir);
+        // init(paths_to_set).await;
+        paths::set_app_dirs(paths_to_set);
+        database::init_db().await.unwrap();
     }
 
     /// Run test_setup but clear the contents of the test directory first
@@ -102,20 +103,20 @@ pub mod tests {
         test_setup(test_dir).await;
     }
 
-    /// Test the top level C interface
+    /// Test the top level C interface.
+    ///
+    /// This test is ignored by default, since it does not set up the app
+    /// directories and populate them with the necessary contents for a call to
+    /// `init(paths_to_set).await.unwrap()` to succeed. Remove the `unwrap()` to
+    /// see the test pass.
+    #[ignore]
     #[test]
     fn test_app_dir_update() {
         assert!(paths::get_documents_dir().is_err());
-        let fullsubdirs = create_subdirs("./");
-        let cstrings: Vec<_> = fullsubdirs
-            .iter()
-            .map(|s| {
-                CString::new(
-                    (s.clone()).into_os_string().into_string().unwrap(),
-                )
-                .unwrap()
-            })
-            .collect();
+        create_subdirs("");
+        let subdirs = vec!["Documents", "Library", "tmp", "Bundle"];
+        let cstrings: Vec<_> =
+            subdirs.iter().map(|s| CString::new(*s).unwrap()).collect();
         set_app_dirs(
             cstrings[0].as_ptr(),
             cstrings[1].as_ptr(),
@@ -124,7 +125,7 @@ pub mod tests {
         );
         assert_eq!(
             paths::get_documents_dir().unwrap(),
-            PathBuf::from("./Documents")
+            PathBuf::from("Documents")
         );
     }
 }

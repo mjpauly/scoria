@@ -19,32 +19,19 @@ thread_local!(static PATHS: RefCell<Paths> = RefCell::new(Paths::new_empty()));
 // every function call.
 #[allow(dead_code)] // not yet using some directories
 pub struct Paths {
-    documents_dir: Option<PathBuf>,
-    library_dir: Option<PathBuf>,
-    temp_dir: Option<PathBuf>,
-    bundle_dir: Option<PathBuf>,
+    pub documents_dir: Option<PathBuf>,
+    pub library_dir: Option<PathBuf>,
+    pub temp_dir: Option<PathBuf>,
+    pub bundle_dir: Option<PathBuf>,
 }
 
 impl Paths {
-    fn new_empty() -> Paths {
+    fn new_empty() -> Self {
         Paths {
             documents_dir: None,
             library_dir: None,
             temp_dir: None,
             bundle_dir: None,
-        }
-    }
-    pub fn new(
-        documents_dir: Option<PathBuf>,
-        library_dir: Option<PathBuf>,
-        temp_dir: Option<PathBuf>,
-        bundle_dir: Option<PathBuf>,
-    ) -> Paths {
-        Paths {
-            documents_dir,
-            library_dir,
-            temp_dir,
-            bundle_dir,
         }
     }
 }
