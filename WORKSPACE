@@ -171,6 +171,11 @@ crates_repository(
         "wasm-bindgen": crate.spec(  # unresolved bug if we upgrade to 0.2.84
             version = "=0.2.83",
         ),
+
+        # dev
+        "env_logger": crate.spec(
+            version = "0.10.0",
+        ),
     },
     splicing_config = splicing_config(resolver_version = "2"),
 

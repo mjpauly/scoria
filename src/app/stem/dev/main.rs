@@ -1,4 +1,8 @@
 //! Runs the app backend and frontend locally
+//!
+//! To print debug log messages set RUST_LOG to the desired log level like so:
+//! RUST_LOG=info ibazel run :dev
+//!
 
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
@@ -9,6 +13,8 @@ extern crate stem;
 
 #[tokio::main]
 async fn main() -> Result<(), std::io::Error> {
+    env_logger::init(); // sets output verbosity based on RUST_LOG env var
+
     let dev_fs = "dev_fs/"; // our iOS-like filesystem for running locally
     if fs::metadata(dev_fs).is_ok() {
         // clean it out if it's left over from last time
@@ -27,7 +33,7 @@ async fn main() -> Result<(), std::io::Error> {
     // sandbox is not cleared, and also so that the read-only permissions don't
     // propagate further
     fs::set_permissions(dest.clone(), fs::Permissions::from_mode(0o666))?;
-    println!(
+    log::info!(
         "Copied dist.zip and set permissions to: {:#o} (hopefully 0o100666)",
         fs::metadata(dest.clone())?.permissions().mode()
     );
@@ -37,17 +43,17 @@ async fn main() -> Result<(), std::io::Error> {
         .await
         .expect("Could not start server");
 
-    println!("Running server until ctrl-c is sent...");
+    println!("Running server until ctrl-c is sent.");
     // If we're using ibazel it will upgrade our SIGINT (ctrl-c) to SIGTERM, so
     // we need to listen to both signals.
     let mut sigint = signal(SignalKind::interrupt()).unwrap();
     let mut sigterm = signal(SignalKind::terminate()).unwrap();
     tokio::select! {
-        _ = sigint.recv() => println!("\nReceived SIGINT"),
-        _ = sigterm.recv() => println!("\nReceived SIGTERM"),
+        _ = sigint.recv() => log::info!("\nReceived SIGINT"),
+        _ = sigterm.recv() => log::info!("\nReceived SIGTERM"),
     }
 
-    println!("Shutting down the server gracefully.");
+    println!("Shutting down the server.");
     // `true` tells actix to do a graceful shutdown
     server_handle.stop(true).await;
 

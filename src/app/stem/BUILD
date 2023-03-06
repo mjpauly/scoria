@@ -45,6 +45,8 @@ rust_binary(
     deps = [
         ":stem",
         "@stem_crate_index//:tokio",
+        "@stem_crate_index//:log",
+        "@stem_crate_index//:env_logger",
     ],
 )
 
