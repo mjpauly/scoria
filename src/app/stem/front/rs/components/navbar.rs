@@ -14,12 +14,16 @@ use yew_router::prelude::*;
 #[function_component]
 pub fn NavbarWrapper(props: &NavbarWrapperProps) -> Html {
     html! {
-        <>
-            <div class="my-32">
-                { for props.children.iter() }
+        <div class="flex flex-col h-screen">
+            <div class="flex-1 overflow-y-auto flex flex-col \
+                    justify-center items-center pt-16">
+                // prevent tall content from getting cut off at the top:
+                <div class="min-h-0">
+                    { for props.children.iter() }
+                </div>
             </div>
             <Navbar />
-        </>
+        </div>
     }
 }
 
@@ -72,9 +76,8 @@ pub fn Navbar() -> Html {
         }
     });
     html! {
-        <nav class="fixed inset-x-0 bottom-0 bg-neutral-900 \
-                    grid grid-cols-3 justify-items-stretch">
+        <div class="flex-none grid grid-cols-3 justify-items-stretch">
             {for items}
-        </nav>
+        </div>
     }
 }

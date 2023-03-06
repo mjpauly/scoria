@@ -25,7 +25,7 @@ fn LocationConfig() -> Html {
 
             <EnableLocation />
 
-            <button class="self-center rounded-lg w-min whitespace-nowrap \
+            <button class="rounded-lg whitespace-nowrap \
                     py-1.5 px-3 text-sky-500 bg-neutral-800">
                 {"Share SQLite log"}
             </button>

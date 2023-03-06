@@ -41,6 +41,16 @@ pub fn TestPage() -> Html {
             <div>{"28"}</div>
             <div>{"29"}</div>
             <div>{"30"}</div>
+            <div>{"31"}</div>
+            <div>{"32"}</div>
+            <div>{"33"}</div>
+            <div>{"34"}</div>
+            <div>{"35"}</div>
+            <div>{"36"}</div>
+            <div>{"37"}</div>
+            <div>{"38"}</div>
+            <div>{"39"}</div>
+            <div>{"40"}</div>
         </NavbarWrapper>
     }
 }
