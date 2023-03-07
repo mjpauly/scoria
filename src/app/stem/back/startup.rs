@@ -3,8 +3,8 @@ use actix_web::dev::{Server, ServerHandle};
 use actix_web::{web, App, HttpServer};
 use actix_web::{HttpResponse, Responder};
 
+use crate::app_state::{AppState, AppStateExtentions};
 use crate::paths;
-use crate::{app_state, app_state::AppState};
 
 /// Start the server backend in a new tokio task, returning a handle to the
 /// server
@@ -14,7 +14,7 @@ pub fn run(base_url: &str, port: u16) -> Result<ServerHandle, String> {
         eprintln!("{}", e);
         return Err("Could not unzip dist".to_string());
     }
-    let state = app_state::get_app_state();
+    let state = AppState::init_state();
     let server = build(base_url, port, state);
     let server_handle = server.handle();
     let _ = tokio::spawn(async move { server.await });
@@ -41,6 +41,10 @@ fn build(base_url: &str, port: u16, state: AppState) -> Server {
     HttpServer::new(move || {
         App::new()
             .route("/health_check", web::get().to(health_check))
+            .route(
+                "/toggle_location_enabled",
+                web::get().to(toggle_location_enabled),
+            )
             .service(fs::Files::new("/", dist.clone()).index_file("index.html"))
             .app_data(state.clone())
     })
@@ -50,5 +54,13 @@ fn build(base_url: &str, port: u16, state: AppState) -> Server {
 }
 
 async fn health_check() -> impl Responder {
+    HttpResponse::Ok()
+}
+
+async fn toggle_location_enabled(state: web::Data<AppState>) -> impl Responder {
+    // get mutex guard that will release the lock on drop
+    let mut location_enabled = state.location_is_enabled.lock().unwrap();
+    *location_enabled = !*location_enabled;
+    println!("location is now {}", *location_enabled);
     HttpResponse::Ok()
 }
