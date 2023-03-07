@@ -3,7 +3,7 @@ load("@rules_rust//rust:defs.bzl", "rust_library", "rust_binary", "rust_test")
 
 rust_library(
     name = "stem",
-    srcs = glob(["back/*.rs"]),
+    srcs = glob(["back/*.rs"]) + ["//src/app/stem/front:rs/common.rs"],
     edition = "2021",
     deps = [
         ":alloc",
@@ -12,7 +12,11 @@ rust_library(
         "@stem_crate_index//:anyhow",
         "@stem_crate_index//:plotly",
         "@stem_crate_index//:actix-web",
+        "@stem_crate_index//:actix",
+        "@stem_crate_index//:actix-web-actors",
         "@stem_crate_index//:actix-files",
+        "@stem_crate_index//:serde",
+        "@stem_crate_index//:rmp-serde",
         "@stem_crate_index//:zip",
     ],
 )

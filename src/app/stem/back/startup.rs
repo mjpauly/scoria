@@ -3,7 +3,7 @@ use actix_web::dev::{Server, ServerHandle};
 use actix_web::{web, App, HttpServer};
 use actix_web::{HttpResponse, Responder};
 
-use crate::app_state::{AppState, AppStateExtentions};
+use crate::app_state::{ws_route, AppState, AppStateExtentions};
 use crate::paths;
 
 /// Start the server backend in a new tokio task, returning a handle to the
@@ -45,6 +45,7 @@ fn build(base_url: &str, port: u16, state: AppState) -> Server {
                 "/toggle_location_enabled",
                 web::get().to(toggle_location_enabled),
             )
+            .route("/ws", web::get().to(ws_route))
             .service(fs::Files::new("/", dist.clone()).index_file("index.html"))
             .app_data(state.clone())
     })

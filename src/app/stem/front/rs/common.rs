@@ -5,18 +5,20 @@
 use serde::{Deserialize, Serialize};
 
 /// Messages from the frontend to the backend over the websocket
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub enum MsgForBackend {
     GetLocationEnabled,       // get location enabled state
     SetLocationEnabled(bool), // set location enabled state
 }
 
 /// Messages from the backend to the frontend
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub enum MsgForFrontend {
-    NewLocationData(Location), // send new location data for displaying
+    // NewLocationData(Location), // send new location data for displaying
+    Ping,
 }
 
+/*
 /// Struct representation of a Location data point
 #[derive(Clone, Debug)]
 pub struct Location {
@@ -27,3 +29,4 @@ pub struct Location {
     pub course: f64,
     pub datetime: time::OffsetDateTime, // OffsetDateTime is timezone aware
 }
+*/

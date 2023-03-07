@@ -137,9 +137,19 @@ crates_repository(
         "actix-web": crate.spec(
             version = "4.3.0",
         ),
+        "actix": crate.spec(
+            version = "0.13.0",
+        ),
+        "actix-web-actors": crate.spec(
+            version = "4.2.0",
+        ),
         "actix-files": crate.spec(
             version = "0.6.2",
         ),
+        "serde": crate.spec(
+            version = "1.0.152",
+        ),
+        "rmp-serde": crate.spec( version = "1.1.1" ),
         "zip": crate.spec(
             version = "0.6.4",
         ),
