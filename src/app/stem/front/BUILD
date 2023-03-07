@@ -6,6 +6,8 @@ load("@rules_pkg//pkg:zip.bzl", "pkg_zip")
 # into a zip archive
 pkg_zip(
     name = "dist",
+    mode = "0666",  # read/write; default would be read/execute, which causes
+                    # some downstream problems when trying to overwrite
     srcs = [
         ":front_wasm",
         ":tailwind",

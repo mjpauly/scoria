@@ -1,5 +1,5 @@
 {
-  "checksum": "f92fa21cc5ba56cae619dd4331775436be062b0b4400ef0b8650a9a4c80476bc",
+  "checksum": "4c5c33214090e16ca3e7097614ad9ab304883d8c57db0fc31852fe97158f77bf",
   "crates": {
     "actix-codec 0.5.0": {
       "name": "actix-codec",
@@ -3712,10 +3712,6 @@
             {
               "id": "plotly 0.8.3",
               "target": "plotly"
-            },
-            {
-              "id": "rust-embed 6.6.0",
-              "target": "rust_embed"
             },
             {
               "id": "sqlx 0.6.2",
@@ -10222,156 +10218,6 @@
       },
       "license": "MIT"
     },
-    "rust-embed 6.6.0": {
-      "name": "rust-embed",
-      "version": "6.6.0",
-      "repository": {
-        "Http": {
-          "url": "https://crates.io/api/v1/crates/rust-embed/6.6.0/download",
-          "sha256": "cb133b9a38b5543fad3807fb2028ea47c5f2b566f4f5e28a11902f1a358348b6"
-        }
-      },
-      "targets": [
-        {
-          "Library": {
-            "crate_name": "rust_embed",
-            "crate_root": "src/lib.rs",
-            "srcs": [
-              "**/*.rs"
-            ]
-          }
-        }
-      ],
-      "library_target_name": "rust_embed",
-      "common_attrs": {
-        "compile_data_glob": [
-          "**"
-        ],
-        "deps": {
-          "common": [
-            {
-              "id": "rust-embed-utils 7.5.0",
-              "target": "rust_embed_utils"
-            },
-            {
-              "id": "walkdir 2.3.2",
-              "target": "walkdir"
-            }
-          ],
-          "selects": {}
-        },
-        "edition": "2018",
-        "proc_macro_deps": {
-          "common": [
-            {
-              "id": "rust-embed-impl 6.5.0",
-              "target": "rust_embed_impl"
-            }
-          ],
-          "selects": {}
-        },
-        "version": "6.6.0"
-      },
-      "license": "MIT"
-    },
-    "rust-embed-impl 6.5.0": {
-      "name": "rust-embed-impl",
-      "version": "6.5.0",
-      "repository": {
-        "Http": {
-          "url": "https://crates.io/api/v1/crates/rust-embed-impl/6.5.0/download",
-          "sha256": "4d4e0f0ced47ded9a68374ac145edd65a6c1fa13a96447b873660b2a568a0fd7"
-        }
-      },
-      "targets": [
-        {
-          "ProcMacro": {
-            "crate_name": "rust_embed_impl",
-            "crate_root": "src/lib.rs",
-            "srcs": [
-              "**/*.rs"
-            ]
-          }
-        }
-      ],
-      "library_target_name": "rust_embed_impl",
-      "common_attrs": {
-        "compile_data_glob": [
-          "**"
-        ],
-        "deps": {
-          "common": [
-            {
-              "id": "proc-macro2 1.0.50",
-              "target": "proc_macro2"
-            },
-            {
-              "id": "quote 1.0.23",
-              "target": "quote"
-            },
-            {
-              "id": "rust-embed-utils 7.5.0",
-              "target": "rust_embed_utils"
-            },
-            {
-              "id": "syn 1.0.107",
-              "target": "syn"
-            },
-            {
-              "id": "walkdir 2.3.2",
-              "target": "walkdir"
-            }
-          ],
-          "selects": {}
-        },
-        "edition": "2018",
-        "version": "6.5.0"
-      },
-      "license": "MIT"
-    },
-    "rust-embed-utils 7.5.0": {
-      "name": "rust-embed-utils",
-      "version": "7.5.0",
-      "repository": {
-        "Http": {
-          "url": "https://crates.io/api/v1/crates/rust-embed-utils/7.5.0/download",
-          "sha256": "512b0ab6853f7e14e3c8754acb43d6f748bb9ced66aa5915a6553ac8213f7731"
-        }
-      },
-      "targets": [
-        {
-          "Library": {
-            "crate_name": "rust_embed_utils",
-            "crate_root": "src/lib.rs",
-            "srcs": [
-              "**/*.rs"
-            ]
-          }
-        }
-      ],
-      "library_target_name": "rust_embed_utils",
-      "common_attrs": {
-        "compile_data_glob": [
-          "**"
-        ],
-        "deps": {
-          "common": [
-            {
-              "id": "sha2 0.10.6",
-              "target": "sha2"
-            },
-            {
-              "id": "walkdir 2.3.2",
-              "target": "walkdir"
-            }
-          ],
-          "selects": {}
-        },
-        "edition": "2018",
-        "version": "7.5.0"
-      },
-      "license": "MIT"
-    },
     "rustc_version 0.4.0": {
       "name": "rustc_version",
       "version": "0.4.0",
@@ -10597,47 +10443,6 @@
         "version": "1.0.12"
       },
       "license": "Apache-2.0 OR BSL-1.0"
-    },
-    "same-file 1.0.6": {
-      "name": "same-file",
-      "version": "1.0.6",
-      "repository": {
-        "Http": {
-          "url": "https://crates.io/api/v1/crates/same-file/1.0.6/download",
-          "sha256": "93fc1dc3aaa9bfed95e02e6eadabb4baf7e3078b0bd1b4d7b6b0b68378900502"
-        }
-      },
-      "targets": [
-        {
-          "Library": {
-            "crate_name": "same_file",
-            "crate_root": "src/lib.rs",
-            "srcs": [
-              "**/*.rs"
-            ]
-          }
-        }
-      ],
-      "library_target_name": "same_file",
-      "common_attrs": {
-        "compile_data_glob": [
-          "**"
-        ],
-        "deps": {
-          "common": [],
-          "selects": {
-            "cfg(windows)": [
-              {
-                "id": "winapi-util 0.1.5",
-                "target": "winapi_util"
-              }
-            ]
-          }
-        },
-        "edition": "2018",
-        "version": "1.0.6"
-      },
-      "license": "Unlicense/MIT"
     },
     "schannel 0.1.21": {
       "name": "schannel",
@@ -13790,56 +13595,6 @@
         "version": "0.9.4"
       },
       "license": "MIT/Apache-2.0"
-    },
-    "walkdir 2.3.2": {
-      "name": "walkdir",
-      "version": "2.3.2",
-      "repository": {
-        "Http": {
-          "url": "https://crates.io/api/v1/crates/walkdir/2.3.2/download",
-          "sha256": "808cf2735cd4b6866113f648b791c6adc5714537bc222d9347bb203386ffda56"
-        }
-      },
-      "targets": [
-        {
-          "Library": {
-            "crate_name": "walkdir",
-            "crate_root": "src/lib.rs",
-            "srcs": [
-              "**/*.rs"
-            ]
-          }
-        }
-      ],
-      "library_target_name": "walkdir",
-      "common_attrs": {
-        "compile_data_glob": [
-          "**"
-        ],
-        "deps": {
-          "common": [
-            {
-              "id": "same-file 1.0.6",
-              "target": "same_file"
-            }
-          ],
-          "selects": {
-            "cfg(windows)": [
-              {
-                "id": "winapi 0.3.9",
-                "target": "winapi"
-              },
-              {
-                "id": "winapi-util 0.1.5",
-                "target": "winapi_util"
-              }
-            ]
-          }
-        },
-        "edition": "2018",
-        "version": "2.3.2"
-      },
-      "license": "Unlicense/MIT"
     },
     "wasi 0.11.0+wasi-snapshot-preview1": {
       "name": "wasi",
