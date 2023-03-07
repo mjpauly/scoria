@@ -33,6 +33,7 @@ class ViewController: UIViewController {
     private lazy var webView: WKWebView = {
         let webView = WKWebView()
         webView.translatesAutoresizingMaskIntoConstraints = false
+        webView.scrollView.bounces = false
         return webView
     }()
     

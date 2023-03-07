@@ -30,8 +30,8 @@ pub fn App() -> Html {
         // default parent style for the UI which pages inherit
         <div class="place-content-center text-center flex flex-col \
                     min-h-screen bg-neutral-900 \
-                    font-light text-neutral-200">
-                    // background gradients should work!
+                    font-light text-neutral-200 select-none">
+                    // background gradients should work behind navbar!
                     // bg-gradient-to-b from-purple-900 to-pink-900">
             <BrowserRouter>
                 <Switch<router::Route> render={router::switch} />
