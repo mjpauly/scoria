@@ -50,10 +50,14 @@ rust_library(
     deps = [
         "@stem_crate_index//:yew",
         "@stem_crate_index//:yew-router",
+        "@stem_crate_index//:futures",
+        "@stem_crate_index//:gloo-net",
+        "@stem_crate_index//:wasm-bindgen-futures",
         "@stem_crate_index//:web-sys",
         "@stem_crate_index//:log",
         "@stem_crate_index//:wasm-logger",
         "@stem_crate_index//:yew_icons",
+        "@stem_crate_index//:serde",
     ],
 )
 

@@ -149,7 +149,7 @@ crates_repository(
         "serde": crate.spec(
             version = "1.0.152",
         ),
-        "rmp-serde": crate.spec( version = "1.1.1" ),
+        "rmp-serde": crate.spec(version = "1.1.1"),
         "zip": crate.spec(
             version = "0.6.4",
         ),
@@ -161,6 +161,9 @@ crates_repository(
         "yew-router": crate.spec(
             version = "0.17.0",
         ),
+        "futures": crate.spec(version = "0.3.26"),
+        "gloo-net": crate.spec(version = "0.2.6"),
+        "wasm-bindgen-futures": crate.spec(version = "0.4.33"),
         "web-sys": crate.spec(  # last web-sys ok with wasm-bindgen 0.2.83
             version = "0.3.60",
         ),
@@ -178,7 +181,12 @@ crates_repository(
                         "BootstrapMap",
             ],
         ),
-        "wasm-bindgen": crate.spec(  # unresolved bug if we upgrade to 0.2.84
+        # Unresolved bug if we upgrade to wasm-bindgen 0.2.84, probably because
+        # the wasm_bindgen rules in rules_rust are not updated yet, and the
+        # versions used in the CLI and in the code need to be synced. So we pin
+        # it at 0.2.83.
+        # Info: https://github.com/rustwasm/wasm-bindgen/issues/2776
+        "wasm-bindgen": crate.spec(
             version = "=0.2.83",
         ),
 

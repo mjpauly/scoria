@@ -3,7 +3,7 @@
 use yew::prelude::*;
 // use yew_icons::{Icon, IconId};
 
-use crate::components::NavbarWrapper;
+use crate::{components::NavbarWrapper, event_bus, websocket};
 
 #[function_component]
 pub fn Sense() -> Html {
@@ -29,7 +29,40 @@ fn LocationConfig() -> Html {
                     py-1.5 px-3 text-sky-500 bg-neutral-800">
                 {"Share SQLite log"}
             </button>
+
+            <WssTest />
         </NavbarWrapper>
+    }
+}
+
+#[function_component]
+fn WssTest() -> Html {
+    // send message to websocket when button clicked
+    let onclick = Callback::from(move |_e: MouseEvent| {
+        websocket::send_msg("clicked".to_string());
+    });
+
+    // increment counter on message from websocket
+    let counter = use_state(|| 0);
+    let on_sock_msg = {
+        let counter = counter.clone();
+        Callback::from(move |_| {
+            counter.set(*counter + 1);
+        })
+    };
+    event_bus::subscribe(on_sock_msg);
+
+    html! {
+        <>
+            <br />
+            <button {onclick} class="rounded-lg whitespace-nowrap \
+                    py-1.5 px-3 text-sky-500 bg-neutral-800 mt-6">
+                {"Send click to websocket"}
+            </button>
+
+            <br />
+            <p>{ *counter }</p>
+        </>
     }
 }
 

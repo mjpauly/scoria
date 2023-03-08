@@ -32,6 +32,8 @@ impl AppStateExtentions for AppState {
 }
 
 /// Actor based implementation of websocket state for the UI
+///
+/// Based on https://github.com/actix/examples/tree/master/websockets/chat
 
 #[path = "../front/rs/common.rs"]
 mod common;
@@ -133,6 +135,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsSession {
             }
             ws::Message::Pong(_) => {
                 self.hb = Instant::now();
+                ctx.text("text from WsSession");
             }
             ws::Message::Binary(bytes) => {
                 // deserialize MsgForBackend

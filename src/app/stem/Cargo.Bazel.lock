@@ -1,5 +1,5 @@
 {
-  "checksum": "11b1f8c1cb1ec0441ec1ca38c9f397f60aa081e96772b75ead1a5bf8a79de91f",
+  "checksum": "17ebecec434f01d2dd44f23561c7b164eb941877ceb9ae1013576d89e7555d45",
   "crates": {
     "actix 0.13.0": {
       "name": "actix",
@@ -3993,6 +3993,14 @@
               "target": "env_logger"
             },
             {
+              "id": "futures 0.3.26",
+              "target": "futures"
+            },
+            {
+              "id": "gloo-net 0.2.6",
+              "target": "gloo_net"
+            },
+            {
               "id": "log 0.4.17",
               "target": "log"
             },
@@ -4019,6 +4027,10 @@
             {
               "id": "wasm-bindgen 0.2.83",
               "target": "wasm_bindgen"
+            },
+            {
+              "id": "wasm-bindgen-futures 0.4.33",
+              "target": "wasm_bindgen_futures"
             },
             {
               "id": "wasm-logger 0.2.0",
@@ -4790,6 +4802,9 @@
         "crate_features": [
           "alloc",
           "async-await",
+          "default",
+          "executor",
+          "futures-executor",
           "std"
         ],
         "deps": {
@@ -4801,6 +4816,10 @@
             {
               "id": "futures-core 0.3.26",
               "target": "futures_core"
+            },
+            {
+              "id": "futures-executor 0.3.26",
+              "target": "futures_executor"
             },
             {
               "id": "futures-io 0.3.26",

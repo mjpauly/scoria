@@ -39,7 +39,7 @@ async fn main() -> Result<(), std::io::Error> {
     );
 
     // Finish startup now that our bundle is in the right spot
-    let server_handle = stem::init(paths_to_set)
+    let _server_handle = stem::init(paths_to_set)
         .await
         .expect("Could not start server");
 
@@ -55,7 +55,9 @@ async fn main() -> Result<(), std::io::Error> {
 
     println!("Shutting down the server.");
     // `true` tells actix to do a graceful shutdown
-    server_handle.stop(true).await;
+    // server_handle.stop(true).await;
+    // calling this now seems to not kill the server when expected? this now
+    // has the desired behavior when not calling this funtion.
 
     Ok(())
 }

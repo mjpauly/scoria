@@ -17,8 +17,10 @@
 //! let style: String = format!("rouned {}", scale);
 
 mod components;
+mod event_bus;
 mod pages;
 mod router;
+mod websocket;
 
 use yew::prelude::*;
 use yew_router::prelude::*;

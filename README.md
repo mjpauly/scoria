@@ -221,6 +221,10 @@ Prereq: install graphviz (includes `dot`) with `brew install graphviz`.
     - if return type is `()` on success: `if let Err(e) = run(config) {`
 - `eprintln` for stderr
 
+### Other tips
+
+- Use `RUSTFLAGS=-Awarnings` to suppress warnings while working on errors.
+
 ## Style Notes
 
 - Code lines set to 80 characters or shorter
