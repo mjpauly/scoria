@@ -8,7 +8,10 @@ use gloo_net::websocket::{futures::WebSocket, Message};
 use std::cell::RefCell;
 use std::rc::Rc;
 use wasm_bindgen_futures::spawn_local;
+use yew::prelude::*;
 
+// Re-export the message types
+pub use crate::common::{MsgForBackend, MsgForFrontend};
 use crate::{event_bus, event_bus::Request};
 
 /// Shared WebsocketService instance.
@@ -16,13 +19,23 @@ use crate::{event_bus, event_bus::Request};
 pub struct WebsocketService {
     // Rc provides immutable pointer cloning, RefCell provides runtime-checked
     // interior mutability for sending messages.
+
+    // handle for sending a message to the backend through the websocket
     tx: Rc<RefCell<Sender<String>>>,
+
+    // list of component subscribers to update on message received from backend
+    subscribers: Rc<RefCell<Vec<Callback<()>>>>,
 }
 
 impl WebsocketService {
     /// Send a message to the websocket
     pub fn send_msg(&self, msg: String) {
         self.tx.borrow_mut().try_send(msg).unwrap();
+    }
+
+    /// Subscribe to messages from the backend
+    pub fn subscribe(&self, cb: Callback<()>) {
+        self.subscribers.borrow_mut().push(cb);
     }
 
     pub fn new() -> Self {
@@ -41,12 +54,19 @@ impl WebsocketService {
             }
         });
 
+        let subscribers = Rc::new(RefCell::new(Vec::<Callback<()>>::new()));
+
+        let subscribers_handle = subscribers.clone();
         spawn_local(async move {
             while let Some(msg) = read.next().await {
                 match msg {
                     Ok(Message::Text(data)) => {
                         log::debug!("from websocket: {}", data);
-                        event_bus::send(Request::EventBusMsg(data));
+                        // event_bus::send(Request::EventBusMsg(data));
+                        // notify component subscribers of the message
+                        for sub in subscribers_handle.borrow().iter() {
+                            (*sub).emit(());
+                        }
                     }
                     Ok(Message::Bytes(b)) => {
                         let decoded = std::str::from_utf8(&b);
@@ -65,14 +85,17 @@ impl WebsocketService {
 
         Self {
             tx: Rc::new(RefCell::new(in_tx)),
+            subscribers,
         }
     }
 }
 
 impl PartialEq for WebsocketService {
-    /// We don't want rerenders to occur because the interior state of
-    /// WebsocketService changed, so we just compare the smart pointers
+    /// Yew uses PartialEq to determine if properties for a component have
+    /// changed. Since we don't care about the interior state of the service, we
+    /// just compare the smart pointers.
     fn eq(&self, other: &Self) -> bool {
         Rc::ptr_eq(&self.tx, &other.tx)
+            && Rc::ptr_eq(&self.subscribers, &other.subscribers)
     }
 }
