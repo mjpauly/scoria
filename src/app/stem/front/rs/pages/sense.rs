@@ -3,7 +3,9 @@
 use yew::prelude::*;
 // use yew_icons::{Icon, IconId};
 
-use crate::{components::NavbarWrapper, event_bus, websocket};
+use crate::{
+    components::NavbarWrapper, event_bus, websocket::WebsocketService,
+};
 
 #[function_component]
 pub fn Sense() -> Html {
@@ -37,9 +39,12 @@ fn LocationConfig() -> Html {
 
 #[function_component]
 fn WssTest() -> Html {
-    // send message to websocket when button clicked
+    // Get a handle to the websocket service
+    let wss = use_context::<WebsocketService>().unwrap();
+
+    // send message to websocket when the button is clicked
     let onclick = Callback::from(move |_e: MouseEvent| {
-        websocket::send_msg("clicked".to_string());
+        wss.send_msg("clicked".to_string());
     });
 
     // increment counter on message from websocket

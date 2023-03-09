@@ -6,25 +6,26 @@
 use futures::{channel::mpsc::Sender, SinkExt, StreamExt};
 use gloo_net::websocket::{futures::WebSocket, Message};
 use std::cell::RefCell;
+use std::rc::Rc;
 use wasm_bindgen_futures::spawn_local;
 
 use crate::{event_bus, event_bus::Request};
 
-thread_local!(static WSS: RefCell<WebsocketService> =
-              RefCell::new(WebsocketService::new()));
-
-pub fn send_msg(msg: String) {
-    WSS.with(|w| {
-        (*w.borrow_mut()).tx.try_send(msg).unwrap();
-    });
-}
-
-struct WebsocketService {
-    tx: Sender<String>,
+/// Shared WebsocketService instance.
+#[derive(Clone)]
+pub struct WebsocketService {
+    // Rc provides immutable pointer cloning, RefCell provides runtime-checked
+    // interior mutability for sending messages.
+    tx: Rc<RefCell<Sender<String>>>,
 }
 
 impl WebsocketService {
-    fn new() -> Self {
+    /// Send a message to the websocket
+    pub fn send_msg(&self, msg: String) {
+        self.tx.borrow_mut().try_send(msg).unwrap();
+    }
+
+    pub fn new() -> Self {
         let ws = WebSocket::open("ws://127.0.0.1:8081/ws").unwrap();
 
         let (mut write, mut read) = ws.split();
@@ -62,6 +63,16 @@ impl WebsocketService {
             log::debug!("WebSocket Closed");
         });
 
-        Self { tx: in_tx }
+        Self {
+            tx: Rc::new(RefCell::new(in_tx)),
+        }
+    }
+}
+
+impl PartialEq for WebsocketService {
+    /// We don't want rerenders to occur because the interior state of
+    /// WebsocketService changed, so we just compare the smart pointers
+    fn eq(&self, other: &Self) -> bool {
+        Rc::ptr_eq(&self.tx, &other.tx)
     }
 }

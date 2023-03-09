@@ -25,9 +25,15 @@ mod websocket;
 use yew::prelude::*;
 use yew_router::prelude::*;
 
+use websocket::WebsocketService;
+
 /// Top level App component for the UI.
 #[function_component]
 pub fn App() -> Html {
+    // Start our websocket service, so we use it as a context available to all
+    // components with `use_context`
+    let wss = WebsocketService::new();
+
     html! {
         // default parent style for the UI which pages inherit
         <div class="place-content-center text-center flex flex-col \
@@ -35,9 +41,11 @@ pub fn App() -> Html {
                     font-light text-neutral-200 select-none">
                     // background gradients should work behind navbar!
                     // bg-gradient-to-b from-purple-900 to-pink-900">
-            <BrowserRouter>
-                <Switch<router::Route> render={router::switch} />
-            </BrowserRouter>
+            <ContextProvider<WebsocketService> context={wss}>
+                <BrowserRouter>
+                    <Switch<router::Route> render={router::switch} />
+                </BrowserRouter>
+            </ContextProvider<WebsocketService>>
         </div>
     }
 }
