@@ -36,7 +36,8 @@ pub fn App() -> Html {
     // components with `use_context`
     let wss = WebsocketService::new();
     let state = UIState::new();
-    wss.subscribe(state.get_update_callback());
+    let id = use_memo(|_| WebsocketService::gen_callback_id(), ());
+    wss.subscribe(*id, state.get_update_callback());
     // TODO: ask backend for app state at start
 
     html! {

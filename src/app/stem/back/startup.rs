@@ -40,6 +40,8 @@ fn build(base_url: &str, port: u16, state: AppState) -> Server {
     let dist = paths::get_library_dir().unwrap().join("dist"); // static files
     let state = web::Data::new(state);
     HttpServer::new(move || {
+        let files_service =
+            fs::Files::new("/", dist.clone()).index_file("index.html");
         App::new()
             .route("/health_check", web::get().to(health_check))
             // .route(
@@ -47,7 +49,7 @@ fn build(base_url: &str, port: u16, state: AppState) -> Server {
             // web::get().to(toggle_location_enabled),
             // )
             .route("/ws", web::get().to(ws_route))
-            .service(fs::Files::new("/", dist.clone()).index_file("index.html"))
+            .service(files_service)
             .app_data(state.clone())
     })
     .bind(format!("{}:{}", base_url, port))

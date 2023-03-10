@@ -25,7 +25,7 @@ impl AppStateExt for AppState {
     fn init_state() -> Arc<AppStateContents> {
         Arc::new(AppStateContents {
             // TODO: read from file or do default
-            location_is_enabled: Mutex::new(false),
+            location_is_enabled: Mutex::new(true),
             distance_filter: Mutex::new(5.0),
         })
     }

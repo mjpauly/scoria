@@ -161,11 +161,21 @@ crates_repository(
         "yew-router": crate.spec(
             version = "0.17.0",
         ),
+        "time": crate.spec(version = "0.3.20"),
         "futures": crate.spec(version = "0.3.26"),
         "gloo-net": crate.spec(version = "0.2.6"),
         "wasm-bindgen-futures": crate.spec(version = "0.4.33"),
+        "getrandom": crate.spec( # dependency of uuid
+            version = "0.2.8",
+            features = ["js"]
+        ),
+        "uuid": crate.spec(
+            version = "1.3.0",
+            features = ["v4", "fast-rng", "macro-diagnostics",]
+        ),
         "web-sys": crate.spec(  # last web-sys ok with wasm-bindgen 0.2.83
             version = "0.3.60",
+            features = ["Performance", "Window",],
         ),
         "log": crate.spec(
             version = "0.4.17",

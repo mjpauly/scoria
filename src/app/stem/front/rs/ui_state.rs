@@ -8,12 +8,14 @@ use std::rc::Rc;
 #[derive(Clone)]
 pub struct UIState {
     pub location_is_enabled: Rc<RefCell<bool>>,
+    pub distance_filter: Rc<RefCell<f32>>,
 }
 
 impl UIState {
     pub fn new() -> Self {
         Self {
             location_is_enabled: Rc::new(RefCell::new(true)),
+            distance_filter: Rc::new(RefCell::new(5.0)),
         }
     }
 
@@ -23,13 +25,13 @@ impl UIState {
             ToFront::LocationEnabled(val) => {
                 *self_clone.location_is_enabled.borrow_mut() = *val
             }
-            ToFront::Ping => todo!(),
-            ToFront::Data(u8) => todo!(),
+            _ => todo!(),
         };
         Box::new(callback)
     }
 }
 
+#[allow(unused_variables)]
 impl PartialEq for UIState {
     fn eq(&self, other: &Self) -> bool {
         true

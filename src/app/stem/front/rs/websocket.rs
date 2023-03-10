@@ -9,7 +9,7 @@
 //!
 //! ```
 //! let wss = use_context::<WebsocketService>().unwrap();
-//! let counter = use_state(|| 0);
+//! let counter = use_state(|| 0);  // warning: always starts at 0
 //! let on_sock_msg = {
 //!     let counter = counter.clone();
 //!     move |msg: &ToFront| {
@@ -21,17 +21,61 @@
 //! wss.subscribe(Box::new(on_sock_msg));
 //! ```
 //!
+//! ```
+//! // Get a clone of the websocket service so we can TX/RX backend messages
+//! let wss = use_context::<WebsocketService>().unwrap();
+//! // Get a clone of the app state, so we initialize our local state correctly
+//! let state = use_context::<UIState>().unwrap();
+//!
+//! // Get the location_is_enabled state from the UI's local copy.
+//! // We store it in use_state_eq so a click on the checkbox can immediately
+//! // refresh this component, and if we get an update from the backend it is
+//! // only refreshed if the new state is different.
+//! let location_is_enabled =
+//!     use_state_eq(|| *state.location_is_enabled.borrow());
+//!
+//! // Subscribe to backend updates to the location enabled state.
+//! // Only needed if we expect the backend to change this state without user
+//! // input.
+//! let on_backend_msg = {
+//!     let location_is_enabled = location_is_enabled.clone();
+//!     move |msg: &ToFront| {
+//!         if let ToFront::LocationEnabled(val) = msg {
+//!             location_is_enabled.set(*val);
+//!         }
+//!     }
+//! };
+//! // Generate a unique ID which doesn't change between renders since no deps
+//! // are given to use_memo
+//! let id = use_memo(|_| WebsocketService::gen_callback_id(), ());
+//! wss.subscribe(*id, Box::new(on_backend_msg));
+//!
+//! // Update our state on click and tell the backend. Telling the backend is
+//! // only needed if the backend needs to know about this state change.
+//! let on_click = {
+//!     let location_is_enabled = location_is_enabled.clone();
+//!     Callback::from(move |_e: MouseEvent| {
+//!         let new_val = !*location_is_enabled;
+//!         location_is_enabled.set(new_val);
+//!         wss.send_msg(ToBack::SetLocationEnabled(new_val));
+//!     })
+//! };
+//! ```
+//!
 //! The implementation is based on Rc<RefCell<>> so it is not thread safe.
 //!
 //! Based on:
 //! https://github.com/jtordgeman/YewChat/blob/websockets-part2/src/services/websocket.rs
 
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::rc::Rc;
+
 use futures::channel::mpsc::{Receiver, Sender};
 use futures::stream::{SplitSink, SplitStream};
 use futures::{SinkExt, StreamExt};
 use gloo_net::websocket::{futures::WebSocket, Message};
-use std::cell::RefCell;
-use std::rc::Rc;
+use uuid::Uuid;
 use wasm_bindgen_futures::spawn_local;
 
 // Re-export the message types
@@ -49,7 +93,7 @@ pub struct WebsocketService {
     tx: Rc<RefCell<Sender<ToBack>>>,
 
     // list of component subscribers to update on message received from backend
-    subscribers: Rc<RefCell<Vec<Callback>>>,
+    subscribers: Rc<RefCell<HashMap<Uuid, Callback>>>,
 }
 
 impl WebsocketService {
@@ -59,8 +103,18 @@ impl WebsocketService {
     }
 
     /// Subscribe to messages from the backend
-    pub fn subscribe(&self, cb: Callback) {
-        self.subscribers.borrow_mut().push(cb);
+    /// ```
+    /// let id = use_memo(|_| WebsocketService::gen_callback_id(), ());
+    /// wss.subscribe(*id, Box::new(on_backend_msg));
+    /// ```
+    pub fn subscribe(&self, id: Uuid, cb: Callback) {
+        self.subscribers.borrow_mut().insert(id, cb);
+        log::debug!("subscriber len: {}", self.subscribers.borrow().len());
+    }
+
+    /// Generate a unique id for a component, so we can discard old callbacks
+    pub fn gen_callback_id() -> Uuid {
+        Uuid::new_v4()
     }
 
     pub fn new() -> Self {
@@ -71,7 +125,8 @@ impl WebsocketService {
         // components write yew_tx, and WebsocketService receives on rx
         let (yew_tx, yew_rx) = futures::channel::mpsc::channel::<ToBack>(1000);
 
-        let subscribers = Rc::new(RefCell::new(Vec::<Callback>::new()));
+        let subscribers =
+            Rc::new(RefCell::new(HashMap::<Uuid, Callback>::new()));
 
         Self::spawn_websocket_reader(ws_read, subscribers.clone());
         Self::spawn_websocket_writer(yew_rx, ws_write);
@@ -102,7 +157,7 @@ impl WebsocketService {
         // Websocket stream we can read messages from
         mut ws_read: SplitStream<WebSocket>,
         // Handle to the subscriberes to notify
-        subscribers: Rc<RefCell<Vec<Callback>>>,
+        subscribers: Rc<RefCell<HashMap<Uuid, Callback>>>,
     ) {
         spawn_local(async move {
             while let Some(msg) = ws_read.next().await {
@@ -110,8 +165,8 @@ impl WebsocketService {
                     Ok(Message::Bytes(b)) => {
                         match bincode::deserialize::<ToFront>(&b[..]) {
                             Ok(val) => {
-                                for sub in subscribers.borrow().iter() {
-                                    (*sub)(&val);
+                                for (_id, cb) in subscribers.borrow().iter() {
+                                    (*cb)(&val);
                                 }
                             }
                             Err(e) => {

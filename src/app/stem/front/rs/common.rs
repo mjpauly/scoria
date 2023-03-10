@@ -9,32 +9,30 @@
 //! the backend state and another component can be notified of the new state.
 
 use serde::{Deserialize, Serialize};
+// use time::OffsetDateTime;
 
 /// Messages from the frontend to the backend over the websocket
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ToBack {
     GetLocationEnabled,       // get location enabled state
     SetLocationEnabled(bool), // set location enabled state
 }
 
 /// Messages from the backend to the frontend
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ToFront {
-    // NewLocationData(Location), // send new location data for displaying
-    Ping,
-    Data(u8),
+    LastLocation(Location), // send the last known location for displaying.
+    // used to push new location updates
     LocationEnabled(bool),
 }
 
-/*
 /// Struct representation of a Location data point
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Location {
     pub lat: f64,
     pub lon: f64,
     pub accuracy: f64,
     pub speed: f64,
     pub course: f64,
-    pub datetime: time::OffsetDateTime, // OffsetDateTime is timezone aware
+    // pub datetime: time::OffsetDateTime, // OffsetDateTime is timezone aware
 }
-*/
