@@ -1,21 +1,29 @@
 //! Types common to the front and back ends
 //!
-//! Messages are serialized with rmp_serde in the MessagePack binary format.
+//! Messages are serialized with bincode.
+//!
+//! # Contracts
+//!
+//! Any ToBack::{Get.., Set..} messages are to have the state
+//! re-broadcasted by the backend to the UI. This way a Set message can change
+//! the backend state and another component can be notified of the new state.
 
 use serde::{Deserialize, Serialize};
 
 /// Messages from the frontend to the backend over the websocket
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
-pub enum MsgForBackend {
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum ToBack {
     GetLocationEnabled,       // get location enabled state
     SetLocationEnabled(bool), // set location enabled state
 }
 
 /// Messages from the backend to the frontend
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
-pub enum MsgForFrontend {
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum ToFront {
     // NewLocationData(Location), // send new location data for displaying
     Ping,
+    Data(u8),
+    LocationEnabled(bool),
 }
 
 /*

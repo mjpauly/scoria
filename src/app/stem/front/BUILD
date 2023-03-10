@@ -58,6 +58,7 @@ rust_library(
         "@stem_crate_index//:wasm-logger",
         "@stem_crate_index//:yew_icons",
         "@stem_crate_index//:serde",
+        "@stem_crate_index//:bincode",
     ],
 )
 

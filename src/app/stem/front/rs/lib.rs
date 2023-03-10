@@ -18,14 +18,15 @@
 
 mod common;
 mod components;
-mod event_bus;
 mod pages;
 mod router;
+mod ui_state;
 mod websocket;
 
 use yew::prelude::*;
 use yew_router::prelude::*;
 
+use ui_state::UIState;
 use websocket::WebsocketService;
 
 /// Top level App component for the UI.
@@ -34,6 +35,9 @@ pub fn App() -> Html {
     // Start our websocket service, so we use it as a context available to all
     // components with `use_context`
     let wss = WebsocketService::new();
+    let state = UIState::new();
+    wss.subscribe(state.get_update_callback());
+    // TODO: ask backend for app state at start
 
     html! {
         // default parent style for the UI which pages inherit
@@ -43,9 +47,11 @@ pub fn App() -> Html {
                     // background gradients should work behind navbar!
                     // bg-gradient-to-b from-purple-900 to-pink-900">
             <ContextProvider<WebsocketService> context={wss}>
+            <ContextProvider<UIState> context={state}>
                 <BrowserRouter>
                     <Switch<router::Route> render={router::switch} />
                 </BrowserRouter>
+            </ContextProvider<UIState>>
             </ContextProvider<WebsocketService>>
         </div>
     }

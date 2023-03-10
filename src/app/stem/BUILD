@@ -16,7 +16,7 @@ rust_library(
         "@stem_crate_index//:actix-web-actors",
         "@stem_crate_index//:actix-files",
         "@stem_crate_index//:serde",
-        "@stem_crate_index//:rmp-serde",
+        "@stem_crate_index//:bincode",
         "@stem_crate_index//:zip",
     ],
 )

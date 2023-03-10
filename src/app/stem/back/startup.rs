@@ -3,8 +3,9 @@ use actix_web::dev::{Server, ServerHandle};
 use actix_web::{web, App, HttpServer};
 use actix_web::{HttpResponse, Responder};
 
-use crate::app_state::{ws_route, AppState, AppStateExtentions};
+use crate::app_state::{AppState, AppStateExt};
 use crate::paths;
+use crate::ws_session::ws_route;
 
 /// Start the server backend in a new tokio task, returning a handle to the
 /// server
@@ -41,10 +42,10 @@ fn build(base_url: &str, port: u16, state: AppState) -> Server {
     HttpServer::new(move || {
         App::new()
             .route("/health_check", web::get().to(health_check))
-            .route(
-                "/toggle_location_enabled",
-                web::get().to(toggle_location_enabled),
-            )
+            // .route(
+            // "/toggle_location_enabled",
+            // web::get().to(toggle_location_enabled),
+            // )
             .route("/ws", web::get().to(ws_route))
             .service(fs::Files::new("/", dist.clone()).index_file("index.html"))
             .app_data(state.clone())

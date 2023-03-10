@@ -149,7 +149,7 @@ crates_repository(
         "serde": crate.spec(
             version = "1.0.152",
         ),
-        "rmp-serde": crate.spec(version = "1.1.1"),
+        "bincode": crate.spec(version = "1.3.3"),
         "zip": crate.spec(
             version = "0.6.4",
         ),
