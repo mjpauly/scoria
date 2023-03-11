@@ -8,6 +8,7 @@ use std::fs;
 use std::os::unix::fs::PermissionsExt;
 
 use tokio::signal::unix::{signal, SignalKind};
+use tokio::time::{sleep, Duration};
 
 extern crate stem;
 
@@ -43,6 +44,9 @@ async fn main() -> Result<(), std::io::Error> {
         .await
         .expect("Could not start server");
 
+    // Spawn our data generator
+    tokio::spawn(data_generator());
+
     println!("Running server until ctrl-c is sent.");
     // If we're using ibazel it will upgrade our SIGINT (ctrl-c) to SIGTERM, so
     // we need to listen to both signals.
@@ -60,4 +64,22 @@ async fn main() -> Result<(), std::io::Error> {
     // has the desired behavior when not calling this funtion.
 
     Ok(())
+}
+
+async fn data_generator() {
+    let mut lon = 0.0;
+    loop {
+        sleep(Duration::from_millis(1000)).await;
+        lon = (lon + 0.0001) % 180.0;
+        stem::database::log_location(
+            0.0,
+            lon,
+            0.0,
+            0.0,
+            0.0,
+            time::OffsetDateTime::now_utc().unix_timestamp(),
+        )
+        .await
+        .unwrap();
+    }
 }

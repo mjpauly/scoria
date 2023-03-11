@@ -27,7 +27,7 @@ use yew::prelude::*;
 use yew_router::prelude::*;
 
 use ui_state::UIState;
-use websocket::WebsocketService;
+use websocket::{ToBack, WebsocketService};
 
 /// Top level App component for the UI.
 #[function_component]
@@ -38,7 +38,7 @@ pub fn App() -> Html {
     let state = UIState::new();
     let id = use_memo(|_| WebsocketService::gen_callback_id(), ());
     wss.subscribe(*id, state.get_update_callback());
-    // TODO: ask backend for app state at start
+    wss.send_msg(ToBack::GetState); // request initial state
 
     html! {
         // default parent style for the UI which pages inherit

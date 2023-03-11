@@ -109,7 +109,7 @@ impl WebsocketService {
     /// ```
     pub fn subscribe(&self, id: Uuid, cb: Callback) {
         self.subscribers.borrow_mut().insert(id, cb);
-        log::debug!("subscriber len: {}", self.subscribers.borrow().len());
+        // log::debug!("subscriber len: {}", self.subscribers.borrow().len());
     }
 
     /// Generate a unique id for a component, so we can discard old callbacks

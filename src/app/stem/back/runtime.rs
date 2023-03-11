@@ -1,6 +1,7 @@
 //! Shared Tokio async runtime.
 //!
-//! For now a new runtime is instantiated for each call to lib.rs
+//! This can be a thread_local since calls to the Swift-facing C API always
+//! occur on the same thread.
 
 use std::rc::Rc;
 

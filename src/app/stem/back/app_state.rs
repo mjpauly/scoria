@@ -1,32 +1,74 @@
 //! The state of the app's configuration
+//!
+//! For unit testing we make it a thread_local. Wrapping in an extra Arc is
+//! necessary since we can't pass references to thread_locals.
 
 use std::sync::{Arc, Mutex};
-// because we are using a standard Mutex, we cannot hold it across .await points
 
-pub type AppState = Arc<AppStateContents>;
+use once_cell::sync::OnceCell;
+use sqlx::SqlitePool;
+
+use crate::paths::Paths;
+
+#[cfg(not(test))]
+static APP_STATE: OnceCell<Arc<AppState>> = OnceCell::new();
+#[cfg(test)]
+thread_local!(static APP_STATE: OnceCell<Arc<AppState>> = OnceCell::new());
 
 #[derive(Debug)]
-pub struct AppStateContents {
+pub struct AppState {
+    // App directory paths
+    pub paths: Mutex<Paths>,
+
+    // SqlitePool connection, currently shared between threads with Mutex
+    pub db: SqlitePool,
+
     pub location_is_enabled: Mutex<bool>,
     pub distance_filter: Mutex<f32>,
 }
 
-pub trait AppStateExt {
-    fn init_state() -> Arc<AppStateContents>;
-}
+impl AppState {
+    /// Get the global AppState instance
+    #[cfg(not(test))]
+    pub fn global() -> Arc<AppState> {
+        Self::do_global(&APP_STATE)
+    }
 
-impl AppStateExt for AppState {
-    /// AppStateContents is wrapped in an Arc so it can be passed between
-    /// threads. Actix already does this for web::Data<>, but we need to share
-    /// it with code outside the webserver, so we put up with the overhead of
-    /// having two Arcs.
-    ///
-    /// See https://actix.rs/docs/application/#state for more info.
-    fn init_state() -> Arc<AppStateContents> {
-        Arc::new(AppStateContents {
-            // TODO: read from file or do default
-            location_is_enabled: Mutex::new(true),
-            distance_filter: Mutex::new(5.0),
-        })
+    /// Get the global AppState instance
+    #[cfg(test)]
+    pub fn global() -> Arc<AppState> {
+        APP_STATE.with(|state| Self::do_global(state))
+    }
+
+    /// Actual global implementation shared between both test and non-test cases
+    fn do_global(state: &OnceCell<Arc<AppState>>) -> Arc<AppState> {
+        state.get().expect("AppState not initialized").clone()
+    }
+
+    /// Initialize the AppState
+    #[cfg(not(test))]
+    pub fn init(paths: Paths, db: SqlitePool) {
+        Self::do_init(&APP_STATE, paths, db);
+    }
+
+    /// Initialize the AppState
+    #[cfg(test)]
+    pub fn init(paths: Paths, db: SqlitePool) {
+        APP_STATE.with(|state| {
+            Self::do_init(state, paths, db);
+        });
+    }
+
+    /// Actual init implementation shared between both test and non-test cases
+    fn do_init(state: &OnceCell<Arc<AppState>>, paths: Paths, db: SqlitePool) {
+        // TODO: pull saved settings from file
+        (*state)
+            .set(Arc::new(AppState {
+                paths: Mutex::new(paths),
+                db,
+                location_is_enabled: Mutex::new(true),
+                distance_filter: Mutex::new(5.0),
+            }))
+            .expect("Could not initialize AppState");
     }
 }

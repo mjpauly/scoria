@@ -10,6 +10,8 @@ use std::path::PathBuf;
 use actix_web::dev::ServerHandle;
 
 pub mod app_state;
+#[path = "../front/rs/common.rs"]
+pub mod common;
 pub mod database;
 pub mod paths;
 pub mod runtime;
@@ -34,10 +36,10 @@ pub extern "C" fn set_app_dirs(
     bundle_dir: *const c_char,
 ) {
     let paths_to_set = paths::Paths {
-        documents_dir: Some(PathBuf::from(cstr_to_string(documents_dir))),
-        library_dir: Some(PathBuf::from(cstr_to_string(library_dir))),
-        temp_dir: Some(PathBuf::from(cstr_to_string(temp_dir))),
-        bundle_dir: Some(PathBuf::from(cstr_to_string(bundle_dir))),
+        documents_dir: PathBuf::from(cstr_to_string(documents_dir)),
+        library_dir: PathBuf::from(cstr_to_string(library_dir)),
+        temp_dir: PathBuf::from(cstr_to_string(temp_dir)),
+        bundle_dir: PathBuf::from(cstr_to_string(bundle_dir)),
     };
     runtime::get_runtime().block_on(async {
         init(paths_to_set).await.unwrap();
@@ -52,8 +54,13 @@ fn cstr_to_string(cstr: *const c_char) -> String {
 
 /// Initializes the rust library with the given app directories.
 pub async fn init(paths_to_set: paths::Paths) -> Result<ServerHandle, String> {
-    paths::set_app_dirs(paths_to_set);
-    database::init_db().await.unwrap();
+    // paths::set_app_dirs(paths_to_set);
+    let db = database::init_db(paths::get_db_path_helper(
+        paths_to_set.documents_dir.clone(),
+    ))
+    .await
+    .unwrap();
+    app_state::AppState::init(paths_to_set, db);
     startup::run("127.0.0.1", 8081)
 }
 
@@ -72,10 +79,10 @@ pub mod local {
             std::fs::create_dir_all(fullsubdir).unwrap();
         }
         paths::Paths {
-            documents_dir: Some(fullsubdirs[0].clone()),
-            library_dir: Some(fullsubdirs[1].clone()),
-            temp_dir: Some(fullsubdirs[2].clone()),
-            bundle_dir: Some(fullsubdirs[3].clone()),
+            documents_dir: fullsubdirs[0].clone(),
+            library_dir: fullsubdirs[1].clone(),
+            temp_dir: fullsubdirs[2].clone(),
+            bundle_dir: fullsubdirs[3].clone(),
         }
     }
 }
@@ -90,9 +97,13 @@ pub mod tests {
     /// Set the directories to use for the test given a top level directory.
     pub async fn test_setup(dir: &str) {
         let paths_to_set = create_subdirs(dir);
-        // init(paths_to_set).await;
-        paths::set_app_dirs(paths_to_set);
-        database::init_db().await.unwrap();
+        let db = database::init_db(paths::get_db_path_helper(
+            paths_to_set.documents_dir.clone(),
+        ))
+        .await
+        .unwrap();
+        app_state::AppState::init(paths_to_set, db);
+        // no initializing the http server
     }
 
     /// Run test_setup but clear the contents of the test directory first
@@ -113,7 +124,6 @@ pub mod tests {
     #[ignore]
     #[test]
     fn test_app_dir_update() {
-        assert!(paths::get_documents_dir().is_err());
         create_subdirs("");
         let subdirs = vec!["Documents", "Library", "tmp", "Bundle"];
         let cstrings: Vec<_> =
@@ -124,10 +134,7 @@ pub mod tests {
             cstrings[2].as_ptr(),
             cstrings[3].as_ptr(),
         );
-        assert_eq!(
-            paths::get_documents_dir().unwrap(),
-            PathBuf::from("Documents")
-        );
+        assert_eq!(paths::get_documents_dir(), PathBuf::from("Documents"));
     }
 }
 

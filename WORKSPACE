@@ -150,6 +150,7 @@ crates_repository(
             version = "1.0.152",
         ),
         "bincode": crate.spec(version = "1.3.3"),
+        "once_cell": crate.spec(version = "1.17.1"),
         "zip": crate.spec(
             version = "0.6.4",
         ),
@@ -161,7 +162,10 @@ crates_repository(
         "yew-router": crate.spec(
             version = "0.17.0",
         ),
-        "time": crate.spec(version = "0.3.20"),
+        "time": crate.spec(
+            version = "0.3.20",
+            features = ["wasm-bindgen"],
+        ),
         "futures": crate.spec(version = "0.3.26"),
         "gloo-net": crate.spec(version = "0.2.6"),
         "wasm-bindgen-futures": crate.spec(version = "0.4.33"),

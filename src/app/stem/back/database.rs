@@ -1,12 +1,13 @@
 //! Handles database access and modification.
 
-use std::cell::RefCell;
+// use std::cell::RefCell;
 
-use anyhow::{bail, Result};
+use anyhow::Result;
 use sqlx::types::time;
 use sqlx::{migrate::MigrateDatabase, FromRow, Sqlite, SqlitePool};
 
-use crate::paths;
+use crate::app_state::AppState;
+use crate::common;
 
 // TODO: use sqlx's migrate!() macro to embed the migrations into the binary
 
@@ -34,33 +35,21 @@ pub struct Location {
     pub datetime: time::OffsetDateTime, // OffsetDateTime is timezone aware
 }
 
-// Shared database pool
-// RefCell provides interior mutability so it can be initialized with the
-// database handle when it is created. The Option is None until that happens.
-thread_local!(static DB: RefCell<Option<SqlitePool>> = RefCell::new(None));
-
 /// Initialized the shared database pool given its path.
 /// Call this once at startup.
-pub async fn init_db() -> Result<()> {
-    let db_path = paths::get_db_path()?;
+pub async fn init_db(db_path: String) -> Result<SqlitePool> {
     if !Sqlite::database_exists(&db_path).await? {
         Sqlite::create_database(&db_path).await?;
     }
     let conn = SqlitePool::connect(&db_path).await?;
-    sqlx::query(SCHEMA).execute(&conn).await?; // ok to attempt to recreate
-                                               // table if it already exists
-    DB.with(|db| {
-        *db.borrow_mut() = Some(conn.clone());
-    });
-    Ok(())
+    // ok to attempt to recreate table if it already exists
+    sqlx::query(SCHEMA).execute(&conn).await?;
+    Ok(conn)
 }
 
 /// Get a handle for the database pool.
-pub async fn get_db_pool() -> Result<SqlitePool> {
-    DB.with(|db| match &*db.borrow() {
-        Some(conn) => Ok(conn.clone()),
-        None => bail!("Database not initialized."),
-    })
+pub fn get_db_pool() -> SqlitePool {
+    AppState::global().db.clone()
 }
 
 /// Log a location event in the database.
@@ -72,7 +61,7 @@ pub async fn log_location(
     course: f64,
     datetime_epoch: i64,
 ) -> Result<()> {
-    let conn = get_db_pool().await?;
+    let conn = get_db_pool();
     let datetime = time::OffsetDateTime::from_unix_timestamp(datetime_epoch)?;
     sqlx::query(
         "INSERT INTO location (lat, lon, accuracy, speed, course, datetime)
@@ -89,9 +78,21 @@ VALUES (?,?,?,?,?,?)",
     Ok(())
 }
 
+/// Get the last record in the database
+pub async fn get_last_record() -> Option<Location> {
+    let conn = get_db_pool();
+    let mut result = sqlx::query_as::<_, Location>(
+        "SELECT * FROM location ORDER BY datetime DESC LIMIT 1",
+    )
+    .fetch_all(&conn)
+    .await
+    .unwrap();
+    result.pop()
+}
+
 /// Retrieve a vector of locations from the past week.
 pub async fn get_records_past_week() -> Vec<Location> {
-    let conn = get_db_pool().await.unwrap();
+    let conn = get_db_pool();
     let result = sqlx::query_as::<_, Location>(
         "SELECT * FROM location WHERE datetime >= date('now','-7 days')",
     )
@@ -105,7 +106,7 @@ pub async fn get_records_time_range(
     start_epoch: i64,
     end_epoch: i64,
 ) -> Vec<Location> {
-    let conn = get_db_pool().await.unwrap();
+    let conn = get_db_pool();
     let result = sqlx::query_as::<_, Location>(
         "SELECT * FROM location WHERE datetime >= (?) AND datetime <= (?)",
     )
@@ -117,6 +118,24 @@ pub async fn get_records_time_range(
     result
 }
 
+/// Convert between the Location we have for talking to the database and the
+/// Location we pass between the frontend and the backend.
+///
+/// We don't use the same type for each because we want the database version
+/// to implement FromRow, and for common::Location to not implement it.
+impl std::convert::From<Location> for common::Location {
+    fn from(loc: Location) -> Self {
+        common::Location {
+            lat: loc.lat,
+            lon: loc.lon,
+            accuracy: loc.accuracy,
+            speed: loc.speed,
+            course: loc.course,
+            datetime: loc.datetime,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::tests::test_setup_clean;
@@ -126,11 +145,12 @@ mod tests {
     #[tokio::test]
     async fn test_get_db_pool() {
         // haven't set the storage path, so we expect an error
-        assert!(get_db_pool().await.is_err());
+        // assert!(get_db_pool().await.is_err());
 
         test_setup_clean("test_get_db_pool/").await;
 
-        assert!(get_db_pool().await.is_ok());
+        // assert!(get_db_pool().await.is_ok());
+        get_db_pool();
     }
 
     #[tokio::test]

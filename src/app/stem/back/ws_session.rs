@@ -1,17 +1,17 @@
 /// Actor based implementation of websocket session for the UI
 ///
 /// Based on https://github.com/actix/examples/tree/master/websockets/chat
-
-#[path = "../front/rs/common.rs"]
-mod common;
-
+///
+/// Ridiculously helpful SO thread about using async functions with actors:
+/// https://stackoverflow.com/questions/64434912/how-to-correctly-call-async-functions-in-a-websocket-handler-in-actix-web
 use actix::prelude::*;
 use actix_web::{web, Error, HttpRequest, HttpResponse};
 use actix_web_actors::ws;
 use std::time::{Duration, Instant};
 
 use crate::app_state::AppState;
-use common::{ToBack, ToFront};
+use crate::common::{ToBack, ToFront};
+use crate::database::get_last_record;
 
 /// How often heartbeat pings are sent
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
@@ -22,25 +22,15 @@ const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
 /// Entry point for our websocket route
 pub async fn ws_route(
     req: HttpRequest,
-    state: web::Data<AppState>,
     stream: web::Payload,
 ) -> Result<HttpResponse, Error> {
-    ws::start(
-        WsSession {
-            hb: Instant::now(),
-            state,
-        },
-        &req,
-        stream,
-    )
+    ws::start(WsSession { hb: Instant::now() }, &req, stream)
 }
 
 pub struct WsSession {
     /// Client must send ping at least once per 10 seconds (CLIENT_TIMEOUT),
     /// otherwise we drop connection.
     pub hb: Instant,
-
-    state: web::Data<AppState>,
 }
 
 impl WsSession {
@@ -71,14 +61,30 @@ impl WsSession {
         dbg!(msg.clone());
         // TODO
         match msg {
-            ToBack::GetLocationEnabled => {
+            ToBack::GetState => {
                 let location_enabled =
-                    *self.state.location_is_enabled.lock().unwrap();
+                    *AppState::global().location_is_enabled.lock().unwrap();
                 self.send_msg(ToFront::LocationEnabled(location_enabled), ctx);
+
+                // need a future to query the database, so we convert the future
+                // into an actor which communicates back to ourselves with the
+                // message to send to the frontend (or something like that, see
+                // the SO thread linked in the docstring for more)
+                let recipient = ctx.address().recipient();
+                let fut = async move {
+                    let rec = get_last_record().await;
+                    if let Some(val) = rec {
+                        recipient.do_send(MsgToFront(ToFront::LastLocation(
+                            val.into(),
+                        )));
+                    }
+                };
+                fut.into_actor(self).spawn(ctx);
             }
             ToBack::SetLocationEnabled(val) => {
-                *self.state.location_is_enabled.lock().unwrap() = val;
-                // re-broadcast the new state
+                *AppState::global().location_is_enabled.lock().unwrap() = val;
+                // re-broadcast the new state in case other components are
+                // listening for it
                 self.send_msg(ToFront::LocationEnabled(val), ctx);
             }
         }
@@ -88,6 +94,18 @@ impl WsSession {
     fn send_msg(&self, msg: ToFront, ctx: &mut ws::WebsocketContext<Self>) {
         let encoded: Vec<u8> = bincode::serialize(&msg).unwrap();
         ctx.binary(encoded);
+    }
+}
+
+#[derive(Message)]
+#[rtype(result = "()")]
+struct MsgToFront(ToFront);
+
+impl Handler<MsgToFront> for WsSession {
+    type Result = ();
+
+    fn handle(&mut self, msg: MsgToFront, ctx: &mut Self::Context) {
+        self.send_msg(msg.0, ctx);
     }
 }
 

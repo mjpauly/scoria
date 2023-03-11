@@ -3,7 +3,6 @@ use actix_web::dev::{Server, ServerHandle};
 use actix_web::{web, App, HttpServer};
 use actix_web::{HttpResponse, Responder};
 
-use crate::app_state::{AppState, AppStateExt};
 use crate::paths;
 use crate::ws_session::ws_route;
 
@@ -15,8 +14,7 @@ pub fn run(base_url: &str, port: u16) -> Result<ServerHandle, String> {
         eprintln!("{}", e);
         return Err("Could not unzip dist".to_string());
     }
-    let state = AppState::init_state();
-    let server = build(base_url, port, state);
+    let server = build(base_url, port);
     let server_handle = server.handle();
     let _ = tokio::spawn(async move { server.await });
     Ok(server_handle)
@@ -24,11 +22,11 @@ pub fn run(base_url: &str, port: u16) -> Result<ServerHandle, String> {
 
 /// Unzip the frontend components from the bundle into {library_dir}/dist
 fn unzip_dist() -> Result<(), String> {
-    let archive = paths::get_bundle_dir().unwrap().join("dist.zip");
+    let archive = paths::get_bundle_dir().join("dist.zip");
     if !archive.exists() {
         return Err("Can't find 'dist.zip' in bundle".to_string());
     }
-    let destination = paths::get_library_dir().unwrap().join("dist");
+    let destination = paths::get_library_dir().join("dist");
     let _result = zip::ZipArchive::new(std::fs::File::open(archive).unwrap())
         .unwrap()
         .extract(destination.clone())
@@ -36,9 +34,8 @@ fn unzip_dist() -> Result<(), String> {
     Ok(())
 }
 
-fn build(base_url: &str, port: u16, state: AppState) -> Server {
-    let dist = paths::get_library_dir().unwrap().join("dist"); // static files
-    let state = web::Data::new(state);
+fn build(base_url: &str, port: u16) -> Server {
+    let dist = paths::get_library_dir().join("dist"); // static files
     HttpServer::new(move || {
         let files_service =
             fs::Files::new("/", dist.clone()).index_file("index.html");
@@ -50,7 +47,6 @@ fn build(base_url: &str, port: u16, state: AppState) -> Server {
             // )
             .route("/ws", web::get().to(ws_route))
             .service(files_service)
-            .app_data(state.clone())
     })
     .bind(format!("{}:{}", base_url, port))
     .unwrap()
@@ -58,13 +54,5 @@ fn build(base_url: &str, port: u16, state: AppState) -> Server {
 }
 
 async fn health_check() -> impl Responder {
-    HttpResponse::Ok()
-}
-
-async fn toggle_location_enabled(state: web::Data<AppState>) -> impl Responder {
-    // get mutex guard that will release the lock on drop
-    let mut location_enabled = state.location_is_enabled.lock().unwrap();
-    *location_enabled = !*location_enabled;
-    println!("location is now {}", *location_enabled);
     HttpResponse::Ok()
 }

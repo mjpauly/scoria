@@ -31,56 +31,13 @@ fn LocationConfig() -> Html {
                 {"Location"}
             </h1>
 
-            <EnableLocation />
-            // <LocationDetails />
-
-            <button class="rounded-lg whitespace-nowrap \
-                    py-1.5 px-3 text-sky-500 bg-neutral-800">
-                {"Share SQLite log"}
-            </button>
+            // <EnableLocation />
+            <LocationDetails />
 
             // <WssTest />
         </NavbarWrapper>
     }
 }
-
-/*
-#[function_component]
-fn WssTest() -> Html {
-    // Get a handle to the websocket service
-    let wss = use_context::<WebsocketService>().unwrap();
-    let wss1 = wss.clone();
-
-    // send message to websocket when the button is clicked
-    let onclick = Callback::from(move |_e: MouseEvent| {
-        wss.send_msg(ToBack::GetLocationEnabled);
-    });
-
-    // set counter on message from websocket
-    let counter = use_state(|| 0);
-    let on_sock_msg = {
-        let counter = counter.clone();
-        move |msg: &ToFront| {
-            if let ToFront::Data(val) = msg {
-                counter.set(*val);
-            }
-        }
-    };
-    wss1.subscribe(Box::new(on_sock_msg));
-    html! {
-        <>
-            <br />
-            <button {onclick} class="rounded-lg whitespace-nowrap \
-                    py-1.5 px-3 text-sky-500 bg-neutral-800 mt-6">
-                {"Send click to websocket"}
-            </button>
-
-            <br />
-            <p>{ *counter }</p>
-        </>
-    }
-}
-*/
 
 // Alternate way to update if we only wanted to update data from the backend
 // let trigger = use_force_update();
@@ -146,32 +103,64 @@ fn EnableLocation() -> Html {
 
 #[function_component]
 fn LocationDetails() -> Html {
+    let wss = use_context::<WebsocketService>().unwrap();
+    let state = use_context::<UIState>().unwrap();
+    let last_loc = use_state_eq(|| state.last_location.borrow().clone());
+
+    // Subscribe to backend updates to the location enabled state.
+    // Only needed if we expect the backend to change this state without user
+    // input.
+    let on_backend_msg = {
+        let last_loc = last_loc.clone();
+        move |msg: &ToFront| {
+            if let ToFront::LastLocation(val) = msg {
+                last_loc.set(Some(val.clone()));
+            }
+        }
+    };
+    // Generate a unique ID which doesn't change between renders since no deps
+    // are given to use_memo
+    let id = use_memo(|_| WebsocketService::gen_callback_id(), ());
+    wss.subscribe(*id, Box::new(on_backend_msg));
     html! {
         <>
-            <p class="font-bold">
-                {"Current Location:"}
-            </p>
-            <p class="mb-4">
-                {"xxx, yyy"}
-            </p>
-
-            <p class="whitespace-nowrap">
-                {"Num data points in past hour: xxx"}
-            </p>
-            <p class="mb-4">
-                {"xxx updates/minute"}
-            </p>
-
-            <div class="flex justify-center mb-4">
-                <p class="mr-6">
-                    {"Distance Filter"}
+            if let Some(loc) = &*last_loc {
+                <p class="font-bold">
+                    {"Current Location:"}
                 </p>
-                <input id="dist_filt" class="w-12 rounded bg-neutral-900 \
-                        border border-neutral-700" />
-                <p class="text-sky-500 ml-2">
-                    {"?"}
+                <p class="mb-4">
+                    // {"xxx, yyy"}
+                    {loc.lon}
                 </p>
-            </div>
+
+                <p class="whitespace-nowrap">
+                    {"Num data points in past hour: xxx"}
+                </p>
+                <p class="mb-4">
+                    {"xxx updates/minute"}
+                </p>
+
+                <div class="flex justify-center mb-4">
+                    <p class="mr-6">
+                        {"Distance Filter"}
+                    </p>
+                    <input id="dist_filt" class="w-12 rounded bg-neutral-900 \
+                            border border-neutral-700" />
+                    <p class="text-sky-500 ml-2">
+                        {"?"}
+                    </p>
+                </div>
+
+                <button class="rounded-lg whitespace-nowrap \
+                        py-1.5 px-3 text-sky-500 bg-neutral-800">
+                    {"Share SQLite log"}
+                </button>
+
+            } else {
+                <p class="mb-4">
+                    {"No recent location data found."}
+                </p>
+            }
         </>
     }
 }

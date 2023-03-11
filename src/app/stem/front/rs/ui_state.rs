@@ -1,5 +1,6 @@
 //! Global state manager for the UI
 
+use crate::common::Location;
 use crate::websocket::{Callback, ToFront};
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -9,6 +10,7 @@ use std::rc::Rc;
 pub struct UIState {
     pub location_is_enabled: Rc<RefCell<bool>>,
     pub distance_filter: Rc<RefCell<f32>>,
+    pub last_location: Rc<RefCell<Option<Location>>>,
 }
 
 impl UIState {
@@ -16,6 +18,7 @@ impl UIState {
         Self {
             location_is_enabled: Rc::new(RefCell::new(true)),
             distance_filter: Rc::new(RefCell::new(5.0)),
+            last_location: Rc::new(RefCell::new(None)),
         }
     }
 
@@ -25,7 +28,9 @@ impl UIState {
             ToFront::LocationEnabled(val) => {
                 *self_clone.location_is_enabled.borrow_mut() = *val
             }
-            _ => todo!(),
+            ToFront::LastLocation(val) => {
+                *self_clone.last_location.borrow_mut() = Some(val.clone())
+            }
         };
         Box::new(callback)
     }

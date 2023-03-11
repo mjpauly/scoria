@@ -18,6 +18,8 @@ rust_library(
         "@stem_crate_index//:serde",
         "@stem_crate_index//:bincode",
         "@stem_crate_index//:zip",
+        "@stem_crate_index//:time",
+        "@stem_crate_index//:once_cell",
     ],
 )
 
@@ -51,6 +53,7 @@ rust_binary(
         "@stem_crate_index//:tokio",
         "@stem_crate_index//:log",
         "@stem_crate_index//:env_logger",
+        "@stem_crate_index//:time",
     ],
 )
 
