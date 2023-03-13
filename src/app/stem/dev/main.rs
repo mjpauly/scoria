@@ -10,6 +10,8 @@ use std::os::unix::fs::PermissionsExt;
 use tokio::signal::unix::{signal, SignalKind};
 use tokio::time::{sleep, Duration};
 
+use rand::random;
+
 extern crate stem;
 
 #[tokio::main]
@@ -67,19 +69,20 @@ async fn main() -> Result<(), std::io::Error> {
 }
 
 async fn data_generator() {
-    let mut lon = 0.0;
+    let mut lat = 37.42984;
+    let mut lon = -122.16945;
     loop {
         sleep(Duration::from_millis(1000)).await;
-        lon = (lon + 0.0001) % 180.0;
-        stem::database::log_location(
-            0.0,
+        lon = (lon + (random::<f64>() - 0.5) / 10000.0) % 180.0;
+        lat = (lat + (random::<f64>() - 0.5) / 10000.0) % 180.0;
+        stem::log_location_helper(
+            lat,
             lon,
-            0.0,
-            0.0,
-            0.0,
+            random::<f64>() * 5.0,   // accuracy
+            random::<f64>() * 0.5,   // speed
+            random::<f64>() * 360.0, // course
             time::OffsetDateTime::now_utc().unix_timestamp(),
         )
-        .await
-        .unwrap();
+        .await;
     }
 }

@@ -1,5 +1,13 @@
 //! The state of the app's configuration
 //!
+//! Some fields are not wrapped in a Mutex. This is if the data is set on
+//! initialization and never changes during runtime, or if the datatype is
+//! already safe to send across threads (Sync + Send).
+//!
+//! Some data is initialized to a default value at startup, but is wrapped in a
+//! Mutex so it can be changed. Some data might not always be present, so is
+//! also wrapped in an Option<>.
+//!
 //! For unit testing we make it a thread_local. Wrapping in an extra Arc is
 //! necessary since we can't pass references to thread_locals.
 
@@ -9,6 +17,7 @@ use once_cell::sync::OnceCell;
 use sqlx::SqlitePool;
 
 use crate::paths::Paths;
+use crate::ws_session;
 
 #[cfg(not(test))]
 static APP_STATE: OnceCell<Arc<AppState>> = OnceCell::new();
@@ -17,11 +26,14 @@ thread_local!(static APP_STATE: OnceCell<Arc<AppState>> = OnceCell::new());
 
 #[derive(Debug)]
 pub struct AppState {
-    // App directory paths
-    pub paths: Mutex<Paths>,
+    // App directory paths, set during startup so not mutable
+    pub paths: Paths,
 
-    // SqlitePool connection, currently shared between threads with Mutex
+    // SqlitePool connection, sharable between threads and clonable
     pub db: SqlitePool,
+
+    // Address of the websocket actor so we can send messages to it
+    pub ws_addr: Mutex<Option<actix::Addr<ws_session::WsSession>>>,
 
     pub location_is_enabled: Mutex<bool>,
     pub distance_filter: Mutex<f32>,
@@ -64,8 +76,9 @@ impl AppState {
         // TODO: pull saved settings from file
         (*state)
             .set(Arc::new(AppState {
-                paths: Mutex::new(paths),
+                paths,
                 db,
+                ws_addr: Mutex::new(None),
                 location_is_enabled: Mutex::new(true),
                 distance_filter: Mutex::new(5.0),
             }))

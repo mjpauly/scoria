@@ -11,7 +11,7 @@ use std::time::{Duration, Instant};
 
 use crate::app_state::AppState;
 use crate::common::{ToBack, ToFront};
-use crate::database::get_last_record;
+use crate::database;
 
 /// How often heartbeat pings are sent
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
@@ -24,6 +24,12 @@ pub async fn ws_route(
     req: HttpRequest,
     stream: web::Payload,
 ) -> Result<HttpResponse, Error> {
+    // Disallow another websocket connection if one is already active
+    if AppState::global().ws_addr.lock().unwrap().is_some() {
+        println!("Additional UI websocket connection rejected.");
+        return Ok(HttpResponse::Unauthorized()
+            .body("Only one UI connection allowed."));
+    }
     ws::start(WsSession { hb: Instant::now() }, &req, stream)
 }
 
@@ -58,28 +64,9 @@ impl WsSession {
 
     /// Handles a decoded ToBack
     fn handle_msg(&self, msg: ToBack, ctx: &mut ws::WebsocketContext<Self>) {
-        dbg!(msg.clone());
-        // TODO
         match msg {
             ToBack::GetState => {
-                let location_enabled =
-                    *AppState::global().location_is_enabled.lock().unwrap();
-                self.send_msg(ToFront::LocationEnabled(location_enabled), ctx);
-
-                // need a future to query the database, so we convert the future
-                // into an actor which communicates back to ourselves with the
-                // message to send to the frontend (or something like that, see
-                // the SO thread linked in the docstring for more)
-                let recipient = ctx.address().recipient();
-                let fut = async move {
-                    let rec = get_last_record().await;
-                    if let Some(val) = rec {
-                        recipient.do_send(MsgToFront(ToFront::LastLocation(
-                            val.into(),
-                        )));
-                    }
-                };
-                fut.into_actor(self).spawn(ctx);
+                self.send_state(ctx);
             }
             ToBack::SetLocationEnabled(val) => {
                 *AppState::global().location_is_enabled.lock().unwrap() = val;
@@ -88,6 +75,27 @@ impl WsSession {
                 self.send_msg(ToFront::LocationEnabled(val), ctx);
             }
         }
+    }
+
+    /// Sends all UI state values, used at startup.
+    fn send_state(&self, ctx: &mut ws::WebsocketContext<Self>) {
+        let location_enabled =
+            *AppState::global().location_is_enabled.lock().unwrap();
+        self.send_msg(ToFront::LocationEnabled(location_enabled), ctx);
+
+        // need a future to query the database, so we convert the future
+        // into an actor which communicates back to ourselves with the
+        // message to send to the frontend (or something like that, see
+        // the SO thread linked in the docstring for more)
+        let recipient = ctx.address().recipient();
+        let fut = async move {
+            let rec = database::get_last_record().await;
+            if let Some(val) = rec {
+                recipient
+                    .do_send(MsgToFront(ToFront::LastLocation(val.into())));
+            }
+        };
+        fut.into_actor(self).spawn(ctx);
     }
 
     /// Encodes a ToFront and sends it over the websocket
@@ -99,7 +107,7 @@ impl WsSession {
 
 #[derive(Message)]
 #[rtype(result = "()")]
-struct MsgToFront(ToFront);
+pub struct MsgToFront(pub ToFront);
 
 impl Handler<MsgToFront> for WsSession {
     type Result = ();
@@ -114,8 +122,17 @@ impl Actor for WsSession {
 
     /// Method is called on actor start.
     fn started(&mut self, ctx: &mut Self::Context) {
+        // set the app_state to contain the address of the websocket session
+        *AppState::global().ws_addr.lock().unwrap() = Some(ctx.address());
+
         // start heartbeat process on session start.
         self.hb(ctx);
+    }
+
+    /// Method called on actor stop. Actor is dropped after this function.
+    fn stopped(&mut self, _ctx: &mut Self::Context) {
+        // Unset the actor address in the app state
+        *AppState::global().ws_addr.lock().unwrap() = None;
     }
 }
 

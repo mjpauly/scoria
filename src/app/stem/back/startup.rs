@@ -41,13 +41,10 @@ fn build(base_url: &str, port: u16) -> Server {
             fs::Files::new("/", dist.clone()).index_file("index.html");
         App::new()
             .route("/health_check", web::get().to(health_check))
-            // .route(
-            // "/toggle_location_enabled",
-            // web::get().to(toggle_location_enabled),
-            // )
             .route("/ws", web::get().to(ws_route))
             .service(files_service)
     })
+    .workers(1)
     .bind(format!("{}:{}", base_url, port))
     .unwrap()
     .run()

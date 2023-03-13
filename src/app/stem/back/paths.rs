@@ -23,20 +23,15 @@ pub struct Paths {
 
 /// Get the documents directory in the app state, returning an ownable PathBuf.
 pub fn get_documents_dir() -> PathBuf {
-    AppState::global()
-        .paths
-        .lock()
-        .unwrap()
-        .documents_dir
-        .clone()
+    AppState::global().paths.documents_dir.clone()
 }
 
 pub fn get_library_dir() -> PathBuf {
-    AppState::global().paths.lock().unwrap().library_dir.clone()
+    AppState::global().paths.library_dir.clone()
 }
 
 pub fn get_bundle_dir() -> PathBuf {
-    AppState::global().paths.lock().unwrap().bundle_dir.clone()
+    AppState::global().paths.bundle_dir.clone()
 }
 
 /// Get the database path as a string.

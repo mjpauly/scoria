@@ -54,6 +54,7 @@ rust_binary(
         "@stem_crate_index//:log",
         "@stem_crate_index//:env_logger",
         "@stem_crate_index//:time",
+        "@stem_crate_index//:rand",
     ],
 )
 

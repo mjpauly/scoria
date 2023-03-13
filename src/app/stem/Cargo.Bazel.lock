@@ -1,5 +1,5 @@
 {
-  "checksum": "686f7bcde14d0817d46978dae19bfaf97bc4f522b712095f04764e679543690f",
+  "checksum": "f15ada493bf2748ea9caa10995bfac883399e72046473b94b92f22e3de932d0b",
   "crates": {
     "actix 0.13.0": {
       "name": "actix",
@@ -4019,6 +4019,10 @@
             {
               "id": "plotly 0.8.3",
               "target": "plotly"
+            },
+            {
+              "id": "rand 0.8.5",
+              "target": "rand"
             },
             {
               "id": "serde 1.0.152",

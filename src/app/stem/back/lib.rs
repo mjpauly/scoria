@@ -149,19 +149,41 @@ pub extern "C" fn log_location(
     datetime_epoch: i64,
 ) -> i32 {
     runtime::get_runtime().block_on(async {
-        let result = database::log_location(
+        log_location_helper(lat, lon, accuracy, speed, course, datetime_epoch)
+            .await;
+    });
+    0
+}
+
+pub async fn log_location_helper(
+    lat: f64,
+    lon: f64,
+    accuracy: f64,
+    speed: f64,
+    course: f64,
+    datetime_epoch: i64,
+) {
+    database::log_location(lat, lon, accuracy, speed, course, datetime_epoch)
+        .await
+        .unwrap();
+    if let Some(addr) = app_state::AppState::global()
+        .ws_addr
+        .lock()
+        .unwrap()
+        .clone()
+    {
+        let datetime =
+            time::OffsetDateTime::from_unix_timestamp(datetime_epoch).unwrap();
+        let loc = common::Location {
             lat,
             lon,
             accuracy,
             speed,
             course,
-            datetime_epoch,
-        )
-        .await;
-        match result {
-            Err(e) => println!("Failed to log location due to error: {}", e),
-            _ => (),
+            datetime,
         };
-    });
-    0
+        addr.do_send(ws_session::MsgToFront(common::ToFront::LastLocation(
+            loc,
+        )));
+    }
 }

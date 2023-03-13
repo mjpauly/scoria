@@ -814,6 +814,7 @@ dependencies = [
  "log",
  "once_cell",
  "plotly",
+ "rand",
  "serde",
  "sqlx",
  "time",

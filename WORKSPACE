@@ -208,6 +208,7 @@ crates_repository(
         "env_logger": crate.spec(
             version = "0.10.0",
         ),
+        "rand": crate.spec(version = "0.8.5"),
     },
     splicing_config = splicing_config(resolver_version = "2"),
 

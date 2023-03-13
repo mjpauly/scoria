@@ -130,7 +130,7 @@ fn LocationDetails() -> Html {
                 </p>
                 <p class="mb-4">
                     // {"xxx, yyy"}
-                    {loc.lon}
+                    {format!("{:.5}, {:.5}", loc.lat, loc.lon)}
                 </p>
 
                 <p class="whitespace-nowrap">
