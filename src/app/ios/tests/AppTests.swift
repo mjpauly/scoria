@@ -1,6 +1,6 @@
 import XCTest
 
-@testable import App
+@testable import Epsilon
 
 class AppTests: XCTestCase {
     func testApp() throws {

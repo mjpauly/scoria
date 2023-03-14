@@ -7,7 +7,7 @@ load(
 
 _TOP_LEVEL_TARGETS = [
     top_level_target(
-        "//src/app/ios/top:App",
+        "//src/app/ios/top:Epsilon",
         target_environments = [
             "device",
             "simulator",
@@ -21,10 +21,10 @@ _SCHEMES = [
     xcode_schemes.scheme(
         name = "App",
         build_action = xcode_schemes.build_action(
-            targets = ["//src/app/ios/top:App"],
+            targets = ["//src/app/ios/top:Epsilon"],
         ),
         launch_action = xcode_schemes.launch_action(
-            "//src/app/ios/top:App",
+            "//src/app/ios/top:Epsilon",
         ),
         test_action = xcode_schemes.test_action(
             [
@@ -50,7 +50,7 @@ xcodeproj(
 xcodeproj(
     name = "xcodeproj-focused",
     focused_targets = [
-        "//src/app/ios/top:App",
+        "//src/app/ios/top:Epsilon",
     ],
     project_name = "Epsilon-Focused",
     schemes = _SCHEMES,

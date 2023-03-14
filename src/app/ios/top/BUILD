@@ -16,10 +16,10 @@ PROFILE_NAME = "iOS Team Provisioning Profile: {}".format(BUNDLE_ID)
 TEAMID = "QVSG4RRSDG"
 
 ios_application(
-    name = "App",
+    name = "Epsilon",
     app_icons = glob(["Resources/Assets.xcassets/AppIcon.appiconset/**"]),
     bundle_id = BUNDLE_ID,
-    bundle_name = "App",
+    bundle_name = "Epsilon",
     families = ["iphone"],
     frameworks = [
         "//src/app/ios/sensing:sensing_framework",
@@ -55,7 +55,7 @@ local_provisioning_profile(
 swift_library(
     name = "App.library",
     srcs = glob(["*.swift"]),
-    module_name = "App",
+    module_name = "Epsilon",
     tags = ["manual"],
     visibility = ["//src/app/ios/tests:__subpackages__"],
     deps = [
