@@ -16,3 +16,7 @@ user.bazelrc
 
 # dependency graph
 /graph_pruned.png
+
+# generated development database
+/src/app/stem/dev/db
+/src/app/stem/.env

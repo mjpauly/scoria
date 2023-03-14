@@ -43,7 +43,9 @@ pub async fn init_db(db_path: String) -> Result<SqlitePool> {
     }
     let conn = SqlitePool::connect(&db_path).await?;
     // ok to attempt to recreate table if it already exists
-    sqlx::query(SCHEMA).execute(&conn).await?;
+    // sqlx::query(SCHEMA).execute(&conn).await?;
+    // embed our migrations from "migrations/" into our binary
+    sqlx::migrate!().run(&conn).await?;
     Ok(conn)
 }
 
@@ -63,16 +65,16 @@ pub async fn log_location(
 ) -> Result<()> {
     let conn = get_db_pool();
     let datetime = time::OffsetDateTime::from_unix_timestamp(datetime_epoch)?;
-    sqlx::query(
+    sqlx::query!(
         "INSERT INTO location (lat, lon, accuracy, speed, course, datetime)
 VALUES (?,?,?,?,?,?)",
+        lat,
+        lon,
+        accuracy,
+        speed,
+        course,
+        datetime
     )
-    .bind(lat)
-    .bind(lon)
-    .bind(accuracy)
-    .bind(speed)
-    .bind(course)
-    .bind(datetime)
     .execute(&conn)
     .await?;
     Ok(())

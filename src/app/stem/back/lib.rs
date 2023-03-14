@@ -15,7 +15,8 @@ pub mod common;
 pub mod database;
 pub mod paths;
 pub mod runtime;
-pub mod startup;
+pub mod server;
+pub mod top;
 pub mod viz;
 pub mod ws_session;
 
@@ -61,7 +62,25 @@ pub async fn init(paths_to_set: paths::Paths) -> Result<ServerHandle, String> {
     .await
     .unwrap();
     app_state::AppState::init(paths_to_set, db);
-    startup::run("127.0.0.1", 8081)
+    server::run("127.0.0.1", 8081)
+}
+
+/// Log a location in the app. This is a thin sync wrapper around the helper
+/// function in `top`.
+#[no_mangle]
+pub extern "C" fn log_location(
+    lat: f64,
+    lon: f64,
+    accuracy: f64,
+    speed: f64,
+    course: f64,
+    datetime_epoch: i64,
+) -> i32 {
+    runtime::get_runtime().block_on(async {
+        top::log_location(lat, lon, accuracy, speed, course, datetime_epoch)
+            .await;
+    });
+    0
 }
 
 /// Local setup either for development or testing.
@@ -135,55 +154,5 @@ pub mod tests {
             cstrings[3].as_ptr(),
         );
         assert_eq!(paths::get_documents_dir(), PathBuf::from("Documents"));
-    }
-}
-
-/// Log a location into the SQLite database
-#[no_mangle]
-pub extern "C" fn log_location(
-    lat: f64,
-    lon: f64,
-    accuracy: f64,
-    speed: f64,
-    course: f64,
-    datetime_epoch: i64,
-) -> i32 {
-    runtime::get_runtime().block_on(async {
-        log_location_helper(lat, lon, accuracy, speed, course, datetime_epoch)
-            .await;
-    });
-    0
-}
-
-pub async fn log_location_helper(
-    lat: f64,
-    lon: f64,
-    accuracy: f64,
-    speed: f64,
-    course: f64,
-    datetime_epoch: i64,
-) {
-    database::log_location(lat, lon, accuracy, speed, course, datetime_epoch)
-        .await
-        .unwrap();
-    if let Some(addr) = app_state::AppState::global()
-        .ws_addr
-        .lock()
-        .unwrap()
-        .clone()
-    {
-        let datetime =
-            time::OffsetDateTime::from_unix_timestamp(datetime_epoch).unwrap();
-        let loc = common::Location {
-            lat,
-            lon,
-            accuracy,
-            speed,
-            course,
-            datetime,
-        };
-        addr.do_send(ws_session::MsgToFront(common::ToFront::LastLocation(
-            loc,
-        )));
     }
 }

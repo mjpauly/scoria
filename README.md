@@ -102,10 +102,6 @@ src
 
 ### Setup
 
-Some tools used come from the system rather than a Bazel toolchain. This is a
-temporary workaround where the Bazel toolchain was challenging to implement.
-These need to be installed separately.
-
 - Bazel: build system for the project
     - `brew install bazelisk`
     - Bazelisk is the launcher for Bazel. It does stuff like discover the
@@ -115,13 +111,17 @@ These need to be installed separately.
     change.
     - `brew install ibazel`
     - Use it just like bazel but replace `bazel` with `ibazel`.
-- Trunk: used to build the frontend webassembly application
-    - First install Rust onto your system, then do
-        `cargo install --locked --version 0.16.0 trunk`
-- tailwindcss: used for CSS utility classes in the UI
-    - install npm/node with `brew install npm node`
-    - install tailwind cli with `npm install -g tailwindcss`
-    - instructions [here](https://tailwindcss.com/docs/installation)
+
+For compile-time checked query macros with `sqlx` we need a development database
+for `sqlx` to connect to and check queries against. Run the following command:
+
+```
+bazel run src/app/stem:db_gen
+```
+
+This is slightly suboptimal. Ideally it would integrate into the build system
+automatically, getting generated anytime we compile the app. See `db_gen.rs` for
+notes on this issue.
 
 ### Running the App in the Simulator
 

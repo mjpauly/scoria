@@ -121,7 +121,7 @@ crates_repository(
     packages = {
         "sqlx": crate.spec(
             version = "0.6.2",
-            features = ["runtime-tokio-native-tls", "sqlite", "time"],
+            features = ["runtime-tokio-native-tls", "sqlite", "time", "macros"],
         ),
         "tokio": crate.spec(
             version = "1.24.2",

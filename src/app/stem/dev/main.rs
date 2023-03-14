@@ -75,7 +75,7 @@ async fn data_generator() {
         sleep(Duration::from_millis(1000)).await;
         lon = (lon + (random::<f64>() - 0.5) / 10000.0) % 180.0;
         lat = (lat + (random::<f64>() - 0.5) / 10000.0) % 180.0;
-        stem::log_location_helper(
+        stem::top::log_location(
             lat,
             lon,
             random::<f64>() * 5.0,   // accuracy
