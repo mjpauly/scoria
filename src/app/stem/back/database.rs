@@ -4,20 +4,30 @@
 //!
 //! CREATE TABLE IF NOT EXISTS location
 //! (
-//!     id          INTEGER PRIMARY KEY NOT NULL,
-//!     lat         REAL                NOT NULL,
-//!     lon         REAL                NOT NULL,
-//!     accuracy    REAL                NOT NULL,
-//!     speed       REAL                NOT NULL,
-//!     course      REAL                NOT NULL,
-//!     datetime    DATETIME            NOT NULL
-//! );";
+//!     id          INTEGER PRIMARY KEY NOT NULL CHECK (typeof(id) = 'integer'),
+//!     lat         REAL                NOT NULL CHECK (typeof(lat) = 'real'),
+//!     lon         REAL                NOT NULL CHECK (typeof(lon) = 'real'),
+//!     accuracy    REAL                NOT NULL CHECK (typeof(accuracy) = 'real'),
+//!     speed       REAL                NOT NULL CHECK (typeof(speed) = 'real'),
+//!     course      REAL                NOT NULL CHECK (typeof(course) = 'real'),
+//!     timestamp   INTEGER             NOT NULL CHECK (typeof(timestamp) = 'integer')
+//! );
+//!
+//! With the checks SQLite will ensure that we only insert the correct type into
+//! each column. However, it is still possible to compare mismatched types in
+//! our queries, so we must be careful there as well. When selecting rows in a
+//! particular range, make sure to use the SQLite unixepoch() function and not
+//! date() or datetime(), which return strings.
+//!
+//! We also use the unix epoch as the timestamp because comparisons are simpler.
+//! sqlx/time format timestamps as "2023-03-15T05:15:56Z" by default but
+//! SQLite's datetime() function will return "2023-03-15 05:15:56". This means
+//! that date comparisons work fine, but anything requiring higher precision may
+//! fail to compare correctly, since "T" always compares greater than " ". Using
+//! seconds since the unix epoch is less error prone.
 //!
 
-// use std::cell::RefCell;
-
 use anyhow::Result;
-use sqlx::types::time;
 use sqlx::{migrate::MigrateDatabase, FromRow, Sqlite, SqlitePool};
 
 use crate::app_state::AppState;
@@ -32,7 +42,7 @@ pub struct Location {
     pub accuracy: f64,
     pub speed: f64,
     pub course: f64,
-    pub datetime: time::OffsetDateTime, // OffsetDateTime is timezone aware
+    pub timestamp: i64,
 }
 
 /// Initialized the shared database pool given its path.
@@ -42,9 +52,8 @@ pub async fn init_db(db_path: String) -> Result<SqlitePool> {
         Sqlite::create_database(&db_path).await?;
     }
     let conn = SqlitePool::connect(&db_path).await?;
-    // ok to attempt to recreate table if it already exists
-    // sqlx::query(SCHEMA).execute(&conn).await?;
-    // embed our migrations from "migrations/" into our binary
+    // Embed our migrations from "migrations/" into our binary at compile time,
+    // and migrate the database at runtime.
     sqlx::migrate!().run(&conn).await?;
     Ok(conn)
 }
@@ -61,19 +70,20 @@ pub async fn log_location(
     accuracy: f64,
     speed: f64,
     course: f64,
-    datetime_epoch: i64,
+    timestamp: i64,
 ) -> Result<()> {
     let conn = get_db_pool();
-    let datetime = time::OffsetDateTime::from_unix_timestamp(datetime_epoch)?;
     sqlx::query!(
-        "INSERT INTO location (lat, lon, accuracy, speed, course, datetime)
-VALUES (?,?,?,?,?,?)",
+        "INSERT INTO location
+            (lat, lon, accuracy, speed, course, timestamp)
+        VALUES
+            (?,?,?,?,?,?)",
         lat,
         lon,
         accuracy,
         speed,
         course,
-        datetime
+        timestamp
     )
     .execute(&conn)
     .await?;
@@ -96,15 +106,15 @@ pub async fn get_last_record() -> Option<Location> {
     accuracy as "accuracy!",
     speed as "speed!",
     course as "course!",
-    datetime as "datetime!: time::OffsetDateTime"
+    timestamp as "timestamp!: time::OffsetDateTime"
     FROM location
-    ORDER BY datetime
+    ORDER BY timestamp
     DESC LIMIT 1"#,
     )
     */
 
     let mut result = sqlx::query_as::<_, Location>(
-        "SELECT * FROM location ORDER BY datetime DESC LIMIT 1",
+        "SELECT * FROM location ORDER BY timestamp DESC LIMIT 1",
     )
     .fetch_all(&conn)
     .await
@@ -116,7 +126,7 @@ pub async fn get_last_record() -> Option<Location> {
 pub async fn get_records_past_week() -> Vec<Location> {
     let conn = get_db_pool();
     let result = sqlx::query_as::<_, Location>(
-        "SELECT * FROM location WHERE datetime >= date('now','-7 days')",
+        "SELECT * FROM location WHERE timestamp >= unixepoch('now','-7 days')",
     )
     .fetch_all(&conn)
     .await
@@ -130,10 +140,10 @@ pub async fn get_records_time_range(
 ) -> Vec<Location> {
     let conn = get_db_pool();
     let result = sqlx::query_as::<_, Location>(
-        "SELECT * FROM location WHERE datetime >= (?) AND datetime <= (?)",
+        "SELECT * FROM location WHERE timestamp >= (?) AND timestamp <= (?)",
     )
-    .bind(time::OffsetDateTime::from_unix_timestamp(start_epoch).unwrap())
-    .bind(time::OffsetDateTime::from_unix_timestamp(end_epoch).unwrap())
+    .bind(start_epoch)
+    .bind(end_epoch)
     .fetch_all(&conn)
     .await
     .unwrap();
@@ -146,7 +156,7 @@ pub async fn count_records_past_hour() -> i32 {
         "SELECT
             count(*) as count
         FROM location
-        WHERE datetime >= date('now','-1 hours')"
+        WHERE timestamp >= unixepoch('now','-1 hour')"
     )
     .fetch_one(&conn)
     .await
@@ -167,7 +177,8 @@ impl std::convert::From<Location> for common::Location {
             accuracy: loc.accuracy,
             speed: loc.speed,
             course: loc.course,
-            datetime: loc.datetime,
+            datetime: time::OffsetDateTime::from_unix_timestamp(loc.timestamp)
+                .unwrap(),
         }
     }
 }

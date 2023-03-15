@@ -18,6 +18,8 @@ extern crate stem;
 async fn main() -> Result<(), std::io::Error> {
     env_logger::init(); // sets output verbosity based on RUST_LOG env var
 
+    println!("Run dir: {}", std::env::current_dir().unwrap().display());
+
     let dev_fs = "dev_fs/"; // our iOS-like filesystem for running locally
     if fs::metadata(dev_fs).is_ok() {
         // clean it out if it's left over from last time

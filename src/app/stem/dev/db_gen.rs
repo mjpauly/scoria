@@ -20,11 +20,7 @@ use std::fs::File;
 use std::io::Write;
 use std::path::Path;
 
-use std::{thread, time};
-
-use sqlx::{
-    migrate::MigrateDatabase, Connection, Sqlite, SqliteConnection, SqlitePool,
-};
+use sqlx::{migrate::MigrateDatabase, Connection, Sqlite, SqliteConnection};
 
 const DB_PREFIX: &str = "sqlite://";
 const DB_FNAME: &str = "data.db";
