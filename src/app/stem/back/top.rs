@@ -16,10 +16,16 @@ pub async fn log_location(
     course: f64,
     datetime_epoch: i64,
 ) {
+    // Log the location in our database
     database::log_location(lat, lon, accuracy, speed, course, datetime_epoch)
         .await
         .unwrap();
-    if let Some(addr) = AppState::global().ws_addr.lock().unwrap().clone() {
+    // We first want to get the address, NOT in the "if let" scrutinee, since
+    // the lock will be held for the whole if-block, and we won't be able to
+    // await
+    let maybe_addr = AppState::global().ws_addr.lock().unwrap().clone();
+    // If the UI is active, we'll send it the new location to display
+    if let Some(addr) = maybe_addr {
         let datetime =
             time::OffsetDateTime::from_unix_timestamp(datetime_epoch).unwrap();
         let loc = common::Location {
@@ -33,5 +39,11 @@ pub async fn log_location(
         addr.do_send(ws_session::MsgToFront(common::ToFront::LastLocation(
             loc,
         )));
+        // We'll also send the number of data points that have been recorded
+        // in the past hour
+        let count = database::count_records_past_hour().await;
+        addr.do_send(ws_session::MsgToFront(
+            common::ToFront::LocationsPastHour(count),
+        ));
     }
 }

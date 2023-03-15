@@ -7,15 +7,22 @@
 - [x] refactor to WebView (storyboard instead of swiftUI base?)
 - [x] build frontend wasm with bazel
 - [_] *reach feature parity with SwiftUI*
+    - [x] wasm artifact building with rules_rust
     - [x] make navbar buttons bigger
     - [x] add navbar icons
-- [_] prevent unwanted scrolling in the WKWebView
+    - [x] current location streaming to UI
+    - [x] updates/hr streaming
+    - [_] distance filter configuration
+        - [_] correct constraints setting in WKWebView
+    - [_] map view with past day's data
+    - [_] configurable time range and marker color/size
+- [x] prevent unwanted scrolling in the WKWebView
 - [_] CI pipeline
 - [_] integration tests
 - [_] secure the UI from other apps (max 1 connection, random port, authenticate
         with number passcode, shut down when not in use)
+- [x] proper database migrations included in compiled source with `migrate!`
 
-- proper database migrations included in compiled source with `migrate!` macro
 - new features
     - scatter plot:
          - colorscale based on data value
@@ -31,8 +38,6 @@
 - `stem` integration tests
 - App integration tests
 - more battery-efficient data collection
-
-- [_] wasm artifact building with rules_rust
 
 ## Structure
 
@@ -224,9 +229,13 @@ Prereq: install graphviz (includes `dot`) with `brew install graphviz`.
 ### Other tips
 
 - Use `RUSTFLAGS=-Awarnings` to suppress warnings while working on errors.
+- Never hold a synchronous lock across an `await`.
+- `match` and `if let` statements will hold locks acquired in the scrutinees for
+the entire arm, even if the data is cloned within the scrutinee. Get the data
+in a separate variable first before putting it into the scrutinee if it's
+something like an option behind the Mutex.
 
 ## Style Notes
 
 - Code lines set to 80 characters or shorter
-- Parent functions should come before the children that they call. This improves
-    readability.
+- Parent functions should come before the children that they call.

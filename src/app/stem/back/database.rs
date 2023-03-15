@@ -1,4 +1,18 @@
 //! Handles database access and modification.
+//!
+//! Current schema, for quick reference:
+//!
+//! CREATE TABLE IF NOT EXISTS location
+//! (
+//!     id          INTEGER PRIMARY KEY NOT NULL,
+//!     lat         REAL                NOT NULL,
+//!     lon         REAL                NOT NULL,
+//!     accuracy    REAL                NOT NULL,
+//!     speed       REAL                NOT NULL,
+//!     course      REAL                NOT NULL,
+//!     datetime    DATETIME            NOT NULL
+//! );";
+//!
 
 // use std::cell::RefCell;
 
@@ -8,20 +22,6 @@ use sqlx::{migrate::MigrateDatabase, FromRow, Sqlite, SqlitePool};
 
 use crate::app_state::AppState;
 use crate::common;
-
-// TODO: use sqlx's migrate!() macro to embed the migrations into the binary
-
-const SCHEMA: &str = "\
-CREATE TABLE IF NOT EXISTS location
-(
-    id          INTEGER PRIMARY KEY NOT NULL,
-    lat         REAL                NOT NULL,
-    lon         REAL                NOT NULL,
-    accuracy    REAL                NOT NULL,
-    speed       REAL                NOT NULL,
-    course      REAL                NOT NULL,
-    datetime    DATETIME            NOT NULL
-);";
 
 /// Struct representation of a Location row in the table
 #[derive(Clone, FromRow, Debug)]
@@ -83,6 +83,26 @@ VALUES (?,?,?,?,?,?)",
 /// Get the last record in the database
 pub async fn get_last_record() -> Option<Location> {
     let conn = get_db_pool();
+
+    // compile-time checked query macros are failing to infer the right type,
+    // so we use the ordinary unchecked version instead for simplicity.
+    /*
+    let mut result = sqlx::query_as!(
+    Location,
+    r#"SELECT
+    id as "id!",
+    lat as "lat!",
+    lon as "lon!",
+    accuracy as "accuracy!",
+    speed as "speed!",
+    course as "course!",
+    datetime as "datetime!: time::OffsetDateTime"
+    FROM location
+    ORDER BY datetime
+    DESC LIMIT 1"#,
+    )
+    */
+
     let mut result = sqlx::query_as::<_, Location>(
         "SELECT * FROM location ORDER BY datetime DESC LIMIT 1",
     )
@@ -118,6 +138,20 @@ pub async fn get_records_time_range(
     .await
     .unwrap();
     result
+}
+
+pub async fn count_records_past_hour() -> i32 {
+    let conn = get_db_pool();
+    let result = sqlx::query!(
+        "SELECT
+            count(*) as count
+        FROM location
+        WHERE datetime >= date('now','-1 hours')"
+    )
+    .fetch_one(&conn)
+    .await
+    .unwrap();
+    result.count
 }
 
 /// Convert between the Location we have for talking to the database and the

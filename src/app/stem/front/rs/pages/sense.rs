@@ -6,6 +6,7 @@
 // web_sys::window().unwrap().performance().unwrap().now() as i64 % 1000
 // );
 
+use web_sys::HtmlInputElement;
 use yew::prelude::*;
 // use yew_icons::{Icon, IconId};
 
@@ -106,48 +107,72 @@ fn LocationDetails() -> Html {
     let wss = use_context::<WebsocketService>().unwrap();
     let state = use_context::<UIState>().unwrap();
     let last_loc = use_state_eq(|| state.last_location.borrow().clone());
+    let locs_per_hour =
+        use_state_eq(|| state.locations_past_hour.borrow().clone());
 
-    // Subscribe to backend updates to the location enabled state.
-    // Only needed if we expect the backend to change this state without user
-    // input.
+    // Subscribe to backend updates on new location data and number of locations
+    // per hour
     let on_backend_msg = {
         let last_loc = last_loc.clone();
-        move |msg: &ToFront| {
-            if let ToFront::LastLocation(val) = msg {
-                last_loc.set(Some(val.clone()));
+        let locs_per_hour = locs_per_hour.clone();
+        move |msg: &ToFront| match msg {
+            ToFront::LastLocation(val) => last_loc.set(Some(val.clone())),
+            ToFront::LocationsPastHour(val) => {
+                locs_per_hour.set(Some(val.clone()))
             }
+            _ => (),
         }
     };
     // Generate a unique ID which doesn't change between renders since no deps
     // are given to use_memo
     let id = use_memo(|_| WebsocketService::gen_callback_id(), ());
     wss.subscribe(*id, Box::new(on_backend_msg));
+
+    // send distance filter to backend
+    let dist_filt = use_state_eq(|| state.distance_filter.borrow().clone());
+    let onchange = {
+        let dist_filt = dist_filt.clone();
+        Callback::from(move |e: Event| {
+            let input_elem: HtmlInputElement = e.target_dyn_into().unwrap();
+            if let Ok(val) = input_elem.value().parse::<f32>() {
+                dist_filt.set(val);
+                wss.send_msg(ToBack::SetDistFilt(val));
+                input_elem.set_value("");
+            }
+        })
+    };
     html! {
         <>
+            // deref then ref since we don't want to move the data out
             if let Some(loc) = &*last_loc {
                 <p class="font-bold">
                     {"Current Location:"}
                 </p>
                 <p class="mb-4">
-                    // {"xxx, yyy"}
                     {format!("{:.5}, {:.5}", loc.lat, loc.lon)}
                 </p>
 
-                <p class="whitespace-nowrap">
-                    {"Num data points in past hour: xxx"}
-                </p>
-                <p class="mb-4">
-                    {"xxx updates/minute"}
-                </p>
+                if let Some(n_locs) = *locs_per_hour {
+                    <p class="whitespace-nowrap">
+                        {format!("Num data points in past hour: {}", n_locs)}
+                    </p>
+                    <p class="mb-4">
+                        {format!("{:.2} updates/minute", n_locs as f32 / 60.0)}
+                    </p>
+                }
 
                 <div class="flex justify-center mb-4">
                     <p class="mr-6">
-                        {"Distance Filter"}
+                        {"Distance Filter:"}
                     </p>
-                    <input id="dist_filt" class="w-12 rounded bg-neutral-900 \
-                            border border-neutral-700" />
-                    <p class="text-sky-500 ml-2">
-                        {"?"}
+                    <input id="dist_filt"
+                            placeholder={format!("{:.2}", *dist_filt)}
+                            onchange={onchange}
+                            class="w-16 rounded bg-neutral-900 \
+                            border border-neutral-700 \
+                            placeholder:text-neutral-200" />
+                    <p class="ml-2">
+                        {"m"}
                     </p>
                 </div>
 

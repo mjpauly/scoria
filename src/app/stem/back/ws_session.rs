@@ -64,6 +64,7 @@ impl WsSession {
 
     /// Handles a decoded ToBack
     fn handle_msg(&self, msg: ToBack, ctx: &mut ws::WebsocketContext<Self>) {
+        // dbg!(msg.clone());
         match msg {
             ToBack::GetState => {
                 self.send_state(ctx);
@@ -73,6 +74,10 @@ impl WsSession {
                 // re-broadcast the new state in case other components are
                 // listening for it
                 self.send_msg(ToFront::LocationEnabled(val), ctx);
+            }
+            ToBack::SetDistFilt(val) => {
+                *AppState::global().distance_filter.lock().unwrap() = val;
+                self.send_msg(ToFront::DistFilt(val), ctx);
             }
         }
     }
@@ -96,10 +101,20 @@ impl WsSession {
             }
         };
         fut.into_actor(self).spawn(ctx);
+
+        // Send num updates in past hour
+        let recipient = ctx.address().recipient();
+        let fut = async move {
+            // let rec = database::get_last_record().await;
+            let count = database::count_records_past_hour().await;
+            recipient.do_send(MsgToFront(ToFront::LocationsPastHour(count)));
+        };
+        fut.into_actor(self).spawn(ctx);
     }
 
     /// Encodes a ToFront and sends it over the websocket
     fn send_msg(&self, msg: ToFront, ctx: &mut ws::WebsocketContext<Self>) {
+        // dbg!(msg.clone());
         let encoded: Vec<u8> = bincode::serialize(&msg).unwrap();
         ctx.binary(encoded);
     }

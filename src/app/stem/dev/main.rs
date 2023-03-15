@@ -73,8 +73,8 @@ async fn data_generator() {
     let mut lon = -122.16945;
     loop {
         sleep(Duration::from_millis(1000)).await;
-        lon = (lon + (random::<f64>() - 0.5) / 10000.0) % 180.0;
-        lat = (lat + (random::<f64>() - 0.5) / 10000.0) % 180.0;
+        lon = (lon + (random::<f64>()) / 10000.0) % 180.0;
+        lat = (lat + (random::<f64>()) / 10000.0) % 180.0;
         stem::top::log_location(
             lat,
             lon,

@@ -15,14 +15,20 @@ use serde::{Deserialize, Serialize};
 pub enum ToBack {
     GetState,                 // get all state values
     SetLocationEnabled(bool), // set location enabled state
+    SetDistFilt(f32),         // distance filter
 }
 
 /// Messages from the backend to the frontend
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ToFront {
-    LastLocation(Location), // send the last known location for displaying.
-    // used to push new location updates
+    // Send the last known location for displaying.
+    // Used to push new location updates
+    LastLocation(Location),
+    // Number of location records recorded in the past hour
+    LocationsPastHour(i32), // TODO: roll this in will LastLocation?
     LocationEnabled(bool),
+    // Minimum horizontal distance in meters before a new data point is output
+    DistFilt(f32),
 }
 
 /// Struct representation of a Location data point
