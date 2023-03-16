@@ -41,8 +41,8 @@ class ViewController: UIViewController {
     override func viewWillLayoutSubviews() {
         super.viewWillLayoutSubviews()
 
-        additionalSafeAreaInsets.bottom -= bottomLayoutGuide.length
-        additionalSafeAreaInsets.top -= topLayoutGuide.length
+        additionalSafeAreaInsets.bottom -= view.safeAreaInsets.bottom
+        additionalSafeAreaInsets.top -= view.safeAreaInsets.top
     }
 }
 

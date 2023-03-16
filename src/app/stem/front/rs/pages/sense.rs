@@ -137,8 +137,8 @@ fn LocationDetails() -> Html {
             if let Ok(val) = input_elem.value().parse::<f32>() {
                 dist_filt.set(val);
                 wss.send_msg(ToBack::SetDistFilt(val));
-                input_elem.set_value("");
             }
+            input_elem.set_value("");
         })
     };
     html! {

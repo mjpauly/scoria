@@ -13,7 +13,6 @@
     - [x] current location streaming to UI
     - [x] updates/hr streaming
     - [_] distance filter configuration
-        - [_] correct constraints setting in WKWebView
     - [_] map view with past day's data
     - [_] configurable time range and marker color/size
 - [x] prevent unwanted scrolling in the WKWebView
