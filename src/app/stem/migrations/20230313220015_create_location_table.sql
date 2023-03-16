@@ -1,11 +1,14 @@
 -- Add migration script here
+-- STRICT requires all columns to specify a datatype and that inserted data be
+-- of that datatype. This mitigates some of the problems with SQLite's lax
+-- typing.
 CREATE TABLE IF NOT EXISTS location
 (
-    id          INTEGER PRIMARY KEY NOT NULL CHECK (typeof(id) = 'integer'),
-    lat         REAL                NOT NULL CHECK (typeof(lat) = 'real'),
-    lon         REAL                NOT NULL CHECK (typeof(lon) = 'real'),
-    accuracy    REAL                NOT NULL CHECK (typeof(accuracy) = 'real'),
-    speed       REAL                NOT NULL CHECK (typeof(speed) = 'real'),
-    course      REAL                NOT NULL CHECK (typeof(course) = 'real'),
-    timestamp   INTEGER             NOT NULL CHECK (typeof(timestamp) = 'integer')
-);
+    id          INTEGER PRIMARY KEY NOT NULL,
+    lat         REAL                NOT NULL,
+    lon         REAL                NOT NULL,
+    accuracy    REAL                NOT NULL,
+    speed       REAL                NOT NULL,
+    course      REAL                NOT NULL,
+    timestamp   INTEGER             NOT NULL
+) STRICT;
