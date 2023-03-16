@@ -12,15 +12,17 @@
     - [x] add navbar icons
     - [x] current location streaming to UI
     - [x] updates/hr streaming
-    - [_] distance filter configuration
+    - [x] distance filter configuration
     - [_] map view with past day's data
     - [_] configurable time range and marker color/size
 - [x] prevent unwanted scrolling in the WKWebView
+- [x] proper database migrations included in compiled source with `migrate!`
+- [_] option to enable/disable location recording from within the app
 - [_] CI pipeline
 - [_] integration tests
 - [_] secure the UI from other apps (max 1 connection, random port, authenticate
         with number passcode, shut down when not in use)
-- [x] proper database migrations included in compiled source with `migrate!`
+- [_] publish to app store
 
 - new features
     - scatter plot:

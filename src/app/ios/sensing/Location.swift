@@ -5,8 +5,6 @@ import StemLib
 class MyLocationManager: NSObject, CLLocationManagerDelegate, ObservableObject {
     let locationManager = CLLocationManager()
     
-    @Published var currentLocation: CLLocation = CLLocation()
-    @Published var updatesThisHour: Int = 0
     let logURL: URL = getDocumentsDirectory().appendingPathComponent("gps_log.txt")
     let sqlURL: URL = getDocumentsDirectory().appendingPathComponent("data.db")
     
@@ -20,7 +18,7 @@ class MyLocationManager: NSObject, CLLocationManagerDelegate, ObservableObject {
         // need to set this along with enabling in project background capabilities to get background updates:
         locationManager.allowsBackgroundLocationUpdates = true
         locationManager.startUpdatingLocation()
-        locationManager.distanceFilter = CLLocationDistance(5.0)
+        setDistanceFilter()
     }
     
     // If myLocationManager is stored as a global variable, it is lazily initialized.
@@ -30,8 +28,9 @@ class MyLocationManager: NSObject, CLLocationManagerDelegate, ObservableObject {
     }
     
     // Set the minimum distance in meters the device must move horizontally before an update event is generated.
-    func setDistanceFilter(distance: Double) {
-        locationManager.distanceFilter = CLLocationDistance(distance)
+    func setDistanceFilter() {
+        let dist_filt = get_distance_filter()
+        locationManager.distanceFilter = CLLocationDistance(dist_filt)
     }
     
     // The locationManager() method of the CLLocationManagerDelegate protocol is called when the location manager receives new location data
@@ -39,11 +38,9 @@ class MyLocationManager: NSObject, CLLocationManagerDelegate, ObservableObject {
         // Perform operations on the updated location data
         guard let newLocation = locations.last else { return }
         //print(newLocation)
-        calcUpdatesThisHour()  // must come before updating currentLocation
         appendLocationToFile(location: newLocation)
-        currentLocation = newLocation
         
-        // Log the location in StemLib with SQL
+        // Log the location in StemLib
         log_location(
             newLocation.coordinate.latitude,
             newLocation.coordinate.longitude,
@@ -55,18 +52,8 @@ class MyLocationManager: NSObject, CLLocationManagerDelegate, ObservableObject {
         
     }
     
-    func calcUpdatesThisHour() {
-        let prevHour = Calendar.current.component(.hour, from: self.currentLocation.timestamp)
-        let currHour = Calendar.current.component(.hour, from: Date())
-        if prevHour != currHour {
-            updatesThisHour = 0
-        }
-        updatesThisHour += 1
-    }
-    
     func appendLocationToFile(location: CLLocation) {
         let dataString = "\(location)\n"
         appendToFile(file: logURL.path(), dataString: dataString)
-        //writeToNewFile(file: logURL.path(), dataString: dataString)  // for testing, easier to see changes
     }
 }

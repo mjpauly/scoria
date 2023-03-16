@@ -8,6 +8,16 @@
             import init from "/front_wasm.js";
             init();
         </script>
+        <script>
+            // poke() sends a simple message to the swift webkit message handler
+            // we created. This prompts it to load new configuration settings
+            // from the backend.
+            function webkit_poke() {
+                window.webkit.messageHandlers.pokeMessageHandler.postMessage({
+                    "message": "poke"
+                });
+            }
+        </script>
     </head>
 </html>
 

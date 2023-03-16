@@ -53,6 +53,7 @@ rust_library(
         "@stem_crate_index//:time",
         "@stem_crate_index//:futures",
         "@stem_crate_index//:gloo-net",
+        "@stem_crate_index//:wasm-bindgen",
         "@stem_crate_index//:wasm-bindgen-futures",
         "@stem_crate_index//:web-sys",
         "@stem_crate_index//:log",

@@ -2,6 +2,15 @@
 //!
 //! Responsible for database interactions, visualizations, and server
 //! communication.
+//!
+//! Our top-level lib.rs file contains the highest level of initialization in
+//! these functions:
+//!     set_app_dirs()
+//!     init()
+//!
+//! Additional top-level functions are those which are exposed as the API to the
+//! swift wrapper.
+//!
 
 use std::ffi::CStr;
 use std::os::raw::c_char;
@@ -81,6 +90,15 @@ pub extern "C" fn log_location(
             .await;
     });
     0
+}
+
+/// Return the distance filter setting
+#[no_mangle]
+pub extern "C" fn get_distance_filter() -> f32 {
+    return *app_state::AppState::global()
+        .distance_filter
+        .lock()
+        .unwrap();
 }
 
 /// Local setup either for development or testing.

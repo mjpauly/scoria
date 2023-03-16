@@ -11,6 +11,7 @@ use yew::prelude::*;
 // use yew_icons::{Icon, IconId};
 
 use crate::components::NavbarWrapper;
+use crate::swift_poke;
 use crate::ui_state::UIState;
 use crate::websocket::{ToBack, ToFront, WebsocketService};
 
@@ -137,6 +138,7 @@ fn LocationDetails() -> Html {
             if let Ok(val) = input_elem.value().parse::<f32>() {
                 dist_filt.set(val);
                 wss.send_msg(ToBack::SetDistFilt(val));
+                swift_poke::poke(); // tell swift code to get new dist filt
             }
             input_elem.set_value("");
         })

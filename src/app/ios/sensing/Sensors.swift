@@ -10,3 +10,8 @@ public func startup() {
                  getBundlePath())
     myLocationManager.touch()  // initialize the lazy global var
 }
+
+public func update_sensor_config() {
+    // load config from backend since we got poked by the frontend
+    myLocationManager.setDistanceFilter()
+}
