@@ -71,7 +71,7 @@ fn EnableLocation() -> Html {
     };
     // Generate a unique ID which doesn't change between renders since no deps
     // are given to use_memo
-    let id = use_memo(|_| WebsocketService::gen_callback_id(), ());
+    let id = use_memo(|_| uuid::Uuid::new_v4(), ());
     wss.subscribe(*id, Box::new(on_backend_msg));
 
     // Update our state on click and tell the backend. Telling the backend is
@@ -126,7 +126,7 @@ fn LocationDetails() -> Html {
     };
     // Generate a unique ID which doesn't change between renders since no deps
     // are given to use_memo
-    let id = use_memo(|_| WebsocketService::gen_callback_id(), ());
+    let id = use_memo(|_| uuid::Uuid::new_v4(), ());
     wss.subscribe(*id, Box::new(on_backend_msg));
 
     // send distance filter to backend

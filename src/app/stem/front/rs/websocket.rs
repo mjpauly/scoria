@@ -47,7 +47,7 @@
 //! };
 //! // Generate a unique ID which doesn't change between renders since no deps
 //! // are given to use_memo
-//! let id = use_memo(|_| WebsocketService::gen_callback_id(), ());
+//! let id = use_memo(|_| uuid::Uuid::new_v4(), ());
 //! wss.subscribe(*id, Box::new(on_backend_msg));
 //!
 //! // Update our state on click and tell the backend. Telling the backend is
@@ -104,17 +104,12 @@ impl WebsocketService {
 
     /// Subscribe to messages from the backend
     /// ```
-    /// let id = use_memo(|_| WebsocketService::gen_callback_id(), ());
+    /// let id = use_memo(|_| uuid::Uuid::new_v4(), ());
     /// wss.subscribe(*id, Box::new(on_backend_msg));
     /// ```
     pub fn subscribe(&self, id: Uuid, cb: Callback) {
         self.subscribers.borrow_mut().insert(id, cb);
         // log::debug!("subscriber len: {}", self.subscribers.borrow().len());
-    }
-
-    /// Generate a unique id for a component, so we can discard old callbacks
-    pub fn gen_callback_id() -> Uuid {
-        Uuid::new_v4()
     }
 
     pub fn new() -> Self {

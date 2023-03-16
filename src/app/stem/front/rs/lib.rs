@@ -38,7 +38,7 @@ pub fn App() -> Html {
     let wss = WebsocketService::new();
     let state = UIState::new();
     // Create an id for this function component to associate our callback with
-    let id = use_memo(|_| WebsocketService::gen_callback_id(), ());
+    let id = use_memo(|_| uuid::Uuid::new_v4(), ());
     // Register the app state update callback first ahead of all children
     wss.subscribe(*id, state.get_update_callback());
     wss.send_msg(ToBack::GetState); // request initial state
