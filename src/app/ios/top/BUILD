@@ -16,13 +16,13 @@ PROFILE_NAME = "iOS Team Provisioning Profile: {}".format(BUNDLE_ID)
 TEAMID = "QVSG4RRSDG"
 
 ios_application(
-    name = "App",
+    name = "Epsilon",
     app_icons = glob(["Resources/Assets.xcassets/AppIcon.appiconset/**"]),
     bundle_id = BUNDLE_ID,
-    bundle_name = "App",
+    bundle_name = "Epsilon",
     families = ["iphone"],
     frameworks = [
-        "//src/app/ios/ui:UIFramework",
+        "//src/app/ios/sensing:sensing_framework",
     ],
     infoplists = [":Info.plist"],
     launch_storyboard = "Resources/Launch.storyboard",
@@ -31,7 +31,9 @@ ios_application(
         ":device_build": ":xcode_profile",
         "//conditions:default": None,
     }),
-    resources = ["//src/app/stem:libfiles"],
+    resources = [
+        "//src/app/stem/front:dist",
+    ],
     visibility = ["//visibility:public"],
     deps = [":App.library"],
 )
@@ -52,34 +54,13 @@ local_provisioning_profile(
 
 swift_library(
     name = "App.library",
-    srcs = [":gen_App.swift"],
-    module_name = "App",
+    srcs = glob(["*.swift"]),
+    module_name = "Epsilon",
     tags = ["manual"],
     visibility = ["//src/app/ios/tests:__subpackages__"],
     deps = [
-        "//src/app/ios/ui:UI",
+        "//src/app/ios/sensing",
     ],
-)
-
-genrule(
-    name = "gen_App.swift",
-    outs = ["App.swift"],
-    cmd = """\
-cat > $@ <<EOF
-import SwiftUI
-import UI
-
-@main
-struct iOSApp: App {
-    var body: some Scene {
-        WindowGroup {
-            ContentView()
-        }
-    }
-}
-EOF
-""",
-    tags = ["manual"],
 )
 
 config_setting(

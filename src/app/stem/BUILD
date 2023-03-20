@@ -1,15 +1,25 @@
-load("@rules_rust//rust:defs.bzl", "rust_library", "rust_test", "rust_doc")
+load("@rules_rust//rust:defs.bzl", "rust_library", "rust_binary", "rust_test")
+
 
 rust_library(
     name = "stem",
-    srcs = glob(["pith/*.rs"]),
+    srcs = glob(["back/*.rs"]) + ["//src/app/stem/front:rs/common.rs"],
     edition = "2021",
+    compile_data = glob(["migrations/*.sql"]) + [".env"],
     deps = [
         ":alloc",
         "@stem_crate_index//:sqlx",
         "@stem_crate_index//:tokio",
         "@stem_crate_index//:anyhow",
-        "@stem_crate_index//:plotly",
+        "@stem_crate_index//:actix-web",
+        "@stem_crate_index//:actix",
+        "@stem_crate_index//:actix-web-actors",
+        "@stem_crate_index//:actix-files",
+        "@stem_crate_index//:serde",
+        "@stem_crate_index//:bincode",
+        "@stem_crate_index//:zip",
+        "@stem_crate_index//:time",
+        "@stem_crate_index//:once_cell",
     ],
 )
 
@@ -18,11 +28,6 @@ rust_test(
     name = "unit_tests",
     crate = ":stem",
     size = "small",  # 20 MB RAM, 1 min timeout
-)
-
-rust_doc(
-    name = "stem_doc",
-    crate = ":stem",
 )
 
 # Integration tests of the library's public interface.
@@ -34,6 +39,37 @@ rust_test(
         ":stem",
     ],
     visibility = ["//visibility:public"],
+)
+
+# Stem runner for development of the frontend and backend. Using ibazel allows
+# for hot reloading
+rust_binary(
+    name = "dev",
+    srcs = ["dev/main.rs"],
+    edition = "2021",
+    data = ["//src/app/stem/front:dist"],
+    deps = [
+        ":stem",
+        "@stem_crate_index//:tokio",
+        "@stem_crate_index//:log",
+        "@stem_crate_index//:env_logger",
+        "@stem_crate_index//:time",
+        "@stem_crate_index//:rand",
+    ],
+)
+
+# Development database generator for sqlx query macros. Database is placed in
+# dev/db/. Also creates a .env file in stem/ to tell sqlx where to find the
+# development database. Run `bazel run :db_gen`
+rust_binary(
+    name = "db_gen",
+    srcs = ["dev/db_gen.rs"],
+    edition = "2021",
+    compile_data = glob(["migrations/*.sql"]),
+    deps = [
+        "@stem_crate_index//:tokio",
+        "@stem_crate_index//:sqlx",
+    ],
 )
 
 
@@ -58,13 +94,4 @@ objc_library(
 cc_library(
     name = "alloc",
     srcs = ["alloc.cc"],
-)
-
-# testing bundling files into the app
-filegroup(
-    name = "libfiles",
-    srcs = [
-        "filetobundle.txt",
-    ],
-    visibility = ["//visibility:public"],
 )

@@ -2,10 +2,28 @@
 
 ## To Do
 
-- [_] refactor file tree for extensibility
-- [_] initial barebones yew UI
+- [x] refactor file tree for extensibility
+- [x] initial barebones yew UI
+- [x] refactor to WebView (storyboard instead of swiftUI base?)
+- [x] build frontend wasm with bazel
+- [_] *reach feature parity with SwiftUI*
+    - [x] wasm artifact building with rules_rust
+    - [x] make navbar buttons bigger
+    - [x] add navbar icons
+    - [x] current location streaming to UI
+    - [x] updates/hr streaming
+    - [x] distance filter configuration
+    - [_] map view with past day's data
+    - [_] configurable time range and marker color/size
+- [x] prevent unwanted scrolling in the WKWebView
+- [x] proper database migrations included in compiled source with `migrate!`
+- [_] option to enable/disable location recording from within the app
+- [_] CI pipeline
+- [_] integration tests
+- [_] secure the UI from other apps (max 1 connection, random port, authenticate
+        with number passcode, shut down when not in use)
+- [_] publish to app store
 
-- proper database migrations with files in app bundle why does it crop. 
 - new features
     - scatter plot:
          - colorscale based on data value
@@ -18,15 +36,33 @@
          - visits (last time, first time, total, time spent, when visits happen)
          - traveling (different modes, time spent, num trips, when it happens)
          - trends
-- RustLib integration tests
+- `stem` integration tests
 - App integration tests
 - more battery-efficient data collection
 
 ## Structure
 
-- UI, sensing modules (Swift)
-- database management, visualization, marketplace (Rust)
-- visualizations are generated in Rust and shown in a Swift WebKit WKWebView
+- Native Swift code interfaces with the phone's sensors and launches `stem`, the
+    core app functionality.
+- `stem` contains an http server which serves a web app frontend, which is shown
+    in a Swift WebKit WKWebView
+
+```
+src
+└── app
+    ├── ios
+    │   ├── sensing                     Native swift code for phone sensors
+    │   ├── tests                       App integration tests
+    │   ├── top                         Top-level app source
+    │   └── xcodeproj                   Xcode project generator
+    │       └── Epsilon.xcodeproj       The generated Xcode project
+    │
+    └── stem                            Rust sources for the core app functions
+        ├── back                        App backend logic (database, server, ..)
+        ├── dev                         Local development runner
+        ├── front                       Webapp frontend for the app
+        └── tests                       Stem integration tests
+```
 
 ## Toolchain Resources
 
@@ -65,16 +101,58 @@
                 at this repo: https://github.com/mjpauly/plotly/
 
 - Swift ([docs](https://docs.swift.org/swift-book/LanguageGuide/TheBasics.html))
-    - Language that the UI and sensing modules are written in.
-    - Apple Swift APIs used include SwiftUI, CoreLocation.
+    - Language that the sensing modules are written in.
+    - Apple Swift APIs used include CoreLocation.
 
 ## Dev Flow
+
+### Setup
+
+- Bazel: build system for the project
+    - `brew install bazelisk`
+    - Bazelisk is the launcher for Bazel. It does stuff like discover the
+        desired bazel version to run from the `.bazelversion` file in the repo
+        root.
+- iBazel: tool for automatically rerunning a Bazel command when the sources
+    change.
+    - `brew install ibazel`
+    - Use it just like bazel but replace `bazel` with `ibazel`.
+
+For compile-time checked query macros with `sqlx` we need a development database
+for `sqlx` to connect to and check queries against. Run the following command:
+
+```
+bazel run src/app/stem:db_gen
+```
+
+This is slightly suboptimal. Ideally it would integrate into the build system
+automatically, getting generated anytime we compile the app. See `db_gen.rs` for
+notes on this issue.
 
 ### Running the App in the Simulator
 
 ```
 bazel run //:iosapp
 ```
+
+### Interactively Developing the UI
+
+Navigate to `src/app/stem` and run `ibazel run :dev`.
+
+Then open `localhost:8081` in a browser. In Firefox, the responsive web design
+mode lets you change the page aspect ratio to that of a phone (opt-cmd-M).
+
+#### Deprecated method for developing the UI (no backend)
+
+Navigate to `src/app/stem/front` and run these commands in separate terminals:
+
+```
+npx tailwindcss -i ./styles/input.css -o ./styles/output.css --watch
+trunk serve --open
+```
+
+Then open `localhost:8080` in a browser. In Firefox, the responsive web design
+mode lets you change the page aspect ratio to that of a phone.
 
 ### Generate the Xcode Project
 
@@ -87,7 +165,7 @@ bazel run //:xcodeproj
 
 The Xcode project itself uses Bazel for building and running the app.
 
-### Testing the RustLib Core Library
+### Testing the `stem` Core Library
 
 - `bazel test //src/app/stem:unit_tests`: Run the unit tests embedded in the library.
 - `bazel test //src/app/stem:int_tests`: Run the integration tests of the library's interface.
@@ -116,6 +194,12 @@ language server setup in particular.
 bazel run //:rustanalyzer
 ```
 
+Unfortunately, the presence of the `rust-project.json` prevents `rust-analyzer`
+from detecting cargo workspaces, like the frontend. If only working on the
+frontend, one can simply delete the `rust-project.json` file and regenerate it
+when returning to work on the backend. But there is not yet a good solution for
+developing on both at once.
+
 ### Profiling Slow Bazel Builds, Tests, and Runs
 
 - `time bazel build ...`: View how long you're actually waiting.
@@ -142,3 +226,17 @@ Prereq: install graphviz (includes `dot`) with `brew install graphviz`.
 - `.unwrap_or_else(|err| { println("got error {}", err); return; })`
     - if return type is `()` on success: `if let Err(e) = run(config) {`
 - `eprintln` for stderr
+
+### Other tips
+
+- Use `RUSTFLAGS=-Awarnings` to suppress warnings while working on errors.
+- Never hold a synchronous lock across an `await`.
+- `match` and `if let` statements will hold locks acquired in the scrutinees for
+the entire arm, even if the data is cloned within the scrutinee. Get the data
+in a separate variable first before putting it into the scrutinee if it's
+something like an option behind the Mutex.
+
+## Style Notes
+
+- Code lines set to 80 characters or shorter
+- Parent functions should come before the children that they call.
