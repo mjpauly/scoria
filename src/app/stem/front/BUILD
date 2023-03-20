@@ -62,6 +62,7 @@ rust_library(
         "@stem_crate_index//:serde",
         "@stem_crate_index//:bincode",
         "@stem_crate_index//:uuid",
+        "@stem_crate_index//:plotly",
     ],
 )
 

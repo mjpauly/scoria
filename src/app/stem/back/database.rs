@@ -1,5 +1,7 @@
 //! Handles database access and modification.
 //!
+//! # Schema
+//!
 //! Current schema, for quick reference:
 //!
 //! CREATE TABLE IF NOT EXISTS location
@@ -26,6 +28,13 @@
 //! fail to compare correctly, since "T" always compares greater than " ". Using
 //! seconds since the unix epoch is less error prone.
 //!
+//! # Interface
+//!
+//! As explained in the schema section, times stored in the database are stored
+//! as their unix epoch. When returning data to callers, the LocationRow is
+//! converted to a common::Location where the time is encoded as a
+//! time::OffsetDateTime.
+//!
 
 use anyhow::Result;
 use sqlx::{migrate::MigrateDatabase, FromRow, Sqlite, SqlitePool};
@@ -35,7 +44,7 @@ use crate::common;
 
 /// Struct representation of a Location row in the table
 #[derive(Clone, FromRow, Debug)]
-pub struct Location {
+pub struct LocationRow {
     pub id: i64,
     pub lat: f64,
     pub lon: f64,
@@ -91,7 +100,7 @@ pub async fn log_location(
 }
 
 /// Get the last record in the database
-pub async fn get_last_record() -> Option<Location> {
+pub async fn get_last_record() -> Option<common::Location> {
     let conn = get_db_pool();
 
     // compile-time checked query macros are failing to infer the right type,
@@ -113,41 +122,30 @@ pub async fn get_last_record() -> Option<Location> {
     )
     */
 
-    let mut result = sqlx::query_as::<_, Location>(
+    let mut result = sqlx::query_as::<_, LocationRow>(
         "SELECT * FROM location ORDER BY timestamp DESC LIMIT 1",
     )
     .fetch_all(&conn)
     .await
     .unwrap();
-    result.pop()
-}
-
-/// Retrieve a vector of locations from the past week.
-pub async fn get_records_past_week() -> Vec<Location> {
-    let conn = get_db_pool();
-    let result = sqlx::query_as::<_, Location>(
-        "SELECT * FROM location WHERE timestamp >= unixepoch('now','-7 days')",
-    )
-    .fetch_all(&conn)
-    .await
-    .unwrap();
-    result
+    result.pop().map(|l| l.into())
 }
 
 pub async fn get_records_time_range(
-    start_epoch: i64,
-    end_epoch: i64,
-) -> Vec<Location> {
+    time_range: &common::TimeRange,
+) -> Vec<common::Location> {
     let conn = get_db_pool();
-    let result = sqlx::query_as::<_, Location>(
+    let result = sqlx::query_as::<_, LocationRow>(
         "SELECT * FROM location WHERE timestamp >= (?) AND timestamp <= (?)",
     )
-    .bind(start_epoch)
-    .bind(end_epoch)
+    .bind(time_range.start.unix_timestamp())
+    .bind(time_range.end.unix_timestamp())
     .fetch_all(&conn)
     .await
     .unwrap();
-    result
+    // .into_iter() goes over the items, transferring ownership (.iter() would
+    // give references)
+    result.into_iter().map(|l| l.into()).collect()
 }
 
 pub async fn count_records_past_hour() -> i32 {
@@ -169,8 +167,8 @@ pub async fn count_records_past_hour() -> i32 {
 ///
 /// We don't use the same type for each because we want the database version
 /// to implement FromRow, and for common::Location to not implement it.
-impl std::convert::From<Location> for common::Location {
-    fn from(loc: Location) -> Self {
+impl std::convert::From<LocationRow> for common::Location {
+    fn from(loc: LocationRow) -> Self {
         common::Location {
             lat: loc.lat,
             lon: loc.lon,
@@ -191,34 +189,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_db_pool() {
-        // haven't set the storage path, so we expect an error
-        // assert!(get_db_pool().await.is_err());
-
         test_setup_clean("test_get_db_pool/").await;
-
-        // assert!(get_db_pool().await.is_ok());
         get_db_pool();
-    }
-
-    #[tokio::test]
-    async fn test_log_location() {
-        test_setup_clean("test_log_location/").await;
-
-        let now = time::OffsetDateTime::now_utc();
-        log_location(1.0, 2.0, 3.0, 4.0, 5.0, now.unix_timestamp())
-            .await
-            .unwrap();
-        log_location(0.0, 0.0, 0.0, 0.0, 0.0, 0).await.unwrap(); // 1970
-        let records = get_records_past_week().await;
-
-        // old record should not appear
-        assert_eq!(records.len(), 1);
-        // small integer floats can be exactly compared
-        assert!(records[0].lat == 1.0);
-        assert!(records[0].lon == 2.0);
-        assert!(records[0].accuracy == 3.0);
-        assert!(records[0].speed == 4.0);
-        assert!(records[0].course == 5.0);
     }
 
     #[tokio::test]
@@ -228,7 +200,11 @@ mod tests {
         // 5 and 10 seconds past the epoch
         log_location(1.0, 2.0, 3.0, 4.0, 5.0, 5).await.unwrap();
         log_location(0.0, 0.0, 0.0, 0.0, 0.0, 10).await.unwrap();
-        let records = get_records_time_range(3, 7).await; // get the first
+        let start = time::OffsetDateTime::from_unix_timestamp(3).unwrap();
+        let end = time::OffsetDateTime::from_unix_timestamp(7).unwrap();
+        // get the first
+        let records =
+            get_records_time_range(&common::TimeRange { start, end }).await;
         assert_eq!(records.len(), 1);
         // small integer floats can be exactly compared
         assert!(records[0].lat == 1.0);

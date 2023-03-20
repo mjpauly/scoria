@@ -1,5 +1,5 @@
 {
-  "checksum": "534d44580c0405d818df5d3003ecfcd79836cb553ce14bc48c2b3f5943e6b5ec",
+  "checksum": "43d8aa5cff17e934a5eb455c184010359c5a91cac29b84b857cbe3e1154b6775",
   "crates": {
     "actix 0.13.0": {
       "name": "actix",
@@ -8638,6 +8638,47 @@
       },
       "license": "MIT OR Apache-2.0"
     },
+    "num_threads 0.1.6": {
+      "name": "num_threads",
+      "version": "0.1.6",
+      "repository": {
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/num_threads/0.1.6/download",
+          "sha256": "2819ce041d2ee131036f4fc9d6ae7ae125a3a40e97ba64d04fe799ad9dabbb44"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "num_threads",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "num_threads",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "deps": {
+          "common": [],
+          "selects": {
+            "cfg(any(target_os = \"macos\", target_os = \"ios\", target_os = \"freebsd\"))": [
+              {
+                "id": "libc 0.2.139",
+                "target": "libc"
+              }
+            ]
+          }
+        },
+        "edition": "2015",
+        "version": "0.1.6"
+      },
+      "license": "MIT OR Apache-2.0"
+    },
     "once_cell 1.17.1": {
       "name": "once_cell",
       "version": "1.17.1",
@@ -9651,12 +9692,9 @@
       "name": "plotly",
       "version": "0.8.3",
       "repository": {
-        "Git": {
-          "remote": "https://github.com/mjpauly/plotly",
-          "commitish": {
-            "Branch": "master"
-          },
-          "strip_prefix": "plotly"
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/plotly/0.8.3/download",
+          "sha256": "12cfb78886077c9ac24cd942d39154e43ace1625d577169ce888b4411c55606b"
         }
       },
       "targets": [
@@ -9675,6 +9713,13 @@
         "compile_data_glob": [
           "**"
         ],
+        "crate_features": [
+          "getrandom",
+          "js-sys",
+          "wasm",
+          "wasm-bindgen",
+          "wasm-bindgen-futures"
+        ],
         "deps": {
           "common": [
             {
@@ -9688,6 +9733,14 @@
             {
               "id": "erased-serde 0.3.24",
               "target": "erased_serde"
+            },
+            {
+              "id": "getrandom 0.2.8",
+              "target": "getrandom"
+            },
+            {
+              "id": "js-sys 0.3.60",
+              "target": "js_sys"
             },
             {
               "id": "once_cell 1.17.1",
@@ -9708,6 +9761,14 @@
             {
               "id": "serde_with 2.2.0",
               "target": "serde_with"
+            },
+            {
+              "id": "wasm-bindgen 0.2.83",
+              "target": "wasm_bindgen"
+            },
+            {
+              "id": "wasm-bindgen-futures 0.4.33",
+              "target": "wasm_bindgen_futures"
             }
           ],
           "selects": {}
@@ -9734,12 +9795,9 @@
       "name": "plotly_derive",
       "version": "0.8.3",
       "repository": {
-        "Git": {
-          "remote": "https://github.com/mjpauly/plotly",
-          "commitish": {
-            "Branch": "master"
-          },
-          "strip_prefix": "plotly_derive"
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/plotly_derive/0.8.3/download",
+          "sha256": "6d0cf27f6a32fc7aca3e140057229b1f8625570af6a81d4e339453a26edc0950"
         }
       },
       "targets": [
@@ -12777,6 +12835,7 @@
           "alloc",
           "default",
           "formatting",
+          "local-offset",
           "macros",
           "parsing",
           "serde",
@@ -12804,6 +12863,16 @@
               {
                 "id": "js-sys 0.3.60",
                 "target": "js_sys"
+              }
+            ],
+            "cfg(target_family = \"unix\")": [
+              {
+                "id": "libc 0.2.139",
+                "target": "libc"
+              },
+              {
+                "id": "num_threads 0.1.6",
+                "target": "num_threads"
               }
             ]
           }
@@ -16408,6 +16477,16 @@
       "x86_64-apple-darwin",
       "x86_64-apple-ios"
     ],
+    "cfg(any(target_os = \"macos\", target_os = \"ios\", target_os = \"freebsd\"))": [
+      "aarch64-apple-darwin",
+      "aarch64-apple-ios",
+      "aarch64-apple-ios-sim",
+      "i686-apple-darwin",
+      "i686-unknown-freebsd",
+      "x86_64-apple-darwin",
+      "x86_64-apple-ios",
+      "x86_64-unknown-freebsd"
+    ],
     "cfg(any(unix, target_os = \"wasi\"))": [
       "aarch64-apple-darwin",
       "aarch64-apple-ios",
@@ -16615,6 +16694,27 @@
       "aarch64-pc-windows-msvc",
       "i686-pc-windows-msvc",
       "x86_64-pc-windows-msvc"
+    ],
+    "cfg(target_family = \"unix\")": [
+      "aarch64-apple-darwin",
+      "aarch64-apple-ios",
+      "aarch64-apple-ios-sim",
+      "aarch64-linux-android",
+      "aarch64-unknown-linux-gnu",
+      "arm-unknown-linux-gnueabi",
+      "armv7-linux-androideabi",
+      "armv7-unknown-linux-gnueabi",
+      "i686-apple-darwin",
+      "i686-linux-android",
+      "i686-unknown-freebsd",
+      "i686-unknown-linux-gnu",
+      "powerpc-unknown-linux-gnu",
+      "s390x-unknown-linux-gnu",
+      "x86_64-apple-darwin",
+      "x86_64-apple-ios",
+      "x86_64-linux-android",
+      "x86_64-unknown-freebsd",
+      "x86_64-unknown-linux-gnu"
     ],
     "cfg(target_feature = \"atomics\")": [],
     "cfg(target_os = \"android\")": [

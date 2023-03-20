@@ -4,6 +4,13 @@ pub mod navbar;
 
 pub use navbar::{Navbar, NavbarWrapper};
 
+pub static SECONDARY_BUTTON_STYLE: &str =
+    "rounded-lg whitespace-nowrap py-1.5 px-3 text-sky-500 bg-neutral-800";
+pub static PRIMARY_BUTTON_STYLE: &str =
+    "rounded-lg whitespace-nowrap py-1.5 px-3 text-neutral-200 bg-sky-500";
+pub static DATETIME_INPUT_STYLE: &str =
+    "rounded-lg whitespace-nowrap py-1.5 px-3 placeholder:text-neutral-200 bg-neutral-800";
+
 // testing:
 
 // mod capped_input;

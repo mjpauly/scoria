@@ -16,6 +16,7 @@ pub enum ToBack {
     GetState,                 // get all state values
     SetLocationEnabled(bool), // set location enabled state
     SetDistFilt(f32),         // distance filter
+    GetLocationTimeRange(TimeRange),
 }
 
 /// Messages from the backend to the frontend
@@ -29,6 +30,7 @@ pub enum ToFront {
     LocationEnabled(bool),
     // Minimum horizontal distance in meters before a new data point is output
     DistFilt(f32),
+    LocationTimeRange(TimeRange, Vec<Location>),
 }
 
 /// Struct representation of a Location data point
@@ -40,4 +42,13 @@ pub struct Location {
     pub speed: f64,
     pub course: f64,
     pub datetime: time::OffsetDateTime, // OffsetDateTime is timezone aware
+}
+
+/// A range of times.
+/// Encoding as a struct helps ensure `start` and `end` are not accidentally
+/// swapped.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub struct TimeRange {
+    pub start: time::OffsetDateTime,
+    pub end: time::OffsetDateTime,
 }

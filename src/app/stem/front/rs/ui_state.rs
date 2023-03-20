@@ -43,6 +43,8 @@ impl UIState {
             ToFront::DistFilt(val) => {
                 *self_clone.distance_filter.borrow_mut() = *val
             }
+            // This message handled by some other callback, and not stored here
+            ToFront::LocationTimeRange(..) => (),
         };
         Box::new(callback)
     }

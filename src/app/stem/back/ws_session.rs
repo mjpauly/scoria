@@ -10,7 +10,7 @@ use actix_web_actors::ws;
 use std::time::{Duration, Instant};
 
 use crate::app_state::AppState;
-use crate::common::{ToBack, ToFront};
+use crate::common::{TimeRange, ToBack, ToFront};
 use crate::database;
 
 /// How often heartbeat pings are sent
@@ -79,7 +79,17 @@ impl WsSession {
                 *AppState::global().distance_filter.lock().unwrap() = val;
                 self.send_msg(ToFront::DistFilt(val), ctx);
             }
+            ToBack::GetLocationTimeRange(time_range) => {
+                self.send_location_time_range(ctx, time_range);
+            }
         }
+    }
+
+    /// Encodes a ToFront and sends it over the websocket
+    fn send_msg(&self, msg: ToFront, ctx: &mut ws::WebsocketContext<Self>) {
+        // dbg!(msg.clone());
+        let encoded: Vec<u8> = bincode::serialize(&msg).unwrap();
+        ctx.binary(encoded);
     }
 
     /// Sends all UI state values, used at startup.
@@ -96,8 +106,7 @@ impl WsSession {
         let fut = async move {
             let rec = database::get_last_record().await;
             if let Some(val) = rec {
-                recipient
-                    .do_send(MsgToFront(ToFront::LastLocation(val.into())));
+                recipient.do_send(MsgToFront(ToFront::LastLocation(val)));
             }
         };
         fut.into_actor(self).spawn(ctx);
@@ -112,11 +121,20 @@ impl WsSession {
         fut.into_actor(self).spawn(ctx);
     }
 
-    /// Encodes a ToFront and sends it over the websocket
-    fn send_msg(&self, msg: ToFront, ctx: &mut ws::WebsocketContext<Self>) {
-        // dbg!(msg.clone());
-        let encoded: Vec<u8> = bincode::serialize(&msg).unwrap();
-        ctx.binary(encoded);
+    /// Send location data in a given range of time
+    fn send_location_time_range(
+        &self,
+        ctx: &mut ws::WebsocketContext<Self>,
+        time_range: TimeRange,
+    ) {
+        let recipient = ctx.address().recipient();
+        let fut = async move {
+            let records = database::get_records_time_range(&time_range).await;
+            recipient.do_send(MsgToFront(ToFront::LocationTimeRange(
+                time_range, records,
+            )));
+        };
+        fut.into_actor(self).spawn(ctx);
     }
 }
 

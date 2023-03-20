@@ -26,7 +26,7 @@ pub mod paths;
 pub mod runtime;
 pub mod server;
 pub mod top;
-pub mod viz;
+// pub mod viz;
 pub mod ws_session;
 
 /// Set the directories known to the Rust library.

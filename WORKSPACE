@@ -130,10 +130,7 @@ crates_repository(
         "anyhow": crate.spec(
             version = "1.0.68",
         ),
-        "plotly": crate.spec(
-            # version = "0.8.3",  # if compiling for iOS gets fixed
-            git = "https://github.com/mjpauly/plotly",  # for now we do this
-        ),
+        "plotly": crate.spec(version = "0.8.3", features = ["wasm"],),
         "actix-web": crate.spec(
             version = "4.3.0",
         ),
@@ -164,7 +161,7 @@ crates_repository(
         ),
         "time": crate.spec(
             version = "0.3.20",
-            features = ["wasm-bindgen"],
+            features = ["local-offset", "wasm-bindgen", "formatting", "parsing"],
         ),
         "futures": crate.spec(version = "0.3.26"),
         "gloo-net": crate.spec(version = "0.2.6"),

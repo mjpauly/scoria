@@ -22,6 +22,7 @@ mod pages;
 mod router;
 mod swift_poke;
 mod ui_state;
+mod viz;
 mod websocket;
 
 use yew::prelude::*;

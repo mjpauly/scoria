@@ -11,7 +11,6 @@ rust_library(
         "@stem_crate_index//:sqlx",
         "@stem_crate_index//:tokio",
         "@stem_crate_index//:anyhow",
-        "@stem_crate_index//:plotly",
         "@stem_crate_index//:actix-web",
         "@stem_crate_index//:actix",
         "@stem_crate_index//:actix-web-actors",
