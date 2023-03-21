@@ -16,8 +16,6 @@ use std::ffi::CStr;
 use std::os::raw::c_char;
 use std::path::PathBuf;
 
-use actix_web::dev::ServerHandle;
-
 pub mod app_state;
 #[path = "../front/rs/common.rs"]
 pub mod common;
@@ -44,16 +42,14 @@ pub extern "C" fn set_app_dirs(
     library_dir: *const c_char,
     temp_dir: *const c_char,
     bundle_dir: *const c_char,
-) {
+) -> u16 {
     let paths_to_set = paths::Paths {
         documents_dir: PathBuf::from(cstr_to_string(documents_dir)),
         library_dir: PathBuf::from(cstr_to_string(library_dir)),
         temp_dir: PathBuf::from(cstr_to_string(temp_dir)),
         bundle_dir: PathBuf::from(cstr_to_string(bundle_dir)),
     };
-    runtime::get_runtime().block_on(async {
-        init(paths_to_set).await.unwrap();
-    });
+    runtime::get_runtime().block_on(async { init(paths_to_set).await })
 }
 
 // Convert a const char* reference from C into an owned Rust String.
@@ -62,16 +58,21 @@ fn cstr_to_string(cstr: *const c_char) -> String {
     String::from_utf8_lossy(cstr.to_bytes()).to_string()
 }
 
+/// Initialize with port 0, which means the OS will assign us a free port.
+pub async fn init(init_paths: paths::Paths) -> u16 {
+    init_with_port(init_paths, 0).await
+}
+
 /// Initializes the rust library with the given app directories.
-pub async fn init(paths_to_set: paths::Paths) -> Result<ServerHandle, String> {
-    // paths::set_app_dirs(paths_to_set);
+pub async fn init_with_port(init_paths: paths::Paths, port: u16) -> u16 {
     let db = database::init_db(paths::get_db_path_helper(
-        paths_to_set.documents_dir.clone(),
+        init_paths.documents_dir.clone(),
     ))
     .await
     .unwrap();
-    app_state::AppState::init(paths_to_set, db);
-    server::run("127.0.0.1", 8081)
+    let port = server::run(init_paths.clone(), "127.0.0.1", port);
+    app_state::AppState::init(init_paths, db);
+    port
 }
 
 /// Log a location in the app. This is a thin sync wrapper around the helper

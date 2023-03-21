@@ -1,6 +1,6 @@
 #import <Foundation/Foundation.h>
 
-void set_app_dirs(
+uint16_t set_app_dirs(
     const char* documents_dir,
     const char* library_dir,
     const char* temp_dir,

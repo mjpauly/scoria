@@ -113,7 +113,18 @@ impl WebsocketService {
     }
 
     pub fn new() -> Self {
-        let ws = WebSocket::open("ws://127.0.0.1:8081/ws").unwrap();
+        // Get the port that we connected to on the server
+        let port = web_sys::window()
+            .unwrap()
+            .location()
+            .port()
+            .unwrap()
+            .parse::<u16>()
+            .unwrap();
+        let address = format!("ws://127.0.0.1:{}/ws", port);
+        log::debug!("Binding to websocket at {}", address);
+
+        let ws = WebSocket::open(&address).unwrap();
 
         let (ws_write, ws_read) = ws.split();
 

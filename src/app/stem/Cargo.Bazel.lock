@@ -1,5 +1,5 @@
 {
-  "checksum": "43d8aa5cff17e934a5eb455c184010359c5a91cac29b84b857cbe3e1154b6775",
+  "checksum": "ac3ef317425c4f326fd3f821aff9e2a78b9a1833d9f4a1e173e75d04e849afa1",
   "crates": {
     "actix 0.13.0": {
       "name": "actix",

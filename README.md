@@ -6,20 +6,28 @@
 - [x] initial barebones yew UI
 - [x] refactor to WebView (storyboard instead of swiftUI base?)
 - [x] build frontend wasm with bazel
-- [_] *reach feature parity with SwiftUI*
+- [x] *reach feature parity with SwiftUI*
     - [x] wasm artifact building with rules_rust
     - [x] make navbar buttons bigger
     - [x] add navbar icons
     - [x] current location streaming to UI
     - [x] updates/hr streaming
     - [x] distance filter configuration
-    - [_] map view with past day's data
-    - [_] configurable time range and marker color/size
+    - [x] map view with past day's data
 - [x] prevent unwanted scrolling in the WKWebView
 - [x] proper database migrations included in compiled source with `migrate!`
-- [_] option to enable/disable location recording from within the app
-- [_] CI pipeline
+- [x] OS-assigned server port
 - [_] integration tests
+    - stem only
+        - [_] server health check works
+        - [_] log_location persists data in database
+        - [_] log_location sends new data to the UI
+        - [_] websocket messages behave as expected
+    - app-level
+        - [_] changing dist_filt propagates to SwiftUI
+- [_] CI pipeline
+- [_] configurable marker color/size
+- [_] option to enable/disable location recording from within the app
 - [_] secure the UI from other apps (max 1 connection, random port, authenticate
         with number passcode, shut down when not in use)
 - [_] publish to app store
@@ -226,6 +234,7 @@ Prereq: install graphviz (includes `dot`) with `brew install graphviz`.
 - `.unwrap_or_else(|err| { println("got error {}", err); return; })`
     - if return type is `()` on success: `if let Err(e) = run(config) {`
 - `eprintln` for stderr
+- Log levels from most to least important: error!, warn!, info!, debug!, trace!.
 
 ### Other tips
 

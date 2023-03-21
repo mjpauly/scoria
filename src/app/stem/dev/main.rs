@@ -44,9 +44,7 @@ async fn main() -> Result<(), std::io::Error> {
     );
 
     // Finish startup now that our bundle is in the right spot
-    let _server_handle = stem::init(paths_to_set)
-        .await
-        .expect("Could not start server");
+    stem::init_with_port(paths_to_set, 8081).await;
 
     // Spawn our data generator
     tokio::spawn(data_generator());
