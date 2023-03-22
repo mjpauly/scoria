@@ -30,7 +30,7 @@ rust_test(
     size = "small",  # 20 MB RAM, 1 min timeout
     data = ["//src/app/stem/front:dist"],
     deps = [
-        "@stem_crate_index//:reqwest",
+        "@stem_crate_index//:reqwest", # for server health check unit test
     ]
 )
 
@@ -43,12 +43,11 @@ rust_test(
         ":stem",
         "@stem_crate_index//:bincode",
         "@stem_crate_index//:futures-util",
-        "@stem_crate_index//:reqwest",
+        "@stem_crate_index//:rusty-fork",
+        "@stem_crate_index//:time",
         "@stem_crate_index//:tokio",
         "@stem_crate_index//:tokio-tungstenite",
-        "@stem_crate_index//:time",
     ],
-    visibility = ["//visibility:public"],
 )
 
 # Stem runner for development of the frontend and backend. Using ibazel allows

@@ -1,0 +1,148 @@
+//! Integration tests for the backend's interface (Swift-facing and frontend-
+//! facing).
+
+use stem::common::{Location, TimeRange, ToBack, ToFront};
+
+use crate::setup;
+
+use futures_util::{stream::TryStreamExt, SinkExt, StreamExt};
+use rusty_fork::rusty_fork_test;
+use tokio::runtime::Runtime;
+use tokio::time::{sleep, Duration};
+use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
+
+/// Creates a new tokio runtime and blocks on the future provided.
+fn run_test<F: std::future::Future>(fut: F) -> F::Output {
+    Runtime::new().unwrap().block_on(fut)
+}
+
+// Fork a new process for each test since the backend state would otherwise be
+// shared.
+// To do later: turn this into a proc_macro_attribute
+rusty_fork_test! {
+    #[test]
+    fn log_location_sends_data_to_ui() {
+        run_test(log_location_sends_data_to_ui_impl());
+    }
+
+    #[test]
+    fn set_dist_filt_changes_backend_state() {
+        run_test(set_dist_filt_changes_backend_state_impl());
+    }
+
+    #[test]
+    fn backend_sends_state_when_requested() {
+        run_test(backend_sends_state_when_requested_impl());
+    }
+
+    #[test]
+    fn backend_sends_location_time_range_when_requested() {
+        run_test(backend_sends_location_time_range_when_requested_impl());
+    }
+}
+
+async fn log_location_sends_data_to_ui_impl() {
+    let url = setup("log_location_sends_data_to_ui/").await;
+    let (ws_stream, _) = connect_async(url).await.expect("Failed to connect");
+    let (_write, mut read) = ws_stream.split();
+
+    let timestamp = 100;
+    stem::core::log_location(0., 1., 2., 3., 4., timestamp).await;
+
+    let msg = read.try_next().await.unwrap().unwrap();
+    assert!(msg.is_binary());
+
+    let decoded = bincode::deserialize::<ToFront>(&msg.into_data()).unwrap();
+
+    let expected = Location {
+        lat: 0.,
+        lon: 1.,
+        accuracy: 2.,
+        speed: 3.,
+        course: 4.,
+        datetime: time::OffsetDateTime::from_unix_timestamp(timestamp).unwrap(),
+    };
+    assert_eq!(decoded, ToFront::LastLocation(expected));
+}
+
+async fn set_dist_filt_changes_backend_state_impl() {
+    let url = setup("set_dist_filt_changes_backend_state/").await;
+    let (ws_stream, _) = connect_async(url).await.expect("Failed to connect");
+    let (mut write, _read) = ws_stream.split();
+
+    let new_dist_filt = 4.0;
+    let msg = ToBack::SetDistFilt(new_dist_filt);
+    let encoded = bincode::serialize(&msg).unwrap();
+    write.send(Message::binary(encoded)).await.unwrap();
+
+    // Wait for the message to propagate
+    sleep(Duration::from_millis(50)).await;
+
+    let persisted = *stem::app_state::AppState::global()
+        .distance_filter
+        .lock()
+        .unwrap();
+    assert_eq!(new_dist_filt, persisted);
+}
+
+async fn backend_sends_state_when_requested_impl() {
+    let url = setup("backend_sends_state_when_requested/").await;
+    let (ws_stream, _) = connect_async(url).await.expect("Failed to connect");
+    let (mut write, mut read) = ws_stream.split();
+
+    // first let's store a location
+    stem::core::log_location(0., 1., 2., 3., 4., 100).await;
+
+    let msg = ToBack::GetState;
+    let encoded = bincode::serialize(&msg).unwrap();
+    write.send(Message::binary(encoded)).await.unwrap();
+
+    let mut messages = Vec::new();
+    for _ in 0..3 {
+        let msg = read.try_next().await.unwrap().unwrap();
+        let decoded =
+            bincode::deserialize::<ToFront>(&msg.into_data()).unwrap();
+        messages.push(decoded);
+    }
+
+    // We find the message within the vector since the order is not guaranteed.
+    messages
+        .iter()
+        .position(|x| *x == ToFront::LocationEnabled(true))
+        .expect("Did not receive LocationEnabled state");
+    messages
+        .iter()
+        .position(|x| matches!(*x, ToFront::LocationsPastHour(_)))
+        .expect("Did not receive LocationsPastHour state");
+    // We expect to have received a LastLocation since the test
+    // log_location_sends_data_to_ui runs before this one
+    messages
+        .iter()
+        .position(|x| matches!(*x, ToFront::LastLocation(_)))
+        .expect("Did not receive LastLocation state");
+}
+
+async fn backend_sends_location_time_range_when_requested_impl() {
+    let url = setup("backend_sends_location_time_range_when_requested/").await;
+    let (ws_stream, _) = connect_async(url).await.expect("Failed to connect");
+    let (mut write, mut read) = ws_stream.split();
+
+    // day time range
+    let now = time::OffsetDateTime::now_local().unwrap();
+    let start = now.replace_time(time::Time::MIDNIGHT);
+    let end = now.replace_time(time::Time::from_hms(23, 59, 59).unwrap());
+    let time_range = TimeRange { start, end };
+
+    let msg = ToBack::GetLocationTimeRange(time_range.clone());
+    let encoded = bincode::serialize(&msg).unwrap();
+    write.send(Message::binary(encoded)).await.unwrap();
+
+    let msg = read.try_next().await.unwrap().unwrap();
+    let decoded = bincode::deserialize::<ToFront>(&msg.into_data()).unwrap();
+
+    if let ToFront::LocationTimeRange(tr, _) = decoded {
+        assert_eq!(tr, time_range);
+    } else {
+        panic!("Didn't receive LocationTimeRange from backend.");
+    }
+}

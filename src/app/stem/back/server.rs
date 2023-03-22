@@ -62,6 +62,11 @@ async fn health_check() -> impl Responder {
 mod tests {
     use crate::local::test_setup;
 
+    /// Test that the health check works. This can be run as a unit tests only
+    /// because it doesn't touch the global app state. If we did try to connect
+    /// to the websocket, then we'd get an error that we haven't initialized the
+    /// app-state yet, since we're in a different thread from the one that did
+    /// the initialization.
     #[tokio::test]
     async fn server_health_check_works() {
         // Arrange

@@ -21,8 +21,8 @@
     - stem only
         - [x] server health check works
         - [x] log_location persists data in database
-        - [_] log_location sends new data to the UI
-        - [_] websocket messages behave as expected
+        - [x] log_location sends new data to the UI
+        - [x] websocket messages behave as expected
     - app-level
         - [_] changing dist_filt propagates to SwiftUI
 - [_] CI pipeline

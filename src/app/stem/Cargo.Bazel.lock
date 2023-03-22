@@ -1,5 +1,5 @@
 {
-  "checksum": "6c969553105342e56fdbaab65dbc499b3ea64a5dbfe1ec2628a63f8f117b8f90",
+  "checksum": "7cf503bec729bc29c2a7f33d6655b18f4a061938080494efce86a16fbe122cde",
   "crates": {
     "actix 0.13.0": {
       "name": "actix",
@@ -4033,6 +4033,10 @@
             {
               "id": "reqwest 0.11.15",
               "target": "reqwest"
+            },
+            {
+              "id": "rusty-fork 0.3.0",
+              "target": "rusty_fork"
             },
             {
               "id": "serde 1.0.152",
@@ -10495,6 +10499,36 @@
       },
       "license": "MIT OR Apache-2.0"
     },
+    "quick-error 1.2.3": {
+      "name": "quick-error",
+      "version": "1.2.3",
+      "repository": {
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/quick-error/1.2.3/download",
+          "sha256": "a1d01941d82fa2ab50be1e79e6714289dd7cde78eba4c074bc5a4374f650dfe0"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "quick_error",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "quick_error",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "edition": "2015",
+        "version": "1.2.3"
+      },
+      "license": "MIT/Apache-2.0"
+    },
     "quote 1.0.23": {
       "name": "quote",
       "version": "1.0.23",
@@ -11243,6 +11277,62 @@
         ]
       },
       "license": "MIT OR Apache-2.0"
+    },
+    "rusty-fork 0.3.0": {
+      "name": "rusty-fork",
+      "version": "0.3.0",
+      "repository": {
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/rusty-fork/0.3.0/download",
+          "sha256": "cb3dcc6e454c328bb824492db107ab7c0ae8fcffe4ad210136ef014458c1bc4f"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "rusty_fork",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "rusty_fork",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "crate_features": [
+          "default",
+          "timeout",
+          "wait-timeout"
+        ],
+        "deps": {
+          "common": [
+            {
+              "id": "fnv 1.0.7",
+              "target": "fnv"
+            },
+            {
+              "id": "quick-error 1.2.3",
+              "target": "quick_error"
+            },
+            {
+              "id": "tempfile 3.4.0",
+              "target": "tempfile"
+            },
+            {
+              "id": "wait-timeout 0.2.0",
+              "target": "wait_timeout"
+            }
+          ],
+          "selects": {}
+        },
+        "edition": "2018",
+        "version": "0.3.0"
+      },
+      "license": "MIT/Apache-2.0"
     },
     "ryu 1.0.12": {
       "name": "ryu",
@@ -14786,6 +14876,47 @@
         ],
         "edition": "2015",
         "version": "0.9.4"
+      },
+      "license": "MIT/Apache-2.0"
+    },
+    "wait-timeout 0.2.0": {
+      "name": "wait-timeout",
+      "version": "0.2.0",
+      "repository": {
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/wait-timeout/0.2.0/download",
+          "sha256": "9f200f5b12eb75f8c1ed65abd4b2db8a6e1b138a20de009dacee265a2498f3f6"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "wait_timeout",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "wait_timeout",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "deps": {
+          "common": [],
+          "selects": {
+            "cfg(unix)": [
+              {
+                "id": "libc 0.2.139",
+                "target": "libc"
+              }
+            ]
+          }
+        },
+        "edition": "2015",
+        "version": "0.2.0"
       },
       "license": "MIT/Apache-2.0"
     },
