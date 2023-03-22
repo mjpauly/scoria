@@ -18,11 +18,13 @@
 - [x] proper database migrations included in compiled source with `migrate!`
 - [x] OS-assigned server port
 - [_] integration tests
-    - stem only
+    - backend only
         - [x] server health check works
         - [x] log_location persists data in database
         - [x] log_location sends new data to the UI
         - [x] websocket messages behave as expected
+    - backend + frontend
+        - [_] ui interactions produce desired effects
     - app-level
         - [_] changing dist_filt propagates to SwiftUI
 - [_] CI pipeline
