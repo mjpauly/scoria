@@ -57,3 +57,27 @@ fn build(init_paths: Paths, listener: TcpListener) -> Server {
 async fn health_check() -> impl Responder {
     HttpResponse::Ok()
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::local::test_setup;
+
+    #[tokio::test]
+    async fn server_health_check_works() {
+        // Arrange
+        let port = test_setup("server_health_check/").await;
+
+        let client = reqwest::Client::new();
+
+        // Act
+        let response = client
+            .get(&format!("http://127.0.0.1:{}/health_check", port))
+            .send()
+            .await
+            .expect("Failed to execute request.");
+
+        // Assert
+        assert!(response.status().is_success());
+        assert_eq!(Some(0), response.content_length());
+    }
+}

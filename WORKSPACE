@@ -201,11 +201,12 @@ crates_repository(
             version = "=0.2.83",
         ),
 
-        # dev
-        "env_logger": crate.spec(
-            version = "0.10.0",
-        ),
+        # dev + testing
+        "env_logger": crate.spec(version = "0.10.0",),
         "rand": crate.spec(version = "0.8.5"),
+        "reqwest": crate.spec(version = "0.11.15",),
+        "tokio-tungstenite": crate.spec(version = "0.18.0",),
+        "futures-util": crate.spec(version = "0.3.27",),
     },
     splicing_config = splicing_config(resolver_version = "2"),
 

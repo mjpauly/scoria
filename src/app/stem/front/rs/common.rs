@@ -11,7 +11,7 @@
 use serde::{Deserialize, Serialize};
 
 /// Messages from the frontend to the backend over the websocket
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum ToBack {
     GetState,                 // get all state values
     SetLocationEnabled(bool), // set location enabled state
@@ -20,7 +20,7 @@ pub enum ToBack {
 }
 
 /// Messages from the backend to the frontend
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum ToFront {
     // Send the last known location for displaying.
     // Used to push new location updates

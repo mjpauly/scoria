@@ -19,8 +19,8 @@
 - [x] OS-assigned server port
 - [_] integration tests
     - stem only
-        - [_] server health check works
-        - [_] log_location persists data in database
+        - [x] server health check works
+        - [x] log_location persists data in database
         - [_] log_location sends new data to the UI
         - [_] websocket messages behave as expected
     - app-level

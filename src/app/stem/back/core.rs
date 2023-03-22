@@ -1,7 +1,10 @@
-//! High-level app logic that spans multiple modules. E.g. when we get new
-//! location data, we want to 1) store it in the database, 2) send an update to
-//! the UI, 3) do any additional calculations for system visibility or user
-//! analysis.
+//! High-level app logic that spans multiple modules.
+//!
+//! E.g. when we get new location data, we want to
+//!     1) store it in the database
+//!     2) send an update to the UI
+//!     3) do any additional calculations for system visibility or user
+//!             analysis.
 
 use crate::app_state::AppState;
 use crate::common;

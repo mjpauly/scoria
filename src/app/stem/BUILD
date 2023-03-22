@@ -28,15 +28,25 @@ rust_test(
     name = "unit_tests",
     crate = ":stem",
     size = "small",  # 20 MB RAM, 1 min timeout
+    data = ["//src/app/stem/front:dist"],
+    deps = [
+        "@stem_crate_index//:reqwest",
+    ]
 )
 
 # Integration tests of the library's public interface.
 rust_test(
     name = "int_tests",
     srcs = glob(["tests/*.rs"]),
-    edition = "2021",
+    data = ["//src/app/stem/front:dist"],
     deps = [
         ":stem",
+        "@stem_crate_index//:bincode",
+        "@stem_crate_index//:futures-util",
+        "@stem_crate_index//:reqwest",
+        "@stem_crate_index//:tokio",
+        "@stem_crate_index//:tokio-tungstenite",
+        "@stem_crate_index//:time",
     ],
     visibility = ["//visibility:public"],
 )

@@ -59,7 +59,7 @@ pub fn get_viz_path() -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tests::test_setup;
+    use crate::local::test_setup;
 
     #[tokio::test]
     async fn test_set_paths() {
