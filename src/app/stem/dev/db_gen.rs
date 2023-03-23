@@ -26,10 +26,10 @@ const DB_PREFIX: &str = "sqlite://";
 const DB_FNAME: &str = "data.db";
 
 async fn migrate_db(db_path: &str) -> Result<(), sqlx::Error> {
-    if !Sqlite::database_exists(&db_path).await? {
-        Sqlite::create_database(&db_path).await?;
+    if !Sqlite::database_exists(db_path).await? {
+        Sqlite::create_database(db_path).await?;
     }
-    let mut conn = SqliteConnection::connect(&db_path).await?;
+    let mut conn = SqliteConnection::connect(db_path).await?;
     // embed our migrations from "migrations/" into our binary
     sqlx::migrate!().run(&mut conn).await?;
     conn.close().await.unwrap();

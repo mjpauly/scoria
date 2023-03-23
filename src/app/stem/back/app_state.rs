@@ -49,7 +49,7 @@ impl AppState {
     /// Get the global AppState instance
     #[cfg(test)]
     pub fn global() -> Arc<AppState> {
-        APP_STATE.with(|state| Self::do_global(state))
+        APP_STATE.with(Self::do_global)
     }
 
     /// Actual global implementation shared between both test and non-test cases

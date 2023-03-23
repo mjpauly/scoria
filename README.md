@@ -249,5 +249,8 @@ something like an option behind the Mutex.
 
 ## Style Notes
 
+- Check rust code formatting with: `bazel build --@rules_rust//:rustfmt.toml=//:rustfmt.toml --aspects=@rules_rust//rust:defs.bzl%rustfmt_aspect --output_groups=rustfmt_checks //...`
+- Check common rust lints with: `bazel build --aspects=@rules_rust//rust:defs.bzl%rust_clippy_aspect --output_groups=clippy_checks //...`
+
 - Code lines set to 80 characters or shorter
 - Parent functions should come before the children that they call.

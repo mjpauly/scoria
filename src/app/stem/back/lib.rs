@@ -208,7 +208,7 @@ pub mod local {
         fs::set_permissions(dest.clone(), fs::Permissions::from_mode(0o666))?;
         println!(
             "Copied dist.zip & set permissions to: {:#o} (hopefully 0o100666)",
-            fs::metadata(dest.clone())?.permissions().mode()
+            fs::metadata(dest)?.permissions().mode()
         );
         Ok(())
     }

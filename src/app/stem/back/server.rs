@@ -31,9 +31,9 @@ fn unzip_dist(init_paths: Paths) -> Result<(), String> {
         return Err("Can't find 'dist.zip' in bundle".to_string());
     }
     let destination = init_paths.library_dir.join("dist");
-    let _result = zip::ZipArchive::new(std::fs::File::open(archive).unwrap())
+    zip::ZipArchive::new(std::fs::File::open(archive).unwrap())
         .unwrap()
-        .extract(destination.clone())
+        .extract(destination)
         .unwrap();
     Ok(())
 }
