@@ -104,3 +104,14 @@ cc_library(
     name = "alloc",
     srcs = ["alloc.cc"],
 )
+
+
+# rustfmt.toml
+
+exports_files(
+    [
+        "rustfmt.toml",
+    ],
+    visibility = ["//visibility:public"],
+)
+
