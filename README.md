@@ -27,7 +27,7 @@
         - [_] ui interactions produce desired effects
     - app-level
         - [_] changing dist_filt propagates to SwiftUI
-- [_] CI pipeline
+- [_] ~~CI pipeline~~
 - [_] configurable marker color/size
 - [_] option to enable/disable location recording from within the app
 - [_] secure the UI from other apps (max 1 connection, random port, authenticate
@@ -46,7 +46,6 @@
          - visits (last time, first time, total, time spent, when visits happen)
          - traveling (different modes, time spent, num trips, when it happens)
          - trends
-- `stem` integration tests
 - App integration tests
 - more battery-efficient data collection
 
@@ -127,6 +126,9 @@ src
     change.
     - `brew install ibazel`
     - Use it just like bazel but replace `bazel` with `ibazel`.
+- geckodriver: webdriver for testing the ui
+    - `cargo install geckodriver`
+    - Called automatically by `stem:int_tests`
 
 For compile-time checked query macros with `sqlx` we need a development database
 for `sqlx` to connect to and check queries against. Run the following command:
@@ -178,8 +180,7 @@ The Xcode project itself uses Bazel for building and running the app.
 ### Testing the `stem` Core Library
 
 - `bazel test //src/app/stem:unit_tests`: Run the unit tests embedded in the library.
-- `bazel test //src/app/stem:int_tests`: Run the integration tests of the library's interface.
-- `bazel test //src/app/stem:all`: Run both the unit tests and the integration tests.
+- `bazel test //src/app/stem:int_tests --spawn_strategy=local`: Run the integration tests of the library's interface. We spawn it locally so geckodriver works.
 
 Useful arguments:
 
@@ -251,9 +252,6 @@ something like an option behind the Mutex.
 
 - Check rust code formatting with: `bazel build --@rules_rust//:rustfmt.toml=//:rustfmt.toml --aspects=@rules_rust//rust:defs.bzl%rustfmt_aspect --output_groups=rustfmt_checks //...`
 - Check common rust lints with: `bazel build --aspects=@rules_rust//rust:defs.bzl%rust_clippy_aspect --output_groups=clippy_checks //...`
-- Clippy lint checks are configured to run on any bazel build command on a rust
-target (.bazelrc). It is assumed that the developer will run rustfmt themselves.
-A nice way to do this is to configure the editor to rustfmt on file write.
 
 - Code lines set to 80 characters or shorter
 - Parent functions should come before the children that they call.

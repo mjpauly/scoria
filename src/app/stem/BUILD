@@ -42,6 +42,7 @@ rust_test(
     deps = [
         ":stem",
         "@stem_crate_index//:bincode",
+        "@stem_crate_index//:fantoccini",
         "@stem_crate_index//:futures-util",
         "@stem_crate_index//:rusty-fork",
         "@stem_crate_index//:time",

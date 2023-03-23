@@ -1,5 +1,5 @@
 {
-  "checksum": "7cf503bec729bc29c2a7f33d6655b18f4a061938080494efce86a16fbe122cde",
+  "checksum": "81eba627ef613c7d713836fd72d86d8f931c398998d806991a78b5de5514d7d4",
   "crates": {
     "actix 0.13.0": {
       "name": "actix",
@@ -3999,6 +3999,10 @@
               "target": "env_logger"
             },
             {
+              "id": "fantoccini 0.19.3",
+              "target": "fantoccini"
+            },
+            {
               "id": "futures 0.3.26",
               "target": "futures"
             },
@@ -4522,6 +4526,102 @@
         "version": "2.5.3"
       },
       "license": "Apache-2.0 OR MIT"
+    },
+    "fantoccini 0.19.3": {
+      "name": "fantoccini",
+      "version": "0.19.3",
+      "repository": {
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/fantoccini/0.19.3/download",
+          "sha256": "65f0fbe245d714b596ba5802b46f937f5ce68dcae0f32f9a70b5c3b04d3c6f64"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "fantoccini",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "fantoccini",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "crate_features": [
+          "default",
+          "hyper-tls",
+          "native-tls"
+        ],
+        "deps": {
+          "common": [
+            {
+              "id": "base64 0.13.1",
+              "target": "base64"
+            },
+            {
+              "id": "cookie 0.16.2",
+              "target": "cookie"
+            },
+            {
+              "id": "futures-core 0.3.27",
+              "target": "futures_core"
+            },
+            {
+              "id": "futures-util 0.3.27",
+              "target": "futures_util"
+            },
+            {
+              "id": "http 0.2.9",
+              "target": "http"
+            },
+            {
+              "id": "hyper 0.14.25",
+              "target": "hyper"
+            },
+            {
+              "id": "hyper-tls 0.5.0",
+              "target": "hyper_tls"
+            },
+            {
+              "id": "mime 0.3.16",
+              "target": "mime"
+            },
+            {
+              "id": "serde 1.0.152",
+              "target": "serde"
+            },
+            {
+              "id": "serde_json 1.0.91",
+              "target": "serde_json"
+            },
+            {
+              "id": "time 0.3.20",
+              "target": "time"
+            },
+            {
+              "id": "tokio 1.24.2",
+              "target": "tokio"
+            },
+            {
+              "id": "url 2.3.1",
+              "target": "url"
+            },
+            {
+              "id": "webdriver 0.46.0",
+              "target": "webdriver"
+            }
+          ],
+          "selects": {}
+        },
+        "edition": "2021",
+        "version": "0.19.3"
+      },
+      "license": "MIT/Apache-2.0"
     },
     "fastrand 1.8.0": {
       "name": "fastrand",
@@ -6942,11 +7042,13 @@
         ],
         "crate_features": [
           "client",
+          "default",
           "h2",
           "http1",
           "http2",
           "runtime",
           "socket2",
+          "stream",
           "tcp"
         ],
         "deps": {
@@ -15512,6 +15614,90 @@
         "version": "0.3.60"
       },
       "license": "MIT/Apache-2.0"
+    },
+    "webdriver 0.46.0": {
+      "name": "webdriver",
+      "version": "0.46.0",
+      "repository": {
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/webdriver/0.46.0/download",
+          "sha256": "9973cb72c8587d5ad5efdb91e663d36177dc37725e6c90ca86c626b0cc45c93f"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "webdriver",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "webdriver",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "deps": {
+          "common": [
+            {
+              "id": "base64 0.13.1",
+              "target": "base64"
+            },
+            {
+              "id": "bytes 1.4.0",
+              "target": "bytes"
+            },
+            {
+              "id": "cookie 0.16.2",
+              "target": "cookie"
+            },
+            {
+              "id": "http 0.2.9",
+              "target": "http"
+            },
+            {
+              "id": "log 0.4.17",
+              "target": "log"
+            },
+            {
+              "id": "serde 1.0.152",
+              "target": "serde"
+            },
+            {
+              "id": "serde_json 1.0.91",
+              "target": "serde_json"
+            },
+            {
+              "id": "time 0.3.20",
+              "target": "time"
+            },
+            {
+              "id": "unicode-segmentation 1.10.1",
+              "target": "unicode_segmentation"
+            },
+            {
+              "id": "url 2.3.1",
+              "target": "url"
+            }
+          ],
+          "selects": {}
+        },
+        "edition": "2018",
+        "proc_macro_deps": {
+          "common": [
+            {
+              "id": "serde_derive 1.0.152",
+              "target": "serde_derive"
+            }
+          ],
+          "selects": {}
+        },
+        "version": "0.46.0"
+      },
+      "license": "MPL-2.0"
     },
     "winapi 0.3.9": {
       "name": "winapi",

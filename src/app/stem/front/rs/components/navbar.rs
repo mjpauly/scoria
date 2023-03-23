@@ -69,7 +69,7 @@ pub fn Navbar() -> Html {
         }
         let icon_style: String = format!("mx-auto mb-1 {}", icon_scale);
         html! {
-            <button {onclick} class={style}>
+            <button {onclick} class={style} id={label.to_string()}>
                 <Icon icon_id={*icon} class={classes!(icon_style)} />
                 { label }
             </button>

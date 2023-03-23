@@ -208,6 +208,7 @@ crates_repository(
         "tokio-tungstenite": crate.spec(version = "0.18.0",),
         "futures-util": crate.spec(version = "0.3.27",),
         "rusty-fork": crate.spec(version = "0.3.0",),
+        "fantoccini": crate.spec(version = "0.19.3",),
     },
     splicing_config = splicing_config(resolver_version = "2"),
 

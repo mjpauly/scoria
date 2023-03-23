@@ -10,6 +10,7 @@
 extern crate stem;
 
 mod back_interface;
+mod front_interface;
 
 use stem::local::test_setup;
 
