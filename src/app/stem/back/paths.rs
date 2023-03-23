@@ -13,7 +13,7 @@ const VIZ_FNAME: &str = "viz.html";
 // Lets us keep the paths without having to pass it from Swift every function
 // call.
 #[allow(dead_code)] // not yet using some directories
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Paths {
     pub documents_dir: PathBuf,
     pub library_dir: PathBuf,
@@ -59,7 +59,7 @@ pub fn get_viz_path() -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tests::test_setup;
+    use crate::local::test_setup;
 
     #[tokio::test]
     async fn test_set_paths() {

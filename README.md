@@ -6,20 +6,30 @@
 - [x] initial barebones yew UI
 - [x] refactor to WebView (storyboard instead of swiftUI base?)
 - [x] build frontend wasm with bazel
-- [_] *reach feature parity with SwiftUI*
+- [x] *reach feature parity with SwiftUI*
     - [x] wasm artifact building with rules_rust
     - [x] make navbar buttons bigger
     - [x] add navbar icons
     - [x] current location streaming to UI
     - [x] updates/hr streaming
     - [x] distance filter configuration
-    - [_] map view with past day's data
-    - [_] configurable time range and marker color/size
+    - [x] map view with past day's data
 - [x] prevent unwanted scrolling in the WKWebView
 - [x] proper database migrations included in compiled source with `migrate!`
-- [_] option to enable/disable location recording from within the app
-- [_] CI pipeline
+- [x] OS-assigned server port
 - [_] integration tests
+    - backend only
+        - [x] server health check works
+        - [x] log_location persists data in database
+        - [x] log_location sends new data to the UI
+        - [x] websocket messages behave as expected
+    - backend + frontend
+        - [_] ui interactions produce desired effects
+    - app-level
+        - [_] changing dist_filt propagates to SwiftUI
+- [_] ~~CI pipeline~~
+- [_] configurable marker color/size
+- [_] option to enable/disable location recording from within the app
 - [_] secure the UI from other apps (max 1 connection, random port, authenticate
         with number passcode, shut down when not in use)
 - [_] publish to app store
@@ -36,7 +46,6 @@
          - visits (last time, first time, total, time spent, when visits happen)
          - traveling (different modes, time spent, num trips, when it happens)
          - trends
-- `stem` integration tests
 - App integration tests
 - more battery-efficient data collection
 
@@ -117,6 +126,9 @@ src
     change.
     - `brew install ibazel`
     - Use it just like bazel but replace `bazel` with `ibazel`.
+- geckodriver: webdriver for testing the ui
+    - `cargo install geckodriver`
+    - Called automatically by `stem:int_tests`
 
 For compile-time checked query macros with `sqlx` we need a development database
 for `sqlx` to connect to and check queries against. Run the following command:
@@ -168,8 +180,7 @@ The Xcode project itself uses Bazel for building and running the app.
 ### Testing the `stem` Core Library
 
 - `bazel test //src/app/stem:unit_tests`: Run the unit tests embedded in the library.
-- `bazel test //src/app/stem:int_tests`: Run the integration tests of the library's interface.
-- `bazel test //src/app/stem:all`: Run both the unit tests and the integration tests.
+- `bazel test //src/app/stem:int_tests --spawn_strategy=local`: Run the integration tests of the library's interface. We spawn it locally so geckodriver works.
 
 Useful arguments:
 
@@ -226,6 +237,7 @@ Prereq: install graphviz (includes `dot`) with `brew install graphviz`.
 - `.unwrap_or_else(|err| { println("got error {}", err); return; })`
     - if return type is `()` on success: `if let Err(e) = run(config) {`
 - `eprintln` for stderr
+- Log levels from most to least important: error!, warn!, info!, debug!, trace!.
 
 ### Other tips
 
@@ -237,6 +249,9 @@ in a separate variable first before putting it into the scrutinee if it's
 something like an option behind the Mutex.
 
 ## Style Notes
+
+- Check rust code formatting with: `bazel build --@rules_rust//:rustfmt.toml=//:rustfmt.toml --aspects=@rules_rust//rust:defs.bzl%rustfmt_aspect --output_groups=rustfmt_checks //...`
+- Check common rust lints with: `bazel build --aspects=@rules_rust//rust:defs.bzl%rust_clippy_aspect --output_groups=clippy_checks //...`
 
 - Code lines set to 80 characters or shorter
 - Parent functions should come before the children that they call.

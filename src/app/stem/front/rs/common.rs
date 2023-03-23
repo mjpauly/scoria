@@ -11,23 +11,25 @@
 use serde::{Deserialize, Serialize};
 
 /// Messages from the frontend to the backend over the websocket
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum ToBack {
-    GetState,                 // get all state values
+    // Get all state values (LocationEnabled, LastLocation, LocationsPastHour,
+    // (TODO: DistFilt))
+    GetState,
     SetLocationEnabled(bool), // set location enabled state
     SetDistFilt(f32),         // distance filter
     GetLocationTimeRange(TimeRange),
 }
 
 /// Messages from the backend to the frontend
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum ToFront {
+    LocationEnabled(bool),
     // Send the last known location for displaying.
     // Used to push new location updates
     LastLocation(Location),
     // Number of location records recorded in the past hour
     LocationsPastHour(i32), // TODO: roll this in will LastLocation?
-    LocationEnabled(bool),
     // Minimum horizontal distance in meters before a new data point is output
     DistFilt(f32),
     LocationTimeRange(TimeRange, Vec<Location>),

@@ -183,19 +183,19 @@ impl std::convert::From<LocationRow> for common::Location {
 
 #[cfg(test)]
 mod tests {
-    use crate::tests::test_setup_clean;
+    use crate::local::test_setup;
 
     use super::*;
 
     #[tokio::test]
     async fn test_get_db_pool() {
-        test_setup_clean("test_get_db_pool/").await;
+        test_setup("test_get_db_pool/").await;
         get_db_pool();
     }
 
     #[tokio::test]
     async fn test_records_time_range() {
-        test_setup_clean("test_records_time_range/").await;
+        test_setup("test_records_time_range/").await;
 
         // 5 and 10 seconds past the epoch
         log_location(1.0, 2.0, 3.0, 4.0, 5.0, 5).await.unwrap();

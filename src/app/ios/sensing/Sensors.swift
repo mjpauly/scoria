@@ -1,10 +1,11 @@
 import StemLib
 
 var myLocationManager = MyLocationManager()
+public var server_port: UInt16 = 0
 
 public func startup() {
     // Set the app directories known to the core library
-    set_app_dirs(getDocumentsDirectory().path(),
+    server_port = set_app_dirs(getDocumentsDirectory().path(),
                  getLibraryDirectory().path(),
                  getTemporaryDirectoryPath(),
                  getBundlePath())

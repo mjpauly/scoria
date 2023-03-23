@@ -28,17 +28,27 @@ rust_test(
     name = "unit_tests",
     crate = ":stem",
     size = "small",  # 20 MB RAM, 1 min timeout
+    data = ["//src/app/stem/front:dist"],
+    deps = [
+        "@stem_crate_index//:reqwest", # for server health check unit test
+    ]
 )
 
 # Integration tests of the library's public interface.
 rust_test(
     name = "int_tests",
     srcs = glob(["tests/*.rs"]),
-    edition = "2021",
+    data = ["//src/app/stem/front:dist"],
     deps = [
         ":stem",
+        "@stem_crate_index//:bincode",
+        "@stem_crate_index//:fantoccini",
+        "@stem_crate_index//:futures-util",
+        "@stem_crate_index//:rusty-fork",
+        "@stem_crate_index//:time",
+        "@stem_crate_index//:tokio",
+        "@stem_crate_index//:tokio-tungstenite",
     ],
-    visibility = ["//visibility:public"],
 )
 
 # Stem runner for development of the frontend and backend. Using ibazel allows
@@ -95,3 +105,14 @@ cc_library(
     name = "alloc",
     srcs = ["alloc.cc"],
 )
+
+
+# rustfmt.toml
+
+exports_files(
+    [
+        "rustfmt.toml",
+    ],
+    visibility = ["//visibility:public"],
+)
+

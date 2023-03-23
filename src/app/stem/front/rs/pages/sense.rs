@@ -108,8 +108,7 @@ fn LocationDetails() -> Html {
     let wss = use_context::<WebsocketService>().unwrap();
     let state = use_context::<UIState>().unwrap();
     let last_loc = use_state_eq(|| state.last_location.borrow().clone());
-    let locs_per_hour =
-        use_state_eq(|| state.locations_past_hour.borrow().clone());
+    let locs_per_hour = use_state_eq(|| *state.locations_past_hour.borrow());
 
     // Subscribe to backend updates on new location data and number of locations
     // per hour
@@ -118,9 +117,7 @@ fn LocationDetails() -> Html {
         let locs_per_hour = locs_per_hour.clone();
         move |msg: &ToFront| match msg {
             ToFront::LastLocation(val) => last_loc.set(Some(val.clone())),
-            ToFront::LocationsPastHour(val) => {
-                locs_per_hour.set(Some(val.clone()))
-            }
+            ToFront::LocationsPastHour(val) => locs_per_hour.set(Some(*val)),
             _ => (),
         }
     };
@@ -130,7 +127,7 @@ fn LocationDetails() -> Html {
     wss.subscribe(*id, Box::new(on_backend_msg));
 
     // send distance filter to backend
-    let dist_filt = use_state_eq(|| state.distance_filter.borrow().clone());
+    let dist_filt = use_state_eq(|| *state.distance_filter.borrow());
     let onchange = {
         let dist_filt = dist_filt.clone();
         Callback::from(move |e: Event| {

@@ -1,0 +1,53 @@
+# Tests the stem library tests on a linux runner on every push and pr. (The
+# github-hosted Macos runners are slow and expensive.)
+
+name: Test
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Bazel cache
+        id: bazel-cache
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/bazel/_bazel_runner
+          # On hit the cache is not updated, so we want cache keys to be very
+          # specific and not hit exactly every time. The action will then look
+          # at partial matches with restore-keys, which will reinstate a
+          # partially-matching cache and let us also store a new one. We name
+          # caches hierachically according to what changes most frequently
+          # (rust/swift sources -> bazel build rules -> dependencies -> OS).
+          # This way we preferentially reinstate caches that are more likely to
+          # have a large number of build artifacts in common.
+          key: bazel-cache-${{ runner.os }}-deps-${{ hashFiles('**/*.lock') }}-buildrules-${{ hashFiles('WORKSPACE', '**/BUILD', '.bazelversion') }}-src-${{ hashFiles('**/*.rs', '**/*.swift') }}
+          restore-keys: |
+            bazel-cache-${{ runner.os }}-deps-${{ hashFiles('**/*.lock') }}-buildrules-${{ hashFiles('WORKSPACE', '**/BUILD', '.bazelversion') }}
+            bazel-cache-${{ runner.os }}-deps-${{ hashFiles('**/*.lock') }}
+            bazel-cache-${{ runner.os }}
+
+      - name: Install bazelisk
+        run: |
+          curl -LO "https://github.com/bazelbuild/bazelisk/releases/download/v1.16.0/bazelisk-linux-amd64"
+          mkdir -p "${GITHUB_WORKSPACE}/bin/"
+          mv bazelisk-linux-amd64 "${GITHUB_WORKSPACE}/bin/bazel"
+          chmod +x "${GITHUB_WORKSPACE}/bin/bazel"
+
+      - name: Run tests
+        run: |
+          bazel run src/app/stem:db_gen
+          bazel test //src/app/stem:unit_tests
+          bazel test //src/app/stem:int_tests
+
+      - name: Check format
+        run: bazel build --@rules_rust//:rustfmt.toml=//:rustfmt.toml --aspects=@rules_rust//rust:defs.bzl%rustfmt_aspect --output_groups=rustfmt_checks //...
+
+      - name: Clippy
+        run: bazel build --aspects=@rules_rust//rust:defs.bzl%rust_clippy_aspect --output_groups=clippy_checks //...
+

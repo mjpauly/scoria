@@ -28,15 +28,14 @@ pub fn Analyze() -> Html {
 fn ShowMap() -> Html {
     let wss = use_context::<WebsocketService>().unwrap();
 
-    let records = use_state(|| Vec::<Location>::new());
+    let records = use_state(Vec::<Location>::new);
     let on_backend_msg = {
         let records = records.clone();
-        move |msg: &ToFront| match msg {
-            ToFront::LocationTimeRange(_time_range, locations) => {
+        move |msg: &ToFront| {
+            if let ToFront::LocationTimeRange(_time_range, locations) = msg {
                 log::debug!("num records: {}", locations.len());
                 records.set(locations.clone());
             }
-            _ => (),
         }
     };
     let id = use_memo(|_| uuid::Uuid::new_v4(), ());
@@ -48,7 +47,7 @@ fn ShowMap() -> Html {
             .unwrap();
     let local_offset = time::UtcOffset::current_local_offset().unwrap();
 
-    let time_range = use_state(|| time_range_today());
+    let time_range = use_state(time_range_today);
     let start_input = use_node_ref();
     let end_input = use_node_ref();
 
