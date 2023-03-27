@@ -19,6 +19,7 @@
 mod common;
 mod components;
 mod pages;
+mod plotly_wasm;
 mod router;
 mod swift_poke;
 mod ui_state;

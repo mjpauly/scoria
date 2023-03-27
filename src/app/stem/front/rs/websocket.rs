@@ -5,12 +5,59 @@
 //! they only receive messages they are interested in. If they want to persist
 //! the message data, they must clone it.
 //!
+//! # Using the `use_backend_event` and `use_backend_event_with_deps` hooks
+//!
+//! ```
+//! let data = use_state(|| 0);
+//! let on_backend_msg = {
+//!     let data = data.clone();
+//!     move |msg: &ToFront| {
+//!         if let ToFront::Data(val) = msg {
+//!             data.set(*val);
+//!         }
+//!     }
+//! };
+//! // `on_backend_msg` doesn't consume any state, so it never needs to be
+//! // updated. `use_backend_event()` is appropriate:
+//! use_backend_event(on_backend_msg);
+//! ```
+//!
+//! ```
+//! let counter = use_state(|| 0);
+//! let on_backend_msg = {
+//!     let counter = counter.clone();
+//!     move |msg: &ToFront| {
+//!         if let ToFront::Data(val) = msg {
+//!             log::debug!( "Callback triggered, value: {}", *counter,);
+//!         }
+//!     }
+//! };
+//! // Backend state now consumes the counter state, so we need to use
+//! // use_backend_event_with_deps() and pass the counter as the dependency:
+//! use_backend_event(on_backend_msg, counter);
+//! let onclick = {
+//!     let counter = counter.clone();
+//!     Callback::from(move |_e: MouseEvent| {
+//!         counter.set(*counter + 1);
+//!     })
+//! };
+//! html! {
+//!     <button onclick={onclick}>{"increment a counter"}</button>
+//! }
+//! ```
+//!
+//! # Deprecated: Using WebsocketService Directly
+//!
+//! This method doesn't unsubscribe the callback when the parent component is
+//! unloaded from the DOM. This is fine for top-level app functions where the
+//! parent is never unloaded.
+//!
 //! Usage example within a Yew function component:
 //!
 //! ```
 //! let wss = use_context::<WebsocketService>().unwrap();
 //! let counter = use_state(|| 0);  // warning: always starts at 0
-//! let on_sock_msg = {
+//! let on_backend_msg = {
 //!     let counter = counter.clone();
 //!     move |msg: &ToFront| {
 //!         if let ToFront::Data(val) = msg {
@@ -18,7 +65,8 @@
 //!         }
 //!     }
 //! };
-//! wss.subscribe(Box::new(on_sock_msg));
+//! let id = use_memo(|_| uuid::Uuid::new_v4(), ());
+//! wss.subscribe(*id, Box::new(on_backend_msg));
 //! ```
 //!
 //! ```
@@ -64,8 +112,8 @@
 //!
 //! The implementation is based on Rc<RefCell<>> so it is not thread safe.
 //!
-//! Based on:
-//! https://github.com/jtordgeman/YewChat/blob/websockets-part2/src/services/websocket.rs
+//! Based partially on:
+//! <https://github.com/jtordgeman/YewChat/blob/websockets-part2/src/services/websocket.rs>
 
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -77,9 +125,57 @@ use futures::{SinkExt, StreamExt};
 use gloo_net::websocket::{futures::WebSocket, Message};
 use uuid::Uuid;
 use wasm_bindgen_futures::spawn_local;
+use yew::functional::{hook, use_context, use_effect_with_deps};
 
 // Re-export the message types
 pub use crate::common::{ToBack, ToFront};
+
+/// Subscribe to backend events.
+///
+/// The callback will not be changed upon rerenders. If it should be updated
+/// (e.g. it consumes a use_state hook), then use use_backend_event_with_deps()
+/// and pass the state hook in as the second argument.
+///
+/// This hook always maintains a single active callback. When the parent
+/// component is unloaded from the DOM, the callback is dropped from tracking by
+/// the WebsocketService. When deps change in the case of
+/// `use_backend_event_with_deps()`, the old callback is dropped and the new one
+/// is saved in its place.
+#[hook]
+pub fn use_backend_event<F>(callback: F)
+where
+    F: Fn(&ToFront) + 'static,
+{
+    // Call use_backend_event_with_deps() with deps set to ():
+    use_backend_event_with_deps(callback, ());
+}
+
+/// Subscribe to backend events, with updating on rerenders when `deps` change.
+///
+/// `deps` can be a tuple of states to watch.
+#[hook]
+pub fn use_backend_event_with_deps<F, T>(callback: F, deps: T)
+where
+    F: Fn(&ToFront) + 'static, // an ordinary closure
+    T: PartialEq + 'static,    // any yew state-compatible structure
+{
+    // Get the WebsocketService instance from our top-level context
+    let wss = use_context::<WebsocketService>().unwrap();
+    use_effect_with_deps(
+        // Whenever deps change, this closure is called again, which in turn
+        // captures the updated callback passed in.
+        move |_deps| {
+            // Get a unique id for this callback
+            let id = uuid::Uuid::new_v4();
+            wss.subscribe(id.clone(), Box::new(callback));
+            // This closure runs on cleanup to unsubscribe the old callback
+            move || {
+                wss.unsubscribe(id);
+            }
+        },
+        deps,
+    );
+}
 
 pub type Callback = Box<dyn Fn(&ToFront)>;
 
@@ -110,6 +206,11 @@ impl WebsocketService {
     pub fn subscribe(&self, id: Uuid, cb: Callback) {
         self.subscribers.borrow_mut().insert(id, cb);
         // log::debug!("subscriber len: {}", self.subscribers.borrow().len());
+    }
+
+    pub fn unsubscribe(&self, id: Uuid) {
+        self.subscribers.borrow_mut().remove(&id);
+        // log::debug!("removing subscriber {}", id)
     }
 
     pub fn new() -> Self {

@@ -1,7 +1,7 @@
 //! Generate visualizations using plotly, embeded within yew components
 
+pub use plotly::common::{color, Marker};
 use plotly::{
-    common::{color, Marker},
     configuration::{Configuration, DisplayModeBar},
     layout::{Center, Mapbox, MapboxStyle, Margin},
     Layout, Plot, ScatterMapbox,
@@ -10,13 +10,7 @@ use plotly::{
 use crate::common;
 
 /// Generate a map of data points and return the plot
-pub fn gen_viz(
-    records: Vec<common::Location>,
-    r: f64,
-    g: f64,
-    b: f64,
-    a: f64,
-) -> plotly::Plot {
+pub fn gen_viz(records: Vec<common::Location>, marker: Marker) -> plotly::Plot {
     // filter out records where accuracy is worse (larger) than 20m
     let records_iter = records.iter().filter(|x| x.accuracy < 20.0);
     let lats: Vec<_> = records_iter.clone().map(|x| x.lat).collect();
@@ -25,16 +19,9 @@ pub fn gen_viz(
     // calculate where to put the center
     let mean_lat = lats.iter().sum::<f64>() / lats.len() as f64;
     let mean_lon = lons.iter().sum::<f64>() / lons.len() as f64;
+    // TODO: calculate default zoom level
 
-    let r = (r * 255.0) as u8;
-    let g = (g * 255.0) as u8;
-    let b = (b * 255.0) as u8;
-
-    let trace = ScatterMapbox::new(lats, lons).marker(
-        Marker::new()
-            .opacity(0.8)
-            .color(color::Rgba::new(r, g, b, a)),
-    );
+    let trace = ScatterMapbox::new(lats, lons).marker(marker);
     let layout = Layout::new()
         .margin(Margin::new().top(0).left(0).bottom(0).right(0))
         .mapbox(
