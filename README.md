@@ -29,13 +29,15 @@
         - [_] changing dist_filt propagates to SwiftUI
 - [_] ~~CI pipeline~~
 - [_] map usability / configurability
+    - [x] live map updates
     - [_] settings hidden by default, can be pulled up
     - [_] configurable marker color/size
     - [_] marker colormap based on data value
     - [_] exclude data with x greater/less than x
     - [_] persist selection for export + queries
-- [_] more diagnostics in sense tab
-- [_] investigate zombie callbacks, profile render times
+- [_] more location diagnostics in sense tab
+- [x] investigate undropped websocket callbacks
+- [_] profile render times
 - [_] option to enable/disable location recording from within the app
     - [_] metadata recording of when location is enabled/disabled
 - [_] secure the UI from other apps (max 1 connection, random port, authenticate
@@ -52,8 +54,6 @@
          - visits (last time, first time, total, time spent, when visits happen)
          - traveling (different modes, time spent, num trips, when it happens)
          - trends
-- App integration tests
-- more battery-efficient data collection
 
 ## Structure
 
@@ -90,34 +90,11 @@ src
             - [rules_xcodeproj example](https://github.com/brentleyjones/rules_xcodeproj-demo)
         - rules_rust ([repo](https://github.com/bazelbuild/rules_rust),
             [docs](https://bazelbuild.github.io/rules_rust/))
-- Rust ([docs](https://doc.rust-lang.org/book/))
+- Rust
     - Language that the core app functionality is written in.
-    - Standard Rust features
-        - LocalKey ([docs](https://doc.rust-lang.org/std/thread/struct.LocalKey.html))
-            - Used to provide thread_local global variables
-    - External Rust dependencies
-        - sqlx ([repo](https://github.com/launchbadge/sqlx),
-            [docs@0.6.2](https://docs.rs/sqlx/0.6.2/sqlx/))
-            - SQLite database interface
-        - tokio ([repo](https://github.com/tokio-rs/tokio),
-            [docs@1.24.2](https://docs.rs/tokio/1.24.2/tokio/))
-            - async runtime
-        - time ([repo](https://github.com/time-rs/time),
-            [docs@0.3.17](https://docs.rs/time/0.3.17/time/),
-            [book](https://time-rs.github.io/book/index.html))
-            - used for timestamping measurements in the database
-            - not imported on its own, but with `sqlx::types::time`
-            - exact version used with `sqlx` might be different than the
-                versions linked
-        - plotly ([repo](https://github.com/igiagkiozis/plotly),
-            [docs@0.8.3](https://docs.rs/plotly/0.8.3/plotly/))
-            - used to generate visualizations
-            - doesn't currently support compiling for iOS, so it is vendored in
-                at this repo: https://github.com/mjpauly/plotly/
 
-- Swift ([docs](https://docs.swift.org/swift-book/LanguageGuide/TheBasics.html))
+- Swift
     - Language that the sensing modules are written in.
-    - Apple Swift APIs used include CoreLocation.
 
 ## Dev Flow
 
@@ -160,18 +137,6 @@ Navigate to `src/app/stem` and run `ibazel run :dev`.
 Then open `localhost:8081` in a browser. In Firefox, the responsive web design
 mode lets you change the page aspect ratio to that of a phone (opt-cmd-M).
 
-#### Deprecated method for developing the UI (no backend)
-
-Navigate to `src/app/stem/front` and run these commands in separate terminals:
-
-```
-npx tailwindcss -i ./styles/input.css -o ./styles/output.css --watch
-trunk serve --open
-```
-
-Then open `localhost:8080` in a browser. In Firefox, the responsive web design
-mode lets you change the page aspect ratio to that of a phone.
-
 ### Generate the Xcode Project
 
 `rules_xcodeproj` is used to generate the Xcode project from Bazel BUILD files,
@@ -185,8 +150,11 @@ The Xcode project itself uses Bazel for building and running the app.
 
 ### Testing the `stem` Core Library
 
-- `bazel test //src/app/stem:unit_tests`: Run the unit tests embedded in the library.
-- `bazel test //src/app/stem:int_tests --spawn_strategy=local`: Run the integration tests of the library's interface. We spawn it locally so geckodriver works.
+- `bazel test //src/app/stem:unit_tests`: Run the unit tests embedded in the
+    library.
+- `bazel test //src/app/stem:int_tests --spawn_strategy=local`: Run the
+    integration tests of the library's interface. We spawn it locally so
+    geckodriver works.
 
 Useful arguments:
 
@@ -214,12 +182,6 @@ language server setup in particular.
 ```
 bazel run //:rustanalyzer
 ```
-
-Unfortunately, the presence of the `rust-project.json` prevents `rust-analyzer`
-from detecting cargo workspaces, like the frontend. If only working on the
-frontend, one can simply delete the `rust-project.json` file and regenerate it
-when returning to work on the backend. But there is not yet a good solution for
-developing on both at once.
 
 ### Profiling Slow Bazel Builds, Tests, and Runs
 

@@ -167,7 +167,7 @@ where
         move |_deps| {
             // Get a unique id for this callback
             let id = uuid::Uuid::new_v4();
-            wss.subscribe(id.clone(), Box::new(callback));
+            wss.subscribe(id, Box::new(callback));
             // This closure runs on cleanup to unsubscribe the old callback
             move || {
                 wss.unsubscribe(id);

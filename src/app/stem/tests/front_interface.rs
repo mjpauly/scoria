@@ -37,6 +37,7 @@ async fn ui_interface_tests() -> Result<(), fantoccini::error::CmdError> {
     c.close().await
 }
 
+#[allow(dead_code)]
 async fn geckodriver_test(
     c: &Client,
 ) -> Result<(), fantoccini::error::CmdError> {
