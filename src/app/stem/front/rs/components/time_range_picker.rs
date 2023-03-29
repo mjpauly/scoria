@@ -58,7 +58,7 @@ pub fn TimeRangePicker(
         Callback::from(move |_e: MouseEvent| time_range.set(time_range_today()))
     };
     html! {
-        <>
+        <div class="overflow-y-auto">
             // containing div for both datetime pickers to align to
             <div class="flex justify-center">
             <div class="max-w-fit">
@@ -94,7 +94,7 @@ pub fn TimeRangePicker(
                 class={format!("m-1 {}", SECONDARY_BUTTON_STYLE)}>
                     {"Today"}
             </button>
-        </>
+        </div>
     }
 }
 

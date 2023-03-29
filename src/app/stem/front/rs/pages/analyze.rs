@@ -6,6 +6,7 @@ use yew::prelude::*;
 use crate::common::TimeRange;
 use crate::components::{
     time_range_picker::time_range_today, NavbarWrapper, TimeRangePicker,
+    PRIMARY_BUTTON_STYLE, SECONDARY_BUTTON_STYLE,
 };
 use crate::plotly_wasm;
 use crate::viz;
@@ -18,10 +19,6 @@ use crate::websocket::{
 pub fn Analyze() -> Html {
     html! {
         <NavbarWrapper>
-            <h1 class="text-sky-500 text-3xl mb-6">
-                {"Analyze"}
-            </h1>
-
             <AnalyzeLocation />
         </NavbarWrapper>
     }
@@ -41,22 +38,96 @@ fn AnalyzeLocation() -> Html {
         time_range.clone(),
     );
 
-    html! {
-        <>
-            <TimeRangePicker time_range={time_range.clone()} />
+    let show_time_picker = use_state(|| false);
+    let show_plot_styler = use_state(|| false);
 
-            <PlotComponent time_range={time_range} />
-        </>
+    // after rerender, trigger the plot's resize handler if needs an update
+    use_effect_with_deps(
+        move |_| {
+            let event = web_sys::Event::new("resize").unwrap();
+            web_sys::window().unwrap().dispatch_event(&event).unwrap();
+        },
+        (show_time_picker.clone(), show_plot_styler.clone()),
+    );
+
+    html! {
+        <div class="flex flex-col h-full">
+            <PlotComponent time_range={time_range.clone()} />
+            if *show_time_picker {
+                <TimeRangePicker time_range={time_range.clone()} />
+                <hr class="my-1 border-t-1 border-neutral-500" />
+            }
+            <SettingsPicker show_time_picker={show_time_picker.clone()}
+                show_plot_styler={show_plot_styler.clone()} />
+        </div>
     }
 }
 
 #[derive(Properties, PartialEq)]
-struct Props {
+struct SettingsPickerProps {
+    show_time_picker: UseStateHandle<bool>,
+    show_plot_styler: UseStateHandle<bool>,
+}
+
+#[function_component]
+fn SettingsPicker(
+    SettingsPickerProps {
+        show_time_picker,
+        show_plot_styler,
+    }: &SettingsPickerProps,
+) -> Html {
+    let time_onclick = {
+        let show_time_picker = show_time_picker.clone();
+        Callback::from(move |_e: MouseEvent| {
+            show_time_picker.set(!*show_time_picker);
+        })
+    };
+    let style_onclick = {
+        let show_plot_styler = show_plot_styler.clone();
+        Callback::from(move |_e: MouseEvent| {
+            show_plot_styler.set(!*show_plot_styler)
+        })
+    };
+    let style_button_style = if **show_plot_styler {
+        PRIMARY_BUTTON_STYLE
+    } else {
+        SECONDARY_BUTTON_STYLE
+    };
+    let time_button_style = if **show_time_picker {
+        PRIMARY_BUTTON_STYLE
+    } else {
+        SECONDARY_BUTTON_STYLE
+    };
+    html! {
+        <div class="flex">
+            <div class="mx-auto">
+                <span class="mr-2">
+                    {"Configure"}
+                </span>
+                <button onclick={style_onclick}
+                    class={format!("m-1 {}", style_button_style)}>
+                        {"Plot Style"}
+                </button>
+                <button onclick={time_onclick}
+                    class={format!("m-1 {}", time_button_style)}>
+                        {"Time Range"}
+                </button>
+            </div>
+        </div>
+    }
+}
+
+/// Show a plot given a time range of values. Auto updates if new data streamed
+/// from backend falls within the time range.
+#[derive(Properties, PartialEq)]
+struct PlotComponentProps {
     time_range: UseStateHandle<TimeRange>,
 }
 
 #[function_component]
-fn PlotComponent(Props { time_range }: &Props) -> Html {
+fn PlotComponent(
+    PlotComponentProps { time_range }: &PlotComponentProps,
+) -> Html {
     let plot_id = "plot-div";
     // Generate an empty plot with the right layout on first render
     use_effect_with_deps(
@@ -130,7 +201,7 @@ fn PlotComponent(Props { time_range }: &Props) -> Html {
     );
 
     html! {
-        <div id={plot_id} class="w-screen max-h-96 mt-4"
+        <div id={plot_id} class="w-screen flex-1"
             onpointerdown={onpointerdown} onpointerup={onpointerup}>
         </div>
     }

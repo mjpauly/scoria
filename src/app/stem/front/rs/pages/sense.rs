@@ -28,15 +28,20 @@ pub fn Sense() -> Html {
 fn LocationConfig() -> Html {
     html! {
         <NavbarWrapper>
-            // <Icon icon_id={IconId::BootstrapSoundwave} />
-            <h1 class="text-sky-500 text-3xl mb-6">
-                {"Location"}
-            </h1>
+            <div class="flex flex-col h-full pt-16">
+                // my-auto: center vertically in the flex (better than
+                //      justify-center, which ALWAYS centers and thus cuts off
+                //      content if it's too big for the container)
+                <div class="my-auto">
+                    <h1 class="text-sky-500 text-3xl mb-6">
+                        {"Location"}
+                    </h1>
 
-            // <EnableLocation />
-            <LocationDetails />
+                    // <EnableLocation />
+                    <LocationDetails />
 
-            // <WssTest />
+                </div>
+            </div>
         </NavbarWrapper>
     }
 }

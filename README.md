@@ -30,13 +30,15 @@
 - [_] ~~CI pipeline~~
 - [_] map usability / configurability
     - [x] live map updates
-    - [_] settings hidden by default, can be pulled up
+    - [x] settings hidden by default, can be pulled up
     - [_] configurable marker color/size
     - [_] marker colormap based on data value
     - [_] exclude data with x greater/less than x
     - [_] persist selection for export + queries
 - [_] more location diagnostics in sense tab
 - [x] investigate undropped websocket callbacks
+- [_] log required: altitude, isProducedByAccessory, and isSimulatedBySoftware;
+    optional: floor, verticalAccuracy, speedAccuracy, courseAccuracy,
 - [_] profile render times
 - [_] option to enable/disable location recording from within the app
     - [_] metadata recording of when location is enabled/disabled

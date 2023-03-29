@@ -59,6 +59,9 @@ extern "C" {
         indices: &Object,
     ) -> Result<JsValue, JsValue>;
 
+    #[wasm_bindgen(catch, js_namespace = Plotly, js_name = relayout)]
+    fn relayout_(id: &str, obj: &Object) -> Result<JsValue, JsValue>;
+
     #[wasm_bindgen(catch, js_namespace = Plotly, js_name = addTraces)]
     fn add_traces_(id: &str, obj: &Object) -> Result<JsValue, JsValue>;
 
@@ -92,6 +95,14 @@ pub fn restyle(id: &str, trace: Box<dyn plotly::plot::Trace>) {
     let trace_obj = json_to_obj(&trace.to_json());
     let indices = json_to_obj("[0]");
     restyle_(id, &trace_obj, &indices).expect("Error plotting chart");
+}
+
+/// Relayout the plot. Seems to trigger resizes only after the window has
+/// already been resized once.
+#[allow(dead_code)]
+pub fn relayout(id: &str, layout: plotly::Layout) {
+    let layout_obj = json_to_obj(&layout.to_json());
+    relayout_(id, &layout_obj).expect("Error relayouting chart");
 }
 
 /// Add a new trace to a plot. `id` is the id of the div containing the plot.
