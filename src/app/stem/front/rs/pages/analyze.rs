@@ -106,7 +106,7 @@ fn SettingsPicker(
                 </span>
                 <button onclick={style_onclick}
                     class={format!("m-1 {}", style_button_style)}>
-                        {"Plot Style"}
+                        {"Map Style"}
                 </button>
                 <button onclick={time_onclick}
                     class={format!("m-1 {}", time_button_style)}>
@@ -129,26 +129,20 @@ fn PlotComponent(
     PlotComponentProps { time_range }: &PlotComponentProps,
 ) -> Html {
     let plot_id = "plot-div";
-    // Generate an empty plot with the right layout on first render
-    use_effect_with_deps(
-        |_| {
-            let marker = viz::Marker::new()
-                .color(viz::color::Rgba::new(255, 64, 0, 1.0));
-            let plot = viz::empty_plot(marker);
-            plotly_wasm::new_plot(plot_id, &plot);
-        },
-        (),
-    );
+    let plot_initialized = use_state(|| false);
     let on_backend_msg = {
+        let plot_initialized = plot_initialized.clone();
         move |msg: &ToFront| {
             if let ToFront::LocationTimeRange(_time_range, locations) = msg {
-                // TODO: zoom and centering
-                let update = plotly_wasm::ScatterMapboxUpdate::new(
-                    locations.iter().map(|x| x.lat).collect(),
-                    locations.iter().map(|x| x.lon).collect(),
+                let marker = viz::Marker::new()
+                    .color(viz::color::Rgba::new(255, 64, 0, 1.0));
+                // prevent plot updates until the new plot is in place
+                plot_initialized.set(false);
+                plotly_wasm::new_plot(
+                    plot_id,
+                    &viz::map_plot(locations.clone(), marker),
                 );
-                plotly_wasm::restyle(plot_id, update);
-                // log::debug!("update json: {}", update.to_json());
+                plot_initialized.set(true);
             }
         }
     };
@@ -172,6 +166,7 @@ fn PlotComponent(
         let time_range = time_range.clone();
         let is_panning = is_panning.clone();
         let backlog = backlog.clone();
+        let plot_initialized = plot_initialized.clone();
         move |msg: &ToFront| {
             // if new location data streamed in
             if let ToFront::LastLocation(location) = msg {
@@ -179,8 +174,9 @@ fn PlotComponent(
                 if time_range.contains(&location.datetime) {
                     let mut new_backlog = (*backlog).clone();
                     new_backlog.push(location.clone());
-                    if *is_panning {
-                        // panning/zooming active, just update backlog
+                    if *is_panning || !*plot_initialized {
+                        // panning/zooming active, or the plot does not yet
+                        // exist -> just update backlog
                         backlog.set(new_backlog);
                     } else {
                         // not panning; display new data and clear backlog
@@ -197,7 +193,7 @@ fn PlotComponent(
     };
     use_backend_event_with_deps(
         on_backend_msg,
-        (time_range.clone(), is_panning, backlog),
+        (time_range.clone(), is_panning, backlog, plot_initialized),
     );
 
     html! {

@@ -84,6 +84,7 @@ fn json_to_obj(json: &str) -> Object {
 }
 
 /// Produce a new pot in the given div.
+#[allow(dead_code)]
 pub fn new_plot(id: &str, plot: &plotly::Plot) {
     let plot_obj = &plot.to_js_object();
     new_plot_(id, plot_obj).expect("Error plotting chart");
@@ -91,6 +92,7 @@ pub fn new_plot(id: &str, plot: &plotly::Plot) {
 
 /// Replace old data in a scattermapbox with new data. The trace must be an
 /// "update" trace with extra nesting on the data.
+#[allow(dead_code)]
 pub fn restyle(id: &str, trace: Box<dyn plotly::plot::Trace>) {
     let trace_obj = json_to_obj(&trace.to_json());
     let indices = json_to_obj("[0]");

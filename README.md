@@ -31,14 +31,16 @@
 - [_] map usability / configurability
     - [x] live map updates
     - [x] settings hidden by default, can be pulled up
-    - [_] configurable marker color/size
+    - [x] auto zoom and centering
+    - [_] configurable marker color/size, map base layer
     - [_] marker colormap based on data value
     - [_] exclude data with x greater/less than x
     - [_] persist selection for export + queries
 - [_] more location diagnostics in sense tab
 - [x] investigate undropped websocket callbacks
 - [_] log required: altitude, isProducedByAccessory, and isSimulatedBySoftware;
-    optional: floor, verticalAccuracy, speedAccuracy, courseAccuracy,
+    floor, verticalAccuracy, speedAccuracy, courseAccuracy
+    :: all required! don't want people to need to opt in -> reduces how much people actually collect
 - [_] profile render times
 - [_] option to enable/disable location recording from within the app
     - [_] metadata recording of when location is enabled/disabled
