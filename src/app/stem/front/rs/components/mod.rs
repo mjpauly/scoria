@@ -15,3 +15,8 @@ pub static PRIMARY_BUTTON_STYLE: &str =
     "rounded-lg whitespace-nowrap py-1.5 px-3 text-neutral-200 bg-sky-500";
 pub static DATETIME_INPUT_STYLE: &str =
     "rounded-lg whitespace-nowrap py-1.5 px-3 placeholder:text-neutral-200 bg-neutral-800";
+pub static SELECT_STYLE: &str =
+    "rounded-lg whitespace-nowrap py-1.5 px-3 text-neutral-200 bg-neutral-800 \
+    appearance-none";
+pub static RANGE_INPUT_STYLE: &str =
+    "appearance-none bg-neutral-800 h-1 rounded-lg w-40";

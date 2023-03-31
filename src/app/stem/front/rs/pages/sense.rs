@@ -172,7 +172,7 @@ fn LocationDetails() -> Html {
                     <input id="dist_filt"
                             placeholder={format!("{:.2}", *dist_filt)}
                             onchange={onchange}
-                            class="w-16 rounded bg-neutral-900 \
+                            class="w-16 rounded bg-black \
                             border border-neutral-700 \
                             placeholder:text-neutral-200" />
                     <p class="ml-2">

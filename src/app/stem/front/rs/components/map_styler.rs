@@ -7,6 +7,8 @@ use plotly::layout::MapboxStyle;
 use web_sys::{HtmlInputElement, HtmlSelectElement};
 use yew::prelude::*;
 
+use crate::components::{RANGE_INPUT_STYLE, SELECT_STYLE};
+
 /// Our version derives PartialEq so it can be used in yew hooks
 #[derive(Clone, Debug, Copy, PartialEq)]
 pub struct Rgba {
@@ -156,40 +158,43 @@ pub fn MapStyler(
         "#{:02x}{:02x}{:02x}",
         solid_color.r, solid_color.g, solid_color.b
     );
-    // default option should be put first
     let basemap_options = BASEMAP_STRINGS.iter().map(|x| {
-        html! { <option>{x.1.to_string()}</option> }
+        html! {
+            <option selected={x.0 == **basemap_style}>
+                {x.1.to_string()}
+            </option>
+        }
     });
 
     html! {
-        // <div class="overflow-y-auto my-2 mx-2 grid grid-cols-2 items-center \
-                    // justify-items-start auto-cols-auto">
-        <div class="overflow-y-auto my-1 flex">
+        <div class="my-2 flex">
         <div class="max-w-fit mx-auto">
-            <div class="flex items-center justify-between">
+            <div class="flex items-center justify-between h-8">
                 <label for="marker_color">{"Marker Color"}</label>
                 <input type="color" id="marker_color" value={color_string}
-                    class="m-1 ml-6"
+                    class="m-1 ml-6 bg-neutral-800"
                     onchange={color_onchange} />
             </div>
-            <div class="flex items-center justify-between">
+            <div class="flex items-center justify-between h-8">
                 <label for="opacity">{"Marker Opacity"}</label>
-                <input type="range" id="opacity" value={format!("{}", solid_color.a)}
-                    min="0.0" max="1.0" step="0.01" class="m-1 ml-6"
+                <input type="range" id="opacity"
+                    value={format!("{}", solid_color.a)}
+                    min="0.0" max="1.0" step="0.01"
+                    class={format!("m-1 ml-6 {}", RANGE_INPUT_STYLE)}
                     onchange={opacity_onchange} />
             </div>
-            <div class="flex items-center justify-between">
-
+            <div class="flex items-center justify-between h-8">
                 <label for="marker_size">{"Marker Size"}</label>
                 <input type="range" id="marker_size"
                     value={format!("{}", **marker_size)}
-                    min="1" max="20" class="m-1 ml-6"
+                    min="1" max="20"
+                    class={format!("m-1 ml-6 {}", RANGE_INPUT_STYLE)}
                     onchange={size_onchange} />
             </div>
-            <div class="flex items-center justify-between">
+            <div class="flex items-center justify-between h-8">
                 <label for="basemap">{"Basemap Style"}</label>
                 <select onchange={basemap_onchange} id="basemap"
-                    class="m-1 ml-6">
+                    class={format!("m-1 ml-6 {}", SELECT_STYLE)}>
                     {for basemap_options}
                 </select>
             </div>

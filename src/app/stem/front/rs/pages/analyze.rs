@@ -37,16 +37,21 @@ fn AnalyzeLocation() -> Html {
         a: 0.8,
     });
     let marker_size = use_state(|| 6 as usize);
-    let basemap_style = use_state(|| BasemapStyle::CartoDarkMatter);
+    let basemap_style = use_state(|| BasemapStyle::StamenTerrain);
 
     // Ask for new location data from backend after render anytime time_range
     // changes
     let wss = use_context::<WebsocketService>().unwrap();
     use_effect_with_deps(
-        move |time_range| {
+        move |(time_range, ..)| {
             wss.send_msg(ToBack::GetLocationTimeRange((**time_range).clone()));
         },
-        time_range.clone(),
+        (
+            time_range.clone(),
+            solid_color.clone(),
+            marker_size.clone(),
+            basemap_style.clone(),
+        ),
     );
 
     let show_time_picker = use_state(|| false);
@@ -73,12 +78,12 @@ fn AnalyzeLocation() -> Html {
                     solid_color={solid_color.clone()}
                     marker_size={marker_size.clone()}
                     basemap_style={basemap_style.clone()} />
-                <hr class="border-t-1 border-neutral-500" />
+                <hr class="border-t-1 border-neutral-700" />
             }
             if *show_time_picker {
                 <TimeRangePicker
                     time_range={time_range.clone()} />
-                <hr class="border-t-1 border-neutral-500" />
+                <hr class="border-t-1 border-neutral-700" />
             }
             <SettingsPicker show_time_picker={show_time_picker.clone()}
                 show_plot_styler={show_plot_styler.clone()} />
@@ -156,6 +161,8 @@ fn PlotComponent(
         basemap_style,
     }: &PlotComponentProps,
 ) -> Html {
+    // Show new plot if time range changes and new data comes from backend
+
     let plot_id = "plot-div";
     let plot_initialized = use_state(|| false);
     let on_backend_msg = {
@@ -194,6 +201,8 @@ fn PlotComponent(
             basemap_style.clone(),
         ),
     );
+
+    // Update plot with new data points without creating a new plot
 
     // Live updates to the plot freezes panning/zooming events, so we detect
     // when those events are occuring and disable live updates until after.
@@ -247,7 +256,7 @@ fn PlotComponent(
     );
 
     html! {
-        <div id={plot_id} class="w-screen flex-1"
+        <div id={plot_id} class="w-screen flex-1 min-h-0"
             onpointerdown={onpointerdown} onpointerup={onpointerup}>
         </div>
     }

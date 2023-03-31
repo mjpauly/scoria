@@ -32,7 +32,7 @@
     - [x] live map updates
     - [x] settings hidden by default, can be pulled up
     - [x] auto zoom and centering
-    - [_] configurable marker color/size, map base layer
+    - [x] configurable marker color/size, map base layer
     - [_] marker colormap based on data value
     - [_] exclude data with x greater/less than x
     - [_] persist selection for export + queries

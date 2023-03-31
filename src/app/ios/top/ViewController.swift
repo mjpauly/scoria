@@ -47,6 +47,8 @@ class ViewController: UIViewController {
 
         additionalSafeAreaInsets.bottom -= view.safeAreaInsets.bottom
         additionalSafeAreaInsets.top -= view.safeAreaInsets.top
+        additionalSafeAreaInsets.left -= view.safeAreaInsets.left
+        additionalSafeAreaInsets.right -= view.safeAreaInsets.right
     }
 }
 
