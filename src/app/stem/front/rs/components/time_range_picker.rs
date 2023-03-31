@@ -58,10 +58,10 @@ pub fn TimeRangePicker(
         Callback::from(move |_e: MouseEvent| time_range.set(time_range_today()))
     };
     html! {
-        <div class="overflow-y-auto">
+        <div class="overflow-y-auto my-1">
             // containing div for both datetime pickers to align to
-            <div class="flex justify-center">
-            <div class="max-w-fit">
+            <div class="flex">
+            <div class="max-w-fit mx-auto">
                 // items-center: align items to be centered vertically
                 // justify-between: push elements away from each other so they
                 //      align with the edges of the div containing both flexes

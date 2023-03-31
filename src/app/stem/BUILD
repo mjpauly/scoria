@@ -49,6 +49,7 @@ rust_test(
         "@stem_crate_index//:tokio",
         "@stem_crate_index//:tokio-tungstenite",
     ],
+    visibility = ["//visibility:public"],
 )
 
 # Stem runner for development of the frontend and backend. Using ibazel allows

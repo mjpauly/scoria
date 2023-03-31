@@ -5,14 +5,16 @@ use yew::prelude::*;
 // use crate::common::{Location, TimeRange};
 use crate::common::TimeRange;
 use crate::components::{
-    time_range_picker::time_range_today, NavbarWrapper, TimeRangePicker,
-    PRIMARY_BUTTON_STYLE, SECONDARY_BUTTON_STYLE,
+    map_styler::{BasemapStyle, Rgba},
+    time_range_picker::time_range_today,
+    MapStyler, NavbarWrapper, TimeRangePicker, PRIMARY_BUTTON_STYLE,
+    SECONDARY_BUTTON_STYLE,
 };
 use crate::plotly_wasm;
+use crate::scatter_mapbox_update::ScatterMapboxUpdate;
 use crate::viz;
 use crate::websocket::{
-    use_backend_event, use_backend_event_with_deps, ToBack, ToFront,
-    WebsocketService,
+    use_backend_event_with_deps, ToBack, ToFront, WebsocketService,
 };
 
 #[function_component]
@@ -26,7 +28,16 @@ pub fn Analyze() -> Html {
 
 #[function_component]
 fn AnalyzeLocation() -> Html {
+    // Plot configuration values passed to children
     let time_range = use_state(time_range_today);
+    let solid_color = use_state(|| Rgba {
+        r: 255,
+        g: 64,
+        b: 0,
+        a: 0.8,
+    });
+    let marker_size = use_state(|| 6 as usize);
+    let basemap_style = use_state(|| BasemapStyle::CartoDarkMatter);
 
     // Ask for new location data from backend after render anytime time_range
     // changes
@@ -52,10 +63,22 @@ fn AnalyzeLocation() -> Html {
 
     html! {
         <div class="flex flex-col h-full">
-            <PlotComponent time_range={time_range.clone()} />
+            <PlotComponent
+                time_range={time_range.clone()}
+                solid_color={solid_color.clone()}
+                marker_size={marker_size.clone()}
+                basemap_style={basemap_style.clone()} />
+            if *show_plot_styler {
+                <MapStyler
+                    solid_color={solid_color.clone()}
+                    marker_size={marker_size.clone()}
+                    basemap_style={basemap_style.clone()} />
+                <hr class="border-t-1 border-neutral-500" />
+            }
             if *show_time_picker {
-                <TimeRangePicker time_range={time_range.clone()} />
-                <hr class="my-1 border-t-1 border-neutral-500" />
+                <TimeRangePicker
+                    time_range={time_range.clone()} />
+                <hr class="border-t-1 border-neutral-500" />
             }
             <SettingsPicker show_time_picker={show_time_picker.clone()}
                 show_plot_styler={show_plot_styler.clone()} />
@@ -99,11 +122,8 @@ fn SettingsPicker(
         SECONDARY_BUTTON_STYLE
     };
     html! {
-        <div class="flex">
+        <div class="flex my-1">
             <div class="mx-auto">
-                <span class="mr-2">
-                    {"Configure"}
-                </span>
                 <button onclick={style_onclick}
                     class={format!("m-1 {}", style_button_style)}>
                         {"Map Style"}
@@ -122,31 +142,58 @@ fn SettingsPicker(
 #[derive(Properties, PartialEq)]
 struct PlotComponentProps {
     time_range: UseStateHandle<TimeRange>,
+    solid_color: UseStateHandle<Rgba>,
+    marker_size: UseStateHandle<usize>,
+    basemap_style: UseStateHandle<BasemapStyle>,
 }
 
 #[function_component]
 fn PlotComponent(
-    PlotComponentProps { time_range }: &PlotComponentProps,
+    PlotComponentProps {
+        time_range,
+        solid_color,
+        marker_size,
+        basemap_style,
+    }: &PlotComponentProps,
 ) -> Html {
     let plot_id = "plot-div";
     let plot_initialized = use_state(|| false);
     let on_backend_msg = {
-        let plot_initialized = plot_initialized.clone();
+        let plot_initialized = plot_initialized.clone(); // only exports values
+        let solid_color = solid_color.clone();
+        let marker_size = marker_size.clone();
+        let basemap_style = basemap_style.clone();
         move |msg: &ToFront| {
             if let ToFront::LocationTimeRange(_time_range, locations) = msg {
                 let marker = viz::Marker::new()
-                    .color(viz::color::Rgba::new(255, 64, 0, 1.0));
-                // prevent plot updates until the new plot is in place
+                    .color(solid_color.to_plotly())
+                    .size(*marker_size);
+
+                // let lats: Vec<_> = locations.iter().map(|x| x.lat).collect();
+                // let colors = lats.into_iter().map(|x| viz::Colorval(x));
+                // let marker = viz::Marker::new().color_array(colors.collect());
+
                 plot_initialized.set(false);
                 plotly_wasm::new_plot(
                     plot_id,
-                    &viz::map_plot(locations.clone(), marker),
+                    &viz::map_plot(
+                        locations.clone(),
+                        marker,
+                        basemap_style.to_plotly(),
+                    ),
                 );
                 plot_initialized.set(true);
             }
         }
     };
-    use_backend_event(on_backend_msg);
+    use_backend_event_with_deps(
+        on_backend_msg,
+        (
+            solid_color.clone(),
+            marker_size.clone(),
+            basemap_style.clone(),
+        ),
+    );
 
     // Live updates to the plot freezes panning/zooming events, so we detect
     // when those events are occuring and disable live updates until after.
@@ -180,9 +227,12 @@ fn PlotComponent(
                         backlog.set(new_backlog);
                     } else {
                         // not panning; display new data and clear backlog
-                        let update = plotly_wasm::ScatterMapboxUpdate::new(
+                        let update = ScatterMapboxUpdate::new(
                             new_backlog.iter().map(|x| x.lat).collect(),
                             new_backlog.iter().map(|x| x.lon).collect(),
+                            // TODO: use solid marker color for new data
+                            // play with jsfiddle first
+                            // viz::Rgba::new(255, 64, 0, 1.0),
                         );
                         plotly_wasm::extend_trace(plot_id, update);
                         backlog.set(Vec::new());

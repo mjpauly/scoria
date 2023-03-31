@@ -178,7 +178,10 @@ crates_repository(
         ),
         "web-sys": crate.spec(  # last web-sys ok with wasm-bindgen 0.2.83
             version = "0.3.60",
-            features = ["Performance", "Window", "HtmlInputElement", "Location",],
+            features = [
+                "Performance", "Window", "HtmlInputElement", "Location",
+                "HtmlSelectElement",
+            ],
         ),
         "log": crate.spec(
             version = "0.4.17",

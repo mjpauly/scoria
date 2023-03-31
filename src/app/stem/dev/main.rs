@@ -43,11 +43,18 @@ async fn main() -> Result<(), std::io::Error> {
 
 async fn data_generator() {
     let mut lat = 37.42984;
+    // let mut lat = 85.;
     let mut lon = -122.16945;
+    let mut vx = 0.;
+    let mut vy = 0.;
     loop {
         sleep(Duration::from_millis(1000)).await;
-        lon = (lon + (random::<f64>()) / 10000.0) % 180.0;
-        lat = (lat + (random::<f64>()) / 10000.0) % 180.0;
+        // lon = (lon + (random::<f64>()) / 1000.0) % 180.0;
+        // lat = (lat + (random::<f64>()) / 1000.0) % 180.0;
+        vx = vx + (random::<f64>() - 0.5) / 10000.0;
+        vy = vy + (random::<f64>() - 0.5) / 10000.0;
+        lon = (lon + vx) % 180.0;
+        lat = (lat + vy) % 180.0;
         stem::core::log_location(
             lat,
             lon,

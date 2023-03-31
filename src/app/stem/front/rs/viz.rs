@@ -1,6 +1,6 @@
 //! Generate visualizations using plotly, embeded within yew components
 
-pub use plotly::common::{color, Marker};
+pub use plotly::common::{color::Rgba, Marker};
 use plotly::{
     configuration::{Configuration, DisplayModeBar},
     layout::{Center, Mapbox, MapboxStyle, Margin},
@@ -14,6 +14,7 @@ use crate::common;
 pub fn map_plot(
     records: Vec<common::Location>,
     marker: Marker,
+    mapbox_style: MapboxStyle,
 ) -> plotly::Plot {
     // filter out records where accuracy is worse (larger) than 20m
     let records_iter = records.iter().filter(|x| x.accuracy < 20.0);
@@ -35,11 +36,11 @@ pub fn map_plot(
 
     let layout = Layout::new()
         // transparent paper: no white flashes on plot load
-        .paper_background_color(color::Rgba::new(0, 0, 0, 0.))
+        .paper_background_color(Rgba::new(0, 0, 0, 0.))
         .margin(Margin::new().top(0).left(0).bottom(0).right(0))
         .mapbox(
             Mapbox::new()
-                .style(MapboxStyle::StamenTerrain)
+                .style(mapbox_style)
                 .center(Center::new(lat_center, lon_center))
                 .zoom(zoom),
         );
@@ -97,8 +98,16 @@ fn float_max(vals: &Vec<f64>) -> f64 {
 fn get_center_and_zoom(lats: &Vec<f64>, lons: &Vec<f64>) -> (f64, f64, u8) {
     let lat_center = (float_max(&lats) + float_min(&lats)) / 2.;
     let lon_center = (float_max(&lons) + float_min(&lons)) / 2.;
+    let lat_range = float_max(&lats) - float_min(&lats);
     let lon_range = float_max(&lons) - float_min(&lons);
-    let mut zoom = (360. / lon_range).log2().floor() - 1.;
+    let lat_zoom = (360. / lat_range * lat_center.to_radians().cos()).log2();
+    let lon_zoom = (360. / lon_range).log2();
+    let zoom = if lat_zoom > lon_zoom {
+        lon_zoom
+    } else {
+        lat_zoom
+    };
+    let mut zoom = zoom.floor() - 1.;
     if zoom > 16. {
         zoom = 16.;
     }

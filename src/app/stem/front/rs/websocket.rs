@@ -153,6 +153,11 @@ where
 /// Subscribe to backend events, with updating on rerenders when `deps` change.
 ///
 /// `deps` can be a tuple of states to watch.
+///
+/// Even for use_state hooks we must watch the handle since the value held will
+/// reflect the value at the time the handle is returned by the use_reducer
+/// (whatever that means). See the "Caution" section of
+/// <https://docs.rs/yew/0.20.0/yew/functional/fn.use_state.html>
 #[hook]
 pub fn use_backend_event_with_deps<F, T>(callback: F, deps: T)
 where

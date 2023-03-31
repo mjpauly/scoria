@@ -21,6 +21,7 @@ mod components;
 mod pages;
 mod plotly_wasm;
 mod router;
+mod scatter_mapbox_update;
 mod swift_poke;
 mod ui_state;
 mod viz;

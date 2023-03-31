@@ -1,5 +1,5 @@
 {
-  "checksum": "f635502d18288993637a5a5308373196a59f4ea22275b47520db750d00ed567e",
+  "checksum": "dce8354c0ccd0fee792a52a3e1303a673545c587c87e73ad552d2c76b39b6a1f",
   "crates": {
     "actix 0.13.0": {
       "name": "actix",
@@ -10131,7 +10131,7 @@
               "target": "serde_json"
             },
             {
-              "id": "serde_with 2.2.0",
+              "id": "serde_with 2.3.1",
               "target": "serde_with"
             },
             {
@@ -12111,13 +12111,13 @@
       },
       "license": "MIT/Apache-2.0"
     },
-    "serde_with 2.2.0": {
+    "serde_with 2.3.1": {
       "name": "serde_with",
-      "version": "2.2.0",
+      "version": "2.3.1",
       "repository": {
         "Http": {
-          "url": "https://crates.io/api/v1/crates/serde_with/2.2.0/download",
-          "sha256": "30d904179146de381af4c93d3af6ca4984b3152db687dacb9c3c35e86f39809c"
+          "url": "https://crates.io/api/v1/crates/serde_with/2.3.1/download",
+          "sha256": "85456ffac572dc8826334164f2fb6fb40a7c766aebe195a2a21ee69ee2885ecf"
         }
       },
       "targets": [
@@ -12182,23 +12182,23 @@
         "proc_macro_deps": {
           "common": [
             {
-              "id": "serde_with_macros 2.2.0",
+              "id": "serde_with_macros 2.3.1",
               "target": "serde_with_macros"
             }
           ],
           "selects": {}
         },
-        "version": "2.2.0"
+        "version": "2.3.1"
       },
       "license": "MIT OR Apache-2.0"
     },
-    "serde_with_macros 2.2.0": {
+    "serde_with_macros 2.3.1": {
       "name": "serde_with_macros",
-      "version": "2.2.0",
+      "version": "2.3.1",
       "repository": {
         "Http": {
-          "url": "https://crates.io/api/v1/crates/serde_with_macros/2.2.0/download",
-          "sha256": "a1966009f3c05f095697c537312f5415d1e3ed31ce0a56942bac4c771c5c335e"
+          "url": "https://crates.io/api/v1/crates/serde_with_macros/2.3.1/download",
+          "sha256": "7cbcd6104f8a4ab6af7f6be2a0da6be86b9de3c401f6e86bb856ab2af739232f"
         }
       },
       "targets": [
@@ -12239,7 +12239,7 @@
           "selects": {}
         },
         "edition": "2021",
-        "version": "2.2.0"
+        "version": "2.3.1"
       },
       "license": "MIT OR Apache-2.0"
     },
@@ -15564,6 +15564,7 @@
           "HtmlHeadElement",
           "HtmlInputElement",
           "HtmlScriptElement",
+          "HtmlSelectElement",
           "HtmlTextAreaElement",
           "InputEvent",
           "InputEventInit",
