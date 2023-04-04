@@ -187,6 +187,20 @@ language server setup in particular.
 bazel run //:rustanalyzer
 ```
 
+### Repinning Cargo Dependencies
+
+If the cargo dependency list in the WORKSPACE file is updated, the lockfiles
+describing the exact dependency versions will need to be updated. You may see
+this as an error when trying to build/run a rust rule or a rule that depends on
+a rust rule. To update the lockfiles we need to explicitly "repin" the
+dependencies. This is done by setting `CARGO_BAZEL_REPIN=true` for the bazel
+invocation. Since we usually want to then let rust-analyzer index those
+dependencies, it's convenient to combine both into one command:
+
+```
+CARGO_BAZEL_REPIN=true bazel run //:rustanalyzer
+```
+
 ### Profiling Slow Bazel Builds, Tests, and Runs
 
 - `time bazel build ...`: View how long you're actually waiting.

@@ -16,6 +16,7 @@
 //! let scale = "h-8 w-8"; // tailwind can find these classes and include them
 //! let style: String = format!("rouned {}", scale);
 
+mod cmap;
 mod common;
 mod components;
 mod pages;

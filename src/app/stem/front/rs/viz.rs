@@ -79,6 +79,11 @@ pub fn empty_plot(marker: Marker) -> plotly::Plot {
     plot
 }
 
+/// A wrapper around Vec<f64> which implements the plotly Color trait
+#[derive(Clone, Debug, serde::Serialize)]
+pub struct Colorvec(pub Vec<f64>);
+impl plotly::common::color::Color for Colorvec {}
+
 /// Floats don't implement Ord, so we have to do this
 fn float_min(vals: &Vec<f64>) -> f64 {
     *vals

@@ -2,11 +2,13 @@
 
 use std::fmt;
 use std::str::FromStr;
+use std::u8;
 
 use plotly::layout::MapboxStyle;
 use web_sys::{HtmlInputElement, HtmlSelectElement};
 use yew::prelude::*;
 
+use crate::common::Location;
 use crate::components::{RANGE_INPUT_STYLE, SELECT_STYLE};
 
 /// Our version derives PartialEq so it can be used in yew hooks
@@ -23,6 +25,8 @@ impl Rgba {
         plotly::color::Rgba::new(self.r, self.g, self.b, self.a)
     }
 }
+
+// BASEMAP STYLES
 
 /// Displayable enum for basemap selections
 ///
@@ -87,25 +91,99 @@ impl std::str::FromStr for BasemapStyle {
     }
 }
 
+// COLORED DATA STREAM
+
+/// Displayable enum for datastream selection for colormapping
+#[allow(dead_code)]
+#[derive(Clone, Debug, PartialEq)]
+pub enum ColoredDataStream {
+    None,
+    Lat,
+    Lon,
+    HorizAccuracy,
+    Speed,
+    Course,
+    Time,
+}
+
+static DATASTREAM_STRINGS: [(ColoredDataStream, &'static str); 7] = [
+    (ColoredDataStream::None, "None"),
+    (ColoredDataStream::Lat, "Lat"),
+    (ColoredDataStream::Lon, "Lon"),
+    (ColoredDataStream::HorizAccuracy, "HorizAccuracy"),
+    (ColoredDataStream::Speed, "Speed"),
+    (ColoredDataStream::Course, "Course"),
+    (ColoredDataStream::Time, "Time"),
+];
+
+impl ColoredDataStream {
+    /// Selects the right data stream from a common::Location struct
+    pub fn get_stream(&self, loc: &Location) -> f64 {
+        match self {
+            ColoredDataStream::None => 0.,
+            ColoredDataStream::Lat => loc.lat,
+            ColoredDataStream::Lon => loc.lon,
+            ColoredDataStream::HorizAccuracy => loc.accuracy,
+            ColoredDataStream::Speed => loc.speed,
+            ColoredDataStream::Course => loc.course,
+            ColoredDataStream::Time => loc.datetime.unix_timestamp() as f64,
+        }
+    }
+}
+
+impl fmt::Display for ColoredDataStream {
+    /// Allows us to use `.to_string()` on BasemapStyle
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        // unwrap since we shouldn't fail to find the enum variant
+        let item = DATASTREAM_STRINGS.iter().find(|x| x.0 == *self).unwrap();
+        write!(f, "{}", item.1)
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct ParseColoredDataStreamError;
+
+impl std::str::FromStr for ColoredDataStream {
+    type Err = ParseColoredDataStreamError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let item = DATASTREAM_STRINGS
+            .iter()
+            .find(|x| x.1 == s)
+            .ok_or(ParseColoredDataStreamError)?;
+        Ok(item.0.clone())
+    }
+}
+
+// YEW COMPONENT
+
 // for colorscales we need to embed an array of values in the marker, so we
 // don't construct marker instances here, but bubble up the config values
 
-#[derive(Properties, PartialEq)]
-pub struct MapStylerProps {
+#[derive(PartialEq, Clone)]
+pub struct MapStyle {
     pub solid_color: UseStateHandle<Rgba>,
     pub marker_size: UseStateHandle<usize>,
     pub basemap_style: UseStateHandle<BasemapStyle>,
+    pub colored_datastream: UseStateHandle<ColoredDataStream>,
     // pub colorscale: ... // solid, viridis, inferno, etc
-    // pub colorscale_value: ... // lat, lon, speed,
 }
 
-use std::u8;
+#[derive(Properties, PartialEq)]
+pub struct MapStylerProps {
+    pub map_style: MapStyle,
+}
+
 #[function_component]
 pub fn MapStyler(
     MapStylerProps {
-        solid_color,
-        marker_size,
-        basemap_style,
+        map_style:
+            MapStyle {
+                solid_color,
+                marker_size,
+                basemap_style,
+                colored_datastream,
+            },
     }: &MapStylerProps,
 ) -> Html {
     let color_onchange = {
@@ -152,6 +230,14 @@ pub fn MapStyler(
             basemap_style.set(BasemapStyle::from_str(val).unwrap());
         })
     };
+    let datastream_onchange = {
+        let colored_datastream = colored_datastream.clone();
+        Callback::from(move |e: Event| {
+            let elem: HtmlSelectElement = e.target_dyn_into().unwrap();
+            let val: &str = &elem.value();
+            colored_datastream.set(ColoredDataStream::from_str(val).unwrap());
+        })
+    };
 
     // html formatting
     let color_string = format!(
@@ -165,16 +251,17 @@ pub fn MapStyler(
             </option>
         }
     });
+    let datastream_options = DATASTREAM_STRINGS.iter().map(|x| {
+        html! {
+            <option selected={x.0 == **colored_datastream}>
+                {x.1.to_string()}
+            </option>
+        }
+    });
 
     html! {
-        <div class="my-2 flex">
+        <div class="mt-2 mb-1 flex">
         <div class="max-w-fit mx-auto">
-            <div class="flex items-center justify-between h-8">
-                <label for="marker_color">{"Marker Color"}</label>
-                <input type="color" id="marker_color" value={color_string}
-                    class="m-1 ml-6 bg-neutral-800"
-                    onchange={color_onchange} />
-            </div>
             <div class="flex items-center justify-between h-8">
                 <label for="opacity">{"Marker Opacity"}</label>
                 <input type="range" id="opacity"
@@ -191,13 +278,28 @@ pub fn MapStyler(
                     class={format!("m-1 ml-6 {}", RANGE_INPUT_STYLE)}
                     onchange={size_onchange} />
             </div>
-            <div class="flex items-center justify-between h-8">
+            <div class="flex items-center justify-between">
                 <label for="basemap">{"Basemap Style"}</label>
                 <select onchange={basemap_onchange} id="basemap"
                     class={format!("m-1 ml-6 {}", SELECT_STYLE)}>
                     {for basemap_options}
                 </select>
             </div>
+            <div class="flex items-center justify-between">
+                <label for="datastream">{"Data Coloring"}</label>
+                <select onchange={datastream_onchange} id="datastream"
+                    class={format!("m-1 ml-6 {}", SELECT_STYLE)}>
+                    {for datastream_options}
+                </select>
+            </div>
+            if **colored_datastream == ColoredDataStream::None {
+                <div class="flex items-center justify-between">
+                    <label for="marker_color">{"Marker Color"}</label>
+                    <input type="color" id="marker_color" value={color_string}
+                        class="m-1 ml-6 bg-neutral-800"
+                        onchange={color_onchange} />
+                </div>
+            }
         </div>
         </div>
     }

@@ -45,22 +45,24 @@ async fn data_generator() {
     let mut lat = 37.42984;
     // let mut lat = 85.;
     let mut lon = -122.16945;
+    // let ca = lat + 0.001;  // center of circular-ish track
+    // let co = lon + 0.001;
     let mut vx = 0.;
     let mut vy = 0.;
     loop {
         sleep(Duration::from_millis(1000)).await;
-        // lon = (lon + (random::<f64>()) / 1000.0) % 180.0;
-        // lat = (lat + (random::<f64>()) / 1000.0) % 180.0;
         vx = vx + (random::<f64>() - 0.5) / 10000.0;
         vy = vy + (random::<f64>() - 0.5) / 10000.0;
+        // vx = (lat - ca) * -1. / 10.;
+        // vy = (lon - co) / 10.;
         lon = (lon + vx) % 180.0;
         lat = (lat + vy) % 180.0;
         stem::core::log_location(
             lat,
             lon,
-            random::<f64>() * 5.0,   // accuracy
-            random::<f64>() * 0.5,   // speed
-            random::<f64>() * 360.0, // course
+            random::<f64>() * 5.0,            // accuracy
+            (vx * vx + vy * vy).sqrt(),       // speed
+            180. - vy.atan2(vx).to_degrees(), // course
             time::OffsetDateTime::now_utc().unix_timestamp(),
         )
         .await;

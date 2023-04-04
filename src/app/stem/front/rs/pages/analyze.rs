@@ -3,9 +3,10 @@
 use yew::prelude::*;
 
 // use crate::common::{Location, TimeRange};
+use crate::cmap;
 use crate::common::TimeRange;
 use crate::components::{
-    map_styler::{BasemapStyle, Rgba},
+    map_styler::{BasemapStyle, ColoredDataStream, MapStyle, Rgba},
     time_range_picker::time_range_today,
     MapStyler, NavbarWrapper, TimeRangePicker, PRIMARY_BUTTON_STYLE,
     SECONDARY_BUTTON_STYLE,
@@ -30,14 +31,17 @@ pub fn Analyze() -> Html {
 fn AnalyzeLocation() -> Html {
     // Plot configuration values passed to children
     let time_range = use_state(time_range_today);
-    let solid_color = use_state(|| Rgba {
-        r: 255,
-        g: 64,
-        b: 0,
-        a: 0.8,
-    });
-    let marker_size = use_state(|| 6 as usize);
-    let basemap_style = use_state(|| BasemapStyle::StamenTerrain);
+    let map_style = MapStyle {
+        solid_color: use_state(|| Rgba {
+            r: 255,
+            g: 64,
+            b: 0,
+            a: 0.8,
+        }),
+        marker_size: use_state(|| 6 as usize),
+        basemap_style: use_state(|| BasemapStyle::StamenTerrain),
+        colored_datastream: use_state(|| ColoredDataStream::None),
+    };
 
     // Ask for new location data from backend after render anytime time_range
     // changes
@@ -46,12 +50,8 @@ fn AnalyzeLocation() -> Html {
         move |(time_range, ..)| {
             wss.send_msg(ToBack::GetLocationTimeRange((**time_range).clone()));
         },
-        (
-            time_range.clone(),
-            solid_color.clone(),
-            marker_size.clone(),
-            basemap_style.clone(),
-        ),
+        // things that will cause a full plot reload if changed:
+        (time_range.clone(), map_style.clone()),
     );
 
     let show_time_picker = use_state(|| false);
@@ -70,22 +70,17 @@ fn AnalyzeLocation() -> Html {
         <div class="flex flex-col h-full">
             <PlotComponent
                 time_range={time_range.clone()}
-                solid_color={solid_color.clone()}
-                marker_size={marker_size.clone()}
-                basemap_style={basemap_style.clone()} />
+                map_style={map_style.clone()} />
             if *show_plot_styler {
-                <MapStyler
-                    solid_color={solid_color.clone()}
-                    marker_size={marker_size.clone()}
-                    basemap_style={basemap_style.clone()} />
+                <MapStyler map_style={map_style.clone()} />
                 <hr class="border-t-1 border-neutral-700" />
             }
             if *show_time_picker {
-                <TimeRangePicker
-                    time_range={time_range.clone()} />
+                <TimeRangePicker time_range={time_range.clone()} />
                 <hr class="border-t-1 border-neutral-700" />
             }
-            <SettingsPicker show_time_picker={show_time_picker.clone()}
+            <SettingsPicker
+                show_time_picker={show_time_picker.clone()}
                 show_plot_styler={show_plot_styler.clone()} />
         </div>
     }
@@ -147,18 +142,14 @@ fn SettingsPicker(
 #[derive(Properties, PartialEq)]
 struct PlotComponentProps {
     time_range: UseStateHandle<TimeRange>,
-    solid_color: UseStateHandle<Rgba>,
-    marker_size: UseStateHandle<usize>,
-    basemap_style: UseStateHandle<BasemapStyle>,
+    map_style: MapStyle,
 }
 
 #[function_component]
 fn PlotComponent(
     PlotComponentProps {
         time_range,
-        solid_color,
-        marker_size,
-        basemap_style,
+        map_style,
     }: &PlotComponentProps,
 ) -> Html {
     // Show new plot if time range changes and new data comes from backend
@@ -167,18 +158,31 @@ fn PlotComponent(
     let plot_initialized = use_state(|| false);
     let on_backend_msg = {
         let plot_initialized = plot_initialized.clone(); // only exports values
-        let solid_color = solid_color.clone();
-        let marker_size = marker_size.clone();
-        let basemap_style = basemap_style.clone();
+        let map_style = map_style.clone();
         move |msg: &ToFront| {
             if let ToFront::LocationTimeRange(_time_range, locations) = msg {
-                let marker = viz::Marker::new()
-                    .color(solid_color.to_plotly())
-                    .size(*marker_size);
-
-                // let lats: Vec<_> = locations.iter().map(|x| x.lat).collect();
-                // let colors = lats.into_iter().map(|x| viz::Colorval(x));
-                // let marker = viz::Marker::new().color_array(colors.collect());
+                let marker;
+                if *map_style.colored_datastream == ColoredDataStream::None {
+                    marker = viz::Marker::new()
+                        .color(map_style.solid_color.to_plotly())
+                        .size(*map_style.marker_size);
+                } else {
+                    marker = viz::Marker::new()
+                        .color(viz::Colorvec(
+                            locations
+                                .iter()
+                                .map(|x| {
+                                    map_style.colored_datastream.get_stream(&x)
+                                })
+                                .collect::<Vec<_>>(),
+                        ))
+                        // don't use plotly's default color scale
+                        .auto_color_scale(false)
+                        .color_scale(cmap::viridis_plotly()) // TODO: configure
+                        .show_scale(true) // TODO: configure
+                        .opacity(map_style.solid_color.a)
+                        .size(*map_style.marker_size);
+                }
 
                 plot_initialized.set(false);
                 plotly_wasm::new_plot(
@@ -186,21 +190,14 @@ fn PlotComponent(
                     &viz::map_plot(
                         locations.clone(),
                         marker,
-                        basemap_style.to_plotly(),
+                        map_style.basemap_style.to_plotly(),
                     ),
                 );
                 plot_initialized.set(true);
             }
         }
     };
-    use_backend_event_with_deps(
-        on_backend_msg,
-        (
-            solid_color.clone(),
-            marker_size.clone(),
-            basemap_style.clone(),
-        ),
-    );
+    use_backend_event_with_deps(on_backend_msg, map_style.clone());
 
     // Update plot with new data points without creating a new plot
 
