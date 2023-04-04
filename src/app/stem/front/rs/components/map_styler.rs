@@ -21,7 +21,7 @@ pub struct Rgba {
 }
 
 impl Rgba {
-    pub fn to_plotly(&self) -> plotly::color::Rgba {
+    pub fn as_plotly(&self) -> plotly::color::Rgba {
         plotly::color::Rgba::new(self.r, self.g, self.b, self.a)
     }
 }
@@ -31,7 +31,6 @@ impl Rgba {
 /// Displayable enum for basemap selections
 ///
 /// Consists of public tile server options available in plotly natively
-#[allow(dead_code)]
 #[derive(Clone, Debug, PartialEq)]
 pub enum BasemapStyle {
     CartoDarkMatter,
@@ -43,7 +42,7 @@ pub enum BasemapStyle {
     WhiteBg,
 }
 
-static BASEMAP_STRINGS: [(BasemapStyle, &'static str); 7] = [
+static BASEMAP_STRINGS: [(BasemapStyle, &str); 7] = [
     (BasemapStyle::CartoDarkMatter, "CartoDarkMatter"),
     (BasemapStyle::CartoPositron, "CartoPositron"),
     (BasemapStyle::OpenStreetMap, "OpenStreetMap"),
@@ -94,7 +93,6 @@ impl std::str::FromStr for BasemapStyle {
 // COLORED DATA STREAM
 
 /// Displayable enum for datastream selection for colormapping
-#[allow(dead_code)]
 #[derive(Clone, Debug, PartialEq)]
 pub enum ColoredDataStream {
     None,
@@ -106,7 +104,7 @@ pub enum ColoredDataStream {
     Time,
 }
 
-static DATASTREAM_STRINGS: [(ColoredDataStream, &'static str); 7] = [
+static DATASTREAM_STRINGS: [(ColoredDataStream, &str); 7] = [
     (ColoredDataStream::None, "None"),
     (ColoredDataStream::Lat, "Lat"),
     (ColoredDataStream::Lon, "Lon"),

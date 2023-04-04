@@ -1,7 +1,8 @@
 //! Generate visualizations using plotly, embeded within yew components
 
-pub use plotly::common::{color::Rgba, Marker};
 use plotly::{
+    color::Rgba,
+    common::Marker,
     configuration::{Configuration, DisplayModeBar},
     layout::{Center, Mapbox, MapboxStyle, Margin},
     Layout, Plot, ScatterMapbox,
@@ -10,7 +11,6 @@ use plotly::{
 use crate::common;
 
 /// Generate a map of data points and return the plot
-#[allow(dead_code)]
 pub fn map_plot(
     records: Vec<common::Location>,
     marker: Marker,
@@ -23,7 +23,7 @@ pub fn map_plot(
 
     let (lat_center, lon_center, zoom);
     let trace;
-    if records.len() > 0 {
+    if !records.is_empty() {
         // calculate where to put the center
         (lat_center, lon_center, zoom) = get_center_and_zoom(&lats, &lons);
         trace = ScatterMapbox::new(lats, lons).marker(marker);
@@ -85,13 +85,13 @@ pub struct Colorvec(pub Vec<f64>);
 impl plotly::common::color::Color for Colorvec {}
 
 /// Floats don't implement Ord, so we have to do this
-fn float_min(vals: &Vec<f64>) -> f64 {
+fn float_min(vals: &[f64]) -> f64 {
     *vals
         .iter()
         .min_by(|a, b| a.partial_cmp(b).unwrap())
         .unwrap()
 }
-fn float_max(vals: &Vec<f64>) -> f64 {
+fn float_max(vals: &[f64]) -> f64 {
     *vals
         .iter()
         .max_by(|a, b| a.partial_cmp(b).unwrap())
@@ -100,11 +100,11 @@ fn float_max(vals: &Vec<f64>) -> f64 {
 
 /// Recenter a map. Make sure there is at least one data point in the vectors
 /// when calling this.
-fn get_center_and_zoom(lats: &Vec<f64>, lons: &Vec<f64>) -> (f64, f64, u8) {
-    let lat_center = (float_max(&lats) + float_min(&lats)) / 2.;
-    let lon_center = (float_max(&lons) + float_min(&lons)) / 2.;
-    let lat_range = float_max(&lats) - float_min(&lats);
-    let lon_range = float_max(&lons) - float_min(&lons);
+fn get_center_and_zoom(lats: &[f64], lons: &[f64]) -> (f64, f64, u8) {
+    let lat_center = (float_max(lats) + float_min(lats)) / 2.;
+    let lon_center = (float_max(lons) + float_min(lons)) / 2.;
+    let lat_range = float_max(lats) - float_min(lats);
+    let lon_range = float_max(lons) - float_min(lons);
     let lat_zoom = (360. / lat_range * lat_center.to_radians().cos()).log2();
     let lon_zoom = (360. / lon_range).log2();
     let zoom = if lat_zoom > lon_zoom {
@@ -113,12 +113,7 @@ fn get_center_and_zoom(lats: &Vec<f64>, lons: &Vec<f64>) -> (f64, f64, u8) {
         lat_zoom
     };
     let mut zoom = zoom.floor() - 1.;
-    if zoom > 16. {
-        zoom = 16.;
-    }
-    if zoom < 0. {
-        zoom = 0.;
-    }
+    zoom = zoom.clamp(0., 16.);
     let zoom = zoom as u8;
     (lat_center, lon_center, zoom)
 }

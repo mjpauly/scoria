@@ -47,9 +47,9 @@ fn json_to_obj(json: &str) -> Object {
 }
 
 /// Produce a new pot in the given div.
-#[allow(dead_code)]
 pub fn new_plot(id: &str, plot: &plotly::Plot) {
     let plot_obj = &plot.to_js_object();
+    // log::debug!("new plot json: {}", plot.to_json());
     new_plot_(id, plot_obj).expect("Error plotting chart");
 }
 
@@ -67,6 +67,7 @@ pub fn restyle(id: &str, trace: Box<dyn plotly::plot::Trace>) {
 #[allow(dead_code)]
 pub fn relayout(id: &str, layout: plotly::Layout) {
     let layout_obj = json_to_obj(&layout.to_json());
+    log::debug!("new layout json: {}", layout.to_json());
     relayout_(id, &layout_obj).expect("Error relayouting chart");
 }
 
@@ -87,6 +88,7 @@ pub fn delete_trace(id: &str) {
 /// Extend an existing trace with additional data.
 pub fn extend_trace(id: &str, trace: Box<dyn plotly::plot::Trace>) {
     let trace_obj = json_to_obj(&trace.to_json());
+    // log::debug!("extend trace json: {}", trace.to_json());
     let indices = json_to_obj("[0]");
     extend_traces_(id, &trace_obj, &indices).expect("Error extending trace");
 }

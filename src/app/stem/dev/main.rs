@@ -51,8 +51,8 @@ async fn data_generator() {
     let mut vy = 0.;
     loop {
         sleep(Duration::from_millis(1000)).await;
-        vx = vx + (random::<f64>() - 0.5) / 10000.0;
-        vy = vy + (random::<f64>() - 0.5) / 10000.0;
+        vx += (random::<f64>() - 0.5) / 10000.0;
+        vy += (random::<f64>() - 0.5) / 10000.0;
         // vx = (lat - ca) * -1. / 10.;
         // vy = (lon - co) / 10.;
         lon = (lon + vx) % 180.0;

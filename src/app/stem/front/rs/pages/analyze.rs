@@ -2,8 +2,6 @@
 
 use yew::prelude::*;
 
-// use crate::common::{Location, TimeRange};
-use crate::cmap;
 use crate::common::TimeRange;
 use crate::components::{
     map_styler::{BasemapStyle, ColoredDataStream, MapStyle, Rgba},
@@ -11,9 +9,9 @@ use crate::components::{
     MapStyler, NavbarWrapper, TimeRangePicker, PRIMARY_BUTTON_STYLE,
     SECONDARY_BUTTON_STYLE,
 };
-use crate::plotly_wasm;
-use crate::scatter_mapbox_update::ScatterMapboxUpdate;
-use crate::viz;
+use crate::plots::{
+    cmaps, maps, plotly_binds, scatter_mapbox_update::ScatterMapboxUpdate,
+};
 use crate::websocket::{
     use_backend_event_with_deps, ToBack, ToFront, WebsocketService,
 };
@@ -38,7 +36,7 @@ fn AnalyzeLocation() -> Html {
             b: 0,
             a: 0.8,
         }),
-        marker_size: use_state(|| 6 as usize),
+        marker_size: use_state(|| 6_usize),
         basemap_style: use_state(|| BasemapStyle::StamenTerrain),
         colored_datastream: use_state(|| ColoredDataStream::None),
     };
@@ -161,33 +159,34 @@ fn PlotComponent(
         let map_style = map_style.clone();
         move |msg: &ToFront| {
             if let ToFront::LocationTimeRange(_time_range, locations) = msg {
-                let marker;
-                if *map_style.colored_datastream == ColoredDataStream::None {
-                    marker = viz::Marker::new()
-                        .color(map_style.solid_color.to_plotly())
-                        .size(*map_style.marker_size);
+                let marker = if *map_style.colored_datastream
+                    == ColoredDataStream::None
+                {
+                    plotly::common::Marker::new()
+                        .color(map_style.solid_color.as_plotly())
+                        .size(*map_style.marker_size)
                 } else {
-                    marker = viz::Marker::new()
-                        .color(viz::Colorvec(
+                    plotly::common::Marker::new()
+                        .color(maps::Colorvec(
                             locations
                                 .iter()
                                 .map(|x| {
-                                    map_style.colored_datastream.get_stream(&x)
+                                    map_style.colored_datastream.get_stream(x)
                                 })
                                 .collect::<Vec<_>>(),
                         ))
                         // don't use plotly's default color scale
                         .auto_color_scale(false)
-                        .color_scale(cmap::viridis_plotly()) // TODO: configure
+                        .color_scale(cmaps::viridis_plotly()) // TODO: configure
                         .show_scale(true) // TODO: configure
                         .opacity(map_style.solid_color.a)
-                        .size(*map_style.marker_size);
-                }
+                        .size(*map_style.marker_size)
+                };
 
                 plot_initialized.set(false);
-                plotly_wasm::new_plot(
+                plotly_binds::new_plot(
                     plot_id,
-                    &viz::map_plot(
+                    &maps::map_plot(
                         locations.clone(),
                         marker,
                         map_style.basemap_style.to_plotly(),
@@ -238,9 +237,9 @@ fn PlotComponent(
                             new_backlog.iter().map(|x| x.lon).collect(),
                             // TODO: use solid marker color for new data
                             // play with jsfiddle first
-                            // viz::Rgba::new(255, 64, 0, 1.0),
+                            // maps::Rgba::new(255, 64, 0, 1.0),
                         );
-                        plotly_wasm::extend_trace(plot_id, update);
+                        plotly_binds::extend_trace(plot_id, update);
                         backlog.set(Vec::new());
                     }
                 }

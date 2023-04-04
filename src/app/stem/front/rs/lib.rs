@@ -16,16 +16,13 @@
 //! let scale = "h-8 w-8"; // tailwind can find these classes and include them
 //! let style: String = format!("rouned {}", scale);
 
-mod cmap;
 mod common;
 mod components;
 mod pages;
-mod plotly_wasm;
+mod plots;
 mod router;
-mod scatter_mapbox_update;
 mod swift_poke;
 mod ui_state;
-mod viz;
 mod websocket;
 
 use yew::prelude::*;

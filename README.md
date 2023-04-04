@@ -33,7 +33,7 @@
     - [x] settings hidden by default, can be pulled up
     - [x] auto zoom and centering
     - [x] configurable marker color/size, map base layer
-    - [_] marker colormap based on data value
+    - [x] marker colormap based on data value
     - [_] exclude data with x greater/less than x
     - [_] persist selection for export + queries
 - [_] more location diagnostics in sense tab
@@ -101,6 +101,19 @@ src
     - Language that the sensing modules are written in.
 
 ## Dev Flow
+
+### Pre-commit checklist
+
+Test, lint, format.
+
+```
+bazel run :dev
+bazel run //:iosapp
+bazel test //src/app/stem:unit_tests
+bazel test //src/app/stem:int_tests --spawn_strategy=local
+bazel build --aspects=@rules_rust//rust:defs.bzl%rust_clippy_aspect --output_groups=clippy_checks //...
+bazel build --@rules_rust//:rustfmt.toml=//:rustfmt.toml --aspects=@rules_rust//rust:defs.bzl%rustfmt_aspect --output_groups=rustfmt_checks //...
+```
 
 ### Setup
 

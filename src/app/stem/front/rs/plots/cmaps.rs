@@ -6,11 +6,13 @@ pub fn viridis_plotly() -> ColorScale {
 }
 
 /// Sequential, perceptually-uniform colormap
+#[allow(dead_code)]
 pub fn plasma_plotly() -> ColorScale {
     to_plotly(&PLASMA)
 }
 
 /// Cyclic, perceptually-uniform colormap
+#[allow(dead_code)]
 pub fn twilight_plotly() -> ColorScale {
     to_plotly(&TWILIGHT)
 }
@@ -23,7 +25,7 @@ pub fn to_plotly(cmap: &[(f64, &'static str)]) -> ColorScale {
     )
 }
 
-pub static VIRIDIS: [(f64, &'static str); 256] = [
+pub static VIRIDIS: [(f64, &str); 256] = [
     (0.0, "rgb(68,1,84)"),
     (0.00392156862745098, "rgb(68,2,86)"),
     (0.00784313725490196, "rgb(69,4,87)"),
@@ -282,7 +284,8 @@ pub static VIRIDIS: [(f64, &'static str); 256] = [
     (1.0, "rgb(253,231,37)"),
 ];
 
-pub static PLASMA: [(f64, &'static str); 256] = [
+#[allow(dead_code)]
+pub static PLASMA: [(f64, &str); 256] = [
     (0.0, "rgb(13,8,135)"),
     (0.00392156862745098, "rgb(16,7,136)"),
     (0.00784313725490196, "rgb(19,7,137)"),
@@ -541,7 +544,8 @@ pub static PLASMA: [(f64, &'static str); 256] = [
     (1.0, "rgb(240,249,33)"),
 ];
 
-pub static TWILIGHT: [(f64, &'static str); 510] = [
+#[allow(dead_code)]
+pub static TWILIGHT: [(f64, &str); 510] = [
     (0.0, "rgb(226,217,226)"),
     (0.0019646365422396855, "rgb(225,217,226)"),
     (0.003929273084479371, "rgb(225,217,226)"),
