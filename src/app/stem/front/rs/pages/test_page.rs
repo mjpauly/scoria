@@ -8,6 +8,7 @@ use crate::components::NavbarWrapper;
 pub fn TestPage() -> Html {
     html! {
         <NavbarWrapper>
+            <div class="h-16"></div>
             <h1 class="text-sky-500 text-3xl mb-6">
                 {"UI Test Page"}
             </h1>

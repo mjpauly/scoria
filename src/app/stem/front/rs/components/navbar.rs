@@ -15,12 +15,11 @@ use yew_router::prelude::*;
 pub fn NavbarWrapper(props: &NavbarWrapperProps) -> Html {
     html! {
         <div class="flex flex-col h-screen">
-            <div class="flex-1 overflow-y-auto flex flex-col \
-                    justify-center items-center pt-16">
-                // prevent tall content from getting cut off at the top:
-                <div class="min-h-0">
+            // flex-1: take full height, pushing navbar to the bottom
+            // overflow-y-auto: overflow this div's content (would otherwise
+            //          overflow the navbar too)
+            <div class="flex-1 overflow-y-auto">
                     { for props.children.iter() }
-                </div>
             </div>
             <Navbar />
         </div>

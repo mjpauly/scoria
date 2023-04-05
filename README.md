@@ -28,17 +28,29 @@
     - app-level
         - [_] changing dist_filt propagates to SwiftUI
 - [_] ~~CI pipeline~~
-- [_] configurable marker color/size
+- [_] map usability / configurability
+    - [x] live map updates
+    - [x] settings hidden by default, can be pulled up
+    - [x] auto zoom and centering
+    - [x] configurable marker color/size, map base layer
+    - [x] marker colormap based on data value
+    - [_] exclude data with x greater/less than x
+    - [_] persist selection for export + queries
+- [_] more location diagnostics in sense tab
+- [x] investigate undropped websocket callbacks
+- [_] log required: altitude, isProducedByAccessory, and isSimulatedBySoftware;
+    floor, verticalAccuracy, speedAccuracy, courseAccuracy
+    :: all required! don't want people to need to opt in -> reduces how much people actually collect
+- [_] profile render times
 - [_] option to enable/disable location recording from within the app
+    - [_] metadata recording of when location is enabled/disabled
 - [_] secure the UI from other apps (max 1 connection, random port, authenticate
         with number passcode, shut down when not in use)
+- [_] low power modes
+- [_] get feedback with test flight
 - [_] publish to app store
 
-- new features
-    - scatter plot:
-         - colorscale based on data value
-         - marker size
-         - nice way to close the WebView
+- later features
     - sensing: environmental noise
     - create custom markers (space / time)
          - lookup marker from public DB (apple maps?, openstreetmap?)
@@ -46,8 +58,6 @@
          - visits (last time, first time, total, time spent, when visits happen)
          - traveling (different modes, time spent, num trips, when it happens)
          - trends
-- App integration tests
-- more battery-efficient data collection
 
 ## Structure
 
@@ -84,36 +94,26 @@ src
             - [rules_xcodeproj example](https://github.com/brentleyjones/rules_xcodeproj-demo)
         - rules_rust ([repo](https://github.com/bazelbuild/rules_rust),
             [docs](https://bazelbuild.github.io/rules_rust/))
-- Rust ([docs](https://doc.rust-lang.org/book/))
+- Rust
     - Language that the core app functionality is written in.
-    - Standard Rust features
-        - LocalKey ([docs](https://doc.rust-lang.org/std/thread/struct.LocalKey.html))
-            - Used to provide thread_local global variables
-    - External Rust dependencies
-        - sqlx ([repo](https://github.com/launchbadge/sqlx),
-            [docs@0.6.2](https://docs.rs/sqlx/0.6.2/sqlx/))
-            - SQLite database interface
-        - tokio ([repo](https://github.com/tokio-rs/tokio),
-            [docs@1.24.2](https://docs.rs/tokio/1.24.2/tokio/))
-            - async runtime
-        - time ([repo](https://github.com/time-rs/time),
-            [docs@0.3.17](https://docs.rs/time/0.3.17/time/),
-            [book](https://time-rs.github.io/book/index.html))
-            - used for timestamping measurements in the database
-            - not imported on its own, but with `sqlx::types::time`
-            - exact version used with `sqlx` might be different than the
-                versions linked
-        - plotly ([repo](https://github.com/igiagkiozis/plotly),
-            [docs@0.8.3](https://docs.rs/plotly/0.8.3/plotly/))
-            - used to generate visualizations
-            - doesn't currently support compiling for iOS, so it is vendored in
-                at this repo: https://github.com/mjpauly/plotly/
 
-- Swift ([docs](https://docs.swift.org/swift-book/LanguageGuide/TheBasics.html))
+- Swift
     - Language that the sensing modules are written in.
-    - Apple Swift APIs used include CoreLocation.
 
 ## Dev Flow
+
+### Pre-commit checklist
+
+Test, lint, format.
+
+```
+bazel run :dev
+bazel run //:iosapp
+bazel test //src/app/stem:unit_tests
+bazel test //src/app/stem:int_tests --spawn_strategy=local
+bazel build --aspects=@rules_rust//rust:defs.bzl%rust_clippy_aspect --output_groups=clippy_checks //...
+bazel build --@rules_rust//:rustfmt.toml=//:rustfmt.toml --aspects=@rules_rust//rust:defs.bzl%rustfmt_aspect --output_groups=rustfmt_checks //...
+```
 
 ### Setup
 
@@ -154,18 +154,6 @@ Navigate to `src/app/stem` and run `ibazel run :dev`.
 Then open `localhost:8081` in a browser. In Firefox, the responsive web design
 mode lets you change the page aspect ratio to that of a phone (opt-cmd-M).
 
-#### Deprecated method for developing the UI (no backend)
-
-Navigate to `src/app/stem/front` and run these commands in separate terminals:
-
-```
-npx tailwindcss -i ./styles/input.css -o ./styles/output.css --watch
-trunk serve --open
-```
-
-Then open `localhost:8080` in a browser. In Firefox, the responsive web design
-mode lets you change the page aspect ratio to that of a phone.
-
 ### Generate the Xcode Project
 
 `rules_xcodeproj` is used to generate the Xcode project from Bazel BUILD files,
@@ -179,8 +167,11 @@ The Xcode project itself uses Bazel for building and running the app.
 
 ### Testing the `stem` Core Library
 
-- `bazel test //src/app/stem:unit_tests`: Run the unit tests embedded in the library.
-- `bazel test //src/app/stem:int_tests --spawn_strategy=local`: Run the integration tests of the library's interface. We spawn it locally so geckodriver works.
+- `bazel test //src/app/stem:unit_tests`: Run the unit tests embedded in the
+    library.
+- `bazel test //src/app/stem:int_tests --spawn_strategy=local`: Run the
+    integration tests of the library's interface. We spawn it locally so
+    geckodriver works.
 
 Useful arguments:
 
@@ -192,6 +183,10 @@ Useful arguments:
 ```
 bazel test //src/app/stem:unit_tests --test_output=all --test_arg=--nocapture --test_arg=test_get_rt
 ```
+
+### Autogenerated Documentation
+
+`bazel build //src/app/stem/front:front_doc`
 
 ### Generate the Project Tree for `rust-analyzer`
 
@@ -205,11 +200,19 @@ language server setup in particular.
 bazel run //:rustanalyzer
 ```
 
-Unfortunately, the presence of the `rust-project.json` prevents `rust-analyzer`
-from detecting cargo workspaces, like the frontend. If only working on the
-frontend, one can simply delete the `rust-project.json` file and regenerate it
-when returning to work on the backend. But there is not yet a good solution for
-developing on both at once.
+### Repinning Cargo Dependencies
+
+If the cargo dependency list in the WORKSPACE file is updated, the lockfiles
+describing the exact dependency versions will need to be updated. You may see
+this as an error when trying to build/run a rust rule or a rule that depends on
+a rust rule. To update the lockfiles we need to explicitly "repin" the
+dependencies. This is done by setting `CARGO_BAZEL_REPIN=true` for the bazel
+invocation. Since we usually want to then let rust-analyzer index those
+dependencies, it's convenient to combine both into one command:
+
+```
+CARGO_BAZEL_REPIN=true bazel run //:rustanalyzer
+```
 
 ### Profiling Slow Bazel Builds, Tests, and Runs
 

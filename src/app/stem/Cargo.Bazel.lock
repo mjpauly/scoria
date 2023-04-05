@@ -1,5 +1,5 @@
 {
-  "checksum": "81eba627ef613c7d713836fd72d86d8f931c398998d806991a78b5de5514d7d4",
+  "checksum": "dce8354c0ccd0fee792a52a3e1303a673545c587c87e73ad552d2c76b39b6a1f",
   "crates": {
     "actix 0.13.0": {
       "name": "actix",
@@ -916,7 +916,7 @@
               "target": "serde"
             },
             {
-              "id": "serde_json 1.0.91",
+              "id": "serde_json 1.0.94",
               "target": "serde_json"
             },
             {
@@ -1843,7 +1843,7 @@
               "target": "serde"
             },
             {
-              "id": "serde_json 1.0.91",
+              "id": "serde_json 1.0.94",
               "target": "serde_json"
             },
             {
@@ -4019,6 +4019,10 @@
               "target": "gloo_net"
             },
             {
+              "id": "js-sys 0.3.60",
+              "target": "js_sys"
+            },
+            {
               "id": "log 0.4.17",
               "target": "log"
             },
@@ -4045,6 +4049,10 @@
             {
               "id": "serde 1.0.152",
               "target": "serde"
+            },
+            {
+              "id": "serde_json 1.0.94",
+              "target": "serde_json"
             },
             {
               "id": "sqlx 0.6.2",
@@ -4596,7 +4604,7 @@
               "target": "serde"
             },
             {
-              "id": "serde_json 1.0.91",
+              "id": "serde_json 1.0.94",
               "target": "serde_json"
             },
             {
@@ -6062,7 +6070,7 @@
               "target": "serde"
             },
             {
-              "id": "serde_json 1.0.91",
+              "id": "serde_json 1.0.94",
               "target": "serde_json"
             },
             {
@@ -6172,7 +6180,7 @@
               "target": "serde"
             },
             {
-              "id": "serde_json 1.0.91",
+              "id": "serde_json 1.0.94",
               "target": "serde_json"
             },
             {
@@ -6292,7 +6300,7 @@
               "target": "serde"
             },
             {
-              "id": "serde_json 1.0.91",
+              "id": "serde_json 1.0.94",
               "target": "serde_json"
             },
             {
@@ -10119,11 +10127,11 @@
               "target": "serde"
             },
             {
-              "id": "serde_json 1.0.91",
+              "id": "serde_json 1.0.94",
               "target": "serde_json"
             },
             {
-              "id": "serde_with 2.2.0",
+              "id": "serde_with 2.3.1",
               "target": "serde_with"
             },
             {
@@ -11125,7 +11133,7 @@
                 "target": "js_sys"
               },
               {
-                "id": "serde_json 1.0.91",
+                "id": "serde_json 1.0.94",
                 "target": "serde_json"
               },
               {
@@ -11935,13 +11943,13 @@
       },
       "license": "MIT OR Apache-2.0"
     },
-    "serde_json 1.0.91": {
+    "serde_json 1.0.94": {
       "name": "serde_json",
-      "version": "1.0.91",
+      "version": "1.0.94",
       "repository": {
         "Http": {
-          "url": "https://crates.io/api/v1/crates/serde_json/1.0.91/download",
-          "sha256": "877c235533714907a8c2464236f5c4b2a17262ef1bd71f38f35ea592c8da6883"
+          "url": "https://crates.io/api/v1/crates/serde_json/1.0.94/download",
+          "sha256": "1c533a59c9d8a93a09c6ab31f0fd5e5f4dd1b8fc9434804029839884765d04ea"
         }
       },
       "targets": [
@@ -11989,14 +11997,14 @@
               "target": "serde"
             },
             {
-              "id": "serde_json 1.0.91",
+              "id": "serde_json 1.0.94",
               "target": "build_script_build"
             }
           ],
           "selects": {}
         },
         "edition": "2018",
-        "version": "1.0.91"
+        "version": "1.0.94"
       },
       "build_script_attrs": {
         "data_glob": [
@@ -12103,13 +12111,13 @@
       },
       "license": "MIT/Apache-2.0"
     },
-    "serde_with 2.2.0": {
+    "serde_with 2.3.1": {
       "name": "serde_with",
-      "version": "2.2.0",
+      "version": "2.3.1",
       "repository": {
         "Http": {
-          "url": "https://crates.io/api/v1/crates/serde_with/2.2.0/download",
-          "sha256": "30d904179146de381af4c93d3af6ca4984b3152db687dacb9c3c35e86f39809c"
+          "url": "https://crates.io/api/v1/crates/serde_with/2.3.1/download",
+          "sha256": "85456ffac572dc8826334164f2fb6fb40a7c766aebe195a2a21ee69ee2885ecf"
         }
       },
       "targets": [
@@ -12159,7 +12167,7 @@
               "target": "serde"
             },
             {
-              "id": "serde_json 1.0.91",
+              "id": "serde_json 1.0.94",
               "target": "serde_json"
             },
             {
@@ -12174,23 +12182,23 @@
         "proc_macro_deps": {
           "common": [
             {
-              "id": "serde_with_macros 2.2.0",
+              "id": "serde_with_macros 2.3.1",
               "target": "serde_with_macros"
             }
           ],
           "selects": {}
         },
-        "version": "2.2.0"
+        "version": "2.3.1"
       },
       "license": "MIT OR Apache-2.0"
     },
-    "serde_with_macros 2.2.0": {
+    "serde_with_macros 2.3.1": {
       "name": "serde_with_macros",
-      "version": "2.2.0",
+      "version": "2.3.1",
       "repository": {
         "Http": {
-          "url": "https://crates.io/api/v1/crates/serde_with_macros/2.2.0/download",
-          "sha256": "a1966009f3c05f095697c537312f5415d1e3ed31ce0a56942bac4c771c5c335e"
+          "url": "https://crates.io/api/v1/crates/serde_with_macros/2.3.1/download",
+          "sha256": "7cbcd6104f8a4ab6af7f6be2a0da6be86b9de3c401f6e86bb856ab2af739232f"
         }
       },
       "targets": [
@@ -12231,7 +12239,7 @@
           "selects": {}
         },
         "edition": "2021",
-        "version": "2.2.0"
+        "version": "2.3.1"
       },
       "license": "MIT OR Apache-2.0"
     },
@@ -15556,6 +15564,7 @@
           "HtmlHeadElement",
           "HtmlInputElement",
           "HtmlScriptElement",
+          "HtmlSelectElement",
           "HtmlTextAreaElement",
           "InputEvent",
           "InputEventInit",
@@ -15667,7 +15676,7 @@
               "target": "serde"
             },
             {
-              "id": "serde_json 1.0.91",
+              "id": "serde_json 1.0.94",
               "target": "serde_json"
             },
             {

@@ -1,23 +1,22 @@
 //! Module for components that are to be reused throughout the design.
 
+pub mod map_styler;
 pub mod navbar;
+pub mod time_range_picker;
 
+pub use map_styler::MapStyler;
 pub use navbar::{Navbar, NavbarWrapper};
+pub use time_range_picker::TimeRangePicker;
 
 pub static SECONDARY_BUTTON_STYLE: &str =
     "rounded-lg whitespace-nowrap py-1.5 px-3 text-sky-500 bg-neutral-800";
 pub static PRIMARY_BUTTON_STYLE: &str =
     "rounded-lg whitespace-nowrap py-1.5 px-3 text-neutral-200 bg-sky-500";
 pub static DATETIME_INPUT_STYLE: &str =
-    "rounded-lg whitespace-nowrap py-1.5 px-3 placeholder:text-neutral-200 bg-neutral-800";
-
-// testing:
-
-// mod capped_input;
-// mod list;
-
-// Testing out Yew
-// <div class="py-4" />
-// <CappedInputComponent min_value={0} max_value={20}/>
-// <CappedInputComponent min_value={5} max_value={30}/>
-// <ListComponent />
+    "rounded-lg whitespace-nowrap py-1.5 px-3 placeholder:text-neutral-200 \
+        bg-neutral-800";
+pub static SELECT_STYLE: &str =
+    "rounded-lg whitespace-nowrap py-1.5 px-3 text-neutral-200 bg-neutral-800 \
+        appearance-none";
+pub static RANGE_INPUT_STYLE: &str =
+    "appearance-none bg-neutral-800 h-1 rounded-lg w-40";

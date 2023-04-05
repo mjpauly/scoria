@@ -1,4 +1,4 @@
-load("@rules_rust//rust:defs.bzl", "rust_library", "rust_binary")
+load("@rules_rust//rust:defs.bzl", "rust_library", "rust_binary", "rust_doc")
 load("@rules_rust//wasm_bindgen:wasm_bindgen.bzl", "rust_wasm_bindgen")
 load("@rules_pkg//pkg:zip.bzl", "pkg_zip")
 
@@ -48,6 +48,9 @@ rust_library(
     srcs = glob(["rs/**/*.rs"]),
     edition = "2021",
     deps = [
+        "@stem_crate_index//:plotly",
+        "@stem_crate_index//:js-sys",
+        "@stem_crate_index//:serde_json",
         "@stem_crate_index//:yew",
         "@stem_crate_index//:yew-router",
         "@stem_crate_index//:time",
@@ -62,8 +65,14 @@ rust_library(
         "@stem_crate_index//:serde",
         "@stem_crate_index//:bincode",
         "@stem_crate_index//:uuid",
-        "@stem_crate_index//:plotly",
     ],
+)
+
+# generated documentation for the frontend
+rust_doc(
+    name = "front_doc",
+    crate = ":front",
+    rustc_flags = ["--document-private-items",],
 )
 
 genrule(

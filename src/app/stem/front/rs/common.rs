@@ -54,3 +54,9 @@ pub struct TimeRange {
     pub start: time::OffsetDateTime,
     pub end: time::OffsetDateTime,
 }
+
+impl TimeRange {
+    pub fn contains(&self, timestamp: &time::OffsetDateTime) -> bool {
+        &self.start <= timestamp && timestamp < &self.end
+    }
+}

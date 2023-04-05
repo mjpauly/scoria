@@ -1,6 +1,6 @@
 use std::net::TcpListener;
 
-use actix_files as fs;
+use actix_files::{Files, NamedFile};
 use actix_web::dev::Server;
 use actix_web::{web, App, HttpServer};
 use actix_web::{HttpResponse, Responder};
@@ -40,13 +40,19 @@ fn unzip_dist(init_paths: Paths) -> Result<(), String> {
 
 fn build(init_paths: Paths, listener: TcpListener) -> Server {
     let dist = init_paths.library_dir.join("dist"); // static files
+    let index_file = dist.join("index.html");
     HttpServer::new(move || {
         let files_service =
-            fs::Files::new("/", dist.clone()).index_file("index.html");
+            Files::new("/", dist.clone()).index_file("index.html");
+        let index_file = web::Data::new(index_file.clone());
         App::new()
             .route("/health_check", web::get().to(health_check))
             .route("/ws", web::get().to(ws_route))
+            // extra routes we want to just get the index file for
+            .route("/analyze", web::get().to(index))
+            .route("/test_page", web::get().to(index))
             .service(files_service)
+            .app_data(index_file)
     })
     .workers(1)
     .listen(listener)
@@ -56,6 +62,10 @@ fn build(init_paths: Paths, listener: TcpListener) -> Server {
 
 async fn health_check() -> impl Responder {
     HttpResponse::Ok()
+}
+
+async fn index(index_file: web::Data<std::path::PathBuf>) -> impl Responder {
+    NamedFile::open_async(index_file.get_ref()).await
 }
 
 #[cfg(test)]

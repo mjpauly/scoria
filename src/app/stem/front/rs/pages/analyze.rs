@@ -1,204 +1,259 @@
 //! Analysis of collected data.
 
-use web_sys::HtmlInputElement;
 use yew::prelude::*;
 
-use crate::common::{Location, TimeRange};
+use crate::common::TimeRange;
 use crate::components::{
-    NavbarWrapper, DATETIME_INPUT_STYLE, PRIMARY_BUTTON_STYLE,
+    map_styler::{BasemapStyle, ColoredDataStream, MapStyle, Rgba},
+    time_range_picker::time_range_today,
+    MapStyler, NavbarWrapper, TimeRangePicker, PRIMARY_BUTTON_STYLE,
     SECONDARY_BUTTON_STYLE,
 };
-use crate::viz;
-use crate::websocket::{ToBack, ToFront, WebsocketService};
+use crate::plots::{
+    cmaps, maps, plotly_binds, scatter_mapbox_update::ScatterMapboxUpdate,
+};
+use crate::websocket::{
+    use_backend_event_with_deps, ToBack, ToFront, WebsocketService,
+};
 
 #[function_component]
 pub fn Analyze() -> Html {
     html! {
         <NavbarWrapper>
-            <h1 class="text-sky-500 text-3xl mb-6">
-                {"Analyze"}
-            </h1>
-
-            <ShowMap />
+            <AnalyzeLocation />
         </NavbarWrapper>
     }
 }
 
 #[function_component]
-fn ShowMap() -> Html {
-    let wss = use_context::<WebsocketService>().unwrap();
-
-    let records = use_state(Vec::<Location>::new);
-    let on_backend_msg = {
-        let records = records.clone();
-        move |msg: &ToFront| {
-            if let ToFront::LocationTimeRange(_time_range, locations) = msg {
-                log::debug!("num records: {}", locations.len());
-                records.set(locations.clone());
-            }
-        }
-    };
-    let id = use_memo(|_| uuid::Uuid::new_v4(), ());
-    wss.subscribe(*id, Box::new(on_backend_msg));
-
-    // format used to put a time::OffsetDatetime into an HtmlInputElement
-    let format =
-        time::format_description::parse("[year]-[month]-[day]T[hour]:[minute]")
-            .unwrap();
-    let local_offset = time::UtcOffset::current_local_offset().unwrap();
-
+fn AnalyzeLocation() -> Html {
+    // Plot configuration values passed to children
     let time_range = use_state(time_range_today);
-    let start_input = use_node_ref();
-    let end_input = use_node_ref();
-
-    let week_onclick = {
-        let time_range = time_range.clone();
-        Callback::from(move |_e: MouseEvent| time_range.set(time_range_week()))
-    };
-    let day_onclick = {
-        let time_range = time_range.clone();
-        Callback::from(move |_e: MouseEvent| time_range.set(time_range_day()))
-    };
-    let today_onclick = {
-        let time_range = time_range.clone();
-        Callback::from(move |_e: MouseEvent| time_range.set(time_range_today()))
+    let map_style = MapStyle {
+        solid_color: use_state(|| Rgba {
+            r: 255,
+            g: 64,
+            b: 0,
+            a: 0.8,
+        }),
+        marker_size: use_state(|| 6_usize),
+        basemap_style: use_state(|| BasemapStyle::StamenTerrain),
+        colored_datastream: use_state(|| ColoredDataStream::None),
     };
 
-    let showmap_onclick = {
-        let start_input = start_input.clone();
-        let end_input = end_input.clone();
-        let format = format.clone();
-        Callback::from(move |_e: MouseEvent| {
-            let start_input_value =
-                start_input.cast::<HtmlInputElement>().unwrap().value();
-            let end_input_value =
-                end_input.cast::<HtmlInputElement>().unwrap().value();
-            let start =
-                time::PrimitiveDateTime::parse(&start_input_value, &format)
-                    .unwrap()
-                    .assume_offset(local_offset);
-            let end = time::PrimitiveDateTime::parse(&end_input_value, &format)
-                .unwrap()
-                .assume_offset(local_offset);
-            wss.send_msg(ToBack::GetLocationTimeRange(TimeRange {
-                start,
-                end,
-            }));
-        })
-    };
+    // Ask for new location data from backend after render anytime time_range
+    // changes
+    let wss = use_context::<WebsocketService>().unwrap();
+    use_effect_with_deps(
+        move |(time_range, ..)| {
+            wss.send_msg(ToBack::GetLocationTimeRange((**time_range).clone()));
+        },
+        // things that will cause a full plot reload if changed:
+        (time_range.clone(), map_style.clone()),
+    );
+
+    let show_time_picker = use_state(|| false);
+    let show_plot_styler = use_state(|| false);
+
+    // after rerender, trigger the plot's resize handler if needs an update
+    use_effect_with_deps(
+        move |_| {
+            let event = web_sys::Event::new("resize").unwrap();
+            web_sys::window().unwrap().dispatch_event(&event).unwrap();
+        },
+        (show_time_picker.clone(), show_plot_styler.clone()),
+    );
 
     html! {
-        <>
-            // containing div for both datetime pickers to align to
-            <div class="flex justify-center">
-            <div class="max-w-fit">
-                // items-center: align items to be centered vertically
-                // justify-between: push elements away from each other so they
-                //      align with the edges of the div containing both flexes
-                <div class="flex items-center justify-between">
-                    <label for="start">{"Start Time"}</label>
-                    <input type="datetime-local" ref={start_input} id="start"
-                        value={time_range.start.format(&format).unwrap()}
-                        class={format!("m-1 ml-4 {}", DATETIME_INPUT_STYLE)} />
-                </div>
-                <div class="flex items-center justify-between">
-                    <label for="end">{"End Time"}</label>
-                    <input type="datetime-local" ref={end_input} id="end"
-                        value={time_range.end.format(&format).unwrap()}
-                        class={format!("m-1 ml-4 {}", DATETIME_INPUT_STYLE)} />
-                </div>
-            </div>
-            </div>
-
-            <button onclick={week_onclick}
-                class={format!("m-1 {}", SECONDARY_BUTTON_STYLE)}>
-                    {"Past 7 Days"}
-            </button>
-            <button onclick={day_onclick}
-                class={format!("m-1 {}", SECONDARY_BUTTON_STYLE)}>
-                    {"Past 24 Hours"}
-            </button>
-            <button onclick={today_onclick}
-                class={format!("m-1 {}", SECONDARY_BUTTON_STYLE)}>
-                    {"Today"}
-            </button>
-
-            <br />
-            <button onclick={showmap_onclick}
-                class={format!("m-1 {}", PRIMARY_BUTTON_STYLE)}>
-                    {"Update Map"}
-            </button>
-
-            <br />
-            <PlotComponent records={(*records).clone()}/>
-        </>
+        <div class="flex flex-col h-full">
+            <PlotComponent
+                time_range={time_range.clone()}
+                map_style={map_style.clone()} />
+            if *show_plot_styler {
+                <MapStyler map_style={map_style.clone()} />
+                <hr class="border-t-1 border-neutral-700" />
+            }
+            if *show_time_picker {
+                <TimeRangePicker time_range={time_range.clone()} />
+                <hr class="border-t-1 border-neutral-700" />
+            }
+            <SettingsPicker
+                show_time_picker={show_time_picker.clone()}
+                show_plot_styler={show_plot_styler.clone()} />
+        </div>
     }
 }
 
 #[derive(Properties, PartialEq)]
-struct Props {
-    records: Vec<Location>,
+struct SettingsPickerProps {
+    show_time_picker: UseStateHandle<bool>,
+    show_plot_styler: UseStateHandle<bool>,
 }
 
 #[function_component]
-fn PlotComponent(Props { records }: &Props) -> Html {
-    /*
-    let first = Location {
-        lat: 37.59,
-        lon: -122.09,
-        accuracy: 0.,
-        speed: 0.,
-        course: 0.,
-        datetime: time::OffsetDateTime::now_local().unwrap(),
+fn SettingsPicker(
+    SettingsPickerProps {
+        show_time_picker,
+        show_plot_styler,
+    }: &SettingsPickerProps,
+) -> Html {
+    let time_onclick = {
+        let show_time_picker = show_time_picker.clone();
+        Callback::from(move |_e: MouseEvent| {
+            show_time_picker.set(!*show_time_picker);
+        })
     };
-    let second = Location {
-        lat: 37.6,
-        lon: -122.09,
-        ..first
+    let style_onclick = {
+        let show_plot_styler = show_plot_styler.clone();
+        Callback::from(move |_e: MouseEvent| {
+            show_plot_styler.set(!*show_plot_styler)
+        })
     };
-    let third = Location {
-        lat: 37.6,
-        lon: -122.1,
-        ..first
+    let style_button_style = if **show_plot_styler {
+        PRIMARY_BUTTON_STYLE
+    } else {
+        SECONDARY_BUTTON_STYLE
     };
-    let fourth = Location {
-        lat: 37.59,
-        lon: -122.1,
-        ..first
+    let time_button_style = if **show_time_picker {
+        PRIMARY_BUTTON_STYLE
+    } else {
+        SECONDARY_BUTTON_STYLE
     };
-    let records = vec![first, second, third, fourth];
-    */
-    let id = "plot-div";
-    // TODO: reduce cloning?
-    // TODO: choose second at the end of the minute by default?
-    let plot = viz::gen_viz(records.clone(), 1., 0.27, 0.0, 0.8);
-    yew::platform::spawn_local(async move {
-        plotly::bindings::new_plot(id, &plot).await;
-    });
     html! {
-        <div id="plot-div" class="w-screen max-h-100 mt-4"></div>
+        <div class="flex my-1">
+            <div class="mx-auto">
+                <button onclick={style_onclick}
+                    class={format!("m-1 {}", style_button_style)}>
+                        {"Map Style"}
+                </button>
+                <button onclick={time_onclick}
+                    class={format!("m-1 {}", time_button_style)}>
+                        {"Time Range"}
+                </button>
+            </div>
+        </div>
     }
 }
 
-/// Get a time range for today up until now
-fn time_range_today() -> TimeRange {
-    let now = time::OffsetDateTime::now_local().unwrap();
-    let start = now.replace_time(time::Time::MIDNIGHT);
-    let end = now.replace_time(time::Time::from_hms(23, 59, 59).unwrap());
-    TimeRange { start, end }
+/// Show a plot given a time range of values. Auto updates if new data streamed
+/// from backend falls within the time range.
+#[derive(Properties, PartialEq)]
+struct PlotComponentProps {
+    time_range: UseStateHandle<TimeRange>,
+    map_style: MapStyle,
 }
 
-/// Get a time range for today up until now
-fn time_range_day() -> TimeRange {
-    let end = time::OffsetDateTime::now_local().unwrap();
-    let start = end - time::Duration::DAY;
-    TimeRange { start, end }
-}
+#[function_component]
+fn PlotComponent(
+    PlotComponentProps {
+        time_range,
+        map_style,
+    }: &PlotComponentProps,
+) -> Html {
+    // Show new plot if time range changes and new data comes from backend
 
-/// Get a time range for the past week
-fn time_range_week() -> TimeRange {
-    let now = time::OffsetDateTime::now_local().unwrap();
-    let start = now - time::Duration::WEEK;
-    let end = now;
-    TimeRange { start, end }
+    let plot_id = "plot-div";
+    let plot_initialized = use_state(|| false);
+    let on_backend_msg = {
+        let plot_initialized = plot_initialized.clone(); // only exports values
+        let map_style = map_style.clone();
+        move |msg: &ToFront| {
+            if let ToFront::LocationTimeRange(_time_range, locations) = msg {
+                let marker = if *map_style.colored_datastream
+                    == ColoredDataStream::None
+                {
+                    plotly::common::Marker::new()
+                        .color(map_style.solid_color.as_plotly())
+                        .size(*map_style.marker_size)
+                } else {
+                    plotly::common::Marker::new()
+                        .color(maps::Colorvec(
+                            locations
+                                .iter()
+                                .map(|x| {
+                                    map_style.colored_datastream.get_stream(x)
+                                })
+                                .collect::<Vec<_>>(),
+                        ))
+                        // don't use plotly's default color scale
+                        .auto_color_scale(false)
+                        .color_scale(cmaps::viridis_plotly()) // TODO: configure
+                        .show_scale(true) // TODO: configure
+                        .opacity(map_style.solid_color.a)
+                        .size(*map_style.marker_size)
+                };
+
+                plot_initialized.set(false);
+                plotly_binds::new_plot(
+                    plot_id,
+                    &maps::map_plot(
+                        locations.clone(),
+                        marker,
+                        map_style.basemap_style.to_plotly(),
+                    ),
+                );
+                plot_initialized.set(true);
+            }
+        }
+    };
+    use_backend_event_with_deps(on_backend_msg, map_style.clone());
+
+    // Update plot with new data points without creating a new plot
+
+    // Live updates to the plot freezes panning/zooming events, so we detect
+    // when those events are occuring and disable live updates until after.
+    let is_panning = use_state(|| false);
+    let onpointerdown = {
+        let is_panning = is_panning.clone();
+        Callback::from(move |_| is_panning.set(true))
+    };
+    let onpointerup = {
+        let is_panning = is_panning.clone();
+        Callback::from(move |_| is_panning.set(false))
+    };
+
+    // Backlog of data points to show after panning/zooming finishes
+    let backlog = use_state(Vec::new);
+    let on_backend_msg = {
+        let time_range = time_range.clone();
+        let is_panning = is_panning.clone();
+        let backlog = backlog.clone();
+        let plot_initialized = plot_initialized.clone();
+        move |msg: &ToFront| {
+            // if new location data streamed in
+            if let ToFront::LastLocation(location) = msg {
+                // if time range of data we're displaying contains the new data
+                if time_range.contains(&location.datetime) {
+                    let mut new_backlog = (*backlog).clone();
+                    new_backlog.push(location.clone());
+                    if *is_panning || !*plot_initialized {
+                        // panning/zooming active, or the plot does not yet
+                        // exist -> just update backlog
+                        backlog.set(new_backlog);
+                    } else {
+                        // not panning; display new data and clear backlog
+                        let update = ScatterMapboxUpdate::new(
+                            new_backlog.iter().map(|x| x.lat).collect(),
+                            new_backlog.iter().map(|x| x.lon).collect(),
+                            // TODO: use solid marker color for new data
+                            // play with jsfiddle first
+                            // maps::Rgba::new(255, 64, 0, 1.0),
+                        );
+                        plotly_binds::extend_trace(plot_id, update);
+                        backlog.set(Vec::new());
+                    }
+                }
+            }
+        }
+    };
+    use_backend_event_with_deps(
+        on_backend_msg,
+        (time_range.clone(), is_panning, backlog, plot_initialized),
+    );
+
+    html! {
+        <div id={plot_id} class="w-screen flex-1 min-h-0"
+            onpointerdown={onpointerdown} onpointerup={onpointerup}>
+        </div>
+    }
 }

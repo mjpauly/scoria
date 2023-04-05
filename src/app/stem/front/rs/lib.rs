@@ -19,10 +19,10 @@
 mod common;
 mod components;
 mod pages;
+mod plots;
 mod router;
 mod swift_poke;
 mod ui_state;
-mod viz;
 mod websocket;
 
 use yew::prelude::*;
@@ -46,8 +46,7 @@ pub fn App() -> Html {
 
     html! {
         // default parent style for the UI which pages inherit
-        <div class="place-content-center text-center flex flex-col \
-                    min-h-screen bg-neutral-900 \
+        <div class="text-center bg-black \
                     font-light text-neutral-200 select-none">
                     // background gradients should work behind navbar!
                     // bg-gradient-to-b from-purple-900 to-pink-900">

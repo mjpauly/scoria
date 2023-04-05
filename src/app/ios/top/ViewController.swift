@@ -37,6 +37,7 @@ class ViewController: UIViewController {
         let webView = WKWebView()
         webView.translatesAutoresizingMaskIntoConstraints = false
         webView.scrollView.bounces = false
+        webView.backgroundColor = UIColor.black  // not sure if this really helps reduce white flashes
         return webView
     }()
     
@@ -46,6 +47,8 @@ class ViewController: UIViewController {
 
         additionalSafeAreaInsets.bottom -= view.safeAreaInsets.bottom
         additionalSafeAreaInsets.top -= view.safeAreaInsets.top
+        additionalSafeAreaInsets.left -= view.safeAreaInsets.left
+        additionalSafeAreaInsets.right -= view.safeAreaInsets.right
     }
 }
 

@@ -7,8 +7,6 @@ use crate::app_state::AppState;
 const DB_PREFIX: &str = "sqlite://";
 const DB_FNAME: &str = "data.db";
 
-const VIZ_FNAME: &str = "viz.html";
-
 // Struct that contains the app directory paths.
 // Lets us keep the paths without having to pass it from Swift every function
 // call.
@@ -49,11 +47,6 @@ pub fn get_db_path_helper(documents_dir: PathBuf) -> String {
             .display()
     );
     db_path
-}
-
-/// Get the path to the vizualization file.
-pub fn get_viz_path() -> PathBuf {
-    get_documents_dir().join(VIZ_FNAME)
 }
 
 #[cfg(test)]

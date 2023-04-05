@@ -130,7 +130,6 @@ crates_repository(
         "anyhow": crate.spec(
             version = "1.0.68",
         ),
-        "plotly": crate.spec(version = "0.8.3", features = ["wasm"],),
         "actix-web": crate.spec(
             version = "4.3.0",
         ),
@@ -153,6 +152,9 @@ crates_repository(
         ),
 
         # frontend
+        "js-sys": crate.spec(version = "0.3.60",), # tied to wasm-bindgen 0.2.83
+        "plotly": crate.spec(version = "0.8.3", features = ["wasm"],),
+        "serde_json": crate.spec(version = "1.0.94",),
         "yew": crate.spec(
             version = "0.20.0",
         ),
@@ -176,7 +178,10 @@ crates_repository(
         ),
         "web-sys": crate.spec(  # last web-sys ok with wasm-bindgen 0.2.83
             version = "0.3.60",
-            features = ["Performance", "Window", "HtmlInputElement", "Location",],
+            features = [
+                "Performance", "Window", "HtmlInputElement", "Location",
+                "HtmlSelectElement",
+            ],
         ),
         "log": crate.spec(
             version = "0.4.17",
