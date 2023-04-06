@@ -20,3 +20,6 @@ user.bazelrc
 # generated development database
 /src/app/stem/dev/db
 /src/app/stem/.env
+
+# osm data
+/src/server/tiles/build
