@@ -47,6 +47,10 @@ rust_library(
     name = "front",
     srcs = glob(["rs/**/*.rs"]),
     edition = "2021",
+    compile_data = ["//:secrets"],
+    proc_macro_deps = [
+        "@stem_crate_index//:dotenvy_macro",
+    ],
     deps = [
         "@stem_crate_index//:plotly",
         "@stem_crate_index//:js-sys",

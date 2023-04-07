@@ -36,12 +36,16 @@
     - [x] marker colormap based on data value
     - [_] exclude data with x greater/less than x
     - [_] persist selection for export + queries
-- [_] more location diagnostics in sense tab
 - [x] investigate undropped websocket callbacks
+- [x] secrets stored in .env
+- [_] ability to export log
 - [_] log required: altitude, isProducedByAccessory, and isSimulatedBySoftware;
     floor, verticalAccuracy, speedAccuracy, courseAccuracy
     :: all required! don't want people to need to opt in -> reduces how much people actually collect
-- [_] profile render times
+- [_] more location diagnostics in sense tab
+- [_] construct plotly plots with serde_json's Map and Value directly, to avoid
+    limitations of having to define everything up front ([ref](https://stackoverflow.com/questions/59047280/how-to-build-json-arrays-or-objects-dynamically-with-serde-json))
+- [_] ability to set preferred units
 - [_] option to enable/disable location recording from within the app
     - [_] metadata recording of when location is enabled/disabled
 - [_] secure the UI from other apps (max 1 connection, random port, authenticate
@@ -129,6 +133,9 @@ bazel build --@rules_rust//:rustfmt.toml=//:rustfmt.toml --aspects=@rules_rust//
 - geckodriver: webdriver for testing the ui
     - `cargo install geckodriver`
     - Called automatically by `stem:int_tests`
+
+Secrets are placed in a top-level `.env` file. They are not checked into source
+control; ask for them.
 
 For compile-time checked query macros with `sqlx` we need a development database
 for `sqlx` to connect to and check queries against. Run the following command:

@@ -33,35 +33,83 @@ impl Rgba {
 /// Consists of public tile server options available in plotly natively
 #[derive(Clone, Debug, PartialEq)]
 pub enum BasemapStyle {
-    CartoDarkMatter,
-    CartoPositron,
-    OpenStreetMap,
-    StamenTerrain,
-    StamenToner,
-    StamenWatercolor,
-    WhiteBg,
+    BasicDark,
+    DatavizDark,
+    StreetsDark,
+    TopoDark,
+    OutdoorDark,
+    BasicLight,
+    DatavizLight,
+    StreetsLight,
+    TopoLight,
+    OutdoorLight,
+    Satellite,
 }
 
-static BASEMAP_STRINGS: [(BasemapStyle, &str); 7] = [
-    (BasemapStyle::CartoDarkMatter, "CartoDarkMatter"),
-    (BasemapStyle::CartoPositron, "CartoPositron"),
-    (BasemapStyle::OpenStreetMap, "OpenStreetMap"),
-    (BasemapStyle::StamenTerrain, "StamenTerrain"),
-    (BasemapStyle::StamenToner, "StamenToner"),
-    (BasemapStyle::StamenWatercolor, "StamenWatercolor"),
-    (BasemapStyle::WhiteBg, "WhiteBg"),
+// Displays according to order of this array
+static BASEMAP_STRINGS: [(BasemapStyle, &str); 11] = [
+    (BasemapStyle::BasicLight, "Basic"),
+    (BasemapStyle::DatavizLight, "Dataviz"),
+    (BasemapStyle::StreetsLight, "Streets"),
+    (BasemapStyle::TopoLight, "Topo"),
+    (BasemapStyle::OutdoorLight, "Outdoor"),
+    (BasemapStyle::BasicDark, "Dark Basic"),
+    (BasemapStyle::DatavizDark, "Dark Dataviz"),
+    (BasemapStyle::StreetsDark, "Dark Streets"),
+    (BasemapStyle::TopoDark, "Dark Topo"),
+    (BasemapStyle::OutdoorDark, "Dark Outdoor"),
+    (BasemapStyle::Satellite, "Satellite"),
 ];
 
 impl BasemapStyle {
+    fn format_maptiler_url(style: &str) -> String {
+        // get the secrets in the .env file at compile time
+        let key = dotenvy_macro::dotenv!(
+            "MAPTILER_API_KEY",
+            "Maptiler API key must be placed in top-level .env file as \
+            MAPTILER_API_KEY={key}"
+        );
+        format!(
+            "https://api.maptiler.com/maps/{}/style.json?key={}",
+            style, key
+        )
+    }
+
     pub fn to_plotly(&self) -> MapboxStyle {
         match self {
-            BasemapStyle::CartoDarkMatter => MapboxStyle::CartoDarkMatter,
-            BasemapStyle::CartoPositron => MapboxStyle::CartoPositron,
-            BasemapStyle::OpenStreetMap => MapboxStyle::OpenStreetMap,
-            BasemapStyle::StamenTerrain => MapboxStyle::StamenTerrain,
-            BasemapStyle::StamenToner => MapboxStyle::StamenToner,
-            BasemapStyle::StamenWatercolor => MapboxStyle::StamenWatercolor,
-            BasemapStyle::WhiteBg => MapboxStyle::WhiteBg,
+            BasemapStyle::BasicDark => {
+                MapboxStyle::Custom(Self::format_maptiler_url("basic-v2-dark"))
+            }
+            BasemapStyle::DatavizDark => {
+                MapboxStyle::Custom(Self::format_maptiler_url("dataviz-dark"))
+            }
+            BasemapStyle::StreetsDark => MapboxStyle::Custom(
+                Self::format_maptiler_url("streets-v2-dark"),
+            ),
+            BasemapStyle::TopoDark => {
+                MapboxStyle::Custom(Self::format_maptiler_url("topo-v2-dark"))
+            }
+            BasemapStyle::OutdoorDark => MapboxStyle::Custom(
+                Self::format_maptiler_url("outdoor-v2-dark"),
+            ),
+            BasemapStyle::BasicLight => {
+                MapboxStyle::Custom(Self::format_maptiler_url("basic-v2"))
+            }
+            BasemapStyle::DatavizLight => {
+                MapboxStyle::Custom(Self::format_maptiler_url("dataviz"))
+            }
+            BasemapStyle::StreetsLight => {
+                MapboxStyle::Custom(Self::format_maptiler_url("streets-v2"))
+            }
+            BasemapStyle::TopoLight => {
+                MapboxStyle::Custom(Self::format_maptiler_url("topo-v2"))
+            }
+            BasemapStyle::OutdoorLight => {
+                MapboxStyle::Custom(Self::format_maptiler_url("outdoor-v2"))
+            }
+            BasemapStyle::Satellite => {
+                MapboxStyle::Custom(Self::format_maptiler_url("hybrid"))
+            }
         }
     }
 }

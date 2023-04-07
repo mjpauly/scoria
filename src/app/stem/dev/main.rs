@@ -17,7 +17,7 @@ async fn main() -> Result<(), std::io::Error> {
 
     println!("Run dir: {}", std::env::current_dir().unwrap().display());
 
-    stem::local::local_setup("dev_fs/", 8081).await;
+    stem::local::local_setup_with_dev_db("dev_fs/", 8081).await;
 
     // Spawn our data generator
     tokio::spawn(data_generator());

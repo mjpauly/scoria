@@ -19,6 +19,14 @@ alias(
     actual = "@rules_rust//tools/rust_analyzer:gen_rust_project",
 )
 
+
+# Secrets are placed in a .env file which and are not tracked in source control.
+filegroup(
+    name = "secrets",
+    srcs = [".env"],
+    visibility = ["//visibility:public"],
+)
+
 # default rustfmt settings
 
 label_flag(

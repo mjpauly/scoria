@@ -1,3 +1,6 @@
+# secrets
+/.env
+
 /bazel-*
 
 user.bazelrc
@@ -18,7 +21,7 @@ user.bazelrc
 /graph_pruned.png
 
 # generated development database
-/src/app/stem/dev/db
+/src/app/stem/db
 /src/app/stem/.env
 
 # osm data

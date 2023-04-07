@@ -65,11 +65,10 @@ provisioning_profile_repository(
 
 # rules_rust
 
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
     name = "rules_rust",
-    sha256 = "d125fb75432dc3b20e9b5a19347b45ec607fabe75f98c6c4ba9badaab9c193ce",
-    urls = ["https://github.com/bazelbuild/rules_rust/releases/download/0.17.0/rules_rust-v0.17.0.tar.gz"],
+    sha256 = "950a3ad4166ae60c8ccd628d1a8e64396106e7f98361ebe91b0bcfe60d8e4b60",
+    urls = ["https://github.com/bazelbuild/rules_rust/releases/download/0.20.0/rules_rust-v0.20.0.tar.gz"],
 )
 
 load(
@@ -152,8 +151,14 @@ crates_repository(
         ),
 
         # frontend
+        "dotenvy_macro": crate.spec(version = "0.15.7",),
         "js-sys": crate.spec(version = "0.3.60",), # tied to wasm-bindgen 0.2.83
-        "plotly": crate.spec(version = "0.8.3", features = ["wasm"],),
+        # "plotly": crate.spec(version = "0.8.3", features = ["wasm"],),
+        "plotly": crate.spec(
+            git = "https://github.com/mjpauly/plotly",
+            branch = "all_new_features",
+            features = ["wasm"],
+        ),
         "serde_json": crate.spec(version = "1.0.94",),
         "yew": crate.spec(
             version = "0.20.0",
@@ -163,7 +168,9 @@ crates_repository(
         ),
         "time": crate.spec(
             version = "0.3.20",
-            features = ["local-offset", "wasm-bindgen", "formatting", "parsing"],
+            features = ["local-offset", "wasm-bindgen", "formatting", "parsing",
+                        "serde",
+            ],
         ),
         "futures": crate.spec(version = "0.3.26"),
         "gloo-net": crate.spec(version = "0.2.6"),

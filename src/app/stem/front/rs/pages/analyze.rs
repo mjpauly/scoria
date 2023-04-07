@@ -31,13 +31,13 @@ fn AnalyzeLocation() -> Html {
     let time_range = use_state(time_range_today);
     let map_style = MapStyle {
         solid_color: use_state(|| Rgba {
-            r: 255,
-            g: 64,
-            b: 0,
-            a: 0.8,
+            r: 252,
+            g: 166,
+            b: 54,
+            a: 1.0,
         }),
         marker_size: use_state(|| 6_usize),
-        basemap_style: use_state(|| BasemapStyle::StamenTerrain),
+        basemap_style: use_state(|| BasemapStyle::BasicDark),
         colored_datastream: use_state(|| ColoredDataStream::None),
     };
 
@@ -177,10 +177,18 @@ fn PlotComponent(
                         ))
                         // don't use plotly's default color scale
                         .auto_color_scale(false)
-                        .color_scale(cmaps::viridis_plotly()) // TODO: configure
+                        .color_scale(cmaps::plasma_plotly())
                         .show_scale(true) // TODO: configure
                         .opacity(map_style.solid_color.a)
                         .size(*map_style.marker_size)
+                        .color_bar(
+                            maps::map_colorbar().title(
+                                plotly::common::Title::new(
+                                    &map_style.colored_datastream.to_string(),
+                                )
+                                .side(plotly::common::Side::Top),
+                            ),
+                        )
                 };
 
                 plot_initialized.set(false);

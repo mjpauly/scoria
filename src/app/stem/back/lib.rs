@@ -156,6 +156,18 @@ pub mod local {
         init_with_port(paths, port).await
     }
 
+    /// Sets up a local filesystem and initializes stem with the provided port,
+    /// but copies the development database over to the new filesystem. This is
+    /// useful for debugging on collected data. Just Take the SQLite database
+    /// from the device, and put it in place of the development database at
+    /// stem/db/data.db.
+    /// Returns the actual port used to the caller.
+    pub async fn local_setup_with_dev_db(dir: &str, port: u16) -> u16 {
+        let paths = local_fs_setup(dir);
+        copy_dev_db(paths.documents_dir.clone());
+        init_with_port(paths, port).await
+    }
+
     /// Set up a directory for local testing. Provided argument is the name of
     /// the directory to have the filesystem under. This function clears it out
     /// if it already has contents, recreates it, copies the frontend zip bundle
@@ -211,5 +223,14 @@ pub mod local {
             fs::metadata(dest)?.permissions().mode()
         );
         Ok(())
+    }
+
+    /// Copy the development database to the local filesystem being set up. This
+    /// keeps data that was in the database, as opposed to creating a completely
+    /// new one.
+    fn copy_dev_db(documents_dir: std::path::PathBuf) {
+        let dev_db_path = "src/app/stem/db/data.db";
+        let dest = documents_dir.join("data.db");
+        fs::copy(dev_db_path, dest).unwrap();
     }
 }

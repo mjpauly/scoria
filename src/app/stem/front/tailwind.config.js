@@ -3,9 +3,10 @@ module.exports = {
   content: ["./**/*.rs"],
   theme: {
     extend: {
-      // colors: {
-          // blu: '#0a85ff',
-      // }
+      colors: {
+          //primary: '#E16462',
+          primary: '#B12A90',
+      }
     },
   },
   plugins: [],

@@ -4,7 +4,7 @@ use plotly::{
     color::Rgba,
     common::Marker,
     configuration::{Configuration, DisplayModeBar},
-    layout::{Center, Mapbox, MapboxStyle, Margin},
+    layout::{Center, Mapbox, MapboxStyle, Margin, NamedMapboxStyle},
     Layout, Plot, ScatterMapbox,
 };
 
@@ -16,10 +16,8 @@ pub fn map_plot(
     marker: Marker,
     mapbox_style: MapboxStyle,
 ) -> plotly::Plot {
-    // filter out records where accuracy is worse (larger) than 20m
-    let records_iter = records.iter().filter(|x| x.accuracy < 20.0);
-    let lats: Vec<_> = records_iter.clone().map(|x| x.lat).collect();
-    let lons: Vec<_> = records_iter.map(|x| x.lon).collect();
+    let lats: Vec<_> = records.iter().map(|x| x.lat).collect();
+    let lons: Vec<_> = records.iter().map(|x| x.lon).collect();
 
     let (lat_center, lon_center, zoom);
     let trace;
@@ -57,6 +55,16 @@ pub fn map_plot(
     plot
 }
 
+pub fn map_colorbar() -> plotly::common::ColorBar {
+    plotly::common::ColorBar::new()
+        .background_color(plotly::color::NamedColor::Black)
+        .orientation(plotly::common::Orientation::Horizontal)
+        .thickness(20)
+        .ticks(plotly::common::Ticks::Inside)
+        .x_pad(50.)
+        .y(0.)
+}
+
 /// Generate an empty plot layout without traces
 #[allow(dead_code)]
 pub fn empty_plot(marker: Marker) -> plotly::Plot {
@@ -65,7 +73,11 @@ pub fn empty_plot(marker: Marker) -> plotly::Plot {
     let trace = ScatterMapbox::new(vec![0.0], vec![0.0]).marker(marker);
     let layout = Layout::new()
         .margin(Margin::new().top(0).left(0).bottom(0).right(0))
-        .mapbox(Mapbox::new().style(MapboxStyle::StamenTerrain).zoom(1));
+        .mapbox(
+            Mapbox::new()
+                .style(MapboxStyle::Named(NamedMapboxStyle::StamenTerrain))
+                .zoom(1),
+        );
     let config = Configuration::new()
         .responsive(true)
         .display_logo(false)
