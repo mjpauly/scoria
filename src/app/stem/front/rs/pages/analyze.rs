@@ -4,7 +4,10 @@ use yew::prelude::*;
 
 use crate::common::TimeRange;
 use crate::components::{
-    map_styler::{BasemapStyle, ColoredDataStream, MapStyle, Rgba},
+    map_styler::{
+        use_check_epsln_tile_server, BasemapStyle, ColoredDataStream, MapStyle,
+        Rgba,
+    },
     time_range_picker::time_range_today,
     MapStyler, NavbarWrapper, TimeRangePicker, PRIMARY_BUTTON_STYLE,
     SECONDARY_BUTTON_STYLE,
@@ -12,12 +15,16 @@ use crate::components::{
 use crate::plots::{
     cmaps, maps, plotly_binds, scatter_mapbox_update::ScatterMapboxUpdate,
 };
+use crate::ui_state::UIState;
 use crate::websocket::{
     use_backend_event_with_deps, ToBack, ToFront, WebsocketService,
 };
 
 #[function_component]
 pub fn Analyze() -> Html {
+    // Check if the epsln tile server is up, and update the app state
+    use_check_epsln_tile_server();
+
     html! {
         <NavbarWrapper>
             <AnalyzeLocation />
@@ -31,9 +38,9 @@ fn AnalyzeLocation() -> Html {
     let time_range = use_state(time_range_today);
     let map_style = MapStyle {
         solid_color: use_state(|| Rgba {
-            r: 252,
-            g: 166,
-            b: 54,
+            r: 10,
+            g: 132,
+            b: 255,
             a: 1.0,
         }),
         marker_size: use_state(|| 6_usize),
@@ -150,6 +157,8 @@ fn PlotComponent(
         map_style,
     }: &PlotComponentProps,
 ) -> Html {
+    let state = use_context::<UIState>().unwrap();
+    let use_epsln_tile_server = *state.use_epsln_tile_server.borrow();
     // Show new plot if time range changes and new data comes from backend
 
     let plot_id = "plot-div";
@@ -197,7 +206,9 @@ fn PlotComponent(
                     &maps::map_plot(
                         locations.clone(),
                         marker,
-                        map_style.basemap_style.to_plotly(),
+                        map_style
+                            .basemap_style
+                            .to_plotly(use_epsln_tile_server),
                     ),
                 );
                 plot_initialized.set(true);

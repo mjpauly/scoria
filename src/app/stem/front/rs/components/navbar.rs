@@ -63,7 +63,7 @@ pub fn Navbar() -> Html {
         if let Some(r) = &curr_route {
             // Style the current button blue if we are on it
             if *route == *r {
-                style.push("text-sky-500");
+                style.push("text-primary");
             }
         }
         let icon_style: String = format!("mx-auto mb-1 {}", icon_scale);

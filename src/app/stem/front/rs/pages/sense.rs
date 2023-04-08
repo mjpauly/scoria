@@ -10,13 +10,16 @@ use web_sys::HtmlInputElement;
 use yew::prelude::*;
 // use yew_icons::{Icon, IconId};
 
-use crate::components::NavbarWrapper;
+use crate::components::{
+    map_styler::use_check_epsln_tile_server, NavbarWrapper,
+};
 use crate::swift_poke;
 use crate::ui_state::UIState;
 use crate::websocket::{ToBack, ToFront, WebsocketService};
 
 #[function_component]
 pub fn Sense() -> Html {
+    use_check_epsln_tile_server();
     html! {
         <>
             <LocationConfig />
@@ -33,7 +36,7 @@ fn LocationConfig() -> Html {
                 //      justify-center, which ALWAYS centers and thus cuts off
                 //      content if it's too big for the container)
                 <div class="my-auto">
-                    <h1 class="text-sky-500 text-3xl mb-6">
+                    <h1 class="text-primary text-3xl mb-6">
                         {"Location"}
                     </h1>
 
@@ -96,7 +99,7 @@ fn EnableLocation() -> Html {
                 <input type="checkbox" checked={*location_is_enabled}
                     onclick={on_click} class="mr-4"/>
                 if *location_is_enabled {
-                    <span class="text-sky-500">{"Enabled"}</span>
+                    <span class="text-primary">{"Enabled"}</span>
                 } else {
                     <span class="text-neutral-500">{"Disabled"}</span>
                 }
@@ -181,7 +184,7 @@ fn LocationDetails() -> Html {
                 </div>
 
                 <button class="rounded-lg whitespace-nowrap \
-                        py-1.5 px-3 text-sky-500 bg-neutral-800">
+                        py-1.5 px-3 text-primary bg-neutral-800">
                     {"Share SQLite log"}
                 </button>
 

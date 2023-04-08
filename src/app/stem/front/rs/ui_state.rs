@@ -15,6 +15,9 @@ pub struct UIState {
     // Location configuration
     pub location_is_enabled: Rc<RefCell<bool>>,
     pub distance_filter: Rc<RefCell<f32>>,
+
+    // Whether to use epsln tile server
+    pub use_epsln_tile_server: Rc<RefCell<bool>>,
 }
 
 impl UIState {
@@ -25,6 +28,8 @@ impl UIState {
 
             location_is_enabled: Rc::new(RefCell::new(true)),
             distance_filter: Rc::new(RefCell::new(5.0)),
+
+            use_epsln_tile_server: Rc::new(RefCell::new(false)),
         }
     }
 

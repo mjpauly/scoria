@@ -37,7 +37,7 @@ pub fn switch(routes: Route) -> Html {
         Route::TestPage => html! { <pages::TestPage /> },
         Route::NotFound => html! {
             <NavbarWrapper>
-                <h1 class="text-sky-500 text-3xl mb-6">
+                <h1 class="text-primary text-3xl mb-6">
                     { "404" }
                 </h1>
             </NavbarWrapper>
