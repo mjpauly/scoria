@@ -38,6 +38,8 @@
     - [_] persist selection for export + queries
 - [x] investigate undropped websocket callbacks
 - [x] secrets stored in .env
+- [x] secure the UI from other apps (max 1 connection, random port, authenticate
+        with number passcode)
 - [_] ability to export log
 - [_] log required: altitude, isProducedByAccessory, and isSimulatedBySoftware;
     floor, verticalAccuracy, speedAccuracy, courseAccuracy
@@ -48,8 +50,7 @@
 - [_] ability to set preferred units
 - [_] option to enable/disable location recording from within the app
     - [_] metadata recording of when location is enabled/disabled
-- [_] secure the UI from other apps (max 1 connection, random port, authenticate
-        with number passcode, shut down when not in use)
+- [_] handle app backgrounding/suspention
 - [_] low power modes
 - [_] get feedback with test flight
 - [_] publish to app store

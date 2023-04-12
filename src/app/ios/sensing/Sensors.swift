@@ -1,11 +1,12 @@
 import StemLib
 
 var myLocationManager = MyLocationManager()
-public var server_port: UInt16 = 0
+public var server_config = ServerConfig();  // struct defined in StemLib.h
 
 public func startup() {
-    // Set the app directories known to the core library
-    server_port = set_app_dirs(getDocumentsDirectory().path(),
+    // Set the app directories known to the core library and get the
+    // backend server port and secret key
+    server_config = set_app_dirs(getDocumentsDirectory().path(),
                  getLibraryDirectory().path(),
                  getTemporaryDirectoryPath(),
                  getBundlePath())

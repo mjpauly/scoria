@@ -26,7 +26,7 @@ async fn ui_interface_tests() -> Result<(), fantoccini::error::CmdError> {
 
     // Setup testing with the backend
     let server_port = test_setup("end_to_end_works/").await;
-    let base_url = format!("http://localhost:{}", server_port);
+    let base_url = format!("http://localhost:{}/123/", server_port);
     c.goto(&base_url).await?;
     // let the webapp load
     sleep(Duration::from_millis(100)).await;
@@ -63,13 +63,13 @@ async fn simple_navigation(
     base_url: String,
 ) -> Result<(), fantoccini::error::CmdError> {
     c.find(Locator::Css("#Analyze")).await?.click().await?;
-    assert_url_eq(c, base_url.clone() + "/analyze").await;
+    assert_url_eq(c, base_url.clone() + "analyze/").await;
 
     c.find(Locator::Css("#Test")).await?.click().await?;
-    assert_url_eq(c, base_url.clone() + "/test_page").await;
+    assert_url_eq(c, base_url.clone() + "test_page/").await;
 
     c.find(Locator::Css("#Sense")).await?.click().await?;
-    assert_url_eq(c, base_url + "/").await;
+    assert_url_eq(c, base_url).await;
 
     Ok(())
 }

@@ -52,8 +52,9 @@ rust_library(
         "@stem_crate_index//:dotenvy_macro",
     ],
     deps = [
-        "@stem_crate_index//:plotly",
         "@stem_crate_index//:js-sys",
+        "@stem_crate_index//:obfstr",
+        "@stem_crate_index//:plotly",
         "@stem_crate_index//:serde_json",
         "@stem_crate_index//:yew",
         "@stem_crate_index//:yew-router",

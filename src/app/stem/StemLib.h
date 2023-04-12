@@ -1,6 +1,11 @@
 #import <Foundation/Foundation.h>
 
-uint16_t set_app_dirs(
+typedef struct {
+  uint16_t port;
+  uint64_t scope;
+} ServerConfig;
+
+ServerConfig set_app_dirs(
     const char* documents_dir,
     const char* library_dir,
     const char* temp_dir,

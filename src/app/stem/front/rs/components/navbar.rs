@@ -40,13 +40,42 @@ pub fn Navbar() -> Html {
     let navigator = use_navigator().unwrap();
     let curr_route: Option<Route> = use_route();
 
+    // Retrieve the scope from the url
+    let location = web_sys::window().unwrap().location();
+    let binding = location.pathname().unwrap();
+    let scope = binding
+        .trim_matches('/')
+        .split('/')
+        .next()
+        .unwrap()
+        .to_string();
+
     // We scale the icons differently since their visual size for the same width
     // is different.
     let view_routes = vec![
         // (route, label, icon, icon_scale)
-        (Route::Sense, "Sense", IconId::BootstrapSoundwave, "h-8 w-8"),
-        (Route::Analyze, "Analyze", IconId::BootstrapMap, "h-6 w-6"),
-        (Route::TestPage, "Test", IconId::BootstrapTools, "h-6 w-6"),
+        (
+            Route::Sense {
+                scope: scope.clone(),
+            },
+            "Sense",
+            IconId::BootstrapSoundwave,
+            "h-8 w-8",
+        ),
+        (
+            Route::Analyze {
+                scope: scope.clone(),
+            },
+            "Analyze",
+            IconId::BootstrapMap,
+            "h-6 w-6",
+        ),
+        (
+            Route::TestPage { scope },
+            "Test",
+            IconId::BootstrapTools,
+            "h-6 w-6",
+        ),
     ];
 
     // Construct each button to display in the navbar

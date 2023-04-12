@@ -118,6 +118,7 @@ crates_repository(
     isolated = False,  # cache results of the previous invocation to
                        # ${HOME}/.cargo so using it is fast
     packages = {
+        "rand": crate.spec(version = "0.8.5"),
         "sqlx": crate.spec(
             version = "0.6.2",
             features = ["runtime-tokio-native-tls", "sqlite", "time", "macros"],
@@ -153,6 +154,7 @@ crates_repository(
         # frontend
         "dotenvy_macro": crate.spec(version = "0.15.7",),
         "js-sys": crate.spec(version = "0.3.60",), # tied to wasm-bindgen 0.2.83
+        "obfstr": crate.spec(version = "0.4.3",),
         # "plotly": crate.spec(version = "0.8.3", features = ["wasm"],),
         "plotly": crate.spec(
             git = "https://github.com/mjpauly/plotly",
@@ -215,7 +217,6 @@ crates_repository(
 
         # dev + testing
         "env_logger": crate.spec(version = "0.10.0",),
-        "rand": crate.spec(version = "0.8.5"),
         "reqwest": crate.spec(version = "0.11.15",),
         "tokio-tungstenite": crate.spec(version = "0.18.0",),
         "futures-util": crate.spec(version = "0.3.27",),

@@ -41,7 +41,7 @@ pub extern "C" fn set_app_dirs(
     library_dir: *const c_char,
     temp_dir: *const c_char,
     bundle_dir: *const c_char,
-) -> u16 {
+) -> server::ServerConfig {
     let paths_to_set = paths::Paths {
         documents_dir: PathBuf::from(cstr_to_string(documents_dir)),
         library_dir: PathBuf::from(cstr_to_string(library_dir)),
@@ -57,19 +57,29 @@ fn cstr_to_string(cstr: *const c_char) -> String {
     String::from_utf8_lossy(cstr.to_bytes()).to_string()
 }
 
-/// Initialize with port 0, which means the OS will assign us a free port.
-pub async fn init(init_paths: paths::Paths) -> u16 {
-    init_with_port(init_paths, 0).await
+/// Top app level initialization, using real init parameters for
+/// production.
+///
+/// Initializes with port 0, which means the OS will assign us a free port, and
+/// tells the server to generate a key behind which the backend resources are
+/// hidden.
+pub async fn init(init_paths: paths::Paths) -> server::ServerConfig {
+    init_with_port(init_paths, 0, true).await
 }
 
-/// Initializes the rust library with the given app directories.
-pub async fn init_with_port(init_paths: paths::Paths, port: u16) -> u16 {
+/// Initializes the rust library with the given app directories, port, and
+/// server security setting (secure or not).
+pub async fn init_with_port(
+    init_paths: paths::Paths,
+    port: u16,
+    secure: bool,
+) -> server::ServerConfig {
     let db = database::init_db(paths::get_db_path_helper(
         init_paths.documents_dir.clone(),
     ))
     .await
     .unwrap();
-    let port = server::run(init_paths.clone(), "127.0.0.1", port);
+    let port = server::run(init_paths.clone(), "127.0.0.1", port, secure);
     app_state::AppState::init(init_paths, db);
     port
 }
@@ -150,10 +160,12 @@ pub mod local {
     }
 
     /// Sets up a local filesystem and initializes stem with the provided port.
-    /// Returns the actual port used to the caller.
+    /// Returns the actual port used to the caller. Local development is
+    /// insecure; the scope/secret key is always set to "123". Assume the
+    /// caller knows this already so we just return the port.
     pub async fn local_setup(dir: &str, port: u16) -> u16 {
         let paths = local_fs_setup(dir);
-        init_with_port(paths, port).await
+        init_with_port(paths, port, false).await.port
     }
 
     /// Sets up a local filesystem and initializes stem with the provided port,
@@ -165,7 +177,7 @@ pub mod local {
     pub async fn local_setup_with_dev_db(dir: &str, port: u16) -> u16 {
         let paths = local_fs_setup(dir);
         copy_dev_db(paths.documents_dir.clone());
-        init_with_port(paths, port).await
+        init_with_port(paths, port, false).await.port
     }
 
     /// Set up a directory for local testing. Provided argument is the name of

@@ -11,6 +11,7 @@ rust_library(
     ],
     deps = [
         ":alloc",
+        "@stem_crate_index//:rand",
         "@stem_crate_index//:sqlx",
         "@stem_crate_index//:tokio",
         "@stem_crate_index//:anyhow",

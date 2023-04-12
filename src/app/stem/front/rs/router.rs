@@ -1,6 +1,5 @@
 //! Page router. Shows different pages according to the URL extension.
 
-use crate::components::NavbarWrapper;
 use crate::pages;
 use yew::prelude::*;
 use yew_router::prelude::*;
@@ -13,18 +12,18 @@ use yew_router::prelude::*;
 /// experience.
 #[derive(Clone, Routable, PartialEq)]
 pub enum Route {
-    #[at("/")]
-    Sense,
+    #[at("/:scope/")]
+    Sense { scope: String },
 
-    #[at("/analyze")]
-    Analyze,
+    #[at("/:scope/analyze/")]
+    Analyze { scope: String },
 
     // Test UI edge cases
-    #[at("/test_page")]
-    TestPage,
+    #[at("/:scope/test_page/")]
+    TestPage { scope: String },
 
     #[not_found]
-    #[at("/404")]
+    #[at("/404/")]
     NotFound,
 }
 
@@ -32,15 +31,13 @@ pub enum Route {
 pub fn switch(routes: Route) -> Html {
     match routes {
         // Route::Sense => html! { <h1>{ "Home" }</h1> },
-        Route::Sense => html! { <pages::Sense /> },
-        Route::Analyze => html! { <pages::Analyze /> },
-        Route::TestPage => html! { <pages::TestPage /> },
-        Route::NotFound => html! {
-            <NavbarWrapper>
-                <h1 class="text-primary text-3xl mb-6">
-                    { "404" }
+        Route::Sense { .. } => html! { <pages::Sense /> },
+        Route::Analyze { .. } => html! { <pages::Analyze /> },
+        Route::TestPage { .. } => html! { <pages::TestPage /> },
+        Route::NotFound { .. } => html! {
+                <h1 class="text-primary text-3xl mb-6 mt-16">
+                    { "Something went wrong" }
                 </h1>
-            </NavbarWrapper>
         },
     }
 }

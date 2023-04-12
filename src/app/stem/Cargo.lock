@@ -816,6 +816,7 @@ dependencies = [
  "gloo-net",
  "js-sys",
  "log",
+ "obfstr",
  "once_cell",
  "plotly",
  "rand",
@@ -1790,6 +1791,12 @@ checksum = "2819ce041d2ee131036f4fc9d6ae7ae125a3a40e97ba64d04fe799ad9dabbb44"
 dependencies = [
  "libc",
 ]
+
+[[package]]
+name = "obfstr"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e3ba2979b86cc910a6d13837ef97fef0c6b68fa807c5e014d622449db18351dc"
 
 [[package]]
 name = "once_cell"

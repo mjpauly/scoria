@@ -5,6 +5,7 @@ use std::str::FromStr;
 use std::u8;
 
 use gloo_net::http::Request;
+use obfstr::obfstr;
 use plotly::layout::MapboxStyle;
 use web_sys::{HtmlInputElement, HtmlSelectElement};
 use yew::prelude::*;
@@ -70,7 +71,9 @@ pub fn use_check_epsln_tile_server() {
     let state = use_context::<UIState>().unwrap();
     let use_epsln_state = state.use_epsln_tile_server;
     yew::platform::spawn_local(async move {
-        let result = Request::get("https://api.epsln.com/maps_ok").send().await;
+        let result = Request::get(obfstr!("https://api.epsln.com/maps_ok"))
+            .send()
+            .await;
         if let Ok(resp) = result {
             *use_epsln_state.borrow_mut() = resp.status() == 200;
         } else {
@@ -81,25 +84,31 @@ pub fn use_check_epsln_tile_server() {
 
 impl BasemapStyle {
     fn format_tile_url(style: &str, use_epsln: bool) -> String {
-        // get the secrets in the .env file at compile time
-        let maptiler_key = dotenvy_macro::dotenv!(
-            "MAPTILER_API_KEY",
-            "Maptiler API key must be placed in top-level .env file as \
-            MAPTILER_API_KEY={key}"
-        );
-        let epsln_key = dotenvy_macro::dotenv!(
-            "EPSLN_TILE_API_KEY",
-            "Epsilon API key must be placed in top-level .env file as \
-            EPSLN_TILE_API_KEY={key}"
-        );
-        let maptiler_base_url = "https://api.maptiler.com/maps";
-        let epsln_base_url = "https://api.epsln.com/maps";
-        let (base_url, key) = if use_epsln {
+        // get the secrets in the .env file at compile time and obfuscate them
+        obfstr! {
+            let maptiler_key = dotenvy_macro::dotenv!(
+                "MAPTILER_API_KEY",
+                "Maptiler API key must be placed in top-level .env file as \
+                MAPTILER_API_KEY={key}"
+            );
+            let epsln_key = dotenvy_macro::dotenv!(
+                "EPSLN_TILE_API_KEY",
+                "Epsilon API key must be placed in top-level .env file as \
+                EPSLN_TILE_API_KEY={key}"
+            );
+            let maptiler_base_url = "https://api.maptiler.com/maps";
+            let epsln_base_url = "https://api.epsln.com/maps";
+            let style_json = "style.json?key=";
+        }
+        let is_satellite = style.contains("hybrid");
+        // still use maptiler for satellite images, even if use_epsln is true
+        let (base_url, key) = if use_epsln && !is_satellite {
             (epsln_base_url, epsln_key)
         } else {
             (maptiler_base_url, maptiler_key)
         };
-        format!("{}/{}/style.json?key={}", base_url, style, key)
+        // should be https://api.url.com/maps/basic-v2/style.json?key=deadbeef
+        format!("{base_url}/{style}/{style_json}{key}")
     }
 
     fn get_style(style: &str, use_epsln: bool) -> MapboxStyle {

@@ -219,15 +219,12 @@ impl WebsocketService {
     }
 
     pub fn new() -> Self {
-        // Get the port that we connected to on the server
-        let port = web_sys::window()
-            .unwrap()
-            .location()
-            .port()
-            .unwrap()
-            .parse::<u16>()
-            .unwrap();
-        let address = format!("ws://127.0.0.1:{}/ws", port);
+        // Get the port and scope that we connected to on the server
+        let location = web_sys::window().unwrap().location();
+        let port = location.port().unwrap().parse::<u16>().unwrap();
+        let pathname = location.pathname().unwrap();
+        let scope = pathname.trim_matches('/').split('/').next().unwrap();
+        let address = format!("ws://127.0.0.1:{port}/{scope}/ws");
         log::debug!("Binding to websocket at {}", address);
 
         let ws = WebSocket::open(&address).unwrap();
