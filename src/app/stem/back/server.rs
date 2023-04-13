@@ -37,6 +37,7 @@ pub struct ServerConfig {
 #[derive(Clone)]
 pub struct FrontendKey(u64);
 
+#[allow(clippy::new_without_default)]
 impl FrontendKey {
     pub fn new() -> Self {
         Self(rand::thread_rng().next_u64())

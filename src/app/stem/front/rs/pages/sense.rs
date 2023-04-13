@@ -15,6 +15,7 @@ use crate::components::{
 };
 use crate::swift_poke;
 use crate::ui_state::UIState;
+use crate::websocket::use_backend_event;
 use crate::websocket::{ToBack, ToFront, WebsocketService};
 
 #[function_component]
@@ -129,10 +130,7 @@ fn LocationDetails() -> Html {
             _ => (),
         }
     };
-    // Generate a unique ID which doesn't change between renders since no deps
-    // are given to use_memo
-    let id = use_memo(|_| uuid::Uuid::new_v4(), ());
-    wss.subscribe(*id, Box::new(on_backend_msg));
+    use_backend_event(on_backend_msg);
 
     // send distance filter to backend
     let dist_filt = use_state_eq(|| *state.distance_filter.borrow());
@@ -148,15 +146,48 @@ fn LocationDetails() -> Html {
             input_elem.set_value("");
         })
     };
+    let now = use_state(|| time::OffsetDateTime::now_local().unwrap());
+    // update the current state of `now` every second
+    {
+        let now = now.clone();
+        yew_hooks::use_interval(
+            move || {
+                log::debug!("updated now");
+                now.set(time::OffsetDateTime::now_local().unwrap());
+            },
+            1_000,
+        );
+    }
+    let mut time_since = String::from("");
+    if let Some(loc) = &*last_loc {
+        let dur = *now - loc.datetime;
+        if dur > time::Duration::seconds(2) {
+            time_since = format!(
+                "{} ago",
+                humantime::format_duration(
+                    time::Duration::seconds(dur.whole_seconds()).unsigned_abs()
+                )
+            );
+        } else {
+            time_since = String::from("<2s ago");
+        }
+    }
     html! {
         <>
             // deref then ref since we don't want to move the data out
             if let Some(loc) = &*last_loc {
                 <p class="font-bold">
-                    {"Current Location:"}
+                    {"Last Location:"}
+                </p>
+                <p>
+                    {format!("{:.5}, {:.5}", loc.lat, loc.lon)}
+                </p>
+                <p>
+                    {format!("+/-{:.2} m, {:.2} m/s, {:.2}°",
+                             loc.accuracy, loc.speed, loc.course)}
                 </p>
                 <p class="mb-4">
-                    {format!("{:.5}, {:.5}", loc.lat, loc.lon)}
+                    {time_since}
                 </p>
 
                 if let Some(n_locs) = *locs_per_hour {
@@ -177,7 +208,7 @@ fn LocationDetails() -> Html {
                             onchange={onchange}
                             class="w-16 rounded bg-black \
                             border border-neutral-700 \
-                            placeholder:text-neutral-200" />
+                            placeholder:text-neutral-500" />
                     <p class="ml-2">
                         {"m"}
                     </p>
@@ -190,7 +221,7 @@ fn LocationDetails() -> Html {
 
             } else {
                 <p class="mb-4">
-                    {"No recent location data found."}
+                    {"No previous location data found."}
                 </p>
             }
         </>

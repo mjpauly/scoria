@@ -153,6 +153,7 @@ crates_repository(
 
         # frontend
         "dotenvy_macro": crate.spec(version = "0.15.7",),
+        "humantime": crate.spec(version = "2.1.0",),
         "js-sys": crate.spec(version = "0.3.60",), # tied to wasm-bindgen 0.2.83
         "obfstr": crate.spec(version = "0.4.3",),
         # "plotly": crate.spec(version = "0.8.3", features = ["wasm"],),
@@ -165,6 +166,7 @@ crates_repository(
         "yew": crate.spec(
             version = "0.20.0",
         ),
+        "yew-hooks": crate.spec( version = "0.2.0",),
         "yew-router": crate.spec(
             version = "0.17.0",
         ),

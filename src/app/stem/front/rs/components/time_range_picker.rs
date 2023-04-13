@@ -1,6 +1,7 @@
 //! Picker element for a date and time range, including convenience buttons for
 //! today, the past 24 hours, and the past 7 days.
 
+use time::macros::format_description;
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
 
@@ -17,9 +18,7 @@ pub fn TimeRangePicker(
     TimeRangePickerProps { time_range }: &TimeRangePickerProps,
 ) -> Html {
     // format used to put a time::OffsetDatetime into an HtmlInputElement
-    let format =
-        time::format_description::parse("[year]-[month]-[day]T[hour]:[minute]")
-            .unwrap();
+    let format = format_description!("[year]-[month]-[day]T[hour]:[minute]");
 
     let start_onchange = {
         let time_range = time_range.clone();
@@ -100,9 +99,7 @@ pub fn TimeRangePicker(
 
 /// Parse the datetime received from a type="datetime-local" html input.
 fn parse_datetime_input(val: &str) -> time::OffsetDateTime {
-    let format =
-        time::format_description::parse("[year]-[month]-[day]T[hour]:[minute]")
-            .unwrap();
+    let format = format_description!("[year]-[month]-[day]T[hour]:[minute]");
     let local_offset = time::UtcOffset::current_local_offset().unwrap();
     time::PrimitiveDateTime::parse(val, &format)
         .unwrap()

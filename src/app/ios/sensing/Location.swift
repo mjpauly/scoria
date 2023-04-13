@@ -14,7 +14,7 @@ class MyLocationManager: NSObject, CLLocationManagerDelegate, ObservableObject {
         locationManager.delegate = self
         locationManager.requestWhenInUseAuthorization()
         locationManager.requestAlwaysAuthorization()
-        locationManager.pausesLocationUpdatesAutomatically = false  // default is false but doesn't hurt to set it
+        locationManager.pausesLocationUpdatesAutomatically = false
         // need to set this along with enabling in project background capabilities to get background updates:
         locationManager.allowsBackgroundLocationUpdates = true
         locationManager.startUpdatingLocation()

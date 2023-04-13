@@ -1,5 +1,5 @@
 {
-  "checksum": "7ca3c7684e5e6618555563e1dccd80bfee03068c403d5ba44266c49c4699e7a8",
+  "checksum": "36313b203e645759d3b9b2553d18622c5893c599a917b62ad6df27b27903747a",
   "crates": {
     "actix 0.13.0": {
       "name": "actix",
@@ -4110,6 +4110,10 @@
               "target": "gloo_net"
             },
             {
+              "id": "humantime 2.1.0",
+              "target": "humantime"
+            },
+            {
               "id": "js-sys 0.3.60",
               "target": "js_sys"
             },
@@ -4188,6 +4192,10 @@
             {
               "id": "yew 0.20.0",
               "target": "yew"
+            },
+            {
+              "id": "yew-hooks 0.2.0",
+              "target": "yew_hooks"
             },
             {
               "id": "yew-router 0.17.0",
@@ -16235,16 +16243,22 @@
             "AbortSignal",
             "AddEventListenerOptions",
             "AnimationEvent",
+            "BeforeUnloadEvent",
             "BinaryType",
             "Blob",
             "BlobPropertyBag",
             "CharacterData",
             "CloseEvent",
             "CloseEventInit",
+            "Coordinates",
+            "DataTransfer",
+            "DataTransferItem",
+            "DataTransferItemList",
             "DedicatedWorkerGlobalScope",
             "Document",
             "DocumentFragment",
             "DomException",
+            "DomRectReadOnly",
             "DragEvent",
             "Element",
             "ErrorEvent",
@@ -16258,6 +16272,7 @@
             "FileReader",
             "FocusEvent",
             "FormData",
+            "Geolocation",
             "Headers",
             "History",
             "HtmlBaseElement",
@@ -16265,6 +16280,8 @@
             "HtmlElement",
             "HtmlHeadElement",
             "HtmlInputElement",
+            "HtmlLinkElement",
+            "HtmlMediaElement",
             "HtmlScriptElement",
             "HtmlSelectElement",
             "HtmlTextAreaElement",
@@ -16274,11 +16291,15 @@
             "Location",
             "MessageEvent",
             "MouseEvent",
+            "Navigator",
             "Node",
             "NodeList",
             "ObserverCallback",
             "Performance",
             "PointerEvent",
+            "Position",
+            "PositionError",
+            "PositionOptions",
             "ProgressEvent",
             "ReadableStream",
             "ReferrerPolicy",
@@ -16292,9 +16313,13 @@
             "ResponseType",
             "ShadowRoot",
             "Storage",
+            "StorageEvent",
             "SubmitEvent",
             "Text",
+            "TimeRanges",
+            "Touch",
             "TouchEvent",
+            "TouchList",
             "TransitionEvent",
             "UiEvent",
             "Url",
@@ -17502,6 +17527,73 @@
         "version": "0.20.0"
       },
       "license": "MIT OR Apache-2.0"
+    },
+    "yew-hooks 0.2.0": {
+      "name": "yew-hooks",
+      "version": "0.2.0",
+      "repository": {
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/yew-hooks/0.2.0/download",
+          "sha256": "268e2367720311f19582235f5c021702d6be8ded13b7ee8dcacc71019d055d15"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "yew_hooks",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "yew_hooks",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "deps": {
+          "common": [
+            {
+              "id": "gloo 0.8.0",
+              "target": "gloo"
+            },
+            {
+              "id": "js-sys 0.3.60",
+              "target": "js_sys"
+            },
+            {
+              "id": "log 0.4.17",
+              "target": "log"
+            },
+            {
+              "id": "serde 1.0.152",
+              "target": "serde"
+            },
+            {
+              "id": "wasm-bindgen 0.2.83",
+              "target": "wasm_bindgen"
+            },
+            {
+              "id": "wasm-bindgen-futures 0.4.33",
+              "target": "wasm_bindgen_futures"
+            },
+            {
+              "id": "web-sys 0.3.60",
+              "target": "web_sys"
+            },
+            {
+              "id": "yew 0.20.0",
+              "target": "yew"
+            }
+          ],
+          "selects": {}
+        },
+        "edition": "2021",
+        "version": "0.2.0"
+      },
+      "license": "Apache-2.0/MIT"
     },
     "yew-macro 0.20.0": {
       "name": "yew-macro",

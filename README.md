@@ -52,6 +52,8 @@
     - [_] metadata recording of when location is enabled/disabled
 - [_] handle app backgrounding/suspention
 - [_] low power modes
+    - [_] reduced accuracy modes
+    - [_] significant changes mode
 - [_] get feedback with test flight
 - [_] publish to app store
 
