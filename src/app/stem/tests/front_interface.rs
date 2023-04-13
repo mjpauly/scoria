@@ -62,11 +62,8 @@ async fn simple_navigation(
     c: &Client,
     base_url: String,
 ) -> Result<(), fantoccini::error::CmdError> {
-    c.find(Locator::Css("#Analyze")).await?.click().await?;
+    c.find(Locator::Css("#Map")).await?.click().await?;
     assert_url_eq(c, base_url.clone() + "analyze/").await;
-
-    c.find(Locator::Css("#Test")).await?.click().await?;
-    assert_url_eq(c, base_url.clone() + "test_page/").await;
 
     c.find(Locator::Css("#Sense")).await?.click().await?;
     assert_url_eq(c, base_url).await;

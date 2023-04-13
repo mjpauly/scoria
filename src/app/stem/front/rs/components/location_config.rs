@@ -120,7 +120,7 @@ pub fn LocationConfigurator() -> Html {
         <div class="max-w-fit mx-auto">
             <div class="flex items-center justify-between my-2">
                 <label for="location_enabled">
-                    {"Enable Standard Location"}
+                    {"Standard Location"}
                 </label>
                 <input type="checkbox" id="location_enabled"
                     checked={*location_enabled} onclick={enabled_on_click}
@@ -128,7 +128,7 @@ pub fn LocationConfigurator() -> Html {
             </div>
             <div class="flex items-center justify-between my-2">
                 <label for="significant_changes">
-                    {"Significant Changes Only"}
+                    {"Significant Changes"}
                 </label>
                 <input type="checkbox" id="significant_changes"
                     checked={*significant_changes} onclick={sigchange_on_click}
@@ -148,7 +148,7 @@ pub fn LocationConfigurator() -> Html {
                     class="ml-8 w-16 rounded bg-black \
                     border border-neutral-700 \
                     placeholder:text-neutral-500" />
-                <span class="mr-1">{"m"}</span>
+                <span class="mx-1">{"m"}</span>
             </div>
         </div>
         </div>

@@ -22,16 +22,20 @@ class MyLocationManager: NSObject, CLLocationManagerDelegate, ObservableObject {
     func touch() {
         print("Initializing location manager")
     }
+    
+    func requestPermissions() {
+        locationManager.requestWhenInUseAuthorization()
+        locationManager.requestAlwaysAuthorization()
+        locationManager.pausesLocationUpdatesAutomatically = false
+        // need to set this along with enabling in project background capabilities to get background updates:
+        locationManager.allowsBackgroundLocationUpdates = true
+    }
 
     // enable/disable location updating in general
     func setLocationEnabled() {
         let should_enable_location = get_location_enabled()
         if should_enable_location {
-            locationManager.requestWhenInUseAuthorization()
-            locationManager.requestAlwaysAuthorization()
-            locationManager.pausesLocationUpdatesAutomatically = false
-            // need to set this along with enabling in project background capabilities to get background updates:
-            locationManager.allowsBackgroundLocationUpdates = true
+            requestPermissions()
             locationManager.startUpdatingLocation()
         } else {
             locationManager.stopUpdatingLocation()
@@ -42,6 +46,7 @@ class MyLocationManager: NSObject, CLLocationManagerDelegate, ObservableObject {
     func setSignificantChanges() {
         let should_enable_slc = get_significant_changes()
         if should_enable_slc {
+            requestPermissions()
             locationManager.startMonitoringSignificantLocationChanges()
         } else {
             locationManager.stopMonitoringSignificantLocationChanges()

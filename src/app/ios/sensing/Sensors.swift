@@ -1,15 +1,18 @@
 import StemLib
 
 var myLocationManager = MyLocationManager()
-public var server_config = ServerConfig();  // struct defined in StemLib.h
+public var server_port: UInt16 = 0;
+public var server_scope: UInt64 = 0;
 
 public func startup() {
     // Set the app directories known to the core library and get the
     // backend server port and secret key
-    server_config = set_app_dirs(getDocumentsDirectory().path(),
+    let server_config = set_app_dirs(getDocumentsDirectory().path(),
                  getLibraryDirectory().path(),
                  getTemporaryDirectoryPath(),
                  getBundlePath())
+    server_port = server_config.port
+    server_scope = server_config.scope
     myLocationManager.touch()  // initialize the lazy global var
 }
 

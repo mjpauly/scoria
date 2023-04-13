@@ -27,8 +27,8 @@ class ViewController: UIViewController {
         let contentController = self.webView.configuration.userContentController
         contentController.add(self, name: "pokeMessageHandler")
         
-        let port = server_config.port;  // get server port from sensing module
-        let scope = server_config.scope;
+        let port = server_port  // get server port from sensing module
+        let scope = server_scope
         let url = URL(string: "http://127.0.0.1:\(port)/\(scope)/")
         let req = URLRequest(url: url!)
         webView.load(req)

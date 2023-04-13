@@ -63,17 +63,9 @@ pub fn Navbar() -> Html {
             "h-8 w-8",
         ),
         (
-            Route::Analyze {
-                scope: scope.clone(),
-            },
-            "Analyze",
+            Route::Analyze { scope },
+            "Map",
             IconId::BootstrapMap,
-            "h-6 w-6",
-        ),
-        (
-            Route::TestPage { scope },
-            "Test",
-            IconId::BootstrapTools,
             "h-6 w-6",
         ),
     ];
@@ -97,6 +89,8 @@ pub fn Navbar() -> Html {
         }
         let icon_style: String = format!("mx-auto mb-1 {}", icon_scale);
         html! {
+            // id makes it easier to automatically select the buttons in
+            // integration testing
             <button {onclick} class={style} id={label.to_string()}>
                 <Icon icon_id={*icon} class={classes!(icon_style)} />
                 { label }
@@ -104,7 +98,7 @@ pub fn Navbar() -> Html {
         }
     });
     html! {
-        <div class="flex-none grid grid-cols-3 justify-items-stretch">
+        <div class="flex-none grid grid-cols-2 justify-items-stretch">
             {for items}
         </div>
     }
