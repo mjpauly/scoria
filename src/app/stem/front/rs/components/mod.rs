@@ -1,9 +1,11 @@
 //! Module for components that are to be reused throughout the design.
 
+pub mod location_config;
 pub mod map_styler;
 pub mod navbar;
 pub mod time_range_picker;
 
+pub use location_config::LocationConfigurator;
 pub use map_styler::MapStyler;
 pub use navbar::{Navbar, NavbarWrapper};
 pub use time_range_picker::TimeRangePicker;

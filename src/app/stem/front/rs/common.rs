@@ -18,20 +18,24 @@ pub enum ToBack {
     GetState,
     SetLocationEnabled(bool), // set location enabled state
     SetDistFilt(f32),         // distance filter
+    SetSignificantChanges(bool),
+    SetLocationAccuracyMode(LocationAccuracyMode),
     GetLocationTimeRange(TimeRange),
 }
 
 /// Messages from the backend to the frontend
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum ToFront {
+    // Location configuration state
     LocationEnabled(bool),
+    DistFilt(f32),
+    SignificantChanges(bool),
+    LocationAccuracyMode(LocationAccuracyMode),
     // Send the last known location for displaying.
-    // Used to push new location updates
+    // Used to push new location updates in real time
     LastLocation(Location),
     // Number of location records recorded in the past hour
-    LocationsPastHour(i32), // TODO: roll this in will LastLocation?
-    // Minimum horizontal distance in meters before a new data point is output
-    DistFilt(f32),
+    LocationsPastHour(i32),
     LocationTimeRange(TimeRange, Vec<Location>),
 }
 
@@ -44,6 +48,16 @@ pub struct Location {
     pub speed: f64,
     pub course: f64,
     pub datetime: time::OffsetDateTime, // OffsetDateTime is timezone aware
+}
+
+#[repr(C)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Copy)]
+pub enum LocationAccuracyMode {
+    Best,
+    TenMeters,
+    HundredMeters,
+    Kilometer,
+    ThreeKilometers,
 }
 
 /// A range of times.

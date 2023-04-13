@@ -15,5 +15,8 @@ public func startup() {
 
 public func update_sensor_config() {
     // load config from backend since we got poked by the frontend
+    myLocationManager.setLocationEnabled()
+    myLocationManager.setSignificantChanges()
+    myLocationManager.setAccuracyMode()
     myLocationManager.setDistanceFilter()
 }

@@ -101,11 +101,38 @@ pub extern "C" fn log_location(
     });
 }
 
+/// Return whether location should be enabled
+#[no_mangle]
+pub extern "C" fn get_location_enabled() -> bool {
+    return *app_state::AppState::global()
+        .location_is_enabled
+        .lock()
+        .unwrap();
+}
+
 /// Return the distance filter setting
 #[no_mangle]
 pub extern "C" fn get_distance_filter() -> f32 {
     return *app_state::AppState::global()
         .distance_filter
+        .lock()
+        .unwrap();
+}
+
+/// Return whether we should only monitor significant location changes
+#[no_mangle]
+pub extern "C" fn get_significant_changes() -> bool {
+    return *app_state::AppState::global()
+        .significant_changes
+        .lock()
+        .unwrap();
+}
+
+/// Return the location accuracy mode
+#[no_mangle]
+pub extern "C" fn get_location_accuracy_mode() -> common::LocationAccuracyMode {
+    return *app_state::AppState::global()
+        .location_accuracy_mode
         .lock()
         .unwrap();
 }

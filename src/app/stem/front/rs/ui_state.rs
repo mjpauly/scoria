@@ -1,6 +1,6 @@
 //! Global state manager for the UI
 
-use crate::common::Location;
+use crate::common::{Location, LocationAccuracyMode};
 use crate::websocket::{Callback, ToFront};
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -15,6 +15,8 @@ pub struct UIState {
     // Location configuration
     pub location_is_enabled: Rc<RefCell<bool>>,
     pub distance_filter: Rc<RefCell<f32>>,
+    pub significant_changes: Rc<RefCell<bool>>,
+    pub location_accuracy_mode: Rc<RefCell<LocationAccuracyMode>>,
 
     // Whether to use epsln tile server
     pub use_epsln_tile_server: Rc<RefCell<bool>>,
@@ -26,8 +28,12 @@ impl UIState {
             last_location: Rc::new(RefCell::new(None)),
             locations_past_hour: Rc::new(RefCell::new(None)),
 
-            location_is_enabled: Rc::new(RefCell::new(true)),
+            location_is_enabled: Rc::new(RefCell::new(false)),
             distance_filter: Rc::new(RefCell::new(5.0)),
+            significant_changes: Rc::new(RefCell::new(false)),
+            location_accuracy_mode: Rc::new(RefCell::new(
+                LocationAccuracyMode::Best,
+            )),
 
             use_epsln_tile_server: Rc::new(RefCell::new(false)),
         }
@@ -47,6 +53,12 @@ impl UIState {
             }
             ToFront::DistFilt(val) => {
                 *self_clone.distance_filter.borrow_mut() = *val
+            }
+            ToFront::SignificantChanges(val) => {
+                *self_clone.significant_changes.borrow_mut() = *val
+            }
+            ToFront::LocationAccuracyMode(val) => {
+                *self_clone.location_accuracy_mode.borrow_mut() = *val
             }
             // This message handled by some other callback, and not stored here
             ToFront::LocationTimeRange(..) => (),

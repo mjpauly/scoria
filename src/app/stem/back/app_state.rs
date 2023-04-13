@@ -16,6 +16,7 @@ use std::sync::{Arc, Mutex};
 use once_cell::sync::OnceCell;
 use sqlx::SqlitePool;
 
+use crate::common::LocationAccuracyMode;
 use crate::paths::Paths;
 use crate::ws_session;
 
@@ -37,6 +38,8 @@ pub struct AppState {
 
     pub location_is_enabled: Mutex<bool>,
     pub distance_filter: Mutex<f32>,
+    pub significant_changes: Mutex<bool>,
+    pub location_accuracy_mode: Mutex<LocationAccuracyMode>,
 }
 
 impl AppState {
@@ -79,8 +82,10 @@ impl AppState {
                 paths,
                 db,
                 ws_addr: Mutex::new(None),
-                location_is_enabled: Mutex::new(true),
+                location_is_enabled: Mutex::new(false),
                 distance_filter: Mutex::new(5.0),
+                significant_changes: Mutex::new(false),
+                location_accuracy_mode: Mutex::new(LocationAccuracyMode::Best),
             }))
             .expect("Could not initialize AppState");
     }

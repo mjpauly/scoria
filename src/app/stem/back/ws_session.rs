@@ -79,6 +79,15 @@ impl WsSession {
                 *AppState::global().distance_filter.lock().unwrap() = val;
                 self.send_msg(ToFront::DistFilt(val), ctx);
             }
+            ToBack::SetSignificantChanges(val) => {
+                *AppState::global().significant_changes.lock().unwrap() = val;
+                self.send_msg(ToFront::SignificantChanges(val), ctx);
+            }
+            ToBack::SetLocationAccuracyMode(val) => {
+                *AppState::global().location_accuracy_mode.lock().unwrap() =
+                    val;
+                self.send_msg(ToFront::LocationAccuracyMode(val), ctx);
+            }
             ToBack::GetLocationTimeRange(time_range) => {
                 self.send_location_time_range(ctx, time_range);
             }

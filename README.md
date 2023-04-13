@@ -40,20 +40,20 @@
 - [x] secrets stored in .env
 - [x] secure the UI from other apps (max 1 connection, random port, authenticate
         with number passcode)
+- [x] low power modes
+    - [x] reduced accuracy modes
+    - [x] significant changes mode
+- [x] more location diagnostics in sense tab
+- [x] option to enable/disable location recording from within the app
 - [_] ability to export log
 - [_] log required: altitude, isProducedByAccessory, and isSimulatedBySoftware;
     floor, verticalAccuracy, speedAccuracy, courseAccuracy
     :: all required! don't want people to need to opt in -> reduces how much people actually collect
-- [_] more location diagnostics in sense tab
 - [_] construct plotly plots with serde_json's Map and Value directly, to avoid
     limitations of having to define everything up front ([ref](https://stackoverflow.com/questions/59047280/how-to-build-json-arrays-or-objects-dynamically-with-serde-json))
 - [_] ability to set preferred units
-- [_] option to enable/disable location recording from within the app
-    - [_] metadata recording of when location is enabled/disabled
+- [_] metadata recording of when location is enabled/disabled
 - [_] handle app backgrounding/suspention
-- [_] low power modes
-    - [_] reduced accuracy modes
-    - [_] significant changes mode
 - [_] get feedback with test flight
 - [_] publish to app store
 

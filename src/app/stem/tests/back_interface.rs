@@ -108,7 +108,7 @@ async fn backend_sends_state_when_requested_impl() {
     // We find the message within the vector since the order is not guaranteed.
     messages
         .iter()
-        .position(|x| *x == ToFront::LocationEnabled(true))
+        .position(|x| matches!(*x, ToFront::LocationEnabled(_)))
         .expect("Did not receive LocationEnabled state");
     messages
         .iter()
