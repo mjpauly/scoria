@@ -63,7 +63,8 @@ extension ViewController: WKScriptMessageHandler{
         //print(dict)  // show the dictionary containing the message we received
         
         // send the message we received back to the webapp by changing the page's text
-        guard let message = dict["message"] else {
+        //guard let message = dict["message"] else {
+        if dict["message"] == nil {
             return
         }
         

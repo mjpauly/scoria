@@ -77,7 +77,6 @@ fn LocationDetails() -> Html {
         let now = now.clone();
         yew_hooks::use_interval(
             move || {
-                log::debug!("updated now");
                 now.set(time::OffsetDateTime::now_local().unwrap());
             },
             1_000,

@@ -34,6 +34,7 @@ class MyLocationManager: NSObject, CLLocationManagerDelegate, ObservableObject {
     // enable/disable location updating in general
     func setLocationEnabled() {
         let should_enable_location = get_location_enabled()
+        print("setting location enabled to \(should_enable_location)")
         if should_enable_location {
             requestPermissions()
             locationManager.startUpdatingLocation()
@@ -45,6 +46,7 @@ class MyLocationManager: NSObject, CLLocationManagerDelegate, ObservableObject {
     // enable/disable the significant location changes service
     func setSignificantChanges() {
         let should_enable_slc = get_significant_changes()
+        print("setting enable significant change mode to \(should_enable_slc)")
         if should_enable_slc {
             requestPermissions()
             locationManager.startMonitoringSignificantLocationChanges()
@@ -56,6 +58,7 @@ class MyLocationManager: NSObject, CLLocationManagerDelegate, ObservableObject {
     // Set the minimum distance in meters the device must move horizontally before an update event is generated.
     func setDistanceFilter() {
         let dist_filt = get_distance_filter()
+        print("setting dist filt to \(dist_filt)")
         locationManager.distanceFilter = CLLocationDistance(dist_filt)
     }
 
@@ -72,6 +75,7 @@ class MyLocationManager: NSObject, CLLocationManagerDelegate, ObservableObject {
         default:
             converted = kCLLocationAccuracyBest
         }
+        print("setting accuracy to \(converted)")
         locationManager.desiredAccuracy = converted
     }
     

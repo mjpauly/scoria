@@ -14,9 +14,11 @@ use crate::common::{TimeRange, ToBack, ToFront};
 use crate::database;
 
 /// How often heartbeat pings are sent
+#[allow(dead_code)]
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
 
 /// How long before lack of client response causes a timeout
+#[allow(dead_code)]
 const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// Entry point for our websocket route
@@ -44,6 +46,7 @@ impl WsSession {
     /// (HEARTBEAT_INTERVAL).
     ///
     /// also this method checks heartbeats from client
+    #[allow(dead_code)]
     fn hb(&self, ctx: &mut ws::WebsocketContext<Self>) {
         ctx.run_interval(HEARTBEAT_INTERVAL, |act, ctx| {
             // check client heartbeats
@@ -167,8 +170,9 @@ impl Actor for WsSession {
         // set the app_state to contain the address of the websocket session
         *AppState::global().ws_addr.lock().unwrap() = Some(ctx.address());
 
-        // start heartbeat process on session start.
-        self.hb(ctx);
+        // Don't need the heartbeat; websocket is still be ok even if the
+        // frontend and backend are suspended by the OS.
+        // self.hb(ctx);
     }
 
     /// Method called on actor stop. Actor is dropped after this function.
@@ -207,6 +211,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsSession {
             }
             ws::Message::Text(text) => println!("got text {}", text),
             ws::Message::Close(reason) => {
+                println!("Closing Websocket with reason: {:?}", reason);
                 ctx.close(reason);
                 ctx.stop();
             }

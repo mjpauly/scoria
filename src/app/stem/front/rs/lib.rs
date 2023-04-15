@@ -43,6 +43,7 @@ pub fn App() -> Html {
     // Register the app state update callback first ahead of all children
     wss.subscribe(*id, state.get_update_callback());
     wss.send_msg(ToBack::GetState); // request initial state
+    wss.clone().spawn_state_updater();
 
     html! {
         // default parent style for the UI which pages inherit
