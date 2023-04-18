@@ -111,7 +111,19 @@ impl WsSession {
     fn send_state(&self, ctx: &mut ws::WebsocketContext<Self>) {
         let location_enabled =
             *AppState::global().location_is_enabled.lock().unwrap();
+        let distance_filter =
+            *AppState::global().distance_filter.lock().unwrap();
+        let significant_changes =
+            *AppState::global().significant_changes.lock().unwrap();
+        let location_accuracy_mode =
+            *AppState::global().location_accuracy_mode.lock().unwrap();
         self.send_msg(ToFront::LocationEnabled(location_enabled), ctx);
+        self.send_msg(ToFront::DistFilt(distance_filter), ctx);
+        self.send_msg(ToFront::SignificantChanges(significant_changes), ctx);
+        self.send_msg(
+            ToFront::LocationAccuracyMode(location_accuracy_mode),
+            ctx,
+        );
 
         // need a future to query the database, so we convert the future
         // into an actor which communicates back to ourselves with the

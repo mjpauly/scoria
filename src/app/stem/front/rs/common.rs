@@ -14,7 +14,6 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum ToBack {
     // Get all state values (LocationEnabled, LastLocation, LocationsPastHour,
-    // (TODO: DistFilt))
     GetState,
     SetLocationEnabled(bool), // set location enabled state
     SetDistFilt(f32),         // distance filter

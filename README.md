@@ -10,7 +10,6 @@
     - [ ] persist selection for export + queries
 - location settings
     - [ ] auto mode (switch between modes based on movement)
-- [ ] send location config when sending state from ws_session
 - [ ] ability to export log
 - [ ] log required: altitude, isProducedByAccessory, and isSimulatedBySoftware;
     floor, verticalAccuracy, speedAccuracy, courseAccuracy
@@ -77,6 +76,7 @@
 - [x] option to enable/disable location recording from within the app
 - [x] disable server on app backgrounding, restart on foregrounding
 - [x] better global UI state with yewdux
+- [x] send location config when sending state from ws_session
 
 ## Structure
 
