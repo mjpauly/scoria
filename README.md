@@ -2,6 +2,41 @@
 
 ## To Do
 
+- integration tests
+    - backend + frontend
+        - [ ] ui interactions produce desired effects (e.g. changing location
+            parameters yields correct values from swift-facing code)
+    - app-level
+        - [ ] changing location settings propagate all the way into Swift logic
+- map usability / configurability
+    - [ ] exclude data with x greater/less than x
+    - [ ] persist selection for export + queries
+- location settings
+    - [ ] auto mode (switch between modes based on movement)
+- [x] better global UI state with yewdux
+- [ ] send location config when sending state from ws_session
+- [ ] ability to export log
+- [ ] log required: altitude, isProducedByAccessory, and isSimulatedBySoftware;
+    floor, verticalAccuracy, speedAccuracy, courseAccuracy
+    :: all required! don't want people to need to opt in -> reduces how much people actually collect
+- [ ] construct plotly plots with serde_json's Map and Value directly, to avoid
+    limitations of having to define everything up front ([ref](https://stackoverflow.com/questions/59047280/how-to-build-json-arrays-or-objects-dynamically-with-serde-json))
+- [ ] ability to set preferred units
+- [ ] metadata recording of when location is enabled/disabled
+- [ ] get feedback with test flight
+- [ ] publish to app store
+
+- later features
+    - sensing: environmental noise
+    - create custom markers (space / time)
+         - lookup marker from public DB (apple maps?, openstreetmap?)
+    - perform queries
+         - visits (last time, first time, total, time spent, when visits happen)
+         - traveling (different modes, time spent, num trips, when it happens)
+         - trends
+
+## Completed
+
 - [x] refactor file tree for extensibility
 - [x] initial barebones yew UI
 - [x] refactor to WebView (storyboard instead of swiftUI base?)
@@ -17,25 +52,18 @@
 - [x] prevent unwanted scrolling in the WKWebView
 - [x] proper database migrations included in compiled source with `migrate!`
 - [x] OS-assigned server port
-- [_] integration tests
+- integration tests
     - backend only
         - [x] server health check works
         - [x] log_location persists data in database
         - [x] log_location sends new data to the UI
         - [x] websocket messages behave as expected
-    - backend + frontend
-        - [_] ui interactions produce desired effects
-    - app-level
-        - [_] changing dist_filt propagates to SwiftUI
-- [_] ~~CI pipeline~~
-- [_] map usability / configurability
+- map usability / configurability
     - [x] live map updates
     - [x] settings hidden by default, can be pulled up
     - [x] auto zoom and centering
     - [x] configurable marker color/size, map base layer
     - [x] marker colormap based on data value
-    - [_] exclude data with x greater/less than x
-    - [_] persist selection for export + queries
 - [x] investigate undropped websocket callbacks
 - [x] secrets stored in .env
 - [x] secure the UI from other apps (max 1 connection, random port, authenticate
@@ -46,26 +74,6 @@
 - [x] more location diagnostics in sense tab
 - [x] option to enable/disable location recording from within the app
 - [x] disable server on app backgrounding, restart on foregrounding
-- [_] update sense tab state on backend messages / better global UI state
-- [_] ability to export log
-- [_] log required: altitude, isProducedByAccessory, and isSimulatedBySoftware;
-    floor, verticalAccuracy, speedAccuracy, courseAccuracy
-    :: all required! don't want people to need to opt in -> reduces how much people actually collect
-- [_] construct plotly plots with serde_json's Map and Value directly, to avoid
-    limitations of having to define everything up front ([ref](https://stackoverflow.com/questions/59047280/how-to-build-json-arrays-or-objects-dynamically-with-serde-json))
-- [_] ability to set preferred units
-- [_] metadata recording of when location is enabled/disabled
-- [_] get feedback with test flight
-- [_] publish to app store
-
-- later features
-    - sensing: environmental noise
-    - create custom markers (space / time)
-         - lookup marker from public DB (apple maps?, openstreetmap?)
-    - perform queries
-         - visits (last time, first time, total, time spent, when visits happen)
-         - traveling (different modes, time spent, num trips, when it happens)
-         - trends
 
 ## Structure
 

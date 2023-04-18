@@ -1,6 +1,7 @@
 //! Analysis of collected data.
 
 use yew::prelude::*;
+use yewdux::prelude::*;
 
 use crate::common::TimeRange;
 use crate::components::{
@@ -157,8 +158,8 @@ fn PlotComponent(
         map_style,
     }: &PlotComponentProps,
 ) -> Html {
-    let state = use_context::<UIState>().unwrap();
-    let use_epsln_tile_server = *state.use_epsln_tile_server.borrow();
+    let use_epsln_tile_server =
+        use_selector(|s: &UIState| s.use_epsln_tile_server);
     // Show new plot if time range changes and new data comes from backend
 
     let plot_id = "plot-div";
@@ -208,7 +209,7 @@ fn PlotComponent(
                         marker,
                         map_style
                             .basemap_style
-                            .to_plotly(use_epsln_tile_server),
+                            .to_plotly(*use_epsln_tile_server),
                     ),
                 );
                 plot_initialized.set(true);

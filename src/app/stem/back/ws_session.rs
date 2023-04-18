@@ -214,7 +214,6 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsSession {
             }
             ws::Message::Text(text) => println!("got text {}", text),
             ws::Message::Close(reason) => {
-                println!("Closing Websocket with reason: {:?}", reason);
                 print_and_log(&format!(
                     "Closing Websocket with reason: {:?}",
                     reason

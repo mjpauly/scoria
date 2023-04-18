@@ -9,6 +9,7 @@ use obfstr::obfstr;
 use plotly::layout::MapboxStyle;
 use web_sys::{HtmlInputElement, HtmlSelectElement};
 use yew::prelude::*;
+use yewdux::prelude::*;
 
 use crate::common::Location;
 use crate::components::{RANGE_INPUT_STYLE, SELECT_STYLE};
@@ -68,16 +69,18 @@ static BASEMAP_STRINGS: [(BasemapStyle, &str); 11] = [
 /// frontend state to get tiles from it.
 #[hook]
 pub fn use_check_epsln_tile_server() {
-    let state = use_context::<UIState>().unwrap();
-    let use_epsln_state = state.use_epsln_tile_server;
+    let dispatch = Dispatch::<UIState>::new();
     yew::platform::spawn_local(async move {
         let result = Request::get(obfstr!("https://api.epsln.com/maps_ok"))
             .send()
             .await;
         if let Ok(resp) = result {
-            *use_epsln_state.borrow_mut() = resp.status() == 200;
+            dispatch.reduce_mut(|s: &mut UIState| {
+                s.use_epsln_tile_server = resp.status() == 200
+            });
         } else {
-            *use_epsln_state.borrow_mut() = false;
+            dispatch
+                .reduce_mut(|s: &mut UIState| s.use_epsln_tile_server = false);
         }
     });
 }

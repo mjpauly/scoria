@@ -1,5 +1,5 @@
 {
-  "checksum": "36313b203e645759d3b9b2553d18622c5893c599a917b62ad6df27b27903747a",
+  "checksum": "2fb10f34b29527a25146f4d10444ba4131ebe544d9a6d668d2a28e5083d5eb72",
   "crates": {
     "actix 0.13.0": {
       "name": "actix",
@@ -1618,6 +1618,43 @@
       },
       "license": "MIT OR Apache-2.0"
     },
+    "anymap 1.0.0-beta.2": {
+      "name": "anymap",
+      "version": "1.0.0-beta.2",
+      "repository": {
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/anymap/1.0.0-beta.2/download",
+          "sha256": "8f1f8f5a6f3d50d89e3797d7593a50f96bb2aaa20ca0cc7be1fb673232c91d72"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "anymap",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "anymap",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "crate_features": {
+          "common": [
+            "default",
+            "std"
+          ],
+          "selects": {}
+        },
+        "edition": "2018",
+        "version": "1.0.0-beta.2"
+      },
+      "license": "BlueOak-1.0.0 OR MIT OR Apache-2.0"
+    },
     "anymap2 0.13.0": {
       "name": "anymap2",
       "version": "0.13.0",
@@ -1900,6 +1937,71 @@
         "version": "0.12.2"
       },
       "license": "MIT/Apache-2.0"
+    },
+    "async-trait 0.1.66": {
+      "name": "async-trait",
+      "version": "0.1.66",
+      "repository": {
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/async-trait/0.1.66/download",
+          "sha256": "b84f9ebcc6c1f5b8cb160f6990096a5c127f423fcb6e1ccc46c370cbdfb75dfc"
+        }
+      },
+      "targets": [
+        {
+          "ProcMacro": {
+            "crate_name": "async_trait",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        },
+        {
+          "BuildScript": {
+            "crate_name": "build_script_build",
+            "crate_root": "build.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "async_trait",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "deps": {
+          "common": [
+            {
+              "id": "async-trait 0.1.66",
+              "target": "build_script_build"
+            },
+            {
+              "id": "proc-macro2 1.0.50",
+              "target": "proc_macro2"
+            },
+            {
+              "id": "quote 1.0.23",
+              "target": "quote"
+            },
+            {
+              "id": "syn 1.0.107",
+              "target": "syn"
+            }
+          ],
+          "selects": {}
+        },
+        "edition": "2018",
+        "version": "0.1.66"
+      },
+      "build_script_attrs": {
+        "data_glob": [
+          "**"
+        ]
+      },
+      "license": "MIT OR Apache-2.0"
     },
     "atoi 1.0.0": {
       "name": "atoi",
@@ -3730,6 +3832,61 @@
       },
       "license": "MIT OR Apache-2.0"
     },
+    "darling 0.13.4": {
+      "name": "darling",
+      "version": "0.13.4",
+      "repository": {
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/darling/0.13.4/download",
+          "sha256": "a01d95850c592940db9b8194bc39f4bc0e89dee5c4265e4b1807c34a9aba453c"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "darling",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "darling",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "crate_features": {
+          "common": [
+            "default",
+            "suggestions"
+          ],
+          "selects": {}
+        },
+        "deps": {
+          "common": [
+            {
+              "id": "darling_core 0.13.4",
+              "target": "darling_core"
+            }
+          ],
+          "selects": {}
+        },
+        "edition": "2018",
+        "proc_macro_deps": {
+          "common": [
+            {
+              "id": "darling_macro 0.13.4",
+              "target": "darling_macro"
+            }
+          ],
+          "selects": {}
+        },
+        "version": "0.13.4"
+      },
+      "license": "MIT"
+    },
     "darling 0.14.3": {
       "name": "darling",
       "version": "0.14.3",
@@ -3782,6 +3939,72 @@
           "selects": {}
         },
         "version": "0.14.3"
+      },
+      "license": "MIT"
+    },
+    "darling_core 0.13.4": {
+      "name": "darling_core",
+      "version": "0.13.4",
+      "repository": {
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/darling_core/0.13.4/download",
+          "sha256": "859d65a907b6852c9361e3185c862aae7fafd2887876799fa55f5f99dc40d610"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "darling_core",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "darling_core",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "crate_features": {
+          "common": [
+            "strsim",
+            "suggestions"
+          ],
+          "selects": {}
+        },
+        "deps": {
+          "common": [
+            {
+              "id": "fnv 1.0.7",
+              "target": "fnv"
+            },
+            {
+              "id": "ident_case 1.0.1",
+              "target": "ident_case"
+            },
+            {
+              "id": "proc-macro2 1.0.50",
+              "target": "proc_macro2"
+            },
+            {
+              "id": "quote 1.0.23",
+              "target": "quote"
+            },
+            {
+              "id": "strsim 0.10.0",
+              "target": "strsim"
+            },
+            {
+              "id": "syn 1.0.107",
+              "target": "syn"
+            }
+          ],
+          "selects": {}
+        },
+        "edition": "2018",
+        "version": "0.13.4"
       },
       "license": "MIT"
     },
@@ -3848,6 +4071,53 @@
         },
         "edition": "2018",
         "version": "0.14.3"
+      },
+      "license": "MIT"
+    },
+    "darling_macro 0.13.4": {
+      "name": "darling_macro",
+      "version": "0.13.4",
+      "repository": {
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/darling_macro/0.13.4/download",
+          "sha256": "9c972679f83bdf9c42bd905396b6c3588a843a17f0f16dfcfa3e2c5d57441835"
+        }
+      },
+      "targets": [
+        {
+          "ProcMacro": {
+            "crate_name": "darling_macro",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "darling_macro",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "deps": {
+          "common": [
+            {
+              "id": "darling_core 0.13.4",
+              "target": "darling_core"
+            },
+            {
+              "id": "quote 1.0.23",
+              "target": "quote"
+            },
+            {
+              "id": "syn 1.0.107",
+              "target": "syn"
+            }
+          ],
+          "selects": {}
+        },
+        "edition": "2018",
+        "version": "0.13.4"
       },
       "license": "MIT"
     },
@@ -4204,6 +4474,10 @@
             {
               "id": "yew_icons 0.7.0",
               "target": "yew_icons"
+            },
+            {
+              "id": "yewdux 0.9.2",
+              "target": "yewdux"
             },
             {
               "id": "zip 0.6.4",
@@ -12414,6 +12688,7 @@
             "alloc",
             "default",
             "derive",
+            "rc",
             "serde_derive",
             "std"
           ],
@@ -17834,6 +18109,155 @@
         "version": "0.7.0"
       },
       "license": "MIT"
+    },
+    "yewdux 0.9.2": {
+      "name": "yewdux",
+      "version": "0.9.2",
+      "repository": {
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/yewdux/0.9.2/download",
+          "sha256": "653ba356bc60d1804c28ec6cc8ddac2741c686bde2a65074d07faba735914464"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "yewdux",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "yewdux",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "crate_features": {
+          "common": [
+            "default",
+            "future"
+          ],
+          "selects": {}
+        },
+        "deps": {
+          "common": [
+            {
+              "id": "anymap 1.0.0-beta.2",
+              "target": "anymap"
+            },
+            {
+              "id": "log 0.4.17",
+              "target": "log"
+            },
+            {
+              "id": "serde 1.0.152",
+              "target": "serde"
+            },
+            {
+              "id": "serde_json 1.0.94",
+              "target": "serde_json"
+            },
+            {
+              "id": "slab 0.4.7",
+              "target": "slab"
+            },
+            {
+              "id": "thiserror 1.0.38",
+              "target": "thiserror"
+            },
+            {
+              "id": "web-sys 0.3.60",
+              "target": "web_sys"
+            },
+            {
+              "id": "yew 0.20.0",
+              "target": "yew"
+            }
+          ],
+          "selects": {
+            "cfg(target_arch = \"wasm32\")": [
+              {
+                "id": "wasm-bindgen 0.2.83",
+                "target": "wasm_bindgen"
+              }
+            ]
+          }
+        },
+        "edition": "2021",
+        "proc_macro_deps": {
+          "common": [
+            {
+              "id": "async-trait 0.1.66",
+              "target": "async_trait"
+            },
+            {
+              "id": "yewdux-macros 0.9.2",
+              "target": "yewdux_macros"
+            }
+          ],
+          "selects": {}
+        },
+        "version": "0.9.2"
+      },
+      "license": "MIT OR Apache-2.0"
+    },
+    "yewdux-macros 0.9.2": {
+      "name": "yewdux-macros",
+      "version": "0.9.2",
+      "repository": {
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/yewdux-macros/0.9.2/download",
+          "sha256": "25bcd923aceaa85cb4affad8657cc36e3d6b6932740e711574182f7817492739"
+        }
+      },
+      "targets": [
+        {
+          "ProcMacro": {
+            "crate_name": "yewdux_macros",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "yewdux_macros",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "deps": {
+          "common": [
+            {
+              "id": "darling 0.13.4",
+              "target": "darling"
+            },
+            {
+              "id": "proc-macro-error 1.0.4",
+              "target": "proc_macro_error"
+            },
+            {
+              "id": "proc-macro2 1.0.50",
+              "target": "proc_macro2"
+            },
+            {
+              "id": "quote 1.0.23",
+              "target": "quote"
+            },
+            {
+              "id": "syn 1.0.107",
+              "target": "syn"
+            }
+          ],
+          "selects": {}
+        },
+        "edition": "2021",
+        "version": "0.9.2"
+      },
+      "license": "MIT OR Apache-2.0"
     },
     "zip 0.6.4": {
       "name": "zip",

@@ -5,6 +5,7 @@ use std::str::FromStr;
 
 use web_sys::{HtmlInputElement, HtmlSelectElement};
 use yew::prelude::*;
+use yewdux::prelude::*;
 
 use crate::common::LocationAccuracyMode;
 use crate::components::SELECT_STYLE;
@@ -51,45 +52,40 @@ impl std::str::FromStr for LocationAccuracyMode {
 #[function_component]
 pub fn LocationConfigurator() -> Html {
     let wss = use_context::<WebsocketService>().unwrap();
-    let state = use_context::<UIState>().unwrap();
-    let location_enabled = use_state(|| *state.location_is_enabled.borrow());
-    let significant_changes = use_state(|| *state.significant_changes.borrow());
-    let accuracy_mode = use_state(|| *state.location_accuracy_mode.borrow());
-    let dist_filt = use_state_eq(|| *state.distance_filter.borrow());
+    let dispatch = Dispatch::<UIState>::new();
+    let location_enabled = use_selector(|s: &UIState| s.location_is_enabled);
+    let significant_changes = use_selector(|s: &UIState| s.significant_changes);
+    let accuracy_mode = use_selector(|s: &UIState| s.location_accuracy_mode);
+    let dist_filt = use_selector(|s: &UIState| s.distance_filter);
 
     // enable/disable location
     let enabled_on_click = {
-        let location_enabled = location_enabled.clone();
         let wss = wss.clone();
-        Callback::from(move |_e: MouseEvent| {
-            let new_val = !*location_enabled;
-            location_enabled.set(new_val);
-            wss.send_msg(ToBack::SetLocationEnabled(new_val));
+        dispatch.reduce_mut_callback(move |s: &mut UIState| {
+            s.location_is_enabled = !s.location_is_enabled;
+            wss.send_msg(ToBack::SetLocationEnabled(s.location_is_enabled));
             swift_poke::poke(); // notify swift to get new value from backend
         })
     };
 
     // enable/disable significant changes mode
     let sigchange_on_click = {
-        let significant_changes = significant_changes.clone();
         let wss = wss.clone();
-        Callback::from(move |_e: MouseEvent| {
-            let new_val = !*significant_changes;
-            significant_changes.set(new_val);
-            wss.send_msg(ToBack::SetSignificantChanges(new_val));
+        dispatch.reduce_mut_callback(move |s: &mut UIState| {
+            s.significant_changes = !s.significant_changes;
+            wss.send_msg(ToBack::SetSignificantChanges(s.significant_changes));
             swift_poke::poke();
         })
     };
 
     // accuracy mode
     let accuracy_mode_onchange = {
-        let accuracy_mode = accuracy_mode.clone();
         let wss = wss.clone();
-        Callback::from(move |e: Event| {
+        dispatch.reduce_mut_callback_with(move |s: &mut UIState, e: Event| {
             let elem: HtmlSelectElement = e.target_dyn_into().unwrap();
             let val: &str = &elem.value();
             let new_mode = LocationAccuracyMode::from_str(val).unwrap();
-            accuracy_mode.set(new_mode);
+            s.location_accuracy_mode = new_mode;
             wss.send_msg(ToBack::SetLocationAccuracyMode(new_mode));
             swift_poke::poke();
         })
@@ -102,19 +98,17 @@ pub fn LocationConfigurator() -> Html {
         }
     });
 
-    // distasnce filter
-    let dist_filt_onchange = {
-        let dist_filt = dist_filt.clone();
-        Callback::from(move |e: Event| {
-            let input_elem: HtmlInputElement = e.target_dyn_into().unwrap();
-            if let Ok(val) = input_elem.value().parse::<f32>() {
-                dist_filt.set(val);
+    let dist_filt_onchange =
+        dispatch.reduce_mut_callback_with(move |s: &mut UIState, e: Event| {
+            let elem: HtmlInputElement = e.target_dyn_into().unwrap();
+            if let Ok(val) = elem.value().parse::<f32>() {
+                s.distance_filter = val;
                 wss.send_msg(ToBack::SetDistFilt(val));
-                swift_poke::poke(); // tell swift code to get new dist filt
+                swift_poke::poke();
             }
-            input_elem.set_value("");
-        })
-    };
+            elem.set_value("");
+        });
+
     html! {
         <div class="mt-1 mb-1 flex">
         <div class="max-w-fit mx-auto">

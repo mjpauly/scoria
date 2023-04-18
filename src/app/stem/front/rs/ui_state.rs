@@ -1,75 +1,67 @@
 //! Global state manager for the UI
 
+use yewdux::prelude::*;
+
 use crate::common::{Location, LocationAccuracyMode};
 use crate::websocket::{Callback, ToFront};
-use std::cell::RefCell;
-use std::rc::Rc;
 
-// #[derive(Clone, PartialEq)]
-#[derive(Clone)]
+#[derive(Debug, Clone, PartialEq, Store)]
 pub struct UIState {
     // Location state
-    pub last_location: Rc<RefCell<Option<Location>>>,
-    pub locations_past_hour: Rc<RefCell<Option<i32>>>,
+    pub last_location: Option<Location>,
+    pub locations_past_hour: Option<i32>,
 
     // Location configuration
-    pub location_is_enabled: Rc<RefCell<bool>>,
-    pub distance_filter: Rc<RefCell<f32>>,
-    pub significant_changes: Rc<RefCell<bool>>,
-    pub location_accuracy_mode: Rc<RefCell<LocationAccuracyMode>>,
+    pub location_is_enabled: bool,
+    pub distance_filter: f32,
+    pub significant_changes: bool,
+    pub location_accuracy_mode: LocationAccuracyMode,
 
     // Whether to use epsln tile server
-    pub use_epsln_tile_server: Rc<RefCell<bool>>,
+    pub use_epsln_tile_server: bool,
+}
+
+impl Default for UIState {
+    fn default() -> Self {
+        Self {
+            last_location: None,
+            locations_past_hour: None,
+
+            location_is_enabled: false,
+            distance_filter: 5.0,
+            significant_changes: false,
+            location_accuracy_mode: LocationAccuracyMode::Best,
+
+            use_epsln_tile_server: false,
+        }
+    }
 }
 
 impl UIState {
-    pub fn new() -> Self {
-        Self {
-            last_location: Rc::new(RefCell::new(None)),
-            locations_past_hour: Rc::new(RefCell::new(None)),
-
-            location_is_enabled: Rc::new(RefCell::new(false)),
-            distance_filter: Rc::new(RefCell::new(5.0)),
-            significant_changes: Rc::new(RefCell::new(false)),
-            location_accuracy_mode: Rc::new(RefCell::new(
-                LocationAccuracyMode::Best,
-            )),
-
-            use_epsln_tile_server: Rc::new(RefCell::new(false)),
-        }
-    }
-
-    pub fn get_update_callback(&self) -> Callback {
-        let self_clone = self.clone();
+    pub fn get_update_callback() -> Callback {
+        let dispatch = Dispatch::<UIState>::new();
         let callback = move |msg: &ToFront| match msg {
             ToFront::LastLocation(val) => {
-                *self_clone.last_location.borrow_mut() = Some(val.clone())
+                dispatch.reduce_mut(|s| s.last_location = Some(val.clone()))
             }
             ToFront::LocationsPastHour(val) => {
-                *self_clone.locations_past_hour.borrow_mut() = Some(*val)
+                dispatch.reduce_mut(|s| s.locations_past_hour = Some(*val))
             }
             ToFront::LocationEnabled(val) => {
-                *self_clone.location_is_enabled.borrow_mut() = *val
+                dispatch.reduce_mut(|s| s.location_is_enabled = *val)
             }
             ToFront::DistFilt(val) => {
-                *self_clone.distance_filter.borrow_mut() = *val
+                dispatch.reduce_mut(|s| s.distance_filter = *val)
             }
             ToFront::SignificantChanges(val) => {
-                *self_clone.significant_changes.borrow_mut() = *val
+                dispatch.reduce_mut(|s| s.significant_changes = *val)
             }
             ToFront::LocationAccuracyMode(val) => {
-                *self_clone.location_accuracy_mode.borrow_mut() = *val
+                dispatch.reduce_mut(|s| s.location_accuracy_mode = *val)
             }
-            // This message handled by some other callback, and not stored here
+            // This message handled by other callbacks, and not stored globally
             ToFront::LocationTimeRange(..) => (),
         };
         Box::new(callback)
-    }
-}
-
-#[allow(unused_variables)]
-impl PartialEq for UIState {
-    fn eq(&self, other: &Self) -> bool {
-        true
     }
 }

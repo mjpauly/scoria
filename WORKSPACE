@@ -165,11 +165,13 @@ crates_repository(
         "serde_json": crate.spec(version = "1.0.94",),
         "yew": crate.spec(
             version = "0.20.0",
+            features = ["csr"],
         ),
         "yew-hooks": crate.spec( version = "0.2.0",),
         "yew-router": crate.spec(
             version = "0.17.0",
         ),
+        "yewdux": crate.spec( version = "0.9.2",),
         "time": crate.spec(
             version = "0.3.20",
             features = ["local-offset", "wasm-bindgen", "formatting", "parsing",

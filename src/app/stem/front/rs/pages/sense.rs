@@ -7,14 +7,13 @@
 // );
 
 use yew::prelude::*;
+use yewdux::prelude::*;
 
 use crate::components::{
     map_styler::use_check_epsln_tile_server, LocationConfigurator,
     NavbarWrapper,
 };
 use crate::ui_state::UIState;
-use crate::websocket::use_backend_event;
-use crate::websocket::ToFront;
 
 #[function_component]
 pub fn Sense() -> Html {
@@ -53,22 +52,9 @@ fn Location() -> Html {
 /// recently.
 #[function_component]
 fn LocationDetails() -> Html {
-    let state = use_context::<UIState>().unwrap();
-    let last_loc = use_state_eq(|| state.last_location.borrow().clone());
-    let locs_per_hour = use_state_eq(|| *state.locations_past_hour.borrow());
-
-    // Subscribe to backend updates on new location data and number of locations
-    // per hour
-    let on_backend_msg = {
-        let last_loc = last_loc.clone();
-        let locs_per_hour = locs_per_hour.clone();
-        move |msg: &ToFront| match msg {
-            ToFront::LastLocation(val) => last_loc.set(Some(val.clone())),
-            ToFront::LocationsPastHour(val) => locs_per_hour.set(Some(*val)),
-            _ => (),
-        }
-    };
-    use_backend_event(on_backend_msg);
+    let last_loc = use_selector(|state: &UIState| state.last_location.clone());
+    let locs_per_hour =
+        use_selector(|state: &UIState| state.locations_past_hour);
 
     // Update the current state of `now` every second, so things update even if
     // there's no new data coming from the backend
@@ -79,7 +65,7 @@ fn LocationDetails() -> Html {
             move || {
                 now.set(time::OffsetDateTime::now_local().unwrap());
             },
-            1_000,
+            1_000, // millis
         );
     }
     // Time since last location data in human readable form

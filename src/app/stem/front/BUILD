@@ -60,6 +60,7 @@ rust_library(
         "@stem_crate_index//:yew",
         "@stem_crate_index//:yew-hooks",
         "@stem_crate_index//:yew-router",
+        "@stem_crate_index//:yewdux",
         "@stem_crate_index//:time",
         "@stem_crate_index//:futures",
         "@stem_crate_index//:gloo-net",

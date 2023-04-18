@@ -37,11 +37,11 @@ pub fn App() -> Html {
     // Start our websocket service, so we use it as a context available to all
     // components with `use_context`
     let wss = WebsocketService::new();
-    let state = UIState::new();
     // Create an id for this function component to associate our callback with
     let id = use_memo(|_| uuid::Uuid::new_v4(), ());
     // Register the app state update callback first ahead of all children
-    wss.subscribe(*id, state.get_update_callback());
+    wss.subscribe(*id, UIState::get_update_callback());
+    // Spawn a future that regularly requests updated state info from backend
     wss.clone().spawn_state_requester();
 
     html! {
@@ -51,11 +51,9 @@ pub fn App() -> Html {
                     // background gradients should work behind navbar!
                     // bg-gradient-to-b from-purple-900 to-pink-900">
             <ContextProvider<WebsocketService> context={wss}>
-            <ContextProvider<UIState> context={state}>
                 <BrowserRouter>
                     <Switch<router::Route> render={router::switch} />
                 </BrowserRouter>
-            </ContextProvider<UIState>>
             </ContextProvider<WebsocketService>>
         </div>
     }
