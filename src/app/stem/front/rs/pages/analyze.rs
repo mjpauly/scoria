@@ -130,11 +130,11 @@ fn SettingsPicker(
     html! {
         <div class="flex my-1">
             <div class="mx-auto">
-                <button onclick={style_onclick}
+                <button onclick={style_onclick} id="map_style_btn"
                     class={format!("m-1 {}", style_button_style)}>
                         {"Map Style"}
                 </button>
-                <button onclick={time_onclick}
+                <button onclick={time_onclick} id="time_range_btn"
                     class={format!("m-1 {}", time_button_style)}>
                         {"Time Range"}
                 </button>
@@ -176,7 +176,7 @@ fn PlotComponent(
                         .color(map_style.solid_color.as_plotly())
                         .size(*map_style.marker_size)
                 } else {
-                    plotly::common::Marker::new()
+                    let mut marker = plotly::common::Marker::new()
                         .color(maps::Colorvec(
                             locations
                                 .iter()
@@ -187,18 +187,30 @@ fn PlotComponent(
                         ))
                         // don't use plotly's default color scale
                         .auto_color_scale(false)
-                        .color_scale(cmaps::plasma_plotly())
                         .show_scale(true) // TODO: configure
                         .opacity(map_style.solid_color.a)
-                        .size(*map_style.marker_size)
-                        .color_bar(
-                            maps::map_colorbar().title(
-                                plotly::common::Title::new(
-                                    &map_style.colored_datastream.to_string(),
-                                )
-                                .side(plotly::common::Side::Top),
-                            ),
+                        .size(*map_style.marker_size);
+                    let colorbar = maps::map_colorbar().title(
+                        plotly::common::Title::new(
+                            &map_style.colored_datastream.to_string(),
                         )
+                        .side(plotly::common::Side::Top),
+                    );
+                    if *map_style.colored_datastream
+                        == ColoredDataStream::Course
+                    {
+                        // special case for circular cmap
+                        marker = marker
+                            .color_scale(cmaps::twilight_plotly())
+                            .cmin(0.0)
+                            .cmax(360.0)
+                            .color_bar(colorbar.dtick(90.0));
+                    } else {
+                        marker = marker
+                            .color_scale(cmaps::plasma_plotly())
+                            .color_bar(colorbar);
+                    }
+                    marker
                 };
 
                 plot_initialized.set(false);

@@ -3,9 +3,6 @@
 ## To Do
 
 - integration tests
-    - backend + frontend
-        - [ ] ui interactions produce desired effects (e.g. changing location
-            parameters yields correct values from swift-facing code)
     - app-level
         - [ ] changing location settings propagate all the way into Swift logic
 - map usability / configurability
@@ -13,16 +10,18 @@
     - [ ] persist selection for export + queries
 - location settings
     - [ ] auto mode (switch between modes based on movement)
-- [x] better global UI state with yewdux
 - [ ] send location config when sending state from ws_session
 - [ ] ability to export log
 - [ ] log required: altitude, isProducedByAccessory, and isSimulatedBySoftware;
     floor, verticalAccuracy, speedAccuracy, courseAccuracy
     :: all required! don't want people to need to opt in -> reduces how much people actually collect
+- [ ] log more metadata
+    - [ ] location config metadata (when settings were changed)
+    - [ ] app usage metadata (when app launched, quit, foregrounded, backgrounded)
+    - [ ] data viewership (what map data viewed and when)
 - [ ] construct plotly plots with serde_json's Map and Value directly, to avoid
     limitations of having to define everything up front ([ref](https://stackoverflow.com/questions/59047280/how-to-build-json-arrays-or-objects-dynamically-with-serde-json))
 - [ ] ability to set preferred units
-- [ ] metadata recording of when location is enabled/disabled
 - [ ] get feedback with test flight
 - [ ] publish to app store
 
@@ -58,6 +57,9 @@
         - [x] log_location persists data in database
         - [x] log_location sends new data to the UI
         - [x] websocket messages behave as expected
+    - backend + frontend
+        - [x] ui interactions produce desired effects (e.g. changing location
+            parameters yields correct values from swift-facing code)
 - map usability / configurability
     - [x] live map updates
     - [x] settings hidden by default, can be pulled up
@@ -74,6 +76,7 @@
 - [x] more location diagnostics in sense tab
 - [x] option to enable/disable location recording from within the app
 - [x] disable server on app backgrounding, restart on foregrounding
+- [x] better global UI state with yewdux
 
 ## Structure
 
