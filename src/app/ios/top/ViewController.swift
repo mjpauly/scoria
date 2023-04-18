@@ -26,10 +26,15 @@ class ViewController: UIViewController {
         
         let contentController = self.webView.configuration.userContentController
         contentController.add(self, name: "pokeMessageHandler")
-        
+    }
+    
+    func reload() {
+        // load the frontend webapp
         let port = server_port  // get server port from sensing module
         let scope = server_scope
-        let url = URL(string: "http://127.0.0.1:\(port)/\(scope)/")
+        let urlstr = "http://127.0.0.1:\(port)/\(scope)/"
+        print_and_log(s: "Reloading UI with url \(urlstr)")
+        let url = URL(string: urlstr)
         let req = URLRequest(url: url!)
         webView.load(req)
     }

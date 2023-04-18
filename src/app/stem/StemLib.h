@@ -7,12 +7,17 @@ typedef struct {
   uint64_t scope;
 } ServerConfig;
 
-ServerConfig set_app_dirs(
+void set_app_dirs(
     const char* documents_dir,
     const char* library_dir,
     const char* temp_dir,
     const char* bundle_dir
 );
+
+// handle app state changes
+
+void handle_enter_background(void);
+ServerConfig handle_enter_foreground(void);
 
 // sensor logging
 

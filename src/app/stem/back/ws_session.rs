@@ -11,6 +11,7 @@ use std::time::{Duration, Instant};
 
 use crate::app_state::AppState;
 use crate::common::{TimeRange, ToBack, ToFront};
+use crate::core::print_and_log;
 use crate::database;
 
 /// How often heartbeat pings are sent
@@ -28,7 +29,7 @@ pub async fn ws_route(
 ) -> Result<HttpResponse, Error> {
     // Disallow another websocket connection if one is already active
     if AppState::global().ws_addr.lock().unwrap().is_some() {
-        println!("Additional UI websocket connection rejected.");
+        print_and_log("Additional UI websocket connection rejected.");
         return Ok(HttpResponse::Unauthorized()
             .body("Only one UI connection allowed."));
     }
@@ -52,7 +53,9 @@ impl WsSession {
             // check client heartbeats
             if Instant::now().duration_since(act.hb) > CLIENT_TIMEOUT {
                 // heartbeat timed out
-                println!("Websocket Client heartbeat failed, disconnecting!");
+                print_and_log(
+                    "Websocket Client heartbeat failed, disconnecting!",
+                );
 
                 // stop actor
                 ctx.stop();
@@ -170,8 +173,8 @@ impl Actor for WsSession {
         // set the app_state to contain the address of the websocket session
         *AppState::global().ws_addr.lock().unwrap() = Some(ctx.address());
 
-        // Don't need the heartbeat; websocket is still be ok even if the
-        // frontend and backend are suspended by the OS.
+        // Don't need the heartbeat; server shutdown anyways on app
+        // backgrounding
         // self.hb(ctx);
     }
 
@@ -212,6 +215,10 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsSession {
             ws::Message::Text(text) => println!("got text {}", text),
             ws::Message::Close(reason) => {
                 println!("Closing Websocket with reason: {:?}", reason);
+                print_and_log(&format!(
+                    "Closing Websocket with reason: {:?}",
+                    reason
+                ));
                 ctx.close(reason);
                 ctx.stop();
             }

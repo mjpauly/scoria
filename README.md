@@ -45,6 +45,8 @@
     - [x] significant changes mode
 - [x] more location diagnostics in sense tab
 - [x] option to enable/disable location recording from within the app
+- [x] disable server on app backgrounding, restart on foregrounding
+- [_] update sense tab state on backend messages / better global UI state
 - [_] ability to export log
 - [_] log required: altitude, isProducedByAccessory, and isSimulatedBySoftware;
     floor, verticalAccuracy, speedAccuracy, courseAccuracy
@@ -53,7 +55,6 @@
     limitations of having to define everything up front ([ref](https://stackoverflow.com/questions/59047280/how-to-build-json-arrays-or-objects-dynamically-with-serde-json))
 - [_] ability to set preferred units
 - [_] metadata recording of when location is enabled/disabled
-- [_] handle app backgrounding/suspention
 - [_] get feedback with test flight
 - [_] publish to app store
 

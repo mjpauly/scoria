@@ -5,11 +5,17 @@
 
 use std::rc::Rc;
 
-use tokio::runtime::Runtime;
+use tokio::runtime::{Builder, Runtime};
 
 // Shared runtime
 // Rc provides a reference counted pointer without mutability.
-thread_local!(static RT: Rc<Runtime> = Rc::new(Runtime::new().unwrap()));
+thread_local!(static RT: Rc<Runtime> = Rc::new(
+    Builder::new_multi_thread()
+        .enable_all()
+        .worker_threads(1)
+        .build()
+        .unwrap()
+));
 
 /// Get a reference to the runtime.
 ///

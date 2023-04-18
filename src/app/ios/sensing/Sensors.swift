@@ -3,16 +3,15 @@ import StemLib
 var myLocationManager = MyLocationManager()
 public var server_port: UInt16 = 0;
 public var server_scope: UInt64 = 0;
+public var logfile = getDocumentsDirectory().appendingPathComponent("swiftlog.txt").path()
 
 public func startup() {
     // Set the app directories known to the core library and get the
     // backend server port and secret key
-    let server_config = set_app_dirs(getDocumentsDirectory().path(),
+    set_app_dirs(getDocumentsDirectory().path(),
                  getLibraryDirectory().path(),
                  getTemporaryDirectoryPath(),
                  getBundlePath())
-    server_port = server_config.port
-    server_scope = server_config.scope
     myLocationManager.touch()  // initialize the lazy global var
 }
 
@@ -22,4 +21,21 @@ public func update_sensor_config() {
     myLocationManager.setSignificantChanges()
     myLocationManager.setAccuracyMode()
     myLocationManager.setDistanceFilter()
+}
+
+public func print_and_log(s: String) {
+    print(s)
+    appendToFile(file: logfile, dataString: "\(s)\n")
+}
+
+public func handle_background() {
+    // App went to background -> stop the UI server
+    handle_enter_background()
+}
+
+public func handle_foreground() {
+    // App coming to foreground -> restart the UI server
+    let server_config = handle_enter_foreground()
+    server_port = server_config.port
+    server_scope = server_config.scope
 }

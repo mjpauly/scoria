@@ -39,6 +39,13 @@ rusty_fork_test! {
     fn backend_sends_location_time_range_when_requested() {
         run_test(backend_sends_location_time_range_when_requested_impl());
     }
+
+    #[test]
+    fn backend_server_websocket_inaccessible_after_app_background() {
+        run_test(
+            backend_server_websocket_inaccessible_after_app_background_impl()
+        );
+    }
 }
 
 async fn log_location_sends_data_to_ui_impl() {
@@ -145,4 +152,18 @@ async fn backend_sends_location_time_range_when_requested_impl() {
     } else {
         panic!("Didn't receive LocationTimeRange from backend.");
     }
+}
+
+/// Check that the backend server websocket is inaccessible after the app goes
+/// into the background and the server is shutdown.
+async fn backend_server_websocket_inaccessible_after_app_background_impl() {
+    let url =
+        setup("backend_server_websocket_inaccessible_after_app_background/")
+            .await;
+
+    // Shutdown the server as would happen when the app goes to background
+    stem::server::shutdown().await;
+
+    let result = connect_async(url).await;
+    assert!(result.is_err());
 }

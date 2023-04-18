@@ -41,7 +41,7 @@ pub extern "C" fn set_app_dirs(
     library_dir: *const c_char,
     temp_dir: *const c_char,
     bundle_dir: *const c_char,
-) -> server::ServerConfig {
+) {
     let paths_to_set = paths::Paths {
         documents_dir: PathBuf::from(cstr_to_string(documents_dir)),
         library_dir: PathBuf::from(cstr_to_string(library_dir)),
@@ -57,31 +57,36 @@ fn cstr_to_string(cstr: *const c_char) -> String {
     String::from_utf8_lossy(cstr.to_bytes()).to_string()
 }
 
-/// Top app level initialization, using real init parameters for
-/// production.
-///
-/// Initializes with port 0, which means the OS will assign us a free port, and
-/// tells the server to generate a key behind which the backend resources are
-/// hidden.
-pub async fn init(init_paths: paths::Paths) -> server::ServerConfig {
-    init_with_port(init_paths, 0, true).await
-}
-
-/// Initializes the rust library with the given app directories, port, and
-/// server security setting (secure or not).
-pub async fn init_with_port(
-    init_paths: paths::Paths,
-    port: u16,
-    secure: bool,
-) -> server::ServerConfig {
+/// Top app level initialization. Does not start the UI server yet; that is done
+/// when the app enters the foreground and calls `handle_enter_foreground`.
+pub async fn init(init_paths: paths::Paths) {
     let db = database::init_db(paths::get_db_path_helper(
         init_paths.documents_dir.clone(),
     ))
     .await
     .unwrap();
-    let port = server::run(init_paths.clone(), "127.0.0.1", port, secure);
     app_state::AppState::init(init_paths, db);
-    port
+    server::unzip_dist();
+}
+
+/// When the app comes back to the foreground we start the UI server, and pass
+/// up the new configuration. This way our frontend key rotates every time the
+/// app is brought to the foreground.
+#[no_mangle]
+pub extern "C" fn handle_enter_foreground() -> server::ServerConfig {
+    runtime::get_runtime().block_on(async { server::run(0, true).await })
+}
+
+/// When the app goes the background we stop the server. This way we release
+/// resources that were in use, can better handle times when the OS kills worker
+/// threads, and reduce the opportunities for other programs to connect to the
+/// server and read out private data (the secret key given to the frontend also
+/// helps).
+#[no_mangle]
+pub extern "C" fn handle_enter_background() {
+    runtime::get_runtime().block_on(async {
+        server::shutdown().await;
+    });
 }
 
 /// Log a location in the app. This is a thin sync wrapper around the helper
@@ -173,8 +178,9 @@ pub mod tests {
 /// Local setup either for development or testing.
 /// Not used in any production app code. TODO: gate with feature flag
 pub mod local {
-    use super::init_with_port;
+    use super::init;
     use super::paths::Paths;
+    use super::server;
 
     use std::fs;
     use std::os::unix::fs::PermissionsExt;
@@ -192,7 +198,8 @@ pub mod local {
     /// caller knows this already so we just return the port.
     pub async fn local_setup(dir: &str, port: u16) -> u16 {
         let paths = local_fs_setup(dir);
-        init_with_port(paths, port, false).await.port
+        init(paths).await;
+        server::run(port, false).await.port
     }
 
     /// Sets up a local filesystem and initializes stem with the provided port,
@@ -204,7 +211,8 @@ pub mod local {
     pub async fn local_setup_with_dev_db(dir: &str, port: u16) -> u16 {
         let paths = local_fs_setup(dir);
         copy_dev_db(paths.documents_dir.clone());
-        init_with_port(paths, port, false).await.port
+        init(paths).await;
+        server::run(port, false).await.port
     }
 
     /// Set up a directory for local testing. Provided argument is the name of

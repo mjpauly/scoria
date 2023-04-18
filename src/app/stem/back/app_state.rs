@@ -13,6 +13,7 @@
 
 use std::sync::{Arc, Mutex};
 
+use actix_web::dev::ServerHandle;
 use once_cell::sync::OnceCell;
 use sqlx::SqlitePool;
 
@@ -35,6 +36,8 @@ pub struct AppState {
 
     // Address of the websocket actor so we can send messages to it
     pub ws_addr: Mutex<Option<actix::Addr<ws_session::WsSession>>>,
+    // Need an async-aware mutex if we are to await server shutdown with it held
+    pub server_handle: tokio::sync::Mutex<Option<ServerHandle>>,
 
     pub location_is_enabled: Mutex<bool>,
     pub distance_filter: Mutex<f32>,
@@ -82,6 +85,7 @@ impl AppState {
                 paths,
                 db,
                 ws_addr: Mutex::new(None),
+                server_handle: tokio::sync::Mutex::new(None),
                 location_is_enabled: Mutex::new(false),
                 distance_filter: Mutex::new(5.0),
                 significant_changes: Mutex::new(false),

@@ -265,11 +265,7 @@ impl WebsocketService {
             reconnect_needed.clone(),
         );
         Self::spawn_websocket_writer(yew_rx, ws_write);
-        Self::spawn_watchdog(
-            tx.clone(),
-            subscribers.clone(),
-            reconnect_needed.clone(),
-        );
+        Self::spawn_watchdog(tx.clone(), subscribers.clone(), reconnect_needed);
         Self { tx, subscribers }
     }
 
@@ -342,7 +338,7 @@ impl WebsocketService {
         spawn_local(async move {
             loop {
                 yew::platform::time::sleep(std::time::Duration::from_millis(
-                    100,
+                    1000,
                 ))
                 .await;
                 if *reconnect_needed.borrow() {
@@ -367,12 +363,12 @@ impl WebsocketService {
     }
 
     /// Periodically retrieve state again (particularly num locations past hour)
-    pub fn spawn_state_updater(self) {
+    pub fn spawn_state_requester(self) {
         yew::platform::spawn_local(async move {
             loop {
+                self.send_msg(ToBack::GetState);
                 yew::platform::time::sleep(std::time::Duration::from_secs(60))
                     .await;
-                self.send_msg(ToBack::GetState);
             }
         });
     }

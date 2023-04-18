@@ -6,9 +6,13 @@
 //!     3) do any additional calculations for system visibility or user
 //!             analysis.
 
+use std::fs::OpenOptions;
+use std::io::prelude::*;
+
 use crate::app_state::AppState;
 use crate::common;
 use crate::database;
+use crate::paths::get_documents_dir;
 use crate::ws_session;
 
 pub async fn log_location(
@@ -49,4 +53,24 @@ pub async fn log_location(
             common::ToFront::LocationsPastHour(count),
         ));
     }
+}
+
+/// Log a line of debug information to stemlog.txt, inside the documents
+/// directory provided. Used during startup before AppState is initialized.
+pub fn log_with_dir(line: &str, docdir: &std::path::Path) {
+    let fname = docdir.join("stemlog.txt");
+    let mut file = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(fname)
+        .unwrap();
+    writeln!(file, "{}", line).unwrap();
+}
+
+/// Print a line of log output and log it to stemlog.txt. Can only be called
+/// after AppState has been initialized.
+pub fn print_and_log(line: &str) {
+    println!("{}", line);
+    let docdir = get_documents_dir();
+    log_with_dir(line, &docdir);
 }

@@ -19,7 +19,9 @@ use actix_web::dev::Server;
 use actix_web::{web, App, HttpServer};
 use actix_web::{HttpResponse, Responder};
 
-use crate::paths::Paths;
+use crate::app_state::AppState;
+use crate::core::print_and_log;
+use crate::paths;
 use crate::ws_session::ws_route;
 
 /// Configuration struct we pass to Swift via C
@@ -55,52 +57,59 @@ impl FrontendKey {
 ///
 /// Secure determines if the key should be randomly generated or set to a small
 /// known value (123) for local testing.
-pub fn run(
-    init_paths: Paths,
-    base_url: &str,
-    port: u16,
-    secure: bool,
-) -> ServerConfig {
-    unzip_dist(init_paths.clone()).unwrap();
-
+pub async fn run(port: u16, secure: bool) -> ServerConfig {
     // If we bind to port 0, the OS assigns us an available port
-    let listener = TcpListener::bind(format!("{}:{}", base_url, port)).unwrap();
+    let listener = TcpListener::bind(format!("127.0.0.1:{}", port)).unwrap();
     let port = listener.local_addr().unwrap().port();
-    println!("listening on port {}", port);
+    print_and_log(&format!("listening on port {}", port));
 
     let frontend_key = if secure {
         FrontendKey::new()
     } else {
         FrontendKey::new_insecure()
     };
-    println!("frontend key is {}", frontend_key.expose());
+    print_and_log(&format!("frontend key is {}", frontend_key.expose()));
 
-    let server = build(init_paths, listener, frontend_key.clone());
-    let _server_handle = server.handle(); // TODO: put in AppState
+    let server = build(listener, frontend_key.clone());
+    let server_handle = server.handle();
     let _ = tokio::spawn(async move { server.await });
+
+    // Save the server handle so we can stop it later on
+    *AppState::global().server_handle.lock().await = Some(server_handle);
     ServerConfig { port, frontend_key }
 }
 
-/// Unzip the frontend components from the bundle into {library_dir}/dist
-fn unzip_dist(init_paths: Paths) -> Result<(), String> {
-    let archive = init_paths.bundle_dir.join("dist.zip");
+/// Shut down the server (called when the app goes to the background)
+pub async fn shutdown() {
+    print_and_log("Shutting down server");
+    AppState::global()
+        .server_handle
+        .lock()
+        .await
+        .as_mut()
+        .unwrap()
+        .stop(false) // false: not graceful
+        .await;
+    // Drop the server handle
+    *AppState::global().server_handle.lock().await = None;
+}
+
+/// Unzip the frontend components from the bundle into {library_dir}/dist.
+/// Must be run during app initialization before the server first starts up.
+pub fn unzip_dist() {
+    let archive = paths::get_bundle_dir().join("dist.zip");
     if !archive.exists() {
-        return Err("Can't find 'dist.zip' in bundle".to_string());
+        panic!("Can't find 'dist.zip' in bundle");
     }
-    let destination = init_paths.library_dir.join("dist");
+    let destination = paths::get_library_dir().join("dist");
     zip::ZipArchive::new(std::fs::File::open(archive).unwrap())
         .unwrap()
         .extract(destination)
         .unwrap();
-    Ok(())
 }
 
-fn build(
-    init_paths: Paths,
-    listener: TcpListener,
-    frontend_key: FrontendKey,
-) -> Server {
-    let dist = init_paths.library_dir.join("dist"); // static files
+fn build(listener: TcpListener, frontend_key: FrontendKey) -> Server {
+    let dist = paths::get_library_dir().join("dist"); // static files
     let index_file = dist.join("index.html");
     HttpServer::new(move || {
         let files_service =
@@ -168,5 +177,41 @@ mod tests {
         // Assert
         assert!(response.status().is_success());
         assert_eq!(Some(0), response.content_length());
+    }
+
+    use super::{run, shutdown};
+    use crate::init;
+    use crate::local::local_fs_setup;
+
+    /// Test that after shutting down the server it is not possible to connect
+    /// to it anymore
+    #[tokio::test]
+    async fn server_shutdown_works() {
+        let dir = "server_shutdown_works/";
+        let paths = local_fs_setup(dir);
+        init(paths).await;
+        let cfg = run(0, true).await;
+
+        let url = format!(
+            "http://127.0.0.1:{}/{}/health_check",
+            cfg.port,
+            cfg.frontend_key.expose()
+        );
+
+        let client = reqwest::Client::new();
+
+        // Check that we can get a successful connection first
+        let response = client
+            .get(&url)
+            .send()
+            .await
+            .expect("Failed to execute request.");
+        assert_eq!(response.status().as_u16(), 200);
+
+        // Showdown the server and check that we get a connection failure
+        shutdown().await;
+
+        let result = client.get(&url).send().await;
+        assert!(result.is_err());
     }
 }
