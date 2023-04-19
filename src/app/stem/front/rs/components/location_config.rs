@@ -91,12 +91,21 @@ pub fn LocationConfigurator() -> Html {
         })
     };
     let accuracy_mode_options = ACCURACY_MODE_STRINGS.iter().map(|x| {
-        html! {
-            <option selected={x.0 == *accuracy_mode}>
-                {x.1.to_string()}
-            </option>
-        }
+        html! { <option> {x.1.to_string()} </option> }
     });
+    // Need to manually set which option is selected in select element in order
+    // to do so programmatically (e.g. when we get an updated state)
+    let select_node_ref = use_node_ref();
+    {
+        let select_node_ref = select_node_ref.clone();
+        use_effect_with_deps(
+            move |mode| {
+                let elem = select_node_ref.cast::<HtmlSelectElement>().unwrap();
+                elem.set_value(&(mode.to_string()));
+            },
+            *accuracy_mode, // update whenever accuracy_mode changes
+        )
+    };
 
     let dist_filt_onchange =
         dispatch.reduce_mut_callback_with(move |s: &mut UIState, e: Event| {
@@ -131,6 +140,7 @@ pub fn LocationConfigurator() -> Html {
             <div class="flex items-center justify-between my-2">
                 <label for="accuracy_mode">{"Accuracy"}</label>
                 <select onchange={accuracy_mode_onchange} id="accuracy_mode"
+                    ref={select_node_ref}
                     class={format!("ml-8 {}", SELECT_STYLE)}>
                     {for accuracy_mode_options}
                 </select>
