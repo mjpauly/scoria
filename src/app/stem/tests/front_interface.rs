@@ -98,11 +98,6 @@ async fn location_config_propagates(
         .click()
         .await?;
 
-    c.find(Locator::Css("#significant_changes"))
-        .await?
-        .click()
-        .await?;
-
     let dist_filt_elem = c.find(Locator::Css("#distance_filter")).await?;
     // dist_filt_elem.click().await?;
     dist_filt_elem.send_keys("4").await?;
@@ -113,12 +108,24 @@ async fn location_config_propagates(
         .await?;
 
     assert!(stem::get_location_enabled());
-    assert!(stem::get_significant_changes());
     assert!(stem::get_distance_filter() == 4.0);
     assert!(
         stem::get_location_accuracy_mode()
             == stem::common::LocationAccuracyMode::TenMeters
     );
+
+    // unset standard location service so we can test the significant changes
+    c.find(Locator::Css("#location_enabled"))
+        .await?
+        .click()
+        .await?;
+
+    c.find(Locator::Css("#significant_changes"))
+        .await?
+        .click()
+        .await?;
+
+    assert!(stem::get_significant_changes());
 
     Ok(())
 }

@@ -14,10 +14,12 @@
 - [ ] log required: altitude, isProducedByAccessory, and isSimulatedBySoftware;
     floor, verticalAccuracy, speedAccuracy, courseAccuracy
     :: all required! don't want people to need to opt in -> reduces how much people actually collect
+- [ ] startup spash page to reduce flicker
 - [ ] log more metadata
     - [ ] location config metadata (when settings were changed)
     - [ ] app usage metadata (when app launched, quit, foregrounded, backgrounded)
     - [ ] data viewership (what map data viewed and when)
+    - [ ] battery charge (to correlate with location mode) [ref](https://stackoverflow.com/questions/27475506/check-battery-level-ios-swift)
 - [ ] construct plotly plots with serde_json's Map and Value directly, to avoid
     limitations of having to define everything up front ([ref](https://stackoverflow.com/questions/59047280/how-to-build-json-arrays-or-objects-dynamically-with-serde-json))
 - [ ] ability to set preferred units
@@ -77,6 +79,7 @@
 - [x] disable server on app backgrounding, restart on foregrounding
 - [x] better global UI state with yewdux
 - [x] send location config when sending state from ws_session
+- [x] better checkbox styling, improved location config layout, help tips
 
 ## Structure
 

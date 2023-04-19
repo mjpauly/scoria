@@ -8,7 +8,7 @@ use yew::prelude::*;
 use yewdux::prelude::*;
 
 use crate::common::LocationAccuracyMode;
-use crate::components::SELECT_STYLE;
+use crate::components::{SELECT_STYLE, TOGGLE_SWITCH_STYLE};
 use crate::swift_poke;
 use crate::ui_state::UIState;
 use crate::websocket::{ToBack, WebsocketService};
@@ -118,43 +118,103 @@ pub fn LocationConfigurator() -> Html {
             elem.set_value("");
         });
 
+    // State for whether we should show help info
+    let show_help = use_state(|| false);
+    let show_help_onclick = {
+        let show_help = show_help.clone();
+        Callback::from(move |_e: MouseEvent| show_help.set(!*show_help))
+    };
+
     html! {
-        <div class="mt-1 mb-1 flex">
-        <div class="max-w-fit mx-auto">
-            <div class="flex items-center justify-between my-2">
+        <>
+        <div class="relative">
+            <p class="mt-6 font-bold"> {"Settings"} </p>
+            <button onclick={show_help_onclick} id="loc_conf_help_btn"
+                class={"absolute right-6 bottom-0 text-primary"}>
+                    {"?"}
+            </button>
+        </div>
+        <div class="mt-2 mb-1 flex px-4">
+        <div class="grow max-w-md mx-auto bg-neutral-900 rounded-lg py-1 px-4">
+            <div class="flex items-center justify-between py-2 \
+                border-b border-neutral-800">
                 <label for="location_enabled">
                     {"Standard Location"}
                 </label>
+                // need to wrap the toggle switch with this div or the dot won't
+                // scroll with the content
+                <div class="relative ml-4 mr-1 h-6">
                 <input type="checkbox" id="location_enabled"
                     checked={*location_enabled} onclick={enabled_on_click}
-                    class="ml-8 mr-1" />
+                    // class={format!("ml-4 mr-1 {}", TOGGLE_SWITCH_STYLE)}
+                    class={TOGGLE_SWITCH_STYLE}
+                    // disable if significant changes is on and standard
+                    // location is off changes is off (this way it can be turned
+                    // off if state is bad)
+                    disabled={*significant_changes && !*location_enabled} />
+                </div>
             </div>
-            <div class="flex items-center justify-between my-2">
-                <label for="significant_changes">
-                    {"Significant Changes"}
-                </label>
-                <input type="checkbox" id="significant_changes"
-                    checked={*significant_changes} onclick={sigchange_on_click}
-                    class="ml-8 mr-1" />
-            </div>
-            <div class="flex items-center justify-between my-2">
+            <div class="flex items-center justify-between py-2 \
+                border-b border-neutral-800">
                 <label for="accuracy_mode">{"Accuracy"}</label>
                 <select onchange={accuracy_mode_onchange} id="accuracy_mode"
                     ref={select_node_ref}
-                    class={format!("ml-8 {}", SELECT_STYLE)}>
+                    class={format!("ml-4 {}", SELECT_STYLE)}>
                     {for accuracy_mode_options}
                 </select>
             </div>
-            <div class="flex items-center justify-between my-2">
+            <div class="flex items-center justify-between py-2">
                 <label for="distance_filter">{"Distance Filter"}</label>
-                <input onchange={dist_filt_onchange} id="distance_filter"
-                    placeholder={format!("{:.2}", *dist_filt)}
-                    class="ml-8 w-16 rounded bg-black \
-                    border border-neutral-700 \
-                    placeholder:text-neutral-500" />
-                <span class="mx-1">{"m"}</span>
+                <div>
+                    <input onchange={dist_filt_onchange} id="distance_filter"
+                        placeholder={format!("{:.2}", *dist_filt)}
+                        class="ml-4 w-16 rounded bg-black \
+                        border border-neutral-700 \
+                        placeholder:text-neutral-500" />
+                    <span class="mx-1">{"m"}</span>
+                </div>
             </div>
         </div>
         </div>
+        if *show_help {
+            <p class="text-neutral-500 text-left px-5">
+                {"The standard location service continuously records location.
+                Setting a worse accuracy level (larger distance) trades off
+                location accuracy for more efficient power use."}
+            </p>
+            <p class="text-neutral-500 text-left px-5">
+                {"The distance
+                filter determines how far you must move from your last recorded
+                location before recording new data. Set it to a larger number
+                to save device storage."}
+            </p>
+        }
+        <div class="mt-2 mb-1 flex px-4">
+        <div class="grow max-w-md mx-auto bg-neutral-900 rounded-lg py-1 px-4">
+            <div class="flex items-center justify-between py-2">
+                <label for="significant_changes">
+                    {"Significant Changes"}
+                </label>
+                <div class="relative ml-4 mr-1 h-6">
+                <input type="checkbox" id="significant_changes"
+                    checked={*significant_changes} onclick={sigchange_on_click}
+                    // class={format!("ml-4 mr-1 {}", TOGGLE_SWITCH_STYLE)}
+                    class={TOGGLE_SWITCH_STYLE}
+                    // disable if standard location is on and significant
+                    // changes is off
+                    disabled={*location_enabled && !*significant_changes} />
+                </div>
+            </div>
+        </div>
+        </div>
+        if *show_help {
+            <p class="text-neutral-500 text-left px-5">
+                {"The significant location changes service records location
+                only when your location changes significantly. It saves more
+                power than the standard location service at the cost of
+                a significatly reduced update rate."}
+            </p>
+        }
+        </>
     }
 }

@@ -39,7 +39,6 @@ fn Location() -> Html {
                     </h1>
 
                     <LocationDetails />
-                    <p class="mt-6 font-bold"> {"Settings"} </p>
                     <LocationConfigurator />
 
                 </div>
