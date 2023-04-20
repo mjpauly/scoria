@@ -5,6 +5,7 @@ use std::str::FromStr;
 
 use web_sys::{HtmlInputElement, HtmlSelectElement};
 use yew::prelude::*;
+use yew_icons::{Icon, IconId};
 use yewdux::prelude::*;
 
 use crate::common::LocationAccuracyMode;
@@ -126,16 +127,25 @@ pub fn LocationConfigurator() -> Html {
     };
 
     html! {
-        <>
+        // flex container for centering
+        <div class="mt-2 mb-1 flex px-4">
+        // centered, width-limited container
+        <div class="grow max-w-prose mx-auto">
+
+        // title
+        // <div class="relative">
         <div class="relative">
-            <p class="mt-6 font-bold"> {"Settings"} </p>
+            <p class="font-bold"> {"Settings"} </p>
             <button onclick={show_help_onclick} id="loc_conf_help_btn"
-                class={"absolute right-6 bottom-0 text-primary"}>
-                    {"?"}
+                class={"absolute right-2 bottom-0"}>
+                    <Icon icon_id={IconId::BootstrapQuestionCircle}
+                        class="h-5 w-5 text-neutral-400" />
             </button>
         </div>
-        <div class="mt-2 mb-1 flex px-4">
-        <div class="grow max-w-md mx-auto bg-neutral-900 rounded-lg py-1 px-4">
+
+        // settings card
+        <div class="bg-neutral-900 rounded-lg px-4 py-1 mt-2">
+            // settings line
             <div class="flex items-center justify-between py-2 \
                 border-b border-neutral-800">
                 <label for="location_enabled">
@@ -143,10 +153,11 @@ pub fn LocationConfigurator() -> Html {
                 </label>
                 // need to wrap the toggle switch with this div or the dot won't
                 // scroll with the content
+                // h-min wasn't working so height is hardcoded to the switch
+                // height of 6
                 <div class="relative ml-4 mr-1 h-6">
                 <input type="checkbox" id="location_enabled"
                     checked={*location_enabled} onclick={enabled_on_click}
-                    // class={format!("ml-4 mr-1 {}", TOGGLE_SWITCH_STYLE)}
                     class={TOGGLE_SWITCH_STYLE}
                     // disable if significant changes is on and standard
                     // location is off changes is off (this way it can be turned
@@ -175,22 +186,24 @@ pub fn LocationConfigurator() -> Html {
                 </div>
             </div>
         </div>
-        </div>
+
+        // help tips
         if *show_help {
-            <p class="text-neutral-500 text-left px-5">
-                {"The standard location service continuously records location.
-                Setting a worse accuracy level (larger distance) trades off
-                location accuracy for more efficient power use."}
+            <p class="text-neutral-500 text-left px-2 pt-1">
+                {"The standard location service continuously records location
+                data. Setting a worse accuracy level (larger distance)
+                sacrifices accuracy for more efficient power use."}
             </p>
-            <p class="text-neutral-500 text-left px-5">
-                {"The distance
-                filter determines how far you must move from your last recorded
-                location before recording new data. Set it to a larger number
-                to save device storage."}
+            <p class="text-neutral-500 text-left px-2 pt-1">
+                {"The distance filter determines how far you must move from your
+                last recorded location before recording new data. Set it to a
+                larger number to record data less often and save device
+                storage space."}
             </p>
         }
-        <div class="mt-2 mb-1 flex px-4">
-        <div class="grow max-w-md mx-auto bg-neutral-900 rounded-lg py-1 px-4">
+
+        // settings card
+        <div class="bg-neutral-900 rounded-lg px-4 py-1 mt-2">
             <div class="flex items-center justify-between py-2">
                 <label for="significant_changes">
                     {"Significant Changes"}
@@ -206,15 +219,18 @@ pub fn LocationConfigurator() -> Html {
                 </div>
             </div>
         </div>
-        </div>
+
+        // help tips
         if *show_help {
-            <p class="text-neutral-500 text-left px-5">
+            <p class="text-neutral-500 text-left px-2 pt-1">
                 {"The significant location changes service records location
-                only when your location changes significantly. It saves more
+                only when you move a significant distance. It saves more
                 power than the standard location service at the cost of
-                a significatly reduced update rate."}
+                a substantially reduced update rate."}
             </p>
         }
-        </>
+
+        </div>
+        </div>
     }
 }

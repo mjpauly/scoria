@@ -204,10 +204,12 @@ crates_repository(
         ),
         "yew_icons": crate.spec(
             version = "0.7.0",
-            features = ["BootstrapSoundwave",
-                        "BootstrapExclamationTriangle",
-                        "BootstrapTools",
-                        "BootstrapMap",
+            features = [
+                "BootstrapExclamationTriangle",
+                "BootstrapMap",
+                "BootstrapQuestionCircle",
+                "BootstrapSoundwave",
+                "BootstrapTools",
             ],
         ),
         # Unresolved bug if we upgrade to wasm-bindgen 0.2.84, probably because

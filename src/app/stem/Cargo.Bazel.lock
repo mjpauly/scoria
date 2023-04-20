@@ -1,5 +1,5 @@
 {
-  "checksum": "2fb10f34b29527a25146f4d10444ba4131ebe544d9a6d668d2a28e5083d5eb72",
+  "checksum": "ec7a0613347f2d3a22127f983b5ab528de28377f78d6cc413f8a69934bd71bc8",
   "crates": {
     "actix 0.13.0": {
       "name": "actix",
@@ -18089,6 +18089,7 @@
           "common": [
             "BootstrapExclamationTriangle",
             "BootstrapMap",
+            "BootstrapQuestionCircle",
             "BootstrapSoundwave",
             "BootstrapTools",
             "data_uri",
