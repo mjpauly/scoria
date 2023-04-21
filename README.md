@@ -14,7 +14,6 @@
 - [ ] log required: altitude, isProducedByAccessory, and isSimulatedBySoftware;
     floor, verticalAccuracy, speedAccuracy, courseAccuracy
     :: all required! don't want people to need to opt in -> reduces how much people actually collect
-- [ ] startup spash page to reduce flicker
 - [ ] log more metadata
     - [ ] location config metadata (when settings were changed)
     - [ ] app usage metadata (when app launched, quit, foregrounded, backgrounded)
@@ -80,6 +79,8 @@
 - [x] better global UI state with yewdux
 - [x] send location config when sending state from ws_session
 - [x] better checkbox styling, improved location config layout, help tips
+- [x] startup spash page to reduce flicker
+- [x] persists certain app state values across app launches
 
 ## Structure
 

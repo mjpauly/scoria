@@ -86,6 +86,9 @@ fn LocationDetails() -> Html {
         <>
             // deref then ref since we don't want to move the data out
             if let Some(loc) = &*last_loc {
+                // allow selection of the current location details
+                <div class="select-text">
+
                 <p class="font-bold mb-2"> {"Last Location"} </p>
                 <p> {format!("{:.5}, {:.5}", loc.lat, loc.lon)} </p>
                 <p> {format!("+/-{:.2} m, {:.2} m/s, {:.2}°",
@@ -100,6 +103,8 @@ fn LocationDetails() -> Html {
                         {format!("{:.2} updates/minute", n_locs as f32 / 60.0)}
                     </p>
                 }
+
+                </div>
 
             } else {
                 <p class="mb-4"> {"No previous location data found."} </p>

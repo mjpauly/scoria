@@ -1,6 +1,6 @@
 //! Bottom navbar component for switching between the main pages.
 
-use crate::router::Route;
+use crate::router::{get_scope, Route};
 use yew::prelude::*;
 use yew::MouseEvent;
 use yew_icons::{Icon, IconId};
@@ -41,14 +41,7 @@ pub fn Navbar() -> Html {
     let curr_route: Option<Route> = use_route();
 
     // Retrieve the scope from the url
-    let location = web_sys::window().unwrap().location();
-    let binding = location.pathname().unwrap();
-    let scope = binding
-        .trim_matches('/')
-        .split('/')
-        .next()
-        .unwrap()
-        .to_string();
+    let scope = get_scope();
 
     // We scale the icons differently since their visual size for the same width
     // is different.
@@ -58,7 +51,7 @@ pub fn Navbar() -> Html {
             Route::Sense {
                 scope: scope.clone(),
             },
-            "Sense",
+            "Record",
             IconId::BootstrapSoundwave,
             "h-8 w-8",
         ),

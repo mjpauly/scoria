@@ -190,7 +190,7 @@ pub fn LocationConfigurator() -> Html {
         // help tips
         if *show_help {
             <p class="text-neutral-500 text-left px-2 pt-1">
-                {"The standard location service continuously records location
+                {"Standard location mode continuously records location
                 data. Setting a worse accuracy level (larger distance)
                 sacrifices accuracy for more efficient power use."}
             </p>
@@ -223,7 +223,7 @@ pub fn LocationConfigurator() -> Html {
         // help tips
         if *show_help {
             <p class="text-neutral-500 text-left px-2 pt-1">
-                {"The significant location changes service records location
+                {"Significant changes mode records location
                 only when you move a significant distance. It saves more
                 power than the standard location service at the cost of
                 a substantially reduced update rate."}

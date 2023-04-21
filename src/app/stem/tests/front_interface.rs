@@ -67,8 +67,8 @@ async fn simple_navigation(
     c.find(Locator::Css("#Map")).await?.click().await?;
     assert_url_eq(c, base_url.clone() + "analyze/").await;
 
-    c.find(Locator::Css("#Sense")).await?.click().await?;
-    assert_url_eq(c, base_url).await;
+    c.find(Locator::Css("#Record")).await?.click().await?;
+    assert_url_eq(c, base_url + "sense/").await;
 
     Ok(())
 }

@@ -125,11 +125,13 @@ fn build(listener: TcpListener, frontend_key: FrontendKey) -> Server {
                     .route("/health_check", web::get().to(health_check))
                     .route("/ws", web::get().to(ws_route))
                     // extra SPA routes we want to just get the index file for
+                    .route("/sense", web::get().to(index))
                     .route("/analyze", web::get().to(index))
                     .route("/test_page", web::get().to(index))
                     // yew-router adds trailing slashes that change the relative
                     // scope that static files are loaded from on reload, so we
                     // redirect those to the routes without the trailing slash
+                    .service(web::redirect("/sense/", "../sense"))
                     .service(web::redirect("/analyze/", "../analyze"))
                     .service(web::redirect("/test_page/", "../test_page"))
                     // static files service includes index file at root

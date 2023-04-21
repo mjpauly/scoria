@@ -16,6 +16,7 @@ void set_app_dirs(
 
 // handle app state changes
 
+void handle_shutdown(void);
 void handle_enter_background(void);
 ServerConfig handle_enter_foreground(void);
 

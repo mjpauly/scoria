@@ -69,6 +69,13 @@ pub async fn init(init_paths: paths::Paths) {
     server::unzip_dist();
 }
 
+/// Handle shutdown of the app by saving certain persistent state elements to
+/// the filesystem, which will be read-back at startup.
+#[no_mangle]
+pub extern "C" fn handle_shutdown() {
+    app_state::AppState::save_to_file();
+}
+
 /// When the app comes back to the foreground we start the UI server, and pass
 /// up the new configuration. This way our frontend key rotates every time the
 /// app is brought to the foreground.
@@ -109,37 +116,41 @@ pub extern "C" fn log_location(
 /// Return whether location should be enabled
 #[no_mangle]
 pub extern "C" fn get_location_enabled() -> bool {
-    return *app_state::AppState::global()
-        .location_is_enabled
+    return app_state::AppState::global()
+        .persistent
         .lock()
-        .unwrap();
+        .unwrap()
+        .location_is_enabled;
 }
 
 /// Return the distance filter setting
 #[no_mangle]
 pub extern "C" fn get_distance_filter() -> f32 {
-    return *app_state::AppState::global()
-        .distance_filter
+    return app_state::AppState::global()
+        .persistent
         .lock()
-        .unwrap();
+        .unwrap()
+        .distance_filter;
 }
 
 /// Return whether we should only monitor significant location changes
 #[no_mangle]
 pub extern "C" fn get_significant_changes() -> bool {
-    return *app_state::AppState::global()
-        .significant_changes
+    return app_state::AppState::global()
+        .persistent
         .lock()
-        .unwrap();
+        .unwrap()
+        .significant_changes;
 }
 
 /// Return the location accuracy mode
 #[no_mangle]
 pub extern "C" fn get_location_accuracy_mode() -> common::LocationAccuracyMode {
-    return *app_state::AppState::global()
-        .location_accuracy_mode
+    return app_state::AppState::global()
+        .persistent
         .lock()
-        .unwrap();
+        .unwrap()
+        .location_accuracy_mode;
 }
 
 /// Unit tests for the top-level library interface.

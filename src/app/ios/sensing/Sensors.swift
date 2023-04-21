@@ -15,6 +15,11 @@ public func startup() {
     myLocationManager.touch()  // initialize the lazy global var
 }
 
+// handle shutdown of the app by saving certain parts of the app state
+public func app_shutdown() {
+    handle_shutdown()
+}
+
 public func update_sensor_config() {
     // load config from backend since we got poked by the frontend
     myLocationManager.setLocationEnabled()

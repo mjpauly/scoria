@@ -85,10 +85,11 @@ async fn set_dist_filt_changes_backend_state_impl() {
     // Wait for the message to propagate
     sleep(Duration::from_millis(50)).await;
 
-    let persisted = *stem::app_state::AppState::global()
-        .distance_filter
+    let persisted = stem::app_state::AppState::global()
+        .persistent
         .lock()
-        .unwrap();
+        .unwrap()
+        .distance_filter;
     assert_eq!(new_dist_filt, persisted);
 }
 
