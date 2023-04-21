@@ -75,39 +75,15 @@ impl WsSession {
             ToBack::GetState => {
                 self.send_state(ctx);
             }
-            ToBack::SetLocationEnabled(val) => {
+            ToBack::SetLocationConfig(val) => {
                 AppState::global()
                     .persistent
                     .lock()
                     .unwrap()
-                    .location_is_enabled = val;
+                    .location_config = val.clone();
                 // re-broadcast the new state in case other components are
                 // listening for it
-                self.send_msg(ToFront::LocationEnabled(val), ctx);
-            }
-            ToBack::SetDistFilt(val) => {
-                AppState::global()
-                    .persistent
-                    .lock()
-                    .unwrap()
-                    .distance_filter = val;
-                self.send_msg(ToFront::DistFilt(val), ctx);
-            }
-            ToBack::SetSignificantChanges(val) => {
-                AppState::global()
-                    .persistent
-                    .lock()
-                    .unwrap()
-                    .significant_changes = val;
-                self.send_msg(ToFront::SignificantChanges(val), ctx);
-            }
-            ToBack::SetLocationAccuracyMode(val) => {
-                AppState::global()
-                    .persistent
-                    .lock()
-                    .unwrap()
-                    .location_accuracy_mode = val;
-                self.send_msg(ToFront::LocationAccuracyMode(val), ctx);
+                self.send_msg(ToFront::LocationConfig(val), ctx);
             }
             ToBack::GetLocationTimeRange(time_range) => {
                 self.send_location_time_range(ctx, time_range);
@@ -124,33 +100,13 @@ impl WsSession {
 
     /// Sends all UI state values, used at startup.
     fn send_state(&self, ctx: &mut ws::WebsocketContext<Self>) {
-        let location_enabled = AppState::global()
+        let location_config = AppState::global()
             .persistent
             .lock()
             .unwrap()
-            .location_is_enabled;
-        let distance_filter = AppState::global()
-            .persistent
-            .lock()
-            .unwrap()
-            .distance_filter;
-        let significant_changes = AppState::global()
-            .persistent
-            .lock()
-            .unwrap()
-            .significant_changes;
-        let location_accuracy_mode = AppState::global()
-            .persistent
-            .lock()
-            .unwrap()
-            .location_accuracy_mode;
-        self.send_msg(ToFront::LocationEnabled(location_enabled), ctx);
-        self.send_msg(ToFront::DistFilt(distance_filter), ctx);
-        self.send_msg(ToFront::SignificantChanges(significant_changes), ctx);
-        self.send_msg(
-            ToFront::LocationAccuracyMode(location_accuracy_mode),
-            ctx,
-        );
+            .location_config
+            .clone();
+        self.send_msg(ToFront::LocationConfig(location_config), ctx);
 
         // need a future to query the database, so we convert the future
         // into an actor which communicates back to ourselves with the

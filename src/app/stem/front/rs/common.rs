@@ -15,21 +15,14 @@ use serde::{Deserialize, Serialize};
 pub enum ToBack {
     // Get all state values (LocationEnabled, LastLocation, LocationsPastHour,
     GetState,
-    SetLocationEnabled(bool), // set location enabled state
-    SetDistFilt(f32),         // distance filter
-    SetSignificantChanges(bool),
-    SetLocationAccuracyMode(LocationAccuracyMode),
+    SetLocationConfig(LocationConfig),
     GetLocationTimeRange(TimeRange),
 }
 
 /// Messages from the backend to the frontend
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum ToFront {
-    // Location configuration state
-    LocationEnabled(bool),
-    DistFilt(f32),
-    SignificantChanges(bool),
-    LocationAccuracyMode(LocationAccuracyMode),
+    LocationConfig(LocationConfig),
     // Send the last known location for displaying.
     // Used to push new location updates in real time
     LastLocation(Location),
@@ -47,6 +40,29 @@ pub struct Location {
     pub speed: f64,
     pub course: f64,
     pub datetime: time::OffsetDateTime, // OffsetDateTime is timezone aware
+}
+
+/// Location configuration
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[serde(default)]
+pub struct LocationConfig {
+    // standard location mode
+    pub standard_location: bool,
+    pub accuracy_mode: LocationAccuracyMode,
+    pub distance_filter: f32,
+    // significant changes mode
+    pub significant_changes: bool,
+}
+
+impl Default for LocationConfig {
+    fn default() -> Self {
+        Self {
+            standard_location: false,
+            accuracy_mode: LocationAccuracyMode::Best,
+            distance_filter: 5.0,
+            significant_changes: false,
+        }
+    }
 }
 
 #[repr(C)]

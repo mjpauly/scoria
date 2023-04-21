@@ -93,13 +93,12 @@ async fn location_config_propagates(
             == stem::common::LocationAccuracyMode::Best
     );
 
-    c.find(Locator::Css("#location_enabled"))
+    c.find(Locator::Css("#standard_location"))
         .await?
         .click()
         .await?;
 
     let dist_filt_elem = c.find(Locator::Css("#distance_filter")).await?;
-    // dist_filt_elem.click().await?;
     dist_filt_elem.send_keys("4").await?;
 
     c.find(Locator::Css("#accuracy_mode"))
@@ -115,7 +114,7 @@ async fn location_config_propagates(
     );
 
     // unset standard location service so we can test the significant changes
-    c.find(Locator::Css("#location_enabled"))
+    c.find(Locator::Css("#standard_location"))
         .await?
         .click()
         .await?;

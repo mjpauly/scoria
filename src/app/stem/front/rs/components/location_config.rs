@@ -54,17 +54,15 @@ impl std::str::FromStr for LocationAccuracyMode {
 pub fn LocationConfigurator() -> Html {
     let wss = use_context::<WebsocketService>().unwrap();
     let dispatch = Dispatch::<UIState>::new();
-    let location_enabled = use_selector(|s: &UIState| s.location_is_enabled);
-    let significant_changes = use_selector(|s: &UIState| s.significant_changes);
-    let accuracy_mode = use_selector(|s: &UIState| s.location_accuracy_mode);
-    let dist_filt = use_selector(|s: &UIState| s.distance_filter);
+    let config = use_selector(|s: &UIState| s.location_config.clone());
 
     // enable/disable location
     let enabled_on_click = {
         let wss = wss.clone();
         dispatch.reduce_mut_callback(move |s: &mut UIState| {
-            s.location_is_enabled = !s.location_is_enabled;
-            wss.send_msg(ToBack::SetLocationEnabled(s.location_is_enabled));
+            s.location_config.standard_location =
+                !s.location_config.standard_location;
+            wss.send_msg(ToBack::SetLocationConfig(s.location_config.clone()));
             swift_poke::poke(); // notify swift to get new value from backend
         })
     };
@@ -73,8 +71,9 @@ pub fn LocationConfigurator() -> Html {
     let sigchange_on_click = {
         let wss = wss.clone();
         dispatch.reduce_mut_callback(move |s: &mut UIState| {
-            s.significant_changes = !s.significant_changes;
-            wss.send_msg(ToBack::SetSignificantChanges(s.significant_changes));
+            s.location_config.significant_changes =
+                !s.location_config.significant_changes;
+            wss.send_msg(ToBack::SetLocationConfig(s.location_config.clone()));
             swift_poke::poke();
         })
     };
@@ -86,8 +85,8 @@ pub fn LocationConfigurator() -> Html {
             let elem: HtmlSelectElement = e.target_dyn_into().unwrap();
             let val: &str = &elem.value();
             let new_mode = LocationAccuracyMode::from_str(val).unwrap();
-            s.location_accuracy_mode = new_mode;
-            wss.send_msg(ToBack::SetLocationAccuracyMode(new_mode));
+            s.location_config.accuracy_mode = new_mode;
+            wss.send_msg(ToBack::SetLocationConfig(s.location_config.clone()));
             swift_poke::poke();
         })
     };
@@ -104,7 +103,7 @@ pub fn LocationConfigurator() -> Html {
                 let elem = select_node_ref.cast::<HtmlSelectElement>().unwrap();
                 elem.set_value(&(mode.to_string()));
             },
-            *accuracy_mode, // update whenever accuracy_mode changes
+            config.accuracy_mode, // update whenever accuracy_mode changes
         )
     };
 
@@ -112,8 +111,10 @@ pub fn LocationConfigurator() -> Html {
         dispatch.reduce_mut_callback_with(move |s: &mut UIState, e: Event| {
             let elem: HtmlInputElement = e.target_dyn_into().unwrap();
             if let Ok(val) = elem.value().parse::<f32>() {
-                s.distance_filter = val;
-                wss.send_msg(ToBack::SetDistFilt(val));
+                s.location_config.distance_filter = val;
+                wss.send_msg(ToBack::SetLocationConfig(
+                    s.location_config.clone(),
+                ));
                 swift_poke::poke();
             }
             elem.set_value("");
@@ -133,7 +134,6 @@ pub fn LocationConfigurator() -> Html {
         <div class="grow max-w-prose mx-auto">
 
         // title
-        // <div class="relative">
         <div class="relative">
             <p class="font-bold"> {"Settings"} </p>
             <button onclick={show_help_onclick} id="loc_conf_help_btn"
@@ -148,7 +148,7 @@ pub fn LocationConfigurator() -> Html {
             // settings line
             <div class="flex items-center justify-between py-2 \
                 border-b border-neutral-800">
-                <label for="location_enabled">
+                <label for="standard_location">
                     {"Standard Location"}
                 </label>
                 // need to wrap the toggle switch with this div or the dot won't
@@ -156,13 +156,15 @@ pub fn LocationConfigurator() -> Html {
                 // h-min wasn't working so height is hardcoded to the switch
                 // height of 6
                 <div class="relative ml-4 mr-1 h-6">
-                <input type="checkbox" id="location_enabled"
-                    checked={*location_enabled} onclick={enabled_on_click}
+                <input type="checkbox" id="standard_location"
+                    checked={config.standard_location}
+                    onclick={enabled_on_click}
                     class={TOGGLE_SWITCH_STYLE}
                     // disable if significant changes is on and standard
                     // location is off changes is off (this way it can be turned
                     // off if state is bad)
-                    disabled={*significant_changes && !*location_enabled} />
+                    disabled={config.significant_changes
+                                && !config.standard_location} />
                 </div>
             </div>
             <div class="flex items-center justify-between py-2 \
@@ -178,7 +180,7 @@ pub fn LocationConfigurator() -> Html {
                 <label for="distance_filter">{"Distance Filter"}</label>
                 <div>
                     <input onchange={dist_filt_onchange} id="distance_filter"
-                        placeholder={format!("{:.2}", *dist_filt)}
+                        placeholder={format!("{:.2}", config.distance_filter)}
                         class="ml-4 w-16 rounded bg-black \
                         border border-neutral-700 \
                         placeholder:text-neutral-500" />
@@ -210,12 +212,13 @@ pub fn LocationConfigurator() -> Html {
                 </label>
                 <div class="relative ml-4 mr-1 h-6">
                 <input type="checkbox" id="significant_changes"
-                    checked={*significant_changes} onclick={sigchange_on_click}
-                    // class={format!("ml-4 mr-1 {}", TOGGLE_SWITCH_STYLE)}
+                    checked={config.significant_changes}
+                    onclick={sigchange_on_click}
                     class={TOGGLE_SWITCH_STYLE}
                     // disable if standard location is on and significant
                     // changes is off
-                    disabled={*location_enabled && !*significant_changes} />
+                    disabled={config.standard_location
+                                && !config.significant_changes} />
                 </div>
             </div>
         </div>

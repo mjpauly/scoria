@@ -120,7 +120,8 @@ pub extern "C" fn get_location_enabled() -> bool {
         .persistent
         .lock()
         .unwrap()
-        .location_is_enabled;
+        .location_config
+        .standard_location;
 }
 
 /// Return the distance filter setting
@@ -130,6 +131,7 @@ pub extern "C" fn get_distance_filter() -> f32 {
         .persistent
         .lock()
         .unwrap()
+        .location_config
         .distance_filter;
 }
 
@@ -140,6 +142,7 @@ pub extern "C" fn get_significant_changes() -> bool {
         .persistent
         .lock()
         .unwrap()
+        .location_config
         .significant_changes;
 }
 
@@ -150,7 +153,8 @@ pub extern "C" fn get_location_accuracy_mode() -> common::LocationAccuracyMode {
         .persistent
         .lock()
         .unwrap()
-        .location_accuracy_mode;
+        .location_config
+        .accuracy_mode;
 }
 
 /// Unit tests for the top-level library interface.

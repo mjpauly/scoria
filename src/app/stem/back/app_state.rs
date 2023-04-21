@@ -21,7 +21,7 @@ use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 
-use crate::common::LocationAccuracyMode;
+use crate::common::LocationConfig;
 use crate::core::{log_with_dir, print_and_log};
 use crate::paths::{get_library_dir, Paths};
 use crate::ws_session;
@@ -51,24 +51,10 @@ pub struct AppState {
 }
 
 /// State that is persisted across app launches.
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Default)]
 #[serde(default)]
 pub struct PersistentState {
-    pub location_is_enabled: bool,
-    pub distance_filter: f32,
-    pub significant_changes: bool,
-    pub location_accuracy_mode: LocationAccuracyMode,
-}
-
-impl Default for PersistentState {
-    fn default() -> Self {
-        Self {
-            location_is_enabled: false,
-            distance_filter: 5.0,
-            significant_changes: false,
-            location_accuracy_mode: LocationAccuracyMode::Best,
-        }
-    }
+    pub location_config: LocationConfig,
 }
 
 impl AppState {
@@ -149,12 +135,13 @@ impl AppState {
 
 #[cfg(test)]
 mod tests {
+    use crate::common::LocationAccuracyMode;
     use crate::init;
     use crate::local::local_fs_setup;
 
     use super::{
-        fs, AppState, LocationAccuracyMode, OpenOptions, PersistentState,
-        Write, STATE_FNAME,
+        fs, AppState, LocationConfig, OpenOptions, PersistentState, Write,
+        STATE_FNAME,
     };
 
     #[tokio::test]
@@ -170,7 +157,7 @@ mod tests {
         let serialized = fs::read_to_string(state_file).unwrap();
         assert_eq!(
             serialized,
-            r#"{"location_is_enabled":false,"distance_filter":5.0,"significant_changes":false,"location_accuracy_mode":"Best"}"#
+            r#"{"location_config":{"standard_location":false,"accuracy_mode":"Best","distance_filter":5.0,"significant_changes":false}}"#
         );
     }
 
@@ -180,7 +167,7 @@ mod tests {
         let paths = local_fs_setup(dir);
         let state_file = paths.library_dir.clone().join(STATE_FNAME);
 
-        let contents = r#"{"location_is_enabled":true,"distance_filter":4.0,"significant_changes":false,"location_accuracy_mode":"TenMeters"}"#;
+        let contents = r#"{"location_config":{"standard_location":true,"accuracy_mode":"TenMeters","distance_filter":4.0,"significant_changes":false}}"#;
 
         let mut file = OpenOptions::new()
             .create(true)
@@ -193,10 +180,12 @@ mod tests {
 
         let parsed = (*AppState::global().persistent.lock().unwrap()).clone();
         let expected = PersistentState {
-            location_is_enabled: true,
-            distance_filter: 4.0,
-            significant_changes: false,
-            location_accuracy_mode: LocationAccuracyMode::TenMeters,
+            location_config: LocationConfig {
+                standard_location: true,
+                accuracy_mode: LocationAccuracyMode::TenMeters,
+                distance_filter: 4.0,
+                significant_changes: false,
+            },
         };
         assert_eq!(parsed, expected);
     }

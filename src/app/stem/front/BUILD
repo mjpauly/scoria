@@ -17,6 +17,7 @@ pkg_zip(
         ":front_wasm",
         ":tailwind",
         "index.html",
+        ":plotlyjs",
     ],
     visibility = ["//visibility:public"],
 )
@@ -95,3 +96,9 @@ $(execpath @front_npm//tailwindcss/bin:tailwindcss) -i $(location styles.css) \
     tools = ["@front_npm//tailwindcss/bin:tailwindcss"],
 )
 
+# download plotly to include with static files
+genrule(
+    name = "plotlyjs",
+    outs = ["plotly.min.js"],
+    cmd = 'curl https://cdn.plot.ly/plotly-2.20.0.min.js -o $@',
+)

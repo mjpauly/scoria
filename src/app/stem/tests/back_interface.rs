@@ -1,7 +1,7 @@
 //! Integration tests for the backend's interface (Swift-facing and frontend-
 //! facing).
 
-use stem::common::{Location, TimeRange, ToBack, ToFront};
+use stem::common::{Location, LocationConfig, TimeRange, ToBack, ToFront};
 
 use crate::setup;
 
@@ -26,8 +26,8 @@ rusty_fork_test! {
     }
 
     #[test]
-    fn set_dist_filt_changes_backend_state() {
-        run_test(set_dist_filt_changes_backend_state_impl());
+    fn set_location_config_changes_backend_state() {
+        run_test(set_location_config_changes_backend_state_impl());
     }
 
     #[test]
@@ -72,13 +72,16 @@ async fn log_location_sends_data_to_ui_impl() {
     assert_eq!(decoded, ToFront::LastLocation(expected));
 }
 
-async fn set_dist_filt_changes_backend_state_impl() {
-    let url = setup("set_dist_filt_changes_backend_state/").await;
+async fn set_location_config_changes_backend_state_impl() {
+    let url = setup("set_location_config_changes_backend_state/").await;
     let (ws_stream, _) = connect_async(url).await.expect("Failed to connect");
     let (mut write, _read) = ws_stream.split();
 
-    let new_dist_filt = 4.0;
-    let msg = ToBack::SetDistFilt(new_dist_filt);
+    let new_config = LocationConfig {
+        distance_filter: 4.0,
+        ..Default::default()
+    };
+    let msg = ToBack::SetLocationConfig(new_config.clone());
     let encoded = bincode::serialize(&msg).unwrap();
     write.send(Message::binary(encoded)).await.unwrap();
 
@@ -89,8 +92,9 @@ async fn set_dist_filt_changes_backend_state_impl() {
         .persistent
         .lock()
         .unwrap()
-        .distance_filter;
-    assert_eq!(new_dist_filt, persisted);
+        .location_config
+        .clone();
+    assert_eq!(new_config, persisted);
 }
 
 async fn backend_sends_state_when_requested_impl() {
@@ -116,8 +120,8 @@ async fn backend_sends_state_when_requested_impl() {
     // We find the message within the vector since the order is not guaranteed.
     messages
         .iter()
-        .position(|x| matches!(*x, ToFront::LocationEnabled(_)))
-        .expect("Did not receive LocationEnabled state");
+        .position(|x| matches!(*x, ToFront::LocationConfig(_)))
+        .expect("Did not receive LocationConfig state");
     messages
         .iter()
         .position(|x| matches!(*x, ToFront::LocationsPastHour(_)))
