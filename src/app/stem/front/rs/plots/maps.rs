@@ -20,17 +20,20 @@ pub fn map_plot(
     let lons: Vec<_> = records.iter().map(|x| x.lon).collect();
 
     let (lat_center, lon_center, zoom);
-    let trace;
-    if !records.is_empty() {
+    let mut trace = if !records.is_empty() {
         // calculate where to put the center
         (lat_center, lon_center, zoom) = get_center_and_zoom(&lats, &lons);
-        trace = ScatterMapbox::new(lats, lons).marker(marker);
+        ScatterMapbox::new(lats, lons)
     } else {
         (lat_center, lon_center, zoom) = (0., 0., 0);
         // If we don't have a data point, mapbox-gl-js complains about "there is
         // already a source with this ID"
-        trace = ScatterMapbox::new(vec![0.], vec![0.]).marker(marker);
-    }
+        ScatterMapbox::new(vec![0.], vec![0.])
+    };
+
+    trace = trace
+        .marker(marker)
+        .hover_text_array(get_hovertext(&records));
 
     let layout = Layout::new()
         // transparent paper: no white flashes on plot load
@@ -53,6 +56,26 @@ pub fn map_plot(
     plot.set_layout(layout);
     plot.set_configuration(config);
     plot
+}
+
+/// Get the hovertext to show when the datapoints are clicked.
+fn get_hovertext(records: &[common::Location]) -> Vec<String> {
+    let local_offset = time::UtcOffset::current_local_offset().unwrap();
+    records
+        .iter()
+        .map(|loc| {
+            format!(
+                "+/-{:.2} m, {:.2} m/s, {:.2}°<br>{}",
+                loc.accuracy,
+                loc.speed,
+                loc.course,
+                loc.datetime
+                    .to_offset(local_offset)
+                    .format(&time::format_description::well_known::Rfc2822)
+                    .unwrap()
+            )
+        })
+        .collect()
 }
 
 pub fn map_colorbar() -> plotly::common::ColorBar {

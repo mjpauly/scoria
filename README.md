@@ -8,7 +8,6 @@
 - map usability / configurability
     - [ ] exclude data with x greater/less than x
     - [ ] persist selection for export + queries
-    - [ ] show data values when clicking on map
 - location settings
     - [ ] auto mode (switch between modes based on movement)
 - [ ] ability to export log
@@ -83,6 +82,7 @@
 - [x] startup spash page to reduce flicker
 - [x] persists certain app state values across app launches
 - [x] local plotly instead of hitting cdn every app load
+- [x] show data values when clicking on map
 
 ## Structure
 
