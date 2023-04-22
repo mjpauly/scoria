@@ -201,6 +201,7 @@ pub struct WebsocketService {
 /// message to exit, since the websocket was closed.
 enum WriterMsg {
     Msg(ToBack),
+    #[allow(dead_code)]
     Abort,
 }
 
@@ -262,10 +263,13 @@ impl WebsocketService {
         Self::spawn_websocket_reader(
             ws_read,
             subscribers.clone(),
-            reconnect_needed.clone(),
+            reconnect_needed,
         );
         Self::spawn_websocket_writer(yew_rx, ws_write);
-        Self::spawn_watchdog(tx.clone(), subscribers.clone(), reconnect_needed);
+        // Don't spawn watchdog since frontend is reloaded on app foregrounding
+        // anyways. This ensures we only try to connect once on foregrounding
+        // after the server has started up.
+        // Self::spawn_watchdog(tx.clone(), subscribers.clone(), reconnect_needed);
         Self { tx, subscribers }
     }
 
@@ -330,6 +334,7 @@ impl WebsocketService {
     }
 
     /// Watches if the websocket gets closed and reconnects as needed.
+    #[allow(dead_code)]
     fn spawn_watchdog(
         tx: Rc<RefCell<Sender<WriterMsg>>>,
         subscribers: Rc<RefCell<HashMap<Uuid, Callback>>>,
