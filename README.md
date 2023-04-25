@@ -21,6 +21,9 @@
     - [ ] battery charge (to correlate with location mode) [ref](https://stackoverflow.com/questions/27475506/check-battery-level-ios-swift)
 - [ ] construct plotly plots with serde_json's Map and Value directly, to avoid
     limitations of having to define everything up front ([ref](https://stackoverflow.com/questions/59047280/how-to-build-json-arrays-or-objects-dynamically-with-serde-json))
+- security
+    - [ ] prevent loading of the UI static components a second time, to keep
+    frontend slightly harder to get a hold of
 - [ ] ability to set preferred units
 - [ ] get feedback with test flight
 - [ ] publish to app store

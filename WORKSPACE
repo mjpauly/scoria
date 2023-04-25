@@ -163,6 +163,7 @@ crates_repository(
             features = ["wasm"],
         ),
         "serde_json": crate.spec(version = "1.0.94",),
+        "uom": crate.spec(version = "0.34.0"),
         "yew": crate.spec(
             version = "0.20.0",
             features = ["csr"],
@@ -210,6 +211,7 @@ crates_repository(
                 "BootstrapQuestionCircle",
                 "BootstrapSoundwave",
                 "BootstrapTools",
+                "BootstrapXCircle",
             ],
         ),
         # Unresolved bug if we upgrade to wasm-bindgen 0.2.84, probably because

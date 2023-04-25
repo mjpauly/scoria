@@ -6,12 +6,16 @@ use yewdux::prelude::*;
 
 use crate::common::{Location, TimeRange};
 use crate::components::{
+    datastream::DataStream,
+    location_filter_list::{
+        apply_filters, Filter, FilterOp, LocationFilterList,
+    },
     map_styler::{
         use_check_epsln_tile_server, BasemapStyle, ColoredDataStream, MapStyle,
-        Rgba,
+        MapStyler, Rgba,
     },
     time_range_picker::time_range_today,
-    MapStyler, NavbarWrapper, TimeRangePicker, PRIMARY_BUTTON_STYLE,
+    NavbarWrapper, TimeRangePicker, PRIMARY_BUTTON_STYLE,
     SECONDARY_BUTTON_STYLE,
 };
 use crate::plots::{
@@ -49,6 +53,15 @@ fn AnalyzeLocation() -> Html {
         basemap_style: use_state(|| BasemapStyle::BasicDark),
         colored_datastream: use_state(|| ColoredDataStream::None),
     };
+    let filters = use_state(|| {
+        vec![Filter {
+            id: 0,
+            enabled: true,
+            datastream: DataStream::HorizAccuracy,
+            op: FilterOp::GreaterThan,
+            threshold: 10.0,
+        }]
+    });
 
     // Ask for new location data from backend after render anytime time_range
     // changes
@@ -58,11 +71,12 @@ fn AnalyzeLocation() -> Html {
             wss.send_msg(ToBack::GetLocationTimeRange((**time_range).clone()));
         },
         // things that will cause a full plot reload if changed:
-        (time_range.clone(), map_style.clone()),
+        (time_range.clone(), map_style.clone(), filters.clone()),
     );
 
     let show_time_picker = use_state(|| false);
     let show_plot_styler = use_state(|| false);
+    let show_filter_list = use_state(|| false);
 
     // after rerender, trigger the plot's resize handler if needs an update
     use_effect_with_deps(
@@ -70,14 +84,19 @@ fn AnalyzeLocation() -> Html {
             let event = web_sys::Event::new("resize").unwrap();
             web_sys::window().unwrap().dispatch_event(&event).unwrap();
         },
-        (show_time_picker.clone(), show_plot_styler.clone()),
+        (
+            show_time_picker.clone(),
+            show_plot_styler.clone(),
+            show_filter_list.clone(),
+        ),
     );
 
     html! {
         <div class="flex flex-col h-full">
             <PlotComponent
                 time_range={time_range.clone()}
-                map_style={map_style.clone()} />
+                map_style={map_style.clone()}
+                filters={filters.clone()} />
             if *show_plot_styler {
                 <MapStyler map_style={map_style.clone()} />
                 <hr class="border-t-1 border-neutral-700" />
@@ -86,9 +105,14 @@ fn AnalyzeLocation() -> Html {
                 <TimeRangePicker time_range={time_range.clone()} />
                 <hr class="border-t-1 border-neutral-700" />
             }
+            if *show_filter_list {
+                <LocationFilterList filters={filters.clone()} />
+                <hr class="border-t-1 border-neutral-700" />
+            }
             <SettingsPicker
                 show_time_picker={show_time_picker.clone()}
-                show_plot_styler={show_plot_styler.clone()} />
+                show_plot_styler={show_plot_styler.clone()}
+                show_filter_list={show_filter_list.clone()} />
         </div>
     }
 }
@@ -97,6 +121,7 @@ fn AnalyzeLocation() -> Html {
 struct SettingsPickerProps {
     show_time_picker: UseStateHandle<bool>,
     show_plot_styler: UseStateHandle<bool>,
+    show_filter_list: UseStateHandle<bool>,
 }
 
 #[function_component]
@@ -104,6 +129,7 @@ fn SettingsPicker(
     SettingsPickerProps {
         show_time_picker,
         show_plot_styler,
+        show_filter_list,
     }: &SettingsPickerProps,
 ) -> Html {
     let time_onclick = {
@@ -118,6 +144,12 @@ fn SettingsPicker(
             show_plot_styler.set(!*show_plot_styler)
         })
     };
+    let filter_onclick = {
+        let show_filter_list = show_filter_list.clone();
+        Callback::from(move |_e: MouseEvent| {
+            show_filter_list.set(!*show_filter_list)
+        })
+    };
     let style_button_style = if **show_plot_styler {
         PRIMARY_BUTTON_STYLE
     } else {
@@ -128,9 +160,18 @@ fn SettingsPicker(
     } else {
         SECONDARY_BUTTON_STYLE
     };
+    let filter_button_style = if **show_filter_list {
+        PRIMARY_BUTTON_STYLE
+    } else {
+        SECONDARY_BUTTON_STYLE
+    };
     html! {
         <div class="flex my-1">
             <div class="mx-auto">
+                <button onclick={filter_onclick} id="filter_list_btn"
+                    class={format!("m-1 {}", filter_button_style)}>
+                        {"Filters"}
+                </button>
                 <button onclick={style_onclick} id="map_style_btn"
                     class={format!("m-1 {}", style_button_style)}>
                         {"Map Style"}
@@ -150,6 +191,7 @@ fn SettingsPicker(
 struct PlotComponentProps {
     time_range: UseStateHandle<TimeRange>,
     map_style: MapStyle,
+    filters: UseStateHandle<Vec<Filter>>,
 }
 
 #[function_component]
@@ -157,6 +199,7 @@ fn PlotComponent(
     PlotComponentProps {
         time_range,
         map_style,
+        filters,
     }: &PlotComponentProps,
 ) -> Html {
     let use_epsln_tile_server =
@@ -168,14 +211,16 @@ fn PlotComponent(
     let on_backend_msg = {
         let plot_initialized = plot_initialized.clone(); // only exports values
         let map_style = map_style.clone();
+        let filters = filters.clone();
         move |msg: &ToFront| {
             if let ToFront::LocationTimeRange(_time_range, locations) = msg {
-                let marker = get_plot_marker(locations, map_style.clone());
+                let locations = apply_filters(&filters, locations);
+                let marker = get_plot_marker(&locations, map_style.clone());
                 plot_initialized.set(false);
                 plotly_binds::new_plot(
                     plot_id,
                     &maps::map_plot(
-                        locations.clone(),
+                        locations,
                         marker,
                         map_style
                             .basemap_style
@@ -186,7 +231,10 @@ fn PlotComponent(
             }
         }
     };
-    use_backend_event_with_deps(on_backend_msg, map_style.clone());
+    use_backend_event_with_deps(
+        on_backend_msg,
+        (map_style.clone(), filters.clone()),
+    );
 
     // Update plot with new data points without creating a new plot
 
@@ -250,7 +298,7 @@ fn PlotComponent(
 
 /// Get the marker for a plot given the vector of locations and the desired map
 /// style.
-fn get_plot_marker(locations: &[Location], map_style: MapStyle) -> Marker {
+fn get_plot_marker(locations: &[&Location], map_style: MapStyle) -> Marker {
     if *map_style.colored_datastream == ColoredDataStream::None {
         // No coloring based on data, just use solid color
         let marker = Marker::new()

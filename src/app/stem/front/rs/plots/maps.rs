@@ -12,7 +12,7 @@ use crate::common;
 
 /// Generate a map of data points and return the plot
 pub fn map_plot(
-    records: Vec<common::Location>,
+    records: Vec<&common::Location>,
     marker: Marker,
     mapbox_style: MapboxStyle,
 ) -> plotly::Plot {
@@ -59,7 +59,7 @@ pub fn map_plot(
 }
 
 /// Get the hovertext to show when the datapoints are clicked.
-fn get_hovertext(records: &[common::Location]) -> Vec<String> {
+fn get_hovertext(records: &[&common::Location]) -> Vec<String> {
     let local_offset = time::UtcOffset::current_local_offset().unwrap();
     records
         .iter()
