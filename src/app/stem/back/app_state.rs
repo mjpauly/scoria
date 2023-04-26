@@ -93,14 +93,20 @@ impl AppState {
     fn do_init(state: &OnceCell<Arc<AppState>>, paths: Paths, db: SqlitePool) {
         let state_file = paths.library_dir.join(STATE_FNAME);
         let persistent = if let Ok(input) = fs::read_to_string(state_file) {
-            if let Ok(parsed) = serde_json::from_str(&input) {
-                log_with_dir(
-                    "Loaded app state from file.",
-                    &paths.documents_dir,
-                );
-                parsed
-            } else {
-                PersistentState::default()
+            match serde_json::from_str(&input) {
+                Ok(parsed) => {
+                    let msg = "Successfully loaded app state from file.";
+                    println!("{}", msg);
+                    log_with_dir(&msg, &paths.documents_dir);
+                    parsed
+                }
+                Err(e) => {
+                    let msg =
+                        &format!("Failed to parse state due to error: {}", e);
+                    println!("{}", msg);
+                    log_with_dir(&msg, &paths.documents_dir);
+                    PersistentState::default()
+                }
             }
         } else {
             PersistentState::default()
@@ -121,15 +127,14 @@ impl AppState {
         let mut file = OpenOptions::new()
             .create(true)
             .write(true)
+            .truncate(true) // delete previous contents that are longer
             .open(state_file)
             .unwrap();
-        file.write_all(
+        let state_str =
             serde_json::to_string(&*Self::global().persistent.lock().unwrap())
-                .unwrap()
-                .as_bytes(),
-        )
-        .unwrap();
-        print_and_log("Wrote app state to file.");
+                .unwrap();
+        file.write_all(state_str.as_bytes()).unwrap();
+        print_and_log(&format!("Wrote app state to file: {}.", state_str));
     }
 }
 
@@ -172,6 +177,7 @@ mod tests {
         let mut file = OpenOptions::new()
             .create(true)
             .write(true)
+            .truncate(true)
             .open(state_file)
             .unwrap();
         file.write_all(contents.as_bytes()).unwrap();
