@@ -1,4 +1,5 @@
-//! Element for choosing how to filter plotted location data.
+//! Element for choosing how to filter plotted location data. If any filter's
+//! condition is true for a data point, that data point is removed.
 //!
 //! One filter looks kind of like this:
 //! +------------------------------------------------+

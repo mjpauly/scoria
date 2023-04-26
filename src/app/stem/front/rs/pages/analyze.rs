@@ -74,21 +74,16 @@ fn AnalyzeLocation() -> Html {
         (time_range.clone(), map_style.clone(), filters.clone()),
     );
 
-    let show_time_picker = use_state(|| false);
-    let show_plot_styler = use_state(|| false);
-    let show_filter_list = use_state(|| false);
+    let settings_tab = use_state(|| SettingsTab::None);
 
-    // after rerender, trigger the plot's resize handler if needs an update
+    // after rerender, trigger the plot's resize handler if the visible settings
+    // tab has changed
     use_effect_with_deps(
         move |_| {
             let event = web_sys::Event::new("resize").unwrap();
             web_sys::window().unwrap().dispatch_event(&event).unwrap();
         },
-        (
-            show_time_picker.clone(),
-            show_plot_styler.clone(),
-            show_filter_list.clone(),
-        ),
+        settings_tab.clone(),
     );
 
     html! {
@@ -97,70 +92,77 @@ fn AnalyzeLocation() -> Html {
                 time_range={time_range.clone()}
                 map_style={map_style.clone()}
                 filters={filters.clone()} />
-            if *show_plot_styler {
+            if *settings_tab == SettingsTab::MapStyle {
                 <MapStyler map_style={map_style.clone()} />
                 <hr class="border-t-1 border-neutral-700" />
             }
-            if *show_time_picker {
+            if *settings_tab == SettingsTab::TimeRange {
                 <TimeRangePicker time_range={time_range.clone()} />
                 <hr class="border-t-1 border-neutral-700" />
             }
-            if *show_filter_list {
+            if *settings_tab == SettingsTab::Filters {
                 <LocationFilterList filters={filters.clone()} />
                 <hr class="border-t-1 border-neutral-700" />
             }
-            <SettingsPicker
-                show_time_picker={show_time_picker.clone()}
-                show_plot_styler={show_plot_styler.clone()}
-                show_filter_list={show_filter_list.clone()} />
+            <SettingsPicker tab={settings_tab.clone()} />
         </div>
     }
 }
 
+#[derive(Clone, PartialEq, Debug)]
+enum SettingsTab {
+    None,
+    Filters,
+    MapStyle,
+    TimeRange,
+}
+
 #[derive(Properties, PartialEq)]
 struct SettingsPickerProps {
-    show_time_picker: UseStateHandle<bool>,
-    show_plot_styler: UseStateHandle<bool>,
-    show_filter_list: UseStateHandle<bool>,
+    tab: UseStateHandle<SettingsTab>,
 }
 
 #[function_component]
-fn SettingsPicker(
-    SettingsPickerProps {
-        show_time_picker,
-        show_plot_styler,
-        show_filter_list,
-    }: &SettingsPickerProps,
-) -> Html {
+fn SettingsPicker(SettingsPickerProps { tab }: &SettingsPickerProps) -> Html {
+    // callback generic to all settings tabs
+    let onclick = {
+        let tab = tab.clone();
+        Callback::from(move |tab_target: SettingsTab| {
+            if *tab == tab_target {
+                // Already on this tab -> close it
+                tab.set(SettingsTab::None);
+            } else {
+                // Not on the tab yet -> go to it
+                tab.set(tab_target);
+            }
+        })
+    };
     let time_onclick = {
-        let show_time_picker = show_time_picker.clone();
+        let onclick = onclick.clone();
         Callback::from(move |_e: MouseEvent| {
-            show_time_picker.set(!*show_time_picker);
+            onclick.emit(SettingsTab::TimeRange);
         })
     };
     let style_onclick = {
-        let show_plot_styler = show_plot_styler.clone();
+        let onclick = onclick.clone();
         Callback::from(move |_e: MouseEvent| {
-            show_plot_styler.set(!*show_plot_styler)
+            onclick.emit(SettingsTab::MapStyle);
         })
     };
-    let filter_onclick = {
-        let show_filter_list = show_filter_list.clone();
-        Callback::from(move |_e: MouseEvent| {
-            show_filter_list.set(!*show_filter_list)
-        })
-    };
-    let style_button_style = if **show_plot_styler {
+    let filter_onclick = Callback::from(move |_e: MouseEvent| {
+        onclick.emit(SettingsTab::Filters);
+    });
+    let style_button_style = if **tab == SettingsTab::MapStyle {
         PRIMARY_BUTTON_STYLE
     } else {
         SECONDARY_BUTTON_STYLE
     };
-    let time_button_style = if **show_time_picker {
+    let time_button_style = if **tab == SettingsTab::TimeRange {
         PRIMARY_BUTTON_STYLE
     } else {
         SECONDARY_BUTTON_STYLE
     };
-    let filter_button_style = if **show_filter_list {
+    let filter_button_style = if **tab == SettingsTab::Filters {
         PRIMARY_BUTTON_STYLE
     } else {
         SECONDARY_BUTTON_STYLE
