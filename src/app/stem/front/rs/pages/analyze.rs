@@ -2,6 +2,7 @@
 
 use plotly::common::Marker;
 use yew::prelude::*;
+use yew_icons::{Icon, IconId};
 use yewdux::prelude::*;
 
 use crate::common::{Location, TimeRange};
@@ -62,28 +63,38 @@ fn AnalyzeLocation() -> Html {
             threshold: 10.0,
         }]
     });
+    // Collect the set of active filters, which is used to determine if the plot
+    // is reloaded. This way editing an inactive filter doesn't change the plot.
+    let active_filters: Vec<_> = (*filters)
+        .clone()
+        .into_iter()
+        .filter(|filt| filt.enabled)
+        .collect();
 
-    // Ask for new location data from backend after render anytime time_range
-    // changes
+    // Ask for new location data from backend after render anytime time_range,
+    // map_style, or active_filters changes
     let wss = use_context::<WebsocketService>().unwrap();
     use_effect_with_deps(
         move |(time_range, ..)| {
             wss.send_msg(ToBack::GetLocationTimeRange((**time_range).clone()));
         },
         // things that will cause a full plot reload if changed:
-        (time_range.clone(), map_style.clone(), filters.clone()),
+        (time_range.clone(), map_style.clone(), active_filters),
     );
 
     let settings_tab = use_state(|| SettingsTab::None);
+    // Get the number of filters clamped to the range [0, 2], which is where
+    // resizing of the filter list occurs. If the value changes, trigger resize
+    let num_filters = (*filters).len().clamp(0, 2);
 
     // after rerender, trigger the plot's resize handler if the visible settings
-    // tab has changed
+    // tab has changed, or if that settings tab's size has changed
     use_effect_with_deps(
         move |_| {
             let event = web_sys::Event::new("resize").unwrap();
             web_sys::window().unwrap().dispatch_event(&event).unwrap();
         },
-        settings_tab.clone(),
+        (settings_tab.clone(), num_filters),
     );
 
     html! {
@@ -94,15 +105,12 @@ fn AnalyzeLocation() -> Html {
                 filters={filters.clone()} />
             if *settings_tab == SettingsTab::MapStyle {
                 <MapStyler map_style={map_style.clone()} />
-                <hr class="border-t-1 border-neutral-700" />
             }
             if *settings_tab == SettingsTab::TimeRange {
                 <TimeRangePicker time_range={time_range.clone()} />
-                <hr class="border-t-1 border-neutral-700" />
             }
             if *settings_tab == SettingsTab::Filters {
                 <LocationFilterList filters={filters.clone()} />
-                <hr class="border-t-1 border-neutral-700" />
             }
             <SettingsPicker tab={settings_tab.clone()} />
         </div>
@@ -152,35 +160,33 @@ fn SettingsPicker(SettingsPickerProps { tab }: &SettingsPickerProps) -> Html {
     let filter_onclick = Callback::from(move |_e: MouseEvent| {
         onclick.emit(SettingsTab::Filters);
     });
-    let style_button_style = if **tab == SettingsTab::MapStyle {
-        PRIMARY_BUTTON_STYLE
-    } else {
-        SECONDARY_BUTTON_STYLE
+    let get_style = move |tab_target: SettingsTab| {
+        if **tab == tab_target {
+            format!("p-2 {}", PRIMARY_BUTTON_STYLE)
+        } else {
+            format!("p-2 {}", SECONDARY_BUTTON_STYLE)
+        }
     };
-    let time_button_style = if **tab == SettingsTab::TimeRange {
-        PRIMARY_BUTTON_STYLE
-    } else {
-        SECONDARY_BUTTON_STYLE
-    };
-    let filter_button_style = if **tab == SettingsTab::Filters {
-        PRIMARY_BUTTON_STYLE
-    } else {
-        SECONDARY_BUTTON_STYLE
-    };
+    let style_button_style = get_style(SettingsTab::MapStyle);
+    let time_button_style = get_style(SettingsTab::TimeRange);
+    let filter_button_style = get_style(SettingsTab::Filters);
     html! {
-        <div class="flex my-1">
+        <div class="flex">
             <div class="mx-auto">
                 <button onclick={filter_onclick} id="filter_list_btn"
                     class={format!("m-1 {}", filter_button_style)}>
-                        {"Filters"}
+                        <Icon icon_id={IconId::BootstrapFunnel}
+                            class="h-5 w-5" />
                 </button>
                 <button onclick={style_onclick} id="map_style_btn"
                     class={format!("m-1 {}", style_button_style)}>
-                        {"Map Style"}
+                        <Icon icon_id={IconId::BootstrapBrush}
+                            class="h-5 w-5" />
                 </button>
                 <button onclick={time_onclick} id="time_range_btn"
                     class={format!("m-1 {}", time_button_style)}>
-                        {"Time Range"}
+                        <Icon icon_id={IconId::BootstrapCalendarRange}
+                            class="h-5 w-5" />
                 </button>
             </div>
         </div>

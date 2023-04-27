@@ -1,5 +1,5 @@
 {
-  "checksum": "48edeb9b58d288e984471fc4918b81bb67c4fec0fddb084a7ce68f59165843e0",
+  "checksum": "f3895b0e16af844c98d39bdc81e262c5d7694b7219878eec7931153136dbdac7",
   "crates": {
     "actix 0.13.0": {
       "name": "actix",
@@ -4476,7 +4476,7 @@
               "target": "yew_router"
             },
             {
-              "id": "yew_icons 0.7.0",
+              "id": "yew_icons 0.7.2",
               "target": "yew_icons"
             },
             {
@@ -18118,13 +18118,13 @@
       },
       "license": "MIT OR Apache-2.0"
     },
-    "yew_icons 0.7.0": {
+    "yew_icons 0.7.2": {
       "name": "yew_icons",
-      "version": "0.7.0",
+      "version": "0.7.2",
       "repository": {
         "Http": {
-          "url": "https://crates.io/api/v1/crates/yew_icons/0.7.0/download",
-          "sha256": "0601d9e0dc6fbf88663d0a92c3aaa9ad5f5f8a3bf7866f563ed232e6de5d2793"
+          "url": "https://crates.io/api/v1/crates/yew_icons/0.7.2/download",
+          "sha256": "0001aab8ce9400873cf42dc56eb1b8db259effdc3e8fdbdf5940e50f31675ee1"
         }
       },
       "targets": [
@@ -18145,9 +18145,18 @@
         ],
         "crate_features": {
           "common": [
+            "BootstrapBrush",
+            "BootstrapCalendarRange",
             "BootstrapExclamationTriangle",
+            "BootstrapFilter",
+            "BootstrapFunnel",
+            "BootstrapGlobeAmericas",
+            "BootstrapJournal",
+            "BootstrapJournalText",
             "BootstrapMap",
+            "BootstrapPlusLg",
             "BootstrapQuestionCircle",
+            "BootstrapSave",
             "BootstrapSoundwave",
             "BootstrapTools",
             "BootstrapXCircle",
@@ -18166,7 +18175,7 @@
           "selects": {}
         },
         "edition": "2021",
-        "version": "0.7.0"
+        "version": "0.7.2"
       },
       "license": "MIT"
     },

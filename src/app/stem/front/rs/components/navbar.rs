@@ -44,21 +44,21 @@ pub fn Navbar() -> Html {
     let scope = get_scope();
 
     // We scale the icons differently since their visual size for the same width
-    // is different.
+    // is sometimes different.
     let view_routes = vec![
         // (route, label, icon, icon_scale)
         (
             Route::Sense {
                 scope: scope.clone(),
             },
-            "Record",
-            IconId::BootstrapSoundwave,
-            "h-8 w-8",
+            "Log",
+            IconId::BootstrapJournalText,
+            "h-6 w-6",
         ),
         (
             Route::Analyze { scope },
             "Map",
-            IconId::BootstrapMap,
+            IconId::BootstrapGlobeAmericas,
             "h-6 w-6",
         ),
     ];
@@ -73,7 +73,7 @@ pub fn Navbar() -> Html {
             Callback::from(move |_e: MouseEvent| navigator.push(&route))
         };
         // Extra padding on the bottom to give more room for the home bar
-        let mut style = vec!["pt-4 pb-8"];
+        let mut style = vec!["pt-2 pb-6"];
         if let Some(r) = &curr_route {
             // Style the current button blue if we are on it
             if *route == *r {

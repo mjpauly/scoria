@@ -67,7 +67,7 @@ async fn simple_navigation(
     c.find(Locator::Css("#Map")).await?.click().await?;
     assert_url_eq(c, base_url.clone() + "analyze/").await;
 
-    c.find(Locator::Css("#Record")).await?.click().await?;
+    c.find(Locator::Css("#Log")).await?.click().await?;
     assert_url_eq(c, base_url + "sense/").await;
 
     Ok(())
@@ -135,6 +135,7 @@ async fn location_config_propagates(
 async fn map_interaction(
     c: &Client,
 ) -> Result<(), fantoccini::error::CmdError> {
+    sleep(Duration::from_millis(100)).await;
     // Go to the map page
     c.find(Locator::Css("#Map")).await?.click().await?;
 

@@ -13,10 +13,12 @@ pub use map_styler::MapStyler;
 pub use navbar::{Navbar, NavbarWrapper};
 pub use time_range_picker::TimeRangePicker;
 
+// For text contents, py-1.5 px-3 is good.
 pub static SECONDARY_BUTTON_STYLE: &str =
-    "rounded-lg whitespace-nowrap py-1.5 px-3 text-primary bg-neutral-800";
+    "rounded-lg whitespace-nowrap text-primary bg-neutral-800";
 pub static PRIMARY_BUTTON_STYLE: &str =
-    "rounded-lg whitespace-nowrap py-1.5 px-3 text-neutral-200 bg-primary";
+    "rounded-lg whitespace-nowrap text-neutral-200 bg-primary";
+
 pub static DATETIME_INPUT_STYLE: &str =
     "rounded-lg whitespace-nowrap py-1.5 px-3 placeholder:text-neutral-200 \
         bg-neutral-800";
@@ -43,7 +45,6 @@ pub static TOGGLE_SWITCH_STYLE: &str = "\
     after:rounded-full \
     after:border-none \
     after:bg-neutral-100 \
-    after:transition-[background-color_0.2s,transform_0.2s] \
     checked:bg-primary \
     checked:after:absolute \
     checked:after:ml-[1.125rem] \
@@ -53,7 +54,6 @@ pub static TOGGLE_SWITCH_STYLE: &str = "\
     checked:after:rounded-full \
     checked:after:border-none \
     checked:after:bg-neutral-100 \
-    checked:after:transition-[background-color_0.2s,transform_0.2s] \
     hover:cursor-pointer \
     disabled:cursor-default \
     disabled:opacity-60";

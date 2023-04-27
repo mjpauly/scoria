@@ -82,15 +82,15 @@ pub fn TimeRangePicker(
             </div>
 
             <button onclick={week_onclick} id="time_range_week_btn"
-                class={format!("m-1 {}", SECONDARY_BUTTON_STYLE)}>
+                class={format!("m-1 py-1.5 px-3 {}", SECONDARY_BUTTON_STYLE)}>
                     {"Past 7 Days"}
             </button>
             <button onclick={day_onclick} id="time_range_day_btn"
-                class={format!("m-1 {}", SECONDARY_BUTTON_STYLE)}>
+                class={format!("m-1 py-1.5 px-3 {}", SECONDARY_BUTTON_STYLE)}>
                     {"Past 24 Hours"}
             </button>
             <button onclick={today_onclick} id="time_range_today_btn"
-                class={format!("m-1 {}", SECONDARY_BUTTON_STYLE)}>
+                class={format!("m-1 py-1.5 px-3 {}", SECONDARY_BUTTON_STYLE)}>
                     {"Today"}
             </button>
         </div>

@@ -97,14 +97,14 @@ impl AppState {
                 Ok(parsed) => {
                     let msg = "Successfully loaded app state from file.";
                     println!("{}", msg);
-                    log_with_dir(&msg, &paths.documents_dir);
+                    log_with_dir(msg, &paths.documents_dir);
                     parsed
                 }
                 Err(e) => {
                     let msg =
                         &format!("Failed to parse state due to error: {}", e);
                     println!("{}", msg);
-                    log_with_dir(&msg, &paths.documents_dir);
+                    log_with_dir(msg, &paths.documents_dir);
                     PersistentState::default()
                 }
             }

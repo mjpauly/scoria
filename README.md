@@ -6,7 +6,6 @@
     - app-level
         - [ ] changing location settings propagate all the way into Swift logic
 - map usability / configurability
-    - [ ] exclude data with x greater/less than x
     - [ ] persist selection for export + queries
 - location settings
     - [ ] auto mode (switch between modes based on movement)
@@ -69,6 +68,7 @@
     - [x] auto zoom and centering
     - [x] configurable marker color/size, map base layer
     - [x] marker colormap based on data value
+    - [x] exclude data with x greater/less than x
 - [x] investigate undropped websocket callbacks
 - [x] secrets stored in .env
 - [x] secure the UI from other apps (max 1 connection, random port, authenticate

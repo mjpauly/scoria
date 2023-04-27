@@ -8,7 +8,7 @@ bazel test //src/app/stem:unit_tests
 
 printf "\nRunning integration tests\n\n"
 
-bazel test //src/app/stem:int_tests --spawn_strategy=local
+bazel test //src/app/stem:int_tests --spawn_strategy=local --test_output=all
 
 printf "\nChecking Clippy lints\n\n"
 

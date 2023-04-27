@@ -156,10 +156,31 @@ pub fn LocationFilterList(
             filters.set(entries);
         })
     };
+    let onadd = {
+        let filters = filters.clone();
+        move |_| {
+            let mut entries = (*filters).clone();
+            entries.push(Filter {
+                id: entries.last().map(|entry| entry.id + 1).unwrap_or(1),
+                enabled: false,
+                datastream: DataStream::HorizAccuracy,
+                op: FilterOp::GreaterThan,
+                threshold: 10.0,
+            });
+            filters.set(entries)
+        }
+    };
+    let num_filters = (**filters).len();
+    let height = if num_filters == 0 {
+        "h-[4.5rem]" // 18 tailwind units (16 for item + 2x1 margin)
+    } else if num_filters == 1 {
+        "h-[8.75rem]" // 35 tailwind units (2x16 items + 3x1 margin)
+    } else {
+        "h-52" // (3x16 items + 4x1 margin)
+    };
     html! {
         <>
-            // <button>{"+"}</button>
-            <div class="h-52 overflow-scroll">
+            <div class={format!("{} overflow-scroll", height)}>
                 {for (**filters).iter().cloned().map(|filter|
                     html! {
                         <FilterEntry {filter}
@@ -171,6 +192,19 @@ pub fn LocationFilterList(
                             />
                     }
                 )}
+                <div class="flex items-center justify-between pl-4 pr-2
+                    h-16 m-1">
+                    <p class="text-neutral-500 text-left mr-4">
+                        {"Filters hide data where the condition is true. Tap
+                            the plus to add another."}
+                    </p>
+                    <button onclick={onadd} class="p-2">
+                        <div class="rounded-lg p-2 bg-neutral-800">
+                            <Icon icon_id={IconId::BootstrapPlusLg}
+                                class="h-5 w-5 text-neutral-400" />
+                        </div>
+                    </button>
+                </div>
             </div>
         </>
     }
@@ -258,22 +292,25 @@ fn FilterEntry(props: &FilterEntryProps) -> Html {
         // horizontal flex
         <div class="flex items-center justify-between py-2 \
             h-16 bg-neutral-900 rounded-lg px-4 m-1">
-            <button onclick={onremove}>
+            <button onclick={onremove} id={format!("filt_{}_remove", filt.id)}>
                 <Icon icon_id={IconId::BootstrapXCircle}
                     class="h-5 w-5 text-neutral-500" />
             </button>
 
             <select class={SELECT_STYLE} ref={stream_node_ref}
+                id={format!("filt_{}_datastream", filt.id)}
                     onchange={onchange_stream}>
                 {for stream_options.clone()}
             </select>
 
             <select class={SELECT_STYLE} ref={op_node_ref}
-                    onchange={onchange_op}>
+                id={format!("filt_{}_op", filt.id)}
+                onchange={onchange_op}>
                 {for op_options.clone()}
             </select>
 
             <input onchange={onchange_threshold}
+                id={format!("filt_{}_threshold", filt.id)}
                 placeholder={filt.datastream.format_value(filt.threshold)}
                 class="w-16 rounded bg-black \
                 border border-neutral-700 \
@@ -282,6 +319,7 @@ fn FilterEntry(props: &FilterEntryProps) -> Html {
 
             <div class="relative h-6">
                 <input type="checkbox" checked={filt.enabled} onclick={ontoggle}
+                    id={format!("filt_{}_toggle", filt.id)}
                     class={TOGGLE_SWITCH_STYLE} />
             </div>
 
