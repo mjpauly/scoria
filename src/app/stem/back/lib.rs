@@ -94,6 +94,8 @@ pub extern "C" fn handle_enter_background() {
     runtime::get_runtime().block_on(async {
         server::shutdown().await;
     });
+    // save the app state to file
+    app_state::AppState::save_to_file();
 }
 
 /// Log a location in the app. This is a thin sync wrapper around the helper

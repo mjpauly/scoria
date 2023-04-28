@@ -57,7 +57,7 @@ fn AnalyzeLocation() -> Html {
     let filters = use_state(|| {
         vec![Filter {
             id: 0,
-            enabled: true,
+            enabled: false,
             datastream: DataStream::HorizAccuracy,
             op: FilterOp::GreaterThan,
             threshold: 10.0,
@@ -162,9 +162,9 @@ fn SettingsPicker(SettingsPickerProps { tab }: &SettingsPickerProps) -> Html {
     });
     let get_style = move |tab_target: SettingsTab| {
         if **tab == tab_target {
-            format!("p-2 {}", PRIMARY_BUTTON_STYLE)
+            format!("m-1 p-2 {}", PRIMARY_BUTTON_STYLE)
         } else {
-            format!("p-2 {}", SECONDARY_BUTTON_STYLE)
+            format!("m-1 p-2 {}", SECONDARY_BUTTON_STYLE)
         }
     };
     let style_button_style = get_style(SettingsTab::MapStyle);
@@ -174,19 +174,19 @@ fn SettingsPicker(SettingsPickerProps { tab }: &SettingsPickerProps) -> Html {
         <div class="flex">
             <div class="mx-auto">
                 <button onclick={filter_onclick} id="filter_list_btn"
-                    class={format!("m-1 {}", filter_button_style)}>
+                    class={filter_button_style}>
                         <Icon icon_id={IconId::BootstrapFunnel}
-                            class="h-5 w-5" />
+                            class="h-6 w-6" />
                 </button>
                 <button onclick={style_onclick} id="map_style_btn"
-                    class={format!("m-1 {}", style_button_style)}>
+                    class={style_button_style}>
                         <Icon icon_id={IconId::BootstrapBrush}
-                            class="h-5 w-5" />
+                            class="h-6 w-6" />
                 </button>
                 <button onclick={time_onclick} id="time_range_btn"
-                    class={format!("m-1 {}", time_button_style)}>
+                    class={time_button_style}>
                         <Icon icon_id={IconId::BootstrapCalendarRange}
-                            class="h-5 w-5" />
+                            class="h-6 w-6" />
                 </button>
             </div>
         </div>

@@ -64,6 +64,7 @@ async fn simple_navigation(
     c: &Client,
     base_url: String,
 ) -> Result<(), fantoccini::error::CmdError> {
+    sleep(Duration::from_millis(100)).await;
     c.find(Locator::Css("#Map")).await?.click().await?;
     assert_url_eq(c, base_url.clone() + "analyze/").await;
 
