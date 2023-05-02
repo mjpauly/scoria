@@ -134,7 +134,7 @@ impl AppState {
             serde_json::to_string(&*Self::global().persistent.lock().unwrap())
                 .unwrap();
         file.write_all(state_str.as_bytes()).unwrap();
-        print_and_log(&format!("Wrote app state to file: {}.", state_str));
+        print_and_log(&format!("Saved app state: {}.", state_str));
     }
 }
 

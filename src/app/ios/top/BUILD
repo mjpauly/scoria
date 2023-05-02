@@ -1,24 +1,20 @@
 load("@build_bazel_rules_apple//apple:apple.bzl", "local_provisioning_profile")
 load("@build_bazel_rules_apple//apple:ios.bzl", "ios_application")
+load("@build_bazel_rules_apple//apple:versioning.bzl", "apple_bundle_version")
 load("@build_bazel_rules_swift//swift:swift.bzl", "swift_library")
 load(
-    "@com_github_buildbuddy_io_rules_xcodeproj//xcodeproj:defs.bzl",
+    "@rules_xcodeproj//xcodeproj:defs.bzl",
     "xcode_provisioning_profile",
 )
-
-# Change these to have code signing work for you
-BUNDLE_ID = "com.matthewpauly.epsilon"
-
-MANAGED_PROFILE = True
-
-PROFILE_NAME = "iOS Team Provisioning Profile: {}".format(BUNDLE_ID)
-
-TEAMID = "QVSG4RRSDG"
 
 ios_application(
     name = "Epsilon",
     app_icons = glob(["Resources/Assets.xcassets/AppIcon.appiconset/**"]),
-    bundle_id = BUNDLE_ID,
+    bundle_id = select({
+        ":distribution_profile": "com.aperturebeam.epsilon",
+        ":development_profile": "com.aperturebeam.epsilon",
+        "//conditions:default": "com.matthewpauly.epsilon", # ad-hoc
+    }),
     bundle_name = "Epsilon",
     families = ["iphone"],
     frameworks = [
@@ -28,28 +24,37 @@ ios_application(
     launch_storyboard = "Resources/Launch.storyboard",
     minimum_os_version = "16.0",
     provisioning_profile = select({
-        ":device_build": ":xcode_profile",
-        "//conditions:default": None,
+        ":distribution_profile": "Epsilon_iOS_Distribution.mobileprovision",
+        ":development_profile": "Epsilon_Internal.mobileprovision",
+        "//conditions:default": ":ad_hoc_profile",
     }),
     resources = [
         "//src/app/stem/front:dist",
     ],
+    version = ":app_version",
     visibility = ["//visibility:public"],
     deps = [":App.library"],
 )
 
+# Bump the build_version when submitting a new build to App Store Connect
+apple_bundle_version(
+    name = "app_version",
+    build_version = "1.0.1",
+    short_version_string = "1.0",
+)
+
 xcode_provisioning_profile(
-    name = "xcode_profile",
-    managed_by_xcode = MANAGED_PROFILE,
+    name = "ad_hoc_profile",
+    managed_by_xcode = True,
     provisioning_profile = ":local_profile",
     tags = ["manual"],
 )
 
 local_provisioning_profile(
     name = "local_profile",
-    profile_name = PROFILE_NAME,
+    profile_name = "iOS Team Provisioning Profile: com.matthewpauly.epsilon",
     tags = ["manual"],
-    team_id = TEAMID,
+    team_id = "QVSG4RRSDG",
 )
 
 swift_library(
@@ -63,10 +68,22 @@ swift_library(
     ],
 )
 
+# command line flags for setting the provisioning profile to build the bundle:
+#   `--define profile=distribution`
+#   `--define profile=development`
+# omitting the flag causes the build to use an ad-hoc profile
 config_setting(
-    name = "device_build",
+    name = "distribution_profile",
     values = {
-        "cpu": "ios_arm64",
+        "define": "profile=distribution",
+    },
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "development_profile",
+    values = {
+        "define": "profile=development",
     },
     visibility = ["//visibility:public"],
 )

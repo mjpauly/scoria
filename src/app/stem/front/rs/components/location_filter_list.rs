@@ -179,8 +179,9 @@ pub fn LocationFilterList(
         "h-52" // (3x16 items + 4x1 margin)
     };
     html! {
-        <>
-            <div class={format!("{} overflow-scroll", height)}>
+        <div class="flex">
+            <div class={format!("overflow-scroll max-w-prose grow mx-auto {}",
+                                height)}>
                 {for (**filters).iter().cloned().map(|filter|
                     html! {
                         <FilterEntry {filter}
@@ -206,7 +207,7 @@ pub fn LocationFilterList(
                     </button>
                 </div>
             </div>
-        </>
+        </div>
     }
 }
 

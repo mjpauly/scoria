@@ -8,7 +8,7 @@
 		<false/>
 		<key>UISceneConfigurations</key>
 		<dict>
-                    <key>UIWindowSceneSessionRoleApplication</key>
+			<key>UIWindowSceneSessionRoleApplication</key>
 			<array>
 				<dict>
 					<key>UISceneConfigurationName</key>
@@ -20,12 +20,16 @@
 		</dict>
 	</dict>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>Your location data is securely stored in your data vault and lets you analyze your location history.</string>
+	<string>Your location data is securely stored on your device and lets you analyze your location history.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Your location data is securely stored in your data vault and lets you analyze your location history.</string>
+	<string>Your location data is securely stored on your device and lets you analyze your location history.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>location</string>
+	</array>
+        <key>UIRequiredDeviceCapabilities</key>
+	<array>
+		<string>arm64</string>
 	</array>
 	<key>CFBundleName</key>
 	<string>$(PRODUCT_NAME)</string>
@@ -37,5 +41,9 @@
 	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundlePackageType</key>
 	<string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>NSHumanReadableCopyright</key>
+	<string>Copyright 2023 Aperture Beam Technologies, Inc.</string>
 </dict>
 </plist>

@@ -2,13 +2,13 @@
 
 ## To Do
 
-- integration tests
-    - app-level
-        - [ ] changing location settings propagate all the way into Swift logic
 - map usability / configurability
     - [ ] persist selection for export + queries
 - location settings
     - [ ] auto mode (switch between modes based on movement)
+- [ ] refactor common code into its own module
+- [ ] conditionally compile logging code
+- [ ] have maps_ok respond with 204 No Content instead of 404
 - [ ] ability to export log
 - [ ] log required: altitude, isProducedByAccessory, and isSimulatedBySoftware;
     floor, verticalAccuracy, speedAccuracy, courseAccuracy
@@ -287,3 +287,19 @@ something like an option behind the Mutex.
 
 - Code lines set to 80 characters or shorter
 - Parent functions should come before the children that they call.
+
+## Distribution
+
+1. Create the necessary certificates and provisioning profiles on
+developer.apple.com.
+2. Place the downloaded profile in `src/app/ios/top/`.
+3. Reference the profile in the `ios_application` target in the BUILD file.
+4. Build the app
+    4a. Developemnt: `bazel build //:iosapp --ios_multi_cpus=arm64 --define profile=development`
+    4b. Distribution: `bazel build //:iosapp --ios_multi_cpus=arm64 --device_debug_entitlements=false --define profile=distribution`
+5. Locate the `.ipa` archive in `bazel-bin/src/app/ios/top/Epsilon.ipa`.
+6. Install/upload the app
+    6a. Developemnt: Go to Xcode -> devices and simulators -> [your device] -> `+`
+        -> archive file
+    6b. Distribution: Drag the archive into the Transporter app to upload to App
+        Store Connect.

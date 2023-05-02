@@ -33,7 +33,7 @@ class ViewController: UIViewController {
         let port = server_port  // get server port from sensing module
         let scope = server_scope
         let urlstr = "http://127.0.0.1:\(port)/\(scope)/"
-        print_and_log(s: "Reloading UI with url \(urlstr)")
+        // print_and_log(s: "Reloading UI with url \(urlstr)")
         let url = URL(string: urlstr)
         let req = URLRequest(url: url!)
         webView.load(req)

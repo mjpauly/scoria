@@ -31,6 +31,9 @@ pub static RANGE_INPUT_STYLE: &str =
 // The `after:` pseudo-element is the dot on the switch that moves back and
 // forth.
 // Tailwind adds these by default: after:content-[''] checked:after:content-['']
+//
+// TODO: set z height below that of the plot so it doesn't overlap before plot's
+// resize happens
 pub static TOGGLE_SWITCH_STYLE: &str = "\
     h-6 \
     w-10 \
