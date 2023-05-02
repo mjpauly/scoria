@@ -1,23 +1,37 @@
 //! Analysis of collected data.
 
+use plotly::common::Marker;
 use yew::prelude::*;
+use yew_icons::{Icon, IconId};
+use yewdux::prelude::*;
 
-use crate::common::TimeRange;
+use crate::common::{Location, TimeRange};
 use crate::components::{
-    map_styler::{BasemapStyle, ColoredDataStream, MapStyle, Rgba},
+    datastream::DataStream,
+    location_filter_list::{
+        apply_filters, Filter, FilterOp, LocationFilterList,
+    },
+    map_styler::{
+        use_check_epsln_tile_server, BasemapStyle, ColoredDataStream, MapStyle,
+        MapStyler, Rgba,
+    },
     time_range_picker::time_range_today,
-    MapStyler, NavbarWrapper, TimeRangePicker, PRIMARY_BUTTON_STYLE,
+    NavbarWrapper, TimeRangePicker, PRIMARY_BUTTON_STYLE,
     SECONDARY_BUTTON_STYLE,
 };
 use crate::plots::{
     cmaps, maps, plotly_binds, scatter_mapbox_update::ScatterMapboxUpdate,
 };
+use crate::ui_state::UIState;
 use crate::websocket::{
     use_backend_event_with_deps, ToBack, ToFront, WebsocketService,
 };
 
 #[function_component]
 pub fn Analyze() -> Html {
+    // Check if the epsln tile server is up, and update the app state
+    use_check_epsln_tile_server();
+
     html! {
         <NavbarWrapper>
             <AnalyzeLocation />
@@ -31,104 +45,148 @@ fn AnalyzeLocation() -> Html {
     let time_range = use_state(time_range_today);
     let map_style = MapStyle {
         solid_color: use_state(|| Rgba {
-            r: 255,
-            g: 64,
-            b: 0,
-            a: 0.8,
+            r: 10,
+            g: 132,
+            b: 255,
+            a: 1.0,
         }),
         marker_size: use_state(|| 6_usize),
-        basemap_style: use_state(|| BasemapStyle::StamenTerrain),
+        basemap_style: use_state(|| BasemapStyle::BasicDark),
         colored_datastream: use_state(|| ColoredDataStream::None),
     };
+    let filters = use_state(|| {
+        vec![Filter {
+            id: 0,
+            enabled: false,
+            datastream: DataStream::HorizAccuracy,
+            op: FilterOp::GreaterThan,
+            threshold: 10.0,
+        }]
+    });
+    // Collect the set of active filters, which is used to determine if the plot
+    // is reloaded. This way editing an inactive filter doesn't change the plot.
+    let active_filters: Vec<_> = (*filters)
+        .clone()
+        .into_iter()
+        .filter(|filt| filt.enabled)
+        .collect();
 
-    // Ask for new location data from backend after render anytime time_range
-    // changes
+    // Ask for new location data from backend after render anytime time_range,
+    // map_style, or active_filters changes
     let wss = use_context::<WebsocketService>().unwrap();
     use_effect_with_deps(
         move |(time_range, ..)| {
             wss.send_msg(ToBack::GetLocationTimeRange((**time_range).clone()));
         },
         // things that will cause a full plot reload if changed:
-        (time_range.clone(), map_style.clone()),
+        (time_range.clone(), map_style.clone(), active_filters),
     );
 
-    let show_time_picker = use_state(|| false);
-    let show_plot_styler = use_state(|| false);
+    let settings_tab = use_state(|| SettingsTab::None);
+    // Get the number of filters clamped to the range [0, 2], which is where
+    // resizing of the filter list occurs. If the value changes, trigger resize
+    let num_filters = (*filters).len().clamp(0, 2);
 
-    // after rerender, trigger the plot's resize handler if needs an update
+    // after rerender, trigger the plot's resize handler if the visible settings
+    // tab has changed, or if that settings tab's size has changed
     use_effect_with_deps(
         move |_| {
             let event = web_sys::Event::new("resize").unwrap();
             web_sys::window().unwrap().dispatch_event(&event).unwrap();
         },
-        (show_time_picker.clone(), show_plot_styler.clone()),
+        (settings_tab.clone(), num_filters),
     );
 
     html! {
         <div class="flex flex-col h-full">
             <PlotComponent
                 time_range={time_range.clone()}
-                map_style={map_style.clone()} />
-            if *show_plot_styler {
+                map_style={map_style.clone()}
+                filters={filters.clone()} />
+            if *settings_tab == SettingsTab::MapStyle {
                 <MapStyler map_style={map_style.clone()} />
-                <hr class="border-t-1 border-neutral-700" />
             }
-            if *show_time_picker {
+            if *settings_tab == SettingsTab::TimeRange {
                 <TimeRangePicker time_range={time_range.clone()} />
-                <hr class="border-t-1 border-neutral-700" />
             }
-            <SettingsPicker
-                show_time_picker={show_time_picker.clone()}
-                show_plot_styler={show_plot_styler.clone()} />
+            if *settings_tab == SettingsTab::Filters {
+                <LocationFilterList filters={filters.clone()} />
+            }
+            <SettingsPicker tab={settings_tab.clone()} />
         </div>
     }
 }
 
+#[derive(Clone, PartialEq, Debug)]
+enum SettingsTab {
+    None,
+    Filters,
+    MapStyle,
+    TimeRange,
+}
+
 #[derive(Properties, PartialEq)]
 struct SettingsPickerProps {
-    show_time_picker: UseStateHandle<bool>,
-    show_plot_styler: UseStateHandle<bool>,
+    tab: UseStateHandle<SettingsTab>,
 }
 
 #[function_component]
-fn SettingsPicker(
-    SettingsPickerProps {
-        show_time_picker,
-        show_plot_styler,
-    }: &SettingsPickerProps,
-) -> Html {
+fn SettingsPicker(SettingsPickerProps { tab }: &SettingsPickerProps) -> Html {
+    // callback generic to all settings tabs
+    let onclick = {
+        let tab = tab.clone();
+        Callback::from(move |tab_target: SettingsTab| {
+            if *tab == tab_target {
+                // Already on this tab -> close it
+                tab.set(SettingsTab::None);
+            } else {
+                // Not on the tab yet -> go to it
+                tab.set(tab_target);
+            }
+        })
+    };
     let time_onclick = {
-        let show_time_picker = show_time_picker.clone();
+        let onclick = onclick.clone();
         Callback::from(move |_e: MouseEvent| {
-            show_time_picker.set(!*show_time_picker);
+            onclick.emit(SettingsTab::TimeRange);
         })
     };
     let style_onclick = {
-        let show_plot_styler = show_plot_styler.clone();
+        let onclick = onclick.clone();
         Callback::from(move |_e: MouseEvent| {
-            show_plot_styler.set(!*show_plot_styler)
+            onclick.emit(SettingsTab::MapStyle);
         })
     };
-    let style_button_style = if **show_plot_styler {
-        PRIMARY_BUTTON_STYLE
-    } else {
-        SECONDARY_BUTTON_STYLE
+    let filter_onclick = Callback::from(move |_e: MouseEvent| {
+        onclick.emit(SettingsTab::Filters);
+    });
+    let get_style = move |tab_target: SettingsTab| {
+        if **tab == tab_target {
+            format!("m-1 p-2 {}", PRIMARY_BUTTON_STYLE)
+        } else {
+            format!("m-1 p-2 {}", SECONDARY_BUTTON_STYLE)
+        }
     };
-    let time_button_style = if **show_time_picker {
-        PRIMARY_BUTTON_STYLE
-    } else {
-        SECONDARY_BUTTON_STYLE
-    };
+    let style_button_style = get_style(SettingsTab::MapStyle);
+    let time_button_style = get_style(SettingsTab::TimeRange);
+    let filter_button_style = get_style(SettingsTab::Filters);
     html! {
-        <div class="flex my-1">
+        <div class="flex">
             <div class="mx-auto">
-                <button onclick={style_onclick}
-                    class={format!("m-1 {}", style_button_style)}>
-                        {"Map Style"}
+                <button onclick={filter_onclick} id="filter_list_btn"
+                    class={filter_button_style}>
+                        <Icon icon_id={IconId::BootstrapFunnel}
+                            class="h-6 w-6" />
                 </button>
-                <button onclick={time_onclick}
-                    class={format!("m-1 {}", time_button_style)}>
-                        {"Time Range"}
+                <button onclick={style_onclick} id="map_style_btn"
+                    class={style_button_style}>
+                        <Icon icon_id={IconId::BootstrapBrush}
+                            class="h-6 w-6" />
+                </button>
+                <button onclick={time_onclick} id="time_range_btn"
+                    class={time_button_style}>
+                        <Icon icon_id={IconId::BootstrapCalendarRange}
+                            class="h-6 w-6" />
                 </button>
             </div>
         </div>
@@ -141,6 +199,7 @@ fn SettingsPicker(
 struct PlotComponentProps {
     time_range: UseStateHandle<TimeRange>,
     map_style: MapStyle,
+    filters: UseStateHandle<Vec<Filter>>,
 }
 
 #[function_component]
@@ -148,8 +207,11 @@ fn PlotComponent(
     PlotComponentProps {
         time_range,
         map_style,
+        filters,
     }: &PlotComponentProps,
 ) -> Html {
+    let use_epsln_tile_server =
+        use_selector(|s: &UIState| s.use_epsln_tile_server);
     // Show new plot if time range changes and new data comes from backend
 
     let plot_id = "plot-div";
@@ -157,46 +219,30 @@ fn PlotComponent(
     let on_backend_msg = {
         let plot_initialized = plot_initialized.clone(); // only exports values
         let map_style = map_style.clone();
+        let filters = filters.clone();
         move |msg: &ToFront| {
             if let ToFront::LocationTimeRange(_time_range, locations) = msg {
-                let marker = if *map_style.colored_datastream
-                    == ColoredDataStream::None
-                {
-                    plotly::common::Marker::new()
-                        .color(map_style.solid_color.as_plotly())
-                        .size(*map_style.marker_size)
-                } else {
-                    plotly::common::Marker::new()
-                        .color(maps::Colorvec(
-                            locations
-                                .iter()
-                                .map(|x| {
-                                    map_style.colored_datastream.get_stream(x)
-                                })
-                                .collect::<Vec<_>>(),
-                        ))
-                        // don't use plotly's default color scale
-                        .auto_color_scale(false)
-                        .color_scale(cmaps::viridis_plotly()) // TODO: configure
-                        .show_scale(true) // TODO: configure
-                        .opacity(map_style.solid_color.a)
-                        .size(*map_style.marker_size)
-                };
-
+                let locations = apply_filters(&filters, locations);
+                let marker = get_plot_marker(&locations, map_style.clone());
                 plot_initialized.set(false);
                 plotly_binds::new_plot(
                     plot_id,
                     &maps::map_plot(
-                        locations.clone(),
+                        locations,
                         marker,
-                        map_style.basemap_style.to_plotly(),
+                        map_style
+                            .basemap_style
+                            .to_plotly(*use_epsln_tile_server),
                     ),
                 );
                 plot_initialized.set(true);
             }
         }
     };
-    use_backend_event_with_deps(on_backend_msg, map_style.clone());
+    use_backend_event_with_deps(
+        on_backend_msg,
+        (map_style.clone(), filters.clone()),
+    );
 
     // Update plot with new data points without creating a new plot
 
@@ -256,4 +302,46 @@ fn PlotComponent(
             onpointerdown={onpointerdown} onpointerup={onpointerup}>
         </div>
     }
+}
+
+/// Get the marker for a plot given the vector of locations and the desired map
+/// style.
+fn get_plot_marker(locations: &[&Location], map_style: MapStyle) -> Marker {
+    if *map_style.colored_datastream == ColoredDataStream::None {
+        // No coloring based on data, just use solid color
+        let marker = Marker::new()
+            .color(map_style.solid_color.as_plotly())
+            .size(*map_style.marker_size);
+        return marker;
+    }
+    // Coloring based on data, using a colormap
+    let colorvec = maps::Colorvec(
+        locations
+            .iter()
+            .map(|x| map_style.colored_datastream.get_stream(x))
+            .collect::<Vec<_>>(),
+    );
+    let mut marker = Marker::new()
+        .color(colorvec)
+        .auto_color_scale(false) // don't use plotly's default color scale
+        .show_scale(true) // show the colorbar
+        .opacity(map_style.solid_color.a)
+        .size(*map_style.marker_size);
+    let colorbar = maps::map_colorbar().title(
+        plotly::common::Title::new(&map_style.colored_datastream.to_string())
+            .side(plotly::common::Side::Top),
+    );
+    if *map_style.colored_datastream == ColoredDataStream::Course {
+        // special case for circular cmap
+        marker = marker
+            .color_scale(cmaps::twilight_plotly())
+            .cmin(0.0)
+            .cmax(360.0)
+            .color_bar(colorbar.dtick(90.0));
+    } else {
+        marker = marker
+            .color_scale(cmaps::plasma_plotly())
+            .color_bar(colorbar);
+    }
+    marker
 }

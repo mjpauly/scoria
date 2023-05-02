@@ -10,6 +10,7 @@
 //! methods through which it can attack the app's security and user
 //! privacy, so we don't try to protect against those threats.
 
+use std::collections::HashSet;
 use std::net::TcpListener;
 
 use rand::RngCore;
@@ -20,7 +21,7 @@ use actix_web::{web, App, HttpServer};
 use actix_web::{HttpResponse, Responder};
 
 use crate::app_state::AppState;
-// use crate::core::print_and_log;
+use crate::core::print_and_log;
 use crate::paths;
 use crate::ws_session::ws_route;
 
@@ -61,14 +62,14 @@ pub async fn run(port: u16, secure: bool) -> ServerConfig {
     // If we bind to port 0, the OS assigns us an available port
     let listener = TcpListener::bind(format!("127.0.0.1:{}", port)).unwrap();
     let port = listener.local_addr().unwrap().port();
-    // print_and_log(&format!("listening on port {}", port));
+    print_and_log(&format!("listening on port {}", port));
 
     let frontend_key = if secure {
         FrontendKey::new()
     } else {
         FrontendKey::new_insecure()
     };
-    // print_and_log(&format!("frontend key is {}", frontend_key.expose()));
+    print_and_log(&format!("frontend key is {}", frontend_key.expose()));
 
     let server = build(listener, frontend_key.clone());
     let server_handle = server.handle();
@@ -81,7 +82,7 @@ pub async fn run(port: u16, secure: bool) -> ServerConfig {
 
 /// Shut down the server (called when the app goes to the background)
 pub async fn shutdown() {
-    // print_and_log("Shutting down server");
+    print_and_log("Shutting down server");
     AppState::global()
         .server_handle
         .lock()
@@ -108,35 +109,65 @@ pub fn unzip_dist() {
         .unwrap();
 }
 
+use actix_web::guard;
+use std::sync::Mutex;
 fn build(listener: TcpListener, frontend_key: FrontendKey) -> Server {
     let dist = paths::get_library_dir().join("dist"); // static files
     let index_file = dist.join("index.html");
+
+    // Resources that have been accessed. If a resource has been accessed, deny
+    // further accesss with the guard function
+    let access_limits = web::Data::new(Mutex::new(HashSet::<String>::new()));
     HttpServer::new(move || {
         let files_service =
             Files::new("/", dist.clone()).index_file("index.html");
         let index_file = web::Data::new(index_file.clone());
         let scope = format!("{}", frontend_key.clone().expose());
+        let access_limits = access_limits.clone();
         App::new()
             // redirect scope so that static files are properly loaded from the
             // correct relative path even if a trailing slash is not provided
             .service(web::redirect(format!("/{scope}"), format!("/{scope}/")))
             .service(
                 web::scope(&scope)
-                    .route("/health_check", web::get().to(health_check))
-                    .route("/ws", web::get().to(ws_route))
-                    // extra SPA routes we want to just get the index file for
-                    .route("/sense", web::get().to(index))
-                    .route("/analyze", web::get().to(index))
-                    .route("/test_page", web::get().to(index))
                     // yew-router adds trailing slashes that change the relative
                     // scope that static files are loaded from on reload, so we
                     // redirect those to the routes without the trailing slash
                     .service(web::redirect("/sense/", "../sense"))
                     .service(web::redirect("/analyze/", "../analyze"))
                     .service(web::redirect("/test_page/", "../test_page"))
-                    // static files service includes index file at root
-                    .service(files_service)
-                    .app_data(index_file),
+                    .service(
+                        web::scope("") // services protected by access limits
+                            .guard(guard::fn_guard(move |ctx| {
+                                // get the resource path without the trailing slash
+                                let path = String::from(
+                                    ctx.head().uri.path().trim_end_matches('/'),
+                                );
+                                let mut limits =
+                                    access_limits.get_ref().lock().unwrap();
+                                // if in the HashSet -> already accessed
+                                if limits.contains(&path) {
+                                    println!(
+                                        "Resource {} already accessed, denying
+                                    additional access",
+                                        path
+                                    );
+                                    false // don't handle the request further
+                                } else {
+                                    limits.insert(path);
+                                    true // handle the request
+                                }
+                            }))
+                            .route("/health_check", web::get().to(health_check))
+                            .route("/ws", web::get().to(ws_route))
+                            // extra SPA routes we want to just get the index file for
+                            .route("/sense", web::get().to(index))
+                            .route("/analyze", web::get().to(index))
+                            .route("/test_page", web::get().to(index))
+                            // static files service includes index file at root
+                            .service(files_service)
+                            .app_data(index_file),
+                    ),
             )
     })
     .workers(1)

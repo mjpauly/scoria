@@ -26,9 +26,15 @@ class ViewController: UIViewController {
         
         let contentController = self.webView.configuration.userContentController
         contentController.add(self, name: "pokeMessageHandler")
-        
-        let port = server_port;  // get server port from sensing module
-        let url = URL(string: "http://127.0.0.1:\(port)")
+    }
+    
+    func reload() {
+        // load the frontend webapp
+        let port = server_port  // get server port from sensing module
+        let scope = server_scope
+        let urlstr = "http://127.0.0.1:\(port)/\(scope)/"
+        // print_and_log(s: "Reloading UI with url \(urlstr)")
+        let url = URL(string: urlstr)
         let req = URLRequest(url: url!)
         webView.load(req)
     }
@@ -37,7 +43,8 @@ class ViewController: UIViewController {
         let webView = WKWebView()
         webView.translatesAutoresizingMaskIntoConstraints = false
         webView.scrollView.bounces = false
-        webView.backgroundColor = UIColor.black  // not sure if this really helps reduce white flashes
+        webView.isOpaque = false
+        webView.backgroundColor = UIColor.clear
         return webView
     }()
     
@@ -61,7 +68,8 @@ extension ViewController: WKScriptMessageHandler{
         //print(dict)  // show the dictionary containing the message we received
         
         // send the message we received back to the webapp by changing the page's text
-        guard let message = dict["message"] else {
+        //guard let message = dict["message"] else {
+        if dict["message"] == nil {
             return
         }
         

@@ -4,13 +4,13 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 # rules_xcodeproj
 
 http_archive(
-    name = "com_github_buildbuddy_io_rules_xcodeproj",
-    sha256 = "b4e71c7740bb8cfa4bc0b91c0f18ac512debcc111ebe471280e24f579a3b0782",
-    url = "https://github.com/buildbuddy-io/rules_xcodeproj/releases/download/0.10.2/release.tar.gz",
+    name = "rules_xcodeproj",
+    sha256 = "54cee524abd72db950482ded168dd44397369077b734d4cf4b06f734e10a3e80",
+    url = "https://github.com/MobileNativeFoundation/rules_xcodeproj/releases/download/1.5.1/release.tar.gz",
 )
 
 load(
-    "@com_github_buildbuddy_io_rules_xcodeproj//xcodeproj:repositories.bzl",
+    "@rules_xcodeproj//xcodeproj:repositories.bzl",
     "xcodeproj_rules_dependencies",
 )
 
@@ -21,8 +21,8 @@ xcodeproj_rules_dependencies()
 
 http_archive(
     name = "build_bazel_rules_apple",
-    sha256 = "43737f28a578d8d8d7ab7df2fb80225a6b23b9af9655fcdc66ae38eb2abcf2ed",
-    url = "https://github.com/bazelbuild/rules_apple/releases/download/2.0.0/rules_apple.2.0.0.tar.gz",
+    sha256 = "9e26307516c4d5f2ad4aee90ac01eb8cd31f9b8d6ea93619fc64b3cbc81b0944",
+    url = "https://github.com/bazelbuild/rules_apple/releases/download/2.2.0/rules_apple.2.2.0.tar.gz",
 )
 
 load(
@@ -53,6 +53,8 @@ load(
 
 apple_support_dependencies()
 
+# provisioning profile
+
 load(
     "@build_bazel_rules_apple//apple:apple.bzl",
     "provisioning_profile_repository",
@@ -65,11 +67,10 @@ provisioning_profile_repository(
 
 # rules_rust
 
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
     name = "rules_rust",
-    sha256 = "d125fb75432dc3b20e9b5a19347b45ec607fabe75f98c6c4ba9badaab9c193ce",
-    urls = ["https://github.com/bazelbuild/rules_rust/releases/download/0.17.0/rules_rust-v0.17.0.tar.gz"],
+    sha256 = "950a3ad4166ae60c8ccd628d1a8e64396106e7f98361ebe91b0bcfe60d8e4b60",
+    urls = ["https://github.com/bazelbuild/rules_rust/releases/download/0.20.0/rules_rust-v0.20.0.tar.gz"],
 )
 
 load(
@@ -119,6 +120,7 @@ crates_repository(
     isolated = False,  # cache results of the previous invocation to
                        # ${HOME}/.cargo so using it is fast
     packages = {
+        "rand": crate.spec(version = "0.8.5"),
         "sqlx": crate.spec(
             version = "0.6.2",
             features = ["runtime-tokio-native-tls", "sqlite", "time", "macros"],
@@ -152,18 +154,32 @@ crates_repository(
         ),
 
         # frontend
+        "dotenvy_macro": crate.spec(version = "0.15.7",),
+        "humantime": crate.spec(version = "2.1.0",),
         "js-sys": crate.spec(version = "0.3.60",), # tied to wasm-bindgen 0.2.83
-        "plotly": crate.spec(version = "0.8.3", features = ["wasm"],),
+        "obfstr": crate.spec(version = "0.4.3",),
+        # "plotly": crate.spec(version = "0.8.3", features = ["wasm"],),
+        "plotly": crate.spec(
+            git = "https://github.com/mjpauly/plotly",
+            branch = "all_new_features",
+            features = ["wasm"],
+        ),
         "serde_json": crate.spec(version = "1.0.94",),
+        "uom": crate.spec(version = "0.34.0"),
         "yew": crate.spec(
             version = "0.20.0",
+            features = ["csr"],
         ),
+        "yew-hooks": crate.spec( version = "0.2.0",),
         "yew-router": crate.spec(
             version = "0.17.0",
         ),
+        "yewdux": crate.spec( version = "0.9.2",),
         "time": crate.spec(
             version = "0.3.20",
-            features = ["local-offset", "wasm-bindgen", "formatting", "parsing"],
+            features = ["local-offset", "wasm-bindgen", "formatting", "parsing",
+                        "serde",
+            ],
         ),
         "futures": crate.spec(version = "0.3.26"),
         "gloo-net": crate.spec(version = "0.2.6"),
@@ -190,11 +206,25 @@ crates_repository(
             version = "0.2.0",
         ),
         "yew_icons": crate.spec(
-            version = "0.7.0",
-            features = ["BootstrapSoundwave",
-                        "BootstrapExclamationTriangle",
-                        "BootstrapTools",
-                        "BootstrapMap",
+            version = "0.7.2",
+            # git = "https://github.com/mjpauly/yew_icons",
+            # branch = "main",
+            features = [
+                "BootstrapBrush",
+                "BootstrapCalendarRange",
+                "BootstrapExclamationTriangle",
+                "BootstrapFilter",
+                "BootstrapFunnel",
+                "BootstrapGlobeAmericas",
+                "BootstrapJournal",
+                "BootstrapJournalText",
+                "BootstrapMap",
+                "BootstrapPlusLg",
+                "BootstrapQuestionCircle",
+                "BootstrapSave",
+                "BootstrapSoundwave",
+                "BootstrapTools",
+                "BootstrapXCircle",
             ],
         ),
         # Unresolved bug if we upgrade to wasm-bindgen 0.2.84, probably because
@@ -208,7 +238,6 @@ crates_repository(
 
         # dev + testing
         "env_logger": crate.spec(version = "0.10.0",),
-        "rand": crate.spec(version = "0.8.5"),
         "reqwest": crate.spec(version = "0.11.15",),
         "tokio-tungstenite": crate.spec(version = "0.18.0",),
         "futures-util": crate.spec(version = "0.3.27",),

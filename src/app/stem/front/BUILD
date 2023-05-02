@@ -17,6 +17,7 @@ pkg_zip(
         ":front_wasm",
         ":tailwind",
         "index.html",
+        ":plotlyjs",
     ],
     visibility = ["//visibility:public"],
 )
@@ -47,12 +48,21 @@ rust_library(
     name = "front",
     srcs = glob(["rs/**/*.rs"]),
     edition = "2021",
+    compile_data = ["//:secrets"],
+    proc_macro_deps = [
+        "@stem_crate_index//:dotenvy_macro",
+    ],
     deps = [
-        "@stem_crate_index//:plotly",
+        "@stem_crate_index//:humantime",
         "@stem_crate_index//:js-sys",
+        "@stem_crate_index//:obfstr",
+        "@stem_crate_index//:plotly",
         "@stem_crate_index//:serde_json",
+        "@stem_crate_index//:uom",
         "@stem_crate_index//:yew",
+        "@stem_crate_index//:yew-hooks",
         "@stem_crate_index//:yew-router",
+        "@stem_crate_index//:yewdux",
         "@stem_crate_index//:time",
         "@stem_crate_index//:futures",
         "@stem_crate_index//:gloo-net",
@@ -87,3 +97,9 @@ $(execpath @front_npm//tailwindcss/bin:tailwindcss) -i $(location styles.css) \
     tools = ["@front_npm//tailwindcss/bin:tailwindcss"],
 )
 
+# download plotly to include with static files
+genrule(
+    name = "plotlyjs",
+    outs = ["plotly.min.js"],
+    cmd = 'curl https://cdn.plot.ly/plotly-2.20.0.min.js -o $@',
+)

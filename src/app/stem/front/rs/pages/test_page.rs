@@ -9,7 +9,7 @@ pub fn TestPage() -> Html {
     html! {
         <NavbarWrapper>
             <div class="h-16"></div>
-            <h1 class="text-sky-500 text-3xl mb-6">
+            <h1 class="text-primary text-3xl mb-6">
                 {"UI Test Page"}
             </h1>
             <div>{"1"}</div>

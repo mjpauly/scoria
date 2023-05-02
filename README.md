@@ -2,6 +2,39 @@
 
 ## To Do
 
+- map usability / configurability
+    - [ ] persist selection for export + queries
+- location settings
+    - [ ] auto mode (switch between modes based on movement)
+- [ ] refactor common code into its own module
+- [ ] conditionally compile logging code
+- [ ] have maps_ok respond with 204 No Content instead of 404
+- [ ] ability to export log
+- [ ] log required: altitude, isProducedByAccessory, and isSimulatedBySoftware;
+    floor, verticalAccuracy, speedAccuracy, courseAccuracy
+    :: all required! don't want people to need to opt in -> reduces how much people actually collect
+- [ ] log more metadata
+    - [ ] location config metadata (when settings were changed)
+    - [ ] app usage metadata (when app launched, quit, foregrounded, backgrounded)
+    - [ ] data viewership (what map data viewed and when)
+    - [ ] battery charge (to correlate with location mode) [ref](https://stackoverflow.com/questions/27475506/check-battery-level-ios-swift)
+- [ ] construct plotly plots with serde_json's Map and Value directly, to avoid
+    limitations of having to define everything up front ([ref](https://stackoverflow.com/questions/59047280/how-to-build-json-arrays-or-objects-dynamically-with-serde-json))
+- [ ] ability to set preferred units
+- [ ] get feedback with test flight
+- [ ] publish to app store
+
+- later features
+    - sensing: environmental noise
+    - create custom markers (space / time)
+         - lookup marker from public DB (apple maps?, openstreetmap?)
+    - perform queries
+         - visits (last time, first time, total, time spent, when visits happen)
+         - traveling (different modes, time spent, num trips, when it happens)
+         - trends
+
+## Completed
+
 - [x] refactor file tree for extensibility
 - [x] initial barebones yew UI
 - [x] refactor to WebView (storyboard instead of swiftUI base?)
@@ -17,47 +50,39 @@
 - [x] prevent unwanted scrolling in the WKWebView
 - [x] proper database migrations included in compiled source with `migrate!`
 - [x] OS-assigned server port
-- [_] integration tests
+- integration tests
     - backend only
         - [x] server health check works
         - [x] log_location persists data in database
         - [x] log_location sends new data to the UI
         - [x] websocket messages behave as expected
     - backend + frontend
-        - [_] ui interactions produce desired effects
-    - app-level
-        - [_] changing dist_filt propagates to SwiftUI
-- [_] ~~CI pipeline~~
-- [_] map usability / configurability
+        - [x] ui interactions produce desired effects (e.g. changing location
+            parameters yields correct values from swift-facing code)
+- map usability / configurability
     - [x] live map updates
     - [x] settings hidden by default, can be pulled up
     - [x] auto zoom and centering
     - [x] configurable marker color/size, map base layer
     - [x] marker colormap based on data value
-    - [_] exclude data with x greater/less than x
-    - [_] persist selection for export + queries
-- [_] more location diagnostics in sense tab
+    - [x] exclude data with x greater/less than x
 - [x] investigate undropped websocket callbacks
-- [_] log required: altitude, isProducedByAccessory, and isSimulatedBySoftware;
-    floor, verticalAccuracy, speedAccuracy, courseAccuracy
-    :: all required! don't want people to need to opt in -> reduces how much people actually collect
-- [_] profile render times
-- [_] option to enable/disable location recording from within the app
-    - [_] metadata recording of when location is enabled/disabled
-- [_] secure the UI from other apps (max 1 connection, random port, authenticate
-        with number passcode, shut down when not in use)
-- [_] low power modes
-- [_] get feedback with test flight
-- [_] publish to app store
-
-- later features
-    - sensing: environmental noise
-    - create custom markers (space / time)
-         - lookup marker from public DB (apple maps?, openstreetmap?)
-    - perform queries
-         - visits (last time, first time, total, time spent, when visits happen)
-         - traveling (different modes, time spent, num trips, when it happens)
-         - trends
+- [x] secrets stored in .env
+- [x] secure the UI from other apps (max 1 connection, random port, authenticate
+        with number passcode)
+- [x] low power modes
+    - [x] reduced accuracy modes
+    - [x] significant changes mode
+- [x] more location diagnostics in sense tab
+- [x] option to enable/disable location recording from within the app
+- [x] disable server on app backgrounding, restart on foregrounding
+- [x] better global UI state with yewdux
+- [x] send location config when sending state from ws_session
+- [x] better checkbox styling, improved location config layout, help tips
+- [x] startup spash page to reduce flicker
+- [x] persists certain app state values across app launches
+- [x] local plotly instead of hitting cdn every app load
+- [x] show data values when clicking on map
 
 ## Structure
 
@@ -130,6 +155,9 @@ bazel build --@rules_rust//:rustfmt.toml=//:rustfmt.toml --aspects=@rules_rust//
     - `cargo install geckodriver`
     - Called automatically by `stem:int_tests`
 
+Secrets are placed in a top-level `.env` file. They are not checked into source
+control; ask for them.
+
 For compile-time checked query macros with `sqlx` we need a development database
 for `sqlx` to connect to and check queries against. Run the following command:
 
@@ -179,9 +207,10 @@ Useful arguments:
 - `--test_arg=--nocapture`: Tell Cargo to show outputs from the tests.
 - `--cache_test_results=no`: Rerun a test without caching.
 - `--test_arg=[test_fn_name]`: Run a particular test.
+- `--test_env=RUST_BACKTRACE=1`: View test backtrace when panic occurs.
 
 ```
-bazel test //src/app/stem:unit_tests --test_output=all --test_arg=--nocapture --test_arg=test_get_rt
+bazel test //src/app/stem:unit_tests --test_output=all --test_arg=--nocapture --test_env=RUST_BACKTRACE=1
 ```
 
 ### Autogenerated Documentation
@@ -258,3 +287,19 @@ something like an option behind the Mutex.
 
 - Code lines set to 80 characters or shorter
 - Parent functions should come before the children that they call.
+
+## Distribution
+
+1. Create the necessary certificates and provisioning profiles on
+developer.apple.com.
+2. Place the downloaded profile in `src/app/ios/top/`.
+3. Reference the profile in the `ios_application` target in the BUILD file.
+4. Build the app
+    4a. Developemnt: `bazel build //:iosapp --ios_multi_cpus=arm64 --define profile=development`
+    4b. Distribution: `bazel build //:iosapp --ios_multi_cpus=arm64 --device_debug_entitlements=false --define profile=distribution`
+5. Locate the `.ipa` archive in `bazel-bin/src/app/ios/top/Epsilon.ipa`.
+6. Install/upload the app
+    6a. Developemnt: Go to Xcode -> devices and simulators -> [your device] -> `+`
+        -> archive file
+    6b. Distribution: Drag the archive into the Transporter app to upload to App
+        Store Connect.

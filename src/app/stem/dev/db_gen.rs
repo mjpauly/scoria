@@ -2,7 +2,7 @@
 //! a `.env` file in `stem/` which tells sqlx where to find the database at
 //! compile time.
 //!
-//! The database is placed in stem/dev/db, which is ignored by source control. The
+//! The database is placed in stem/db, which is ignored by source control. The
 //! directory is cleaned out every time this script runs.
 //!
 //! We need to run this script explicitly before we can build the app, due to
@@ -52,8 +52,8 @@ async fn main() {
     std::env::set_current_dir(stem_dir.clone()).unwrap();
     println!("Set current working directory to: {}", stem_dir.display());
 
-    // Set up the directory the database will live in (dev/db)
-    let db_dir = stem_dir.join("dev/db");
+    // Set up the directory the database will live in (db)
+    let db_dir = stem_dir.join("db");
     if fs::metadata(db_dir.clone()).is_ok() {
         // Clear it out if it had prior contents
         fs::remove_dir_all(db_dir.clone()).unwrap();

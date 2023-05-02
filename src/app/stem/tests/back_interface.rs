@@ -1,7 +1,7 @@
 //! Integration tests for the backend's interface (Swift-facing and frontend-
 //! facing).
 
-use stem::common::{Location, TimeRange, ToBack, ToFront};
+use stem::common::{Location, LocationConfig, TimeRange, ToBack, ToFront};
 
 use crate::setup;
 
@@ -26,8 +26,8 @@ rusty_fork_test! {
     }
 
     #[test]
-    fn set_dist_filt_changes_backend_state() {
-        run_test(set_dist_filt_changes_backend_state_impl());
+    fn set_location_config_changes_backend_state() {
+        run_test(set_location_config_changes_backend_state_impl());
     }
 
     #[test]
@@ -38,6 +38,13 @@ rusty_fork_test! {
     #[test]
     fn backend_sends_location_time_range_when_requested() {
         run_test(backend_sends_location_time_range_when_requested_impl());
+    }
+
+    #[test]
+    fn backend_server_websocket_inaccessible_after_app_background() {
+        run_test(
+            backend_server_websocket_inaccessible_after_app_background_impl()
+        );
     }
 }
 
@@ -65,24 +72,29 @@ async fn log_location_sends_data_to_ui_impl() {
     assert_eq!(decoded, ToFront::LastLocation(expected));
 }
 
-async fn set_dist_filt_changes_backend_state_impl() {
-    let url = setup("set_dist_filt_changes_backend_state/").await;
+async fn set_location_config_changes_backend_state_impl() {
+    let url = setup("set_location_config_changes_backend_state/").await;
     let (ws_stream, _) = connect_async(url).await.expect("Failed to connect");
     let (mut write, _read) = ws_stream.split();
 
-    let new_dist_filt = 4.0;
-    let msg = ToBack::SetDistFilt(new_dist_filt);
+    let new_config = LocationConfig {
+        distance_filter: 4.0,
+        ..Default::default()
+    };
+    let msg = ToBack::SetLocationConfig(new_config.clone());
     let encoded = bincode::serialize(&msg).unwrap();
     write.send(Message::binary(encoded)).await.unwrap();
 
     // Wait for the message to propagate
     sleep(Duration::from_millis(50)).await;
 
-    let persisted = *stem::app_state::AppState::global()
-        .distance_filter
+    let persisted = stem::app_state::AppState::global()
+        .persistent
         .lock()
-        .unwrap();
-    assert_eq!(new_dist_filt, persisted);
+        .unwrap()
+        .location_config
+        .clone();
+    assert_eq!(new_config, persisted);
 }
 
 async fn backend_sends_state_when_requested_impl() {
@@ -108,8 +120,8 @@ async fn backend_sends_state_when_requested_impl() {
     // We find the message within the vector since the order is not guaranteed.
     messages
         .iter()
-        .position(|x| *x == ToFront::LocationEnabled(true))
-        .expect("Did not receive LocationEnabled state");
+        .position(|x| matches!(*x, ToFront::LocationConfig(_)))
+        .expect("Did not receive LocationConfig state");
     messages
         .iter()
         .position(|x| matches!(*x, ToFront::LocationsPastHour(_)))
@@ -145,4 +157,18 @@ async fn backend_sends_location_time_range_when_requested_impl() {
     } else {
         panic!("Didn't receive LocationTimeRange from backend.");
     }
+}
+
+/// Check that the backend server websocket is inaccessible after the app goes
+/// into the background and the server is shutdown.
+async fn backend_server_websocket_inaccessible_after_app_background_impl() {
+    let url =
+        setup("backend_server_websocket_inaccessible_after_app_background/")
+            .await;
+
+    // Shutdown the server as would happen when the app goes to background
+    stem::server::shutdown().await;
+
+    let result = connect_async(url).await;
+    assert!(result.is_err());
 }

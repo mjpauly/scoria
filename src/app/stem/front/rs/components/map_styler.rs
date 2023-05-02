@@ -4,12 +4,16 @@ use std::fmt;
 use std::str::FromStr;
 use std::u8;
 
+use gloo_net::http::Request;
+use obfstr::obfstr;
 use plotly::layout::MapboxStyle;
 use web_sys::{HtmlInputElement, HtmlSelectElement};
 use yew::prelude::*;
+use yewdux::prelude::*;
 
 use crate::common::Location;
 use crate::components::{RANGE_INPUT_STYLE, SELECT_STYLE};
+use crate::ui_state::UIState;
 
 /// Our version derives PartialEq so it can be used in yew hooks
 #[derive(Clone, Debug, Copy, PartialEq)]
@@ -33,35 +37,110 @@ impl Rgba {
 /// Consists of public tile server options available in plotly natively
 #[derive(Clone, Debug, PartialEq)]
 pub enum BasemapStyle {
-    CartoDarkMatter,
-    CartoPositron,
-    OpenStreetMap,
-    StamenTerrain,
-    StamenToner,
-    StamenWatercolor,
-    WhiteBg,
+    Basic,
+    Dataviz,
+    Streets,
+    Topo,
+    Outdoor,
+    BasicDark,
+    DatavizDark,
+    StreetsDark,
+    TopoDark,
+    OutdoorDark,
+    Satellite,
 }
 
-static BASEMAP_STRINGS: [(BasemapStyle, &str); 7] = [
-    (BasemapStyle::CartoDarkMatter, "CartoDarkMatter"),
-    (BasemapStyle::CartoPositron, "CartoPositron"),
-    (BasemapStyle::OpenStreetMap, "OpenStreetMap"),
-    (BasemapStyle::StamenTerrain, "StamenTerrain"),
-    (BasemapStyle::StamenToner, "StamenToner"),
-    (BasemapStyle::StamenWatercolor, "StamenWatercolor"),
-    (BasemapStyle::WhiteBg, "WhiteBg"),
+// Displays according to order of this array
+static BASEMAP_STRINGS: [(BasemapStyle, &str); 11] = [
+    (BasemapStyle::Basic, "Basic"),
+    (BasemapStyle::Dataviz, "Dataviz"),
+    (BasemapStyle::Streets, "Streets"),
+    (BasemapStyle::Topo, "Topo"),
+    (BasemapStyle::Outdoor, "Outdoor"),
+    (BasemapStyle::BasicDark, "Dark Basic"),
+    (BasemapStyle::DatavizDark, "Dark Dataviz"),
+    (BasemapStyle::StreetsDark, "Dark Streets"),
+    (BasemapStyle::TopoDark, "Dark Topo"),
+    (BasemapStyle::OutdoorDark, "Dark Outdoor"),
+    (BasemapStyle::Satellite, "Satellite"),
 ];
 
+/// Hook for checking if the epsln tile server is up. If it is, we update the
+/// frontend state to get tiles from it.
+#[hook]
+pub fn use_check_epsln_tile_server() {
+    let dispatch = Dispatch::<UIState>::new();
+    yew::platform::spawn_local(async move {
+        let result = Request::get(obfstr!("https://api.epsln.com/maps_ok"))
+            .send()
+            .await;
+        if let Ok(resp) = result {
+            dispatch.reduce_mut(|s: &mut UIState| {
+                s.use_epsln_tile_server = resp.status() == 200
+            });
+        } else {
+            dispatch
+                .reduce_mut(|s: &mut UIState| s.use_epsln_tile_server = false);
+        }
+    });
+}
+
 impl BasemapStyle {
-    pub fn to_plotly(&self) -> MapboxStyle {
+    fn format_tile_url(style: &str, use_epsln: bool) -> String {
+        // get the secrets in the .env file at compile time and obfuscate them
+        obfstr! {
+            let maptiler_key = dotenvy_macro::dotenv!(
+                "MAPTILER_API_KEY",
+                "Maptiler API key must be placed in top-level .env file as \
+                MAPTILER_API_KEY={key}"
+            );
+            let epsln_key = dotenvy_macro::dotenv!(
+                "EPSLN_TILE_API_KEY",
+                "Epsilon API key must be placed in top-level .env file as \
+                EPSLN_TILE_API_KEY={key}"
+            );
+            let maptiler_base_url = "https://api.maptiler.com/maps";
+            let epsln_base_url = "https://api.epsln.com/maps";
+            let style_json = "style.json?key=";
+        }
+        let is_satellite = style.contains("hybrid");
+        // still use maptiler for satellite images, even if use_epsln is true
+        let (base_url, key) = if use_epsln && !is_satellite {
+            (epsln_base_url, epsln_key)
+        } else {
+            (maptiler_base_url, maptiler_key)
+        };
+        // should be https://api.url.com/maps/basic-v2/style.json?key=deadbeef
+        format!("{base_url}/{style}/{style_json}{key}")
+    }
+
+    fn get_style(style: &str, use_epsln: bool) -> MapboxStyle {
+        MapboxStyle::Custom(Self::format_tile_url(style, use_epsln))
+    }
+
+    pub fn to_plotly(&self, use_epsln: bool) -> MapboxStyle {
         match self {
-            BasemapStyle::CartoDarkMatter => MapboxStyle::CartoDarkMatter,
-            BasemapStyle::CartoPositron => MapboxStyle::CartoPositron,
-            BasemapStyle::OpenStreetMap => MapboxStyle::OpenStreetMap,
-            BasemapStyle::StamenTerrain => MapboxStyle::StamenTerrain,
-            BasemapStyle::StamenToner => MapboxStyle::StamenToner,
-            BasemapStyle::StamenWatercolor => MapboxStyle::StamenWatercolor,
-            BasemapStyle::WhiteBg => MapboxStyle::WhiteBg,
+            BasemapStyle::Basic => Self::get_style("basic-v2", use_epsln),
+            BasemapStyle::Dataviz => Self::get_style("dataviz", use_epsln),
+            BasemapStyle::Streets => Self::get_style("streets-v2", use_epsln),
+            BasemapStyle::Topo => Self::get_style("topo-v2", use_epsln),
+            BasemapStyle::Outdoor => Self::get_style("outdoor-v2", use_epsln),
+            BasemapStyle::BasicDark => {
+                Self::get_style("basic-v2-dark", use_epsln)
+            }
+            BasemapStyle::DatavizDark => {
+                Self::get_style("dataviz-dark", use_epsln)
+            }
+            BasemapStyle::StreetsDark => {
+                Self::get_style("streets-v2-dark", use_epsln)
+            }
+            BasemapStyle::TopoDark => {
+                Self::get_style("topo-v2-dark", use_epsln)
+            }
+            BasemapStyle::OutdoorDark => {
+                Self::get_style("outdoor-v2-dark", use_epsln)
+            }
+            BasemapStyle::Satellite => Self::get_style("hybrid", use_epsln),
         }
     }
 }

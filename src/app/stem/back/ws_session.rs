@@ -11,12 +11,15 @@ use std::time::{Duration, Instant};
 
 use crate::app_state::AppState;
 use crate::common::{TimeRange, ToBack, ToFront};
+use crate::core::print_and_log;
 use crate::database;
 
 /// How often heartbeat pings are sent
+#[allow(dead_code)]
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
 
 /// How long before lack of client response causes a timeout
+#[allow(dead_code)]
 const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// Entry point for our websocket route
@@ -26,7 +29,7 @@ pub async fn ws_route(
 ) -> Result<HttpResponse, Error> {
     // Disallow another websocket connection if one is already active
     if AppState::global().ws_addr.lock().unwrap().is_some() {
-        println!("Additional UI websocket connection rejected.");
+        print_and_log("Additional UI websocket connection rejected.");
         return Ok(HttpResponse::Unauthorized()
             .body("Only one UI connection allowed."));
     }
@@ -44,12 +47,15 @@ impl WsSession {
     /// (HEARTBEAT_INTERVAL).
     ///
     /// also this method checks heartbeats from client
+    #[allow(dead_code)]
     fn hb(&self, ctx: &mut ws::WebsocketContext<Self>) {
         ctx.run_interval(HEARTBEAT_INTERVAL, |act, ctx| {
             // check client heartbeats
             if Instant::now().duration_since(act.hb) > CLIENT_TIMEOUT {
                 // heartbeat timed out
-                println!("Websocket Client heartbeat failed, disconnecting!");
+                print_and_log(
+                    "Websocket Client heartbeat failed, disconnecting!",
+                );
 
                 // stop actor
                 ctx.stop();
@@ -69,15 +75,15 @@ impl WsSession {
             ToBack::GetState => {
                 self.send_state(ctx);
             }
-            ToBack::SetLocationEnabled(val) => {
-                *AppState::global().location_is_enabled.lock().unwrap() = val;
+            ToBack::SetLocationConfig(val) => {
+                AppState::global()
+                    .persistent
+                    .lock()
+                    .unwrap()
+                    .location_config = val.clone();
                 // re-broadcast the new state in case other components are
                 // listening for it
-                self.send_msg(ToFront::LocationEnabled(val), ctx);
-            }
-            ToBack::SetDistFilt(val) => {
-                *AppState::global().distance_filter.lock().unwrap() = val;
-                self.send_msg(ToFront::DistFilt(val), ctx);
+                self.send_msg(ToFront::LocationConfig(val), ctx);
             }
             ToBack::GetLocationTimeRange(time_range) => {
                 self.send_location_time_range(ctx, time_range);
@@ -94,9 +100,13 @@ impl WsSession {
 
     /// Sends all UI state values, used at startup.
     fn send_state(&self, ctx: &mut ws::WebsocketContext<Self>) {
-        let location_enabled =
-            *AppState::global().location_is_enabled.lock().unwrap();
-        self.send_msg(ToFront::LocationEnabled(location_enabled), ctx);
+        let location_config = AppState::global()
+            .persistent
+            .lock()
+            .unwrap()
+            .location_config
+            .clone();
+        self.send_msg(ToFront::LocationConfig(location_config), ctx);
 
         // need a future to query the database, so we convert the future
         // into an actor which communicates back to ourselves with the
@@ -158,8 +168,9 @@ impl Actor for WsSession {
         // set the app_state to contain the address of the websocket session
         *AppState::global().ws_addr.lock().unwrap() = Some(ctx.address());
 
-        // start heartbeat process on session start.
-        self.hb(ctx);
+        // Don't need the heartbeat; server shutdown anyways on app
+        // backgrounding
+        // self.hb(ctx);
     }
 
     /// Method called on actor stop. Actor is dropped after this function.
@@ -198,6 +209,10 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsSession {
             }
             ws::Message::Text(text) => println!("got text {}", text),
             ws::Message::Close(reason) => {
+                print_and_log(&format!(
+                    "Closing Websocket with reason: {:?}",
+                    reason
+                ));
                 ctx.close(reason);
                 ctx.stop();
             }

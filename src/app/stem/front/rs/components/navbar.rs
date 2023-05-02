@@ -1,6 +1,6 @@
 //! Bottom navbar component for switching between the main pages.
 
-use crate::router::Route;
+use crate::router::{get_scope, Route};
 use yew::prelude::*;
 use yew::MouseEvent;
 use yew_icons::{Icon, IconId};
@@ -40,13 +40,27 @@ pub fn Navbar() -> Html {
     let navigator = use_navigator().unwrap();
     let curr_route: Option<Route> = use_route();
 
+    // Retrieve the scope from the url
+    let scope = get_scope();
+
     // We scale the icons differently since their visual size for the same width
-    // is different.
+    // is sometimes different.
     let view_routes = vec![
         // (route, label, icon, icon_scale)
-        (Route::Sense, "Sense", IconId::BootstrapSoundwave, "h-8 w-8"),
-        (Route::Analyze, "Analyze", IconId::BootstrapMap, "h-6 w-6"),
-        (Route::TestPage, "Test", IconId::BootstrapTools, "h-6 w-6"),
+        (
+            Route::Sense {
+                scope: scope.clone(),
+            },
+            "Log",
+            IconId::BootstrapJournalText,
+            "h-6 w-6",
+        ),
+        (
+            Route::Analyze { scope },
+            "Map",
+            IconId::BootstrapGlobeAmericas,
+            "h-6 w-6",
+        ),
     ];
 
     // Construct each button to display in the navbar
@@ -59,15 +73,17 @@ pub fn Navbar() -> Html {
             Callback::from(move |_e: MouseEvent| navigator.push(&route))
         };
         // Extra padding on the bottom to give more room for the home bar
-        let mut style = vec!["pt-4 pb-8"];
+        let mut style = vec!["pt-2 pb-6"];
         if let Some(r) = &curr_route {
             // Style the current button blue if we are on it
             if *route == *r {
-                style.push("text-sky-500");
+                style.push("text-primary");
             }
         }
         let icon_style: String = format!("mx-auto mb-1 {}", icon_scale);
         html! {
+            // id makes it easier to automatically select the buttons in
+            // integration testing
             <button {onclick} class={style} id={label.to_string()}>
                 <Icon icon_id={*icon} class={classes!(icon_style)} />
                 { label }
@@ -75,7 +91,7 @@ pub fn Navbar() -> Html {
         }
     });
     html! {
-        <div class="flex-none grid grid-cols-3 justify-items-stretch">
+        <div class="flex-none grid grid-cols-2 justify-items-stretch">
             {for items}
         </div>
     }

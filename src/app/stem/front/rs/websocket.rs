@@ -191,16 +191,24 @@ pub struct WebsocketService {
     // interior mutability for sending messages.
 
     // handle for sending a message to the backend through the websocket
-    tx: Rc<RefCell<Sender<ToBack>>>,
+    tx: Rc<RefCell<Sender<WriterMsg>>>,
 
     // list of component subscribers to update on message received from backend
     subscribers: Rc<RefCell<HashMap<Uuid, Callback>>>,
 }
 
+/// Messages for the writer. Either a message to send to the backend or a
+/// message to exit, since the websocket was closed.
+enum WriterMsg {
+    Msg(ToBack),
+    #[allow(dead_code)]
+    Abort,
+}
+
 impl WebsocketService {
     /// Send a message to the websocket
     pub fn send_msg(&self, msg: ToBack) {
-        self.tx.borrow_mut().try_send(msg).unwrap();
+        self.tx.borrow_mut().try_send(WriterMsg::Msg(msg)).unwrap();
     }
 
     /// Subscribe to messages from the backend
@@ -218,16 +226,18 @@ impl WebsocketService {
         // log::debug!("removing subscriber {}", id)
     }
 
-    pub fn new() -> Self {
-        // Get the port that we connected to on the server
-        let port = web_sys::window()
-            .unwrap()
-            .location()
-            .port()
-            .unwrap()
-            .parse::<u16>()
-            .unwrap();
-        let address = format!("ws://127.0.0.1:{}/ws", port);
+    fn connect() -> (
+        SplitSink<WebSocket, Message>,
+        SplitStream<WebSocket>,
+        Sender<WriterMsg>,
+        Receiver<WriterMsg>,
+    ) {
+        // Get the port and scope that we connected to on the server
+        let location = web_sys::window().unwrap().location();
+        let port = location.port().unwrap().parse::<u16>().unwrap();
+        let pathname = location.pathname().unwrap();
+        let scope = pathname.trim_matches('/').split('/').next().unwrap();
+        let address = format!("ws://127.0.0.1:{port}/{scope}/ws");
         log::debug!("Binding to websocket at {}", address);
 
         let ws = WebSocket::open(&address).unwrap();
@@ -235,31 +245,54 @@ impl WebsocketService {
         let (ws_write, ws_read) = ws.split();
 
         // components write yew_tx, and WebsocketService receives on rx
-        let (yew_tx, yew_rx) = futures::channel::mpsc::channel::<ToBack>(1000);
+        let (yew_tx, yew_rx) =
+            futures::channel::mpsc::channel::<WriterMsg>(1000);
 
+        (ws_write, ws_read, yew_tx, yew_rx)
+    }
+
+    pub fn new() -> Self {
+        let (ws_write, ws_read, yew_tx, yew_rx) = Self::connect();
+
+        let tx = Rc::new(RefCell::new(yew_tx));
         let subscribers =
             Rc::new(RefCell::new(HashMap::<Uuid, Callback>::new()));
 
-        Self::spawn_websocket_reader(ws_read, subscribers.clone());
-        Self::spawn_websocket_writer(yew_rx, ws_write);
+        let reconnect_needed = Rc::new(RefCell::new(false));
 
-        Self {
-            tx: Rc::new(RefCell::new(yew_tx)),
-            subscribers,
-        }
+        Self::spawn_websocket_reader(
+            ws_read,
+            subscribers.clone(),
+            reconnect_needed,
+        );
+        Self::spawn_websocket_writer(yew_rx, ws_write);
+        // Don't spawn watchdog since frontend is reloaded on app foregrounding
+        // anyways. This ensures we only try to connect once on foregrounding
+        // after the server has started up.
+        // Self::spawn_watchdog(tx.clone(), subscribers.clone(), reconnect_needed);
+        Self { tx, subscribers }
     }
 
     /// Spawn the future that gets data from the mpsc channel and sends it
     /// through the websocket to the backend.
     fn spawn_websocket_writer(
-        mut yew_rx: Receiver<ToBack>,
+        mut yew_rx: Receiver<WriterMsg>,
         mut ws_write: SplitSink<WebSocket, Message>,
     ) {
         spawn_local(async move {
             while let Some(msg) = yew_rx.next().await {
-                let encoded: Vec<u8> = bincode::serialize(&msg).unwrap();
-                ws_write.send(Message::Bytes(encoded)).await.unwrap();
+                match msg {
+                    WriterMsg::Msg(to_back) => {
+                        let encoded: Vec<u8> =
+                            bincode::serialize(&to_back).unwrap();
+                        ws_write.send(Message::Bytes(encoded)).await.unwrap();
+                    }
+                    WriterMsg::Abort => {
+                        break;
+                    }
+                }
             }
+            log::debug!("Websocket writer exiting");
         });
     }
 
@@ -270,6 +303,7 @@ impl WebsocketService {
         mut ws_read: SplitStream<WebSocket>,
         // Handle to the subscriberes to notify
         subscribers: Rc<RefCell<HashMap<Uuid, Callback>>>,
+        reconnect_needed: Rc<RefCell<bool>>,
     ) {
         spawn_local(async move {
             while let Some(msg) = ws_read.next().await {
@@ -294,7 +328,53 @@ impl WebsocketService {
                     }
                 }
             }
-            log::debug!("WebSocket Closed");
+            log::debug!("WebSocket closed");
+            *reconnect_needed.borrow_mut() = true;
+        });
+    }
+
+    /// Watches if the websocket gets closed and reconnects as needed.
+    #[allow(dead_code)]
+    fn spawn_watchdog(
+        tx: Rc<RefCell<Sender<WriterMsg>>>,
+        subscribers: Rc<RefCell<HashMap<Uuid, Callback>>>,
+        reconnect_needed: Rc<RefCell<bool>>,
+    ) {
+        spawn_local(async move {
+            loop {
+                yew::platform::time::sleep(std::time::Duration::from_millis(
+                    1000,
+                ))
+                .await;
+                if *reconnect_needed.borrow() {
+                    *reconnect_needed.borrow_mut() = false;
+                    log::debug!("Restarting websocket");
+                    // reader has already quit, just need to tell writer
+                    tx.borrow_mut().try_send(WriterMsg::Abort).unwrap();
+                    // create a new connection
+                    let (ws_write, ws_read, yew_tx, yew_rx) = Self::connect();
+
+                    *tx.borrow_mut() = yew_tx;
+                    // respawn the websocket reader and writer
+                    Self::spawn_websocket_reader(
+                        ws_read,
+                        subscribers.clone(),
+                        reconnect_needed.clone(),
+                    );
+                    Self::spawn_websocket_writer(yew_rx, ws_write);
+                }
+            }
+        });
+    }
+
+    /// Periodically retrieve state again (particularly num locations past hour)
+    pub fn spawn_state_requester(self) {
+        yew::platform::spawn_local(async move {
+            loop {
+                self.send_msg(ToBack::GetState);
+                yew::platform::time::sleep(std::time::Duration::from_secs(60))
+                    .await;
+            }
         });
     }
 }

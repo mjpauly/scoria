@@ -41,7 +41,7 @@ pub extern "C" fn set_app_dirs(
     library_dir: *const c_char,
     temp_dir: *const c_char,
     bundle_dir: *const c_char,
-) -> u16 {
+) {
     let paths_to_set = paths::Paths {
         documents_dir: PathBuf::from(cstr_to_string(documents_dir)),
         library_dir: PathBuf::from(cstr_to_string(library_dir)),
@@ -57,21 +57,45 @@ fn cstr_to_string(cstr: *const c_char) -> String {
     String::from_utf8_lossy(cstr.to_bytes()).to_string()
 }
 
-/// Initialize with port 0, which means the OS will assign us a free port.
-pub async fn init(init_paths: paths::Paths) -> u16 {
-    init_with_port(init_paths, 0).await
-}
-
-/// Initializes the rust library with the given app directories.
-pub async fn init_with_port(init_paths: paths::Paths, port: u16) -> u16 {
+/// Top app level initialization. Does not start the UI server yet; that is done
+/// when the app enters the foreground and calls `handle_enter_foreground`.
+pub async fn init(init_paths: paths::Paths) {
     let db = database::init_db(paths::get_db_path_helper(
         init_paths.documents_dir.clone(),
     ))
     .await
     .unwrap();
-    let port = server::run(init_paths.clone(), "127.0.0.1", port);
     app_state::AppState::init(init_paths, db);
-    port
+    server::unzip_dist();
+}
+
+/// Handle shutdown of the app by saving certain persistent state elements to
+/// the filesystem, which will be read-back at startup.
+#[no_mangle]
+pub extern "C" fn handle_shutdown() {
+    app_state::AppState::save_to_file();
+}
+
+/// When the app comes back to the foreground we start the UI server, and pass
+/// up the new configuration. This way our frontend key rotates every time the
+/// app is brought to the foreground.
+#[no_mangle]
+pub extern "C" fn handle_enter_foreground() -> server::ServerConfig {
+    runtime::get_runtime().block_on(async { server::run(0, true).await })
+}
+
+/// When the app goes the background we stop the server. This way we release
+/// resources that were in use, can better handle times when the OS kills worker
+/// threads, and reduce the opportunities for other programs to connect to the
+/// server and read out private data (the secret key given to the frontend also
+/// helps).
+#[no_mangle]
+pub extern "C" fn handle_enter_background() {
+    runtime::get_runtime().block_on(async {
+        server::shutdown().await;
+    });
+    // save the app state to file
+    app_state::AppState::save_to_file();
 }
 
 /// Log a location in the app. This is a thin sync wrapper around the helper
@@ -91,13 +115,48 @@ pub extern "C" fn log_location(
     });
 }
 
+/// Return whether location should be enabled
+#[no_mangle]
+pub extern "C" fn get_location_enabled() -> bool {
+    return app_state::AppState::global()
+        .persistent
+        .lock()
+        .unwrap()
+        .location_config
+        .standard_location;
+}
+
 /// Return the distance filter setting
 #[no_mangle]
 pub extern "C" fn get_distance_filter() -> f32 {
-    return *app_state::AppState::global()
-        .distance_filter
+    return app_state::AppState::global()
+        .persistent
         .lock()
-        .unwrap();
+        .unwrap()
+        .location_config
+        .distance_filter;
+}
+
+/// Return whether we should only monitor significant location changes
+#[no_mangle]
+pub extern "C" fn get_significant_changes() -> bool {
+    return app_state::AppState::global()
+        .persistent
+        .lock()
+        .unwrap()
+        .location_config
+        .significant_changes;
+}
+
+/// Return the location accuracy mode
+#[no_mangle]
+pub extern "C" fn get_location_accuracy_mode() -> common::LocationAccuracyMode {
+    return app_state::AppState::global()
+        .persistent
+        .lock()
+        .unwrap()
+        .location_config
+        .accuracy_mode;
 }
 
 /// Unit tests for the top-level library interface.
@@ -136,8 +195,9 @@ pub mod tests {
 /// Local setup either for development or testing.
 /// Not used in any production app code. TODO: gate with feature flag
 pub mod local {
-    use super::init_with_port;
+    use super::init;
     use super::paths::Paths;
+    use super::server;
 
     use std::fs;
     use std::os::unix::fs::PermissionsExt;
@@ -150,10 +210,26 @@ pub mod local {
     }
 
     /// Sets up a local filesystem and initializes stem with the provided port.
-    /// Returns the actual port used to the caller.
+    /// Returns the actual port used to the caller. Local development is
+    /// insecure; the scope/secret key is always set to "123". Assume the
+    /// caller knows this already so we just return the port.
     pub async fn local_setup(dir: &str, port: u16) -> u16 {
         let paths = local_fs_setup(dir);
-        init_with_port(paths, port).await
+        init(paths).await;
+        server::run(port, false).await.port
+    }
+
+    /// Sets up a local filesystem and initializes stem with the provided port,
+    /// but copies the development database over to the new filesystem. This is
+    /// useful for debugging on collected data. Just Take the SQLite database
+    /// from the device, and put it in place of the development database at
+    /// stem/db/data.db.
+    /// Returns the actual port used to the caller.
+    pub async fn local_setup_with_dev_db(dir: &str, port: u16) -> u16 {
+        let paths = local_fs_setup(dir);
+        copy_dev_db(paths.documents_dir.clone());
+        init(paths).await;
+        server::run(port, false).await.port
     }
 
     /// Set up a directory for local testing. Provided argument is the name of
@@ -211,5 +287,14 @@ pub mod local {
             fs::metadata(dest)?.permissions().mode()
         );
         Ok(())
+    }
+
+    /// Copy the development database to the local filesystem being set up. This
+    /// keeps data that was in the database, as opposed to creating a completely
+    /// new one.
+    fn copy_dev_db(documents_dir: std::path::PathBuf) {
+        let dev_db_path = "src/app/stem/db/data.db";
+        let dest = documents_dir.join("data.db");
+        fs::copy(dev_db_path, dest).unwrap();
     }
 }

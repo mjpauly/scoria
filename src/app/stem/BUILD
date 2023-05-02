@@ -5,9 +5,13 @@ rust_library(
     name = "stem",
     srcs = glob(["back/*.rs"]) + ["//src/app/stem/front:rs/common.rs"],
     edition = "2021",
-    compile_data = glob(["migrations/*.sql"]) + [".env"],
+    compile_data = glob(["migrations/*.sql"]) + [".env", "//:secrets"],
+    proc_macro_deps = [
+        "@stem_crate_index//:dotenvy_macro",
+    ],
     deps = [
         ":alloc",
+        "@stem_crate_index//:rand",
         "@stem_crate_index//:sqlx",
         "@stem_crate_index//:tokio",
         "@stem_crate_index//:anyhow",
@@ -16,6 +20,7 @@ rust_library(
         "@stem_crate_index//:actix-web-actors",
         "@stem_crate_index//:actix-files",
         "@stem_crate_index//:serde",
+        "@stem_crate_index//:serde_json",
         "@stem_crate_index//:bincode",
         "@stem_crate_index//:zip",
         "@stem_crate_index//:time",
@@ -58,7 +63,10 @@ rust_binary(
     name = "dev",
     srcs = ["dev/main.rs"],
     edition = "2021",
-    data = ["//src/app/stem/front:dist"],
+    data = [
+        "//src/app/stem/front:dist",
+        "db/data.db",
+    ],
     deps = [
         ":stem",
         "@stem_crate_index//:tokio",
@@ -70,7 +78,7 @@ rust_binary(
 )
 
 # Development database generator for sqlx query macros. Database is placed in
-# dev/db/. Also creates a .env file in stem/ to tell sqlx where to find the
+# db/. Also creates a .env file in stem/ to tell sqlx where to find the
 # development database. Run `bazel run :db_gen`
 rust_binary(
     name = "db_gen",

@@ -17,7 +17,7 @@ async fn main() -> Result<(), std::io::Error> {
 
     println!("Run dir: {}", std::env::current_dir().unwrap().display());
 
-    stem::local::local_setup("dev_fs/", 8081).await;
+    stem::local::local_setup_with_dev_db("dev_fs/", 8081).await;
 
     // Spawn our data generator
     tokio::spawn(data_generator());
@@ -55,8 +55,8 @@ async fn data_generator() {
         vy += (random::<f64>() - 0.5) / 10000.0;
         // vx = (lat - ca) * -1. / 10.;
         // vy = (lon - co) / 10.;
-        lon = (lon + vx) % 180.0;
-        lat = (lat + vy) % 180.0;
+        lon = ((lon + vx) + 180.0) % 360.0 - 180.0;
+        lat = ((lat + vy) + 90.0) % 180.0 - 90.0;
         stem::core::log_location(
             lat,
             lon,

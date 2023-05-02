@@ -17,5 +17,5 @@ use stem::local::test_setup;
 /// Helper to do dut setup and return the websocket url
 async fn setup(dir: &str) -> String {
     let port = test_setup(dir).await;
-    format!("ws://127.0.0.1:{}/ws", port)
+    format!("ws://127.0.0.1:{}/123/ws", port)
 }

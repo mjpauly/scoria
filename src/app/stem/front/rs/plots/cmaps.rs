@@ -1,6 +1,7 @@
 use plotly::common::{ColorScale, ColorScaleElement};
 
 /// Sequential, perceptually-uniform colormap
+#[allow(dead_code)]
 pub fn viridis_plotly() -> ColorScale {
     to_plotly(&VIRIDIS)
 }
@@ -25,6 +26,7 @@ pub fn to_plotly(cmap: &[(f64, &'static str)]) -> ColorScale {
     )
 }
 
+#[allow(dead_code)]
 pub static VIRIDIS: [(f64, &str); 256] = [
     (0.0, "rgb(68,1,84)"),
     (0.00392156862745098, "rgb(68,2,86)"),

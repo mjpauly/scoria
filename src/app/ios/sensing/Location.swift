@@ -5,40 +5,84 @@ import StemLib
 class MyLocationManager: NSObject, CLLocationManagerDelegate, ObservableObject {
     let locationManager = CLLocationManager()
     
-    let logURL: URL = getDocumentsDirectory().appendingPathComponent("gps_log.txt")
     let sqlURL: URL = getDocumentsDirectory().appendingPathComponent("data.db")
     
     override init() {
         super.init()
         
         locationManager.delegate = self
-        locationManager.requestWhenInUseAuthorization()
-        locationManager.requestAlwaysAuthorization()
-        locationManager.pausesLocationUpdatesAutomatically = false  // default is false but doesn't hurt to set it
-        // need to set this along with enabling in project background capabilities to get background updates:
-        locationManager.allowsBackgroundLocationUpdates = true
-        locationManager.startUpdatingLocation()
+        setLocationEnabled()
+        setSignificantChanges()
+        setAccuracyMode()
         setDistanceFilter()
     }
     
     // If myLocationManager is stored as a global variable, it is lazily initialized.
     // `touch` does an access so that it becomes initialized.
     func touch() {
-        print("Initializing location manager")
+        print_and_log(s: "Initializing location manager")
+    }
+    
+    func requestPermissions() {
+        locationManager.requestWhenInUseAuthorization()
+        locationManager.requestAlwaysAuthorization()
+        locationManager.pausesLocationUpdatesAutomatically = false
+        // need to set this along with enabling in project background capabilities to get background updates:
+        locationManager.allowsBackgroundLocationUpdates = true
+    }
+
+    // enable/disable location updating in general
+    func setLocationEnabled() {
+        let should_enable_location = get_location_enabled()
+        print_and_log(s: "setting location enabled to \(should_enable_location)")
+        if should_enable_location {
+            requestPermissions()
+            locationManager.startUpdatingLocation()
+        } else {
+            locationManager.stopUpdatingLocation()
+        }
+    }
+
+    // enable/disable the significant location changes service
+    func setSignificantChanges() {
+        let should_enable_slc = get_significant_changes()
+        print_and_log(s: "setting enable significant change mode to \(should_enable_slc)")
+        if should_enable_slc {
+            requestPermissions()
+            locationManager.startMonitoringSignificantLocationChanges()
+        } else {
+            locationManager.stopMonitoringSignificantLocationChanges()
+        }
     }
     
     // Set the minimum distance in meters the device must move horizontally before an update event is generated.
     func setDistanceFilter() {
         let dist_filt = get_distance_filter()
+        print_and_log(s: "setting dist filt to \(dist_filt)")
         locationManager.distanceFilter = CLLocationDistance(dist_filt)
+    }
+
+    func setAccuracyMode() {
+        let accuracy_mode = get_location_accuracy_mode()
+        //let converted = kCLLocationAccuracyBest
+        var converted: CLLocationAccuracy;
+        switch accuracy_mode {
+            case Best: converted = kCLLocationAccuracyBest
+            case TenMeters: converted = kCLLocationAccuracyNearestTenMeters
+            case HundredMeters: converted = kCLLocationAccuracyHundredMeters
+            case Kilometer: converted = kCLLocationAccuracyKilometer
+            case ThreeKilometers: converted = kCLLocationAccuracyThreeKilometers
+        default:
+            converted = kCLLocationAccuracyBest
+        }
+        print_and_log(s: "setting accuracy to \(converted)")
+        locationManager.desiredAccuracy = converted
     }
     
     // The locationManager() method of the CLLocationManagerDelegate protocol is called when the location manager receives new location data
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         // Perform operations on the updated location data
         guard let newLocation = locations.last else { return }
-        //print(newLocation)
-        appendLocationToFile(location: newLocation)
         
         // Log the location in StemLib
         log_location(
@@ -50,10 +94,5 @@ class MyLocationManager: NSObject, CLLocationManagerDelegate, ObservableObject {
             Int(round(newLocation.timestamp.timeIntervalSince1970))
         )
         
-    }
-    
-    func appendLocationToFile(location: CLLocation) {
-        let dataString = "\(location)\n"
-        appendToFile(file: logURL.path(), dataString: dataString)
     }
 }

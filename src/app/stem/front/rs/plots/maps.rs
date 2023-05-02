@@ -4,7 +4,7 @@ use plotly::{
     color::Rgba,
     common::Marker,
     configuration::{Configuration, DisplayModeBar},
-    layout::{Center, Mapbox, MapboxStyle, Margin},
+    layout::{Center, Mapbox, MapboxStyle, Margin, NamedMapboxStyle},
     Layout, Plot, ScatterMapbox,
 };
 
@@ -12,27 +12,28 @@ use crate::common;
 
 /// Generate a map of data points and return the plot
 pub fn map_plot(
-    records: Vec<common::Location>,
+    records: Vec<&common::Location>,
     marker: Marker,
     mapbox_style: MapboxStyle,
 ) -> plotly::Plot {
-    // filter out records where accuracy is worse (larger) than 20m
-    let records_iter = records.iter().filter(|x| x.accuracy < 20.0);
-    let lats: Vec<_> = records_iter.clone().map(|x| x.lat).collect();
-    let lons: Vec<_> = records_iter.map(|x| x.lon).collect();
+    let lats: Vec<_> = records.iter().map(|x| x.lat).collect();
+    let lons: Vec<_> = records.iter().map(|x| x.lon).collect();
 
     let (lat_center, lon_center, zoom);
-    let trace;
-    if !records.is_empty() {
+    let mut trace = if !records.is_empty() {
         // calculate where to put the center
         (lat_center, lon_center, zoom) = get_center_and_zoom(&lats, &lons);
-        trace = ScatterMapbox::new(lats, lons).marker(marker);
+        ScatterMapbox::new(lats, lons)
     } else {
         (lat_center, lon_center, zoom) = (0., 0., 0);
         // If we don't have a data point, mapbox-gl-js complains about "there is
         // already a source with this ID"
-        trace = ScatterMapbox::new(vec![0.], vec![0.]).marker(marker);
-    }
+        ScatterMapbox::new(vec![0.], vec![0.])
+    };
+
+    trace = trace
+        .marker(marker)
+        .hover_text_array(get_hovertext(&records));
 
     let layout = Layout::new()
         // transparent paper: no white flashes on plot load
@@ -57,6 +58,36 @@ pub fn map_plot(
     plot
 }
 
+/// Get the hovertext to show when the datapoints are clicked.
+fn get_hovertext(records: &[&common::Location]) -> Vec<String> {
+    let local_offset = time::UtcOffset::current_local_offset().unwrap();
+    records
+        .iter()
+        .map(|loc| {
+            format!(
+                "+/-{:.2} m, {:.2} m/s, {:.2}°<br>{}",
+                loc.accuracy,
+                loc.speed,
+                loc.course,
+                loc.datetime
+                    .to_offset(local_offset)
+                    .format(&time::format_description::well_known::Rfc2822)
+                    .unwrap()
+            )
+        })
+        .collect()
+}
+
+pub fn map_colorbar() -> plotly::common::ColorBar {
+    plotly::common::ColorBar::new()
+        .background_color(plotly::color::NamedColor::Black)
+        .orientation(plotly::common::Orientation::Horizontal)
+        .thickness(20)
+        .ticks(plotly::common::Ticks::Inside)
+        .x_pad(50.)
+        .y(0.)
+}
+
 /// Generate an empty plot layout without traces
 #[allow(dead_code)]
 pub fn empty_plot(marker: Marker) -> plotly::Plot {
@@ -65,7 +96,11 @@ pub fn empty_plot(marker: Marker) -> plotly::Plot {
     let trace = ScatterMapbox::new(vec![0.0], vec![0.0]).marker(marker);
     let layout = Layout::new()
         .margin(Margin::new().top(0).left(0).bottom(0).right(0))
-        .mapbox(Mapbox::new().style(MapboxStyle::StamenTerrain).zoom(1));
+        .mapbox(
+            Mapbox::new()
+                .style(MapboxStyle::Named(NamedMapboxStyle::StamenTerrain))
+                .zoom(1),
+        );
     let config = Configuration::new()
         .responsive(true)
         .display_logo(false)
