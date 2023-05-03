@@ -140,7 +140,9 @@ impl AppState {
 
 #[cfg(test)]
 mod tests {
-    use crate::common::LocationAccuracyMode;
+    use crate::common::{
+        LocationAccuracyMode, LocationMode, StandardLocationConfig,
+    };
     use crate::init;
     use crate::local::local_fs_setup;
 
@@ -162,7 +164,7 @@ mod tests {
         let serialized = fs::read_to_string(state_file).unwrap();
         assert_eq!(
             serialized,
-            r#"{"location_config":{"standard_location":false,"accuracy_mode":"Best","distance_filter":5.0,"significant_changes":false}}"#
+            r#"{"location_config":{"enabled":false,"mode":"Standard","standard_config":{"accuracy_mode":"Best","distance_filter":5.0}}}"#
         );
     }
 
@@ -172,7 +174,7 @@ mod tests {
         let paths = local_fs_setup(dir);
         let state_file = paths.library_dir.clone().join(STATE_FNAME);
 
-        let contents = r#"{"location_config":{"standard_location":true,"accuracy_mode":"TenMeters","distance_filter":4.0,"significant_changes":false}}"#;
+        let contents = r#"{"location_config":{"enabled":true,"mode":"Standard","standard_config":{"accuracy_mode":"TenMeters","distance_filter":4.0}}}"#;
 
         let mut file = OpenOptions::new()
             .create(true)
@@ -187,10 +189,12 @@ mod tests {
         let parsed = (*AppState::global().persistent.lock().unwrap()).clone();
         let expected = PersistentState {
             location_config: LocationConfig {
-                standard_location: true,
-                accuracy_mode: LocationAccuracyMode::TenMeters,
-                distance_filter: 4.0,
-                significant_changes: false,
+                enabled: true,
+                mode: LocationMode::Standard,
+                standard_config: StandardLocationConfig {
+                    accuracy_mode: LocationAccuracyMode::TenMeters,
+                    distance_filter: 4.0,
+                },
             },
         };
         assert_eq!(parsed, expected);

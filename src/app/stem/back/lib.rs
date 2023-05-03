@@ -115,48 +115,52 @@ pub extern "C" fn log_location(
     });
 }
 
-/// Return whether location should be enabled
+/// Return whether the standard location service should be enabled
 #[no_mangle]
 pub extern "C" fn get_location_enabled() -> bool {
-    return app_state::AppState::global()
+    let config = app_state::AppState::global()
         .persistent
         .lock()
         .unwrap()
         .location_config
-        .standard_location;
+        .clone();
+    config.enabled && (config.mode == common::LocationMode::Standard)
 }
 
-/// Return the distance filter setting
-#[no_mangle]
-pub extern "C" fn get_distance_filter() -> f32 {
-    return app_state::AppState::global()
-        .persistent
-        .lock()
-        .unwrap()
-        .location_config
-        .distance_filter;
-}
-
-/// Return whether we should only monitor significant location changes
+/// Return whether we should enabled the significant location changes service
 #[no_mangle]
 pub extern "C" fn get_significant_changes() -> bool {
-    return app_state::AppState::global()
+    let config = app_state::AppState::global()
         .persistent
         .lock()
         .unwrap()
         .location_config
-        .significant_changes;
+        .clone();
+    config.enabled && (config.mode == common::LocationMode::SignificantChanges)
 }
 
-/// Return the location accuracy mode
+/// Return the distance filter setting (used for standard location service)
 #[no_mangle]
-pub extern "C" fn get_location_accuracy_mode() -> common::LocationAccuracyMode {
-    return app_state::AppState::global()
+pub extern "C" fn get_distance_filter() -> f32 {
+    app_state::AppState::global()
         .persistent
         .lock()
         .unwrap()
         .location_config
-        .accuracy_mode;
+        .standard_config
+        .distance_filter
+}
+
+/// Return the location accuracy mode (used for standard location service)
+#[no_mangle]
+pub extern "C" fn get_location_accuracy_mode() -> common::LocationAccuracyMode {
+    app_state::AppState::global()
+        .persistent
+        .lock()
+        .unwrap()
+        .location_config
+        .standard_config
+        .accuracy_mode
 }
 
 /// Unit tests for the top-level library interface.

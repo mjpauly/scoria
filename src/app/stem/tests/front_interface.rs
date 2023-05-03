@@ -94,10 +94,7 @@ async fn location_config_propagates(
             == stem::common::LocationAccuracyMode::Best
     );
 
-    c.find(Locator::Css("#standard_location"))
-        .await?
-        .click()
-        .await?;
+    c.find(Locator::Css("#enable")).await?.click().await?;
 
     let dist_filt_elem = c.find(Locator::Css("#distance_filter")).await?;
     dist_filt_elem.send_keys("4").await?;
@@ -114,15 +111,10 @@ async fn location_config_propagates(
             == stem::common::LocationAccuracyMode::TenMeters
     );
 
-    // unset standard location service so we can test the significant changes
-    c.find(Locator::Css("#standard_location"))
+    // switch to infrequent location mode
+    c.find(Locator::Css("#location_mode"))
         .await?
-        .click()
-        .await?;
-
-    c.find(Locator::Css("#significant_changes"))
-        .await?
-        .click()
+        .select_by_index(1)
         .await?;
 
     assert!(stem::get_significant_changes());
