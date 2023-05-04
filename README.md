@@ -23,7 +23,6 @@
 - [ ] **refactor common code into its own module**
     - [ ] functions for common location config access operations
 - [ ] have maps_ok respond with 204 No Content instead of 404
-- [ ] maybe put app state in database and do migrations?
 - [ ] maybe construct plotly plots with serde_json's Map and Value directly, to
         avoid limitations of having to define everything up front
         ([ref](https://stackoverflow.com/questions/59047280/how-to-build-json-arrays-or-objects-dynamically-with-serde-json))
@@ -89,6 +88,7 @@
 - [x] show data values when clicking on map
 - [x] submit first app to testflight
 - [x] auto location mode (switch between modes based on movement)
+- [x] preserve user zoom/pan/tilt/rotate when restyling plot
 
 ## Structure
 

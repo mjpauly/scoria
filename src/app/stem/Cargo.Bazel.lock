@@ -1,5 +1,5 @@
 {
-  "checksum": "f3895b0e16af844c98d39bdc81e262c5d7694b7219878eec7931153136dbdac7",
+  "checksum": "fa119a1fc4cbb0c9661a3c5edfda6f6083fd513eae3ea1d8bb6bdcf9c5291c11",
   "crates": {
     "actix 0.13.0": {
       "name": "actix",
@@ -4418,6 +4418,10 @@
             {
               "id": "serde 1.0.152",
               "target": "serde"
+            },
+            {
+              "id": "serde-wasm-bindgen 0.5.0",
+              "target": "serde_wasm_bindgen"
             },
             {
               "id": "serde_json 1.0.94",
@@ -12770,6 +12774,53 @@
         },
         "edition": "2018",
         "version": "0.4.5"
+      },
+      "license": "MIT"
+    },
+    "serde-wasm-bindgen 0.5.0": {
+      "name": "serde-wasm-bindgen",
+      "version": "0.5.0",
+      "repository": {
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/serde-wasm-bindgen/0.5.0/download",
+          "sha256": "f3b143e2833c57ab9ad3ea280d21fd34e285a42837aeb0ee301f4f41890fa00e"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "serde_wasm_bindgen",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "serde_wasm_bindgen",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "deps": {
+          "common": [
+            {
+              "id": "js-sys 0.3.60",
+              "target": "js_sys"
+            },
+            {
+              "id": "serde 1.0.152",
+              "target": "serde"
+            },
+            {
+              "id": "wasm-bindgen 0.2.83",
+              "target": "wasm_bindgen"
+            }
+          ],
+          "selects": {}
+        },
+        "edition": "2018",
+        "version": "0.5.0"
       },
       "license": "MIT"
     },

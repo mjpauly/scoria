@@ -109,16 +109,16 @@ class MyLocationManager: NSObject, CLLocationManagerDelegate, ObservableObject {
     
     // Waits one minute then calls checks if we should update the accuracy config
     func updateConfigAfterOneMinute() async {
-        let startTime = DispatchTime.now()
+        // let startTime = DispatchTime.now()
         do {
             try await Task.sleep(nanoseconds: 1_000_000_000 * 60) // one minute
         } catch {
             print_and_log(s: "failed to sleep")
         }
-        let endTime = DispatchTime.now()
-        let elapsedTime = endTime.uptimeNanoseconds - startTime.uptimeNanoseconds
-        let elapsedTimeInSeconds = Double(elapsedTime) / 1_000_000_000
-        print_and_log(s: "checking location config after \(elapsedTimeInSeconds) seconds")
+        // let endTime = DispatchTime.now()
+        // let elapsedTime = endTime.uptimeNanoseconds - startTime.uptimeNanoseconds
+        // let elapsedTimeInSeconds = Double(elapsedTime) / 1_000_000_000
+        // print_and_log(s: "checking location config after \(elapsedTimeInSeconds) seconds")
         updateConfig()
     }
 }

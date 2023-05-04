@@ -4,6 +4,7 @@
 //! "update" trace structs are defined where needed.
 
 use js_sys::Object;
+use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 
@@ -37,6 +38,12 @@ extern "C" {
         obj: &Object,
         indices: &Object,
     ) -> Result<JsValue, JsValue>;
+
+    #[wasm_bindgen(js_namespace = Plotly)]
+    pub type PlotlyHTMLElement;
+
+    #[wasm_bindgen(method)]
+    pub fn on(this: &PlotlyHTMLElement, event: &str, callback: JsValue);
 }
 
 fn json_to_obj(json: &str) -> Object {
@@ -91,4 +98,42 @@ pub fn extend_trace(id: &str, trace: Box<dyn plotly::plot::Trace>) {
     // log::debug!("extend trace json: {}", trace.to_json());
     let indices = json_to_obj("[0]");
     extend_traces_(id, &trace_obj, &indices).expect("Error extending trace");
+}
+
+/// Add an event listener to a plot id. Panics if the plot element can't be
+/// found.
+pub fn add_plot_event_listener(
+    id: &str,
+    event: &str,
+    callback: Box<dyn FnMut(JsValue)>,
+) {
+    let e = web_sys::window()
+        .unwrap()
+        .document()
+        .unwrap()
+        .get_element_by_id(id)
+        .unwrap();
+    let plotly_elem = e.unchecked_into::<PlotlyHTMLElement>();
+    let cb = Closure::wrap(callback);
+    plotly_elem.on(event, cb.into_js_value());
+}
+
+/// Relayout data obtained from a relayout event on a mapbox plot
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct MapboxRelayoutData {
+    #[serde(rename = "mapbox.center")]
+    pub center: MapboxCenter,
+    #[serde(rename = "mapbox.zoom")]
+    pub zoom: f64,
+    #[serde(rename = "mapbox.bearing")]
+    pub bearing: f64,
+    #[serde(rename = "mapbox.pitch")]
+    pub pitch: f64,
+}
+
+/// Relayout data obtained from a relayout event on a mapbox plot
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct MapboxCenter {
+    pub lat: f64,
+    pub lon: f64,
 }

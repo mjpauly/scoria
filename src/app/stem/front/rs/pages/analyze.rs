@@ -1,6 +1,7 @@
 //! Analysis of collected data.
 
 use plotly::common::Marker;
+use wasm_bindgen::prelude::*;
 use yew::prelude::*;
 use yew_icons::{Icon, IconId};
 use yewdux::prelude::*;
@@ -19,6 +20,7 @@ use crate::components::{
     NavbarWrapper, TimeRangePicker, PRIMARY_BUTTON_STYLE,
     SECONDARY_BUTTON_STYLE,
 };
+use crate::plots::plotly_binds::MapboxRelayoutData;
 use crate::plots::{
     cmaps, maps, plotly_binds, scatter_mapbox_update::ScatterMapboxUpdate,
 };
@@ -63,6 +65,7 @@ fn AnalyzeLocation() -> Html {
             threshold: 10.0,
         }]
     });
+    let relayout_data = use_state(|| Option::<MapboxRelayoutData>::None);
     // Collect the set of active filters, which is used to determine if the plot
     // is reloaded. This way editing an inactive filter doesn't change the plot.
     let active_filters: Vec<_> = (*filters)
@@ -102,7 +105,9 @@ fn AnalyzeLocation() -> Html {
             <PlotComponent
                 time_range={time_range.clone()}
                 map_style={map_style.clone()}
-                filters={filters.clone()} />
+                filters={filters.clone()}
+                relayout_data={relayout_data.clone()}
+            />
             if *settings_tab == SettingsTab::MapStyle {
                 <MapStyler map_style={map_style.clone()} />
             }
@@ -200,6 +205,7 @@ struct PlotComponentProps {
     time_range: UseStateHandle<TimeRange>,
     map_style: MapStyle,
     filters: UseStateHandle<Vec<Filter>>,
+    relayout_data: UseStateHandle<Option<MapboxRelayoutData>>,
 }
 
 #[function_component]
@@ -208,6 +214,7 @@ fn PlotComponent(
         time_range,
         map_style,
         filters,
+        relayout_data,
     }: &PlotComponentProps,
 ) -> Html {
     let use_epsln_tile_server =
@@ -220,6 +227,7 @@ fn PlotComponent(
         let plot_initialized = plot_initialized.clone(); // only exports values
         let map_style = map_style.clone();
         let filters = filters.clone();
+        let relayout_data = relayout_data.clone();
         move |msg: &ToFront| {
             if let ToFront::LocationTimeRange(_time_range, locations) = msg {
                 let locations = apply_filters(&filters, locations);
@@ -233,9 +241,26 @@ fn PlotComponent(
                         map_style
                             .basemap_style
                             .to_plotly(*use_epsln_tile_server),
+                        (*relayout_data).clone(),
                     ),
                 );
                 plot_initialized.set(true);
+
+                // add pan/zoom event listener, so we can go back to the
+                // previous zoom/pan/tilt/rotate view when making a new plot
+                let relayout_data = relayout_data.clone();
+                let cb = Box::new(move |v: JsValue| {
+                    let result =
+                        serde_wasm_bindgen::from_value::<MapboxRelayoutData>(v);
+                    if let Ok(data) = result {
+                        relayout_data.set(Some(data));
+                    }
+                });
+                plotly_binds::add_plot_event_listener(
+                    plot_id,
+                    "plotly_relayout",
+                    cb,
+                );
             }
         }
     };

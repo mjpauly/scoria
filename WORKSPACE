@@ -165,6 +165,7 @@ crates_repository(
             features = ["wasm"],
         ),
         "serde_json": crate.spec(version = "1.0.94",),
+        "serde-wasm-bindgen": crate.spec(version = "0.5.0",),
         "uom": crate.spec(version = "0.34.0"),
         "yew": crate.spec(
             version = "0.20.0",
@@ -196,7 +197,7 @@ crates_repository(
             version = "0.3.60",
             features = [
                 "Performance", "Window", "HtmlInputElement", "Location",
-                "HtmlSelectElement",
+                "HtmlSelectElement", "Document", "Element",
             ],
         ),
         "log": crate.spec(
