@@ -46,7 +46,8 @@ impl std::str::FromStr for LocationAccuracyMode {
     }
 }
 
-static MODE_STRINGS: [(LocationMode, &str); 2] = [
+static MODE_STRINGS: [(LocationMode, &str); 3] = [
+    (LocationMode::Auto, "Automatic"),
     (LocationMode::Standard, "Standard"),
     (LocationMode::SignificantChanges, "Infrequent"),
 ];
@@ -81,7 +82,10 @@ pub fn LocationConfigurator() -> Html {
     let dispatch = Dispatch::<UIState>::new();
     let config = use_selector(|s: &UIState| s.location_config.clone());
 
+    // convenient aliases for the modes that are selected
+    let auto_mode = config.mode == LocationMode::Auto;
     let standard_mode = config.mode == LocationMode::Standard;
+    let infrequent_mode = config.mode == LocationMode::SignificantChanges;
 
     // enable/disable location
     let enabled_on_click = {
@@ -238,28 +242,33 @@ pub fn LocationConfigurator() -> Html {
         </div>
 
         // help tips
-        if *show_help {
-            if standard_mode {
-                <p class="text-neutral-500 text-left px-2 pt-1">
-                    {"Standard mode continuously records location
-                    data. Setting a worse accuracy level (larger distance)
-                    sacrifices accuracy for more efficient power use."}
-                </p>
-                <p class="text-neutral-500 text-left px-2 pt-1">
-                    {"The distance filter determines how far you must move from
-                    your last recorded location before recording new data. Set
-                    it to a larger number to record data less often and save
-                    device storage space."}
-                </p>
-            } else {
-                <p class="text-neutral-500 text-left px-2 pt-1">
-                    {"Infrequent mode records location only when you move a
-                    significant distance, like when you visit a new place. It
-                    saves more power than the standard location service at the
-                    cost of a substantially reduced update rate."}
-                </p>
-
-            }
+        if *show_help && auto_mode {
+            <p class="text-neutral-500 text-left px-2 pt-1">
+                {"Automatic mode continuously records location data, balancing
+                battery drain with data accuracy. It logs lower accuracy
+                location data while stationary, and high accuracy data while
+                moving."}
+            </p>
+        } else if *show_help && standard_mode {
+            <p class="text-neutral-500 text-left px-2 pt-1">
+                {"Standard mode continuously records location data. It gives you
+                more control over the location configuration than auto mode.
+                Setting a worse accuracy level (larger distance) sacrifices
+                accuracy for more efficient power drain."}
+            </p>
+            <p class="text-neutral-500 text-left px-2 pt-1">
+                {"The distance filter determines how far you must move from
+                your last recorded location before recording new data. Set
+                it to a larger number to record data less often and save
+                device storage space."}
+            </p>
+        } else if *show_help && infrequent_mode {
+            <p class="text-neutral-500 text-left px-2 pt-1">
+                {"Infrequent mode records location only when you move a
+                significant distance, like when you visit a new place. It
+                saves more power than the standard location service at the
+                cost of a substantially reduced update rate."}
+            </p>
         }
 
         </div>

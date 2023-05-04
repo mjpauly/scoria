@@ -47,35 +47,41 @@ pub struct Location {
 #[serde(default)]
 pub struct LocationConfig {
     pub enabled: bool,
-    pub mode: LocationMode,
-    pub standard_config: StandardLocationConfig,
+    pub mode: LocationMode, // user-facing location mode (includes "auto")
+    pub standard_config: StandardLocationConfig, // standard mode user settings
+    pub auto_config: AutoConfig, // auto mode configuration
 }
 
 impl Default for LocationConfig {
     fn default() -> Self {
         Self {
             enabled: false,
-            mode: LocationMode::Standard,
+            mode: LocationMode::Auto,
             standard_config: StandardLocationConfig {
                 accuracy_mode: LocationAccuracyMode::Best,
                 distance_filter: 5.0,
             },
+            auto_config: AutoConfig::default(),
         }
     }
 }
 
+/// User-settable location modes
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub enum LocationMode {
+    Auto,
     Standard,
     SignificantChanges,
 }
 
+/// Configuration of the Standard Mode (either user settings or auto mode)
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct StandardLocationConfig {
     pub accuracy_mode: LocationAccuracyMode,
     pub distance_filter: f32,
 }
 
+/// Accuracy modes for the Standard Mode
 #[repr(C)]
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Copy)]
 pub enum LocationAccuracyMode {
@@ -84,6 +90,33 @@ pub enum LocationAccuracyMode {
     HundredMeters,
     Kilometer,
     ThreeKilometers,
+}
+
+/// State of the Auto config (what we tell the OS if Auto is on)
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+pub struct AutoConfig {
+    pub mode: OSLocationMode,
+    pub standard_config: StandardLocationConfig,
+}
+
+impl Default for AutoConfig {
+    fn default() -> Self {
+        Self {
+            mode: OSLocationMode::Standard,
+            standard_config: StandardLocationConfig {
+                accuracy_mode: LocationAccuracyMode::Best,
+                distance_filter: 5.0,
+            },
+        }
+    }
+}
+
+/// Possible location modes that can actually be set. LocationConfig is
+/// user-facing, while this is OS-facing
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+pub enum OSLocationMode {
+    Standard,
+    SignificantChanges,
 }
 
 /// A range of times.

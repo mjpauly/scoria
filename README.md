@@ -4,8 +4,6 @@
 
 - map usability / configurability
     - [ ] persist selection for export + queries
-- location settings
-    - [ ] auto mode (switch between modes based on movement)
 - [ ] ability to export log
 - [ ] log required: altitude, isProducedByAccessory, and isSimulatedBySoftware;
     floor, verticalAccuracy, speedAccuracy, courseAccuracy
@@ -16,13 +14,19 @@
     - [ ] data viewership (what map data viewed and when)
     - [ ] battery charge (to correlate with location mode) [ref](https://stackoverflow.com/questions/27475506/check-battery-level-ios-swift)
 - [ ] ability to set preferred units
+- website
+    - [ ] landing page
+    - [ ] privacy policy
 - [ ] publish to app store
 
 - [ ] conditionally compile logging code
-- [ ] refactor common code into its own module
+- [ ] **refactor common code into its own module**
+    - [ ] functions for common location config access operations
 - [ ] have maps_ok respond with 204 No Content instead of 404
-- [ ] maybe construct plotly plots with serde_json's Map and Value directly, to avoid
-    limitations of having to define everything up front ([ref](https://stackoverflow.com/questions/59047280/how-to-build-json-arrays-or-objects-dynamically-with-serde-json))
+- [ ] maybe put app state in database and do migrations?
+- [ ] maybe construct plotly plots with serde_json's Map and Value directly, to
+        avoid limitations of having to define everything up front
+        ([ref](https://stackoverflow.com/questions/59047280/how-to-build-json-arrays-or-objects-dynamically-with-serde-json))
 
 - later features
     - sensing: environmental noise
@@ -84,6 +88,7 @@
 - [x] local plotly instead of hitting cdn every app load
 - [x] show data values when clicking on map
 - [x] submit first app to testflight
+- [x] auto location mode (switch between modes based on movement)
 
 ## Structure
 

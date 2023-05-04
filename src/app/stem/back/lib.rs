@@ -21,6 +21,7 @@ pub mod app_state; // backend state storage
 pub mod common; // defs in common with frontend (e.g. messages)
 pub mod core; // high-level app logic that spans multiple modules
 pub mod database; // manages the SQLite database
+pub mod location_config; // location configuration
 pub mod paths; // stores and retrieve file system paths
 pub mod runtime; // retrieves async runtime for use in the sync C interface
 pub mod server; // server for the UI
@@ -116,51 +117,31 @@ pub extern "C" fn log_location(
 }
 
 /// Return whether the standard location service should be enabled
+///
+/// Note: not safe to call within a tokio runtime!
 #[no_mangle]
 pub extern "C" fn get_location_enabled() -> bool {
-    let config = app_state::AppState::global()
-        .persistent
-        .lock()
-        .unwrap()
-        .location_config
-        .clone();
-    config.enabled && (config.mode == common::LocationMode::Standard)
+    runtime::get_runtime().block_on(async {
+        location_config::get_standard_location_enabled().await
+    })
 }
 
 /// Return whether we should enabled the significant location changes service
 #[no_mangle]
 pub extern "C" fn get_significant_changes() -> bool {
-    let config = app_state::AppState::global()
-        .persistent
-        .lock()
-        .unwrap()
-        .location_config
-        .clone();
-    config.enabled && (config.mode == common::LocationMode::SignificantChanges)
+    location_config::get_significant_changes_enabled()
 }
 
 /// Return the distance filter setting (used for standard location service)
 #[no_mangle]
 pub extern "C" fn get_distance_filter() -> f32 {
-    app_state::AppState::global()
-        .persistent
-        .lock()
-        .unwrap()
-        .location_config
-        .standard_config
-        .distance_filter
+    location_config::get_distance_filter()
 }
 
 /// Return the location accuracy mode (used for standard location service)
 #[no_mangle]
 pub extern "C" fn get_location_accuracy_mode() -> common::LocationAccuracyMode {
-    app_state::AppState::global()
-        .persistent
-        .lock()
-        .unwrap()
-        .location_config
-        .standard_config
-        .accuracy_mode
+    location_config::get_location_accuracy_mode()
 }
 
 /// Unit tests for the top-level library interface.

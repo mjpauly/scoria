@@ -148,13 +148,24 @@ pub async fn get_records_time_range(
     result.into_iter().map(|l| l.into()).collect()
 }
 
+/// Count the number of locations logged in the past hour.
+///
+/// in SQLite, can also do time operations like so:
+///     WHERE timestamp >= unixepoch('now','-1 hour')"
 pub async fn count_records_past_hour() -> i32 {
+    let hour_ago = time::OffsetDateTime::now_utc() - time::Duration::hours(1);
+    count_records_since(hour_ago).await
+}
+
+pub async fn count_records_since(thresh: time::OffsetDateTime) -> i32 {
     let conn = get_db_pool();
+    let timestamp = thresh.unix_timestamp();
     let result = sqlx::query!(
         "SELECT
             count(*) as count
         FROM location
-        WHERE timestamp >= unixepoch('now','-1 hour')"
+        WHERE timestamp >= (?)",
+        timestamp
     )
     .fetch_one(&conn)
     .await

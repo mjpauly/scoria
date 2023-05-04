@@ -86,7 +86,7 @@ async fn location_config_propagates(
 ) -> Result<(), fantoccini::error::CmdError> {
     // first assert the values are set to what we expect, so we know they
     // definitely changed after simulating the ui interaction
-    assert!(!stem::get_location_enabled());
+    assert!(!stem::location_config::get_standard_location_enabled().await);
     assert!(!stem::get_significant_changes());
     assert!(stem::get_distance_filter() == 5.0);
     assert!(
@@ -96,6 +96,12 @@ async fn location_config_propagates(
 
     c.find(Locator::Css("#enable")).await?.click().await?;
 
+    // switch to standard location mode
+    c.find(Locator::Css("#location_mode"))
+        .await?
+        .select_by_index(1)
+        .await?;
+
     let dist_filt_elem = c.find(Locator::Css("#distance_filter")).await?;
     dist_filt_elem.send_keys("4").await?;
 
@@ -104,7 +110,7 @@ async fn location_config_propagates(
         .select_by_index(1)
         .await?;
 
-    assert!(stem::get_location_enabled());
+    assert!(stem::location_config::get_standard_location_enabled().await);
     assert!(stem::get_distance_filter() == 4.0);
     assert!(
         stem::get_location_accuracy_mode()
@@ -114,7 +120,7 @@ async fn location_config_propagates(
     // switch to infrequent location mode
     c.find(Locator::Css("#location_mode"))
         .await?
-        .select_by_index(1)
+        .select_by_index(2)
         .await?;
 
     assert!(stem::get_significant_changes());
