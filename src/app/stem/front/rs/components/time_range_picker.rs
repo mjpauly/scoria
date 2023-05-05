@@ -5,8 +5,8 @@ use time::macros::format_description;
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
 
-use crate::common::TimeRange;
 use crate::components::{DATETIME_INPUT_STYLE, SECONDARY_BUTTON_STYLE};
+use common::TimeRange;
 
 #[derive(Properties, PartialEq)]
 pub struct TimeRangePickerProps {

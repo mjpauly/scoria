@@ -17,8 +17,6 @@ use std::os::raw::c_char;
 use std::path::PathBuf;
 
 pub mod app_state; // backend state storage
-#[path = "../front/rs/common.rs"]
-pub mod common; // defs in common with frontend (e.g. messages)
 pub mod core; // high-level app logic that spans multiple modules
 pub mod database; // manages the SQLite database
 pub mod location_config; // location configuration

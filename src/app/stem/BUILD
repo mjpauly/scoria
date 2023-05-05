@@ -3,13 +3,14 @@ load("@rules_rust//rust:defs.bzl", "rust_library", "rust_binary", "rust_test")
 
 rust_library(
     name = "stem",
-    srcs = glob(["back/*.rs"]) + ["//src/app/stem/front:rs/common.rs"],
+    srcs = glob(["back/*.rs"]),
     edition = "2021",
     compile_data = glob(["migrations/*.sql"]) + [".env", "//:secrets"],
     proc_macro_deps = [
         "@stem_crate_index//:dotenvy_macro",
     ],
     deps = [
+        ":common",
         ":alloc",
         "@stem_crate_index//:rand",
         "@stem_crate_index//:sqlx",
@@ -26,6 +27,18 @@ rust_library(
         "@stem_crate_index//:time",
         "@stem_crate_index//:once_cell",
     ],
+)
+
+# definitions common to both the frontend and the backend
+rust_library(
+    name = "common",
+    srcs = glob(["common/*.rs"]),
+    edition = "2021",
+    deps = [
+        "@stem_crate_index//:serde",
+        "@stem_crate_index//:time",
+    ],
+    visibility = ["//visibility:public"],
 )
 
 # Unit tests embedded within the library.
@@ -46,6 +59,7 @@ rust_test(
     data = ["//src/app/stem/front:dist"],
     deps = [
         ":stem",
+        ":common",
         "@stem_crate_index//:bincode",
         "@stem_crate_index//:fantoccini",
         "@stem_crate_index//:futures-util",

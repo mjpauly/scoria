@@ -1,7 +1,7 @@
 //! Integration tests for the backend's interface (Swift-facing and frontend-
 //! facing).
 
-use stem::common::{
+use common::{
     Location, LocationAccuracyMode, LocationConfig, StandardLocationConfig,
     TimeRange, ToBack, ToFront,
 };

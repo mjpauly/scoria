@@ -9,12 +9,12 @@
 use yew::prelude::*;
 use yewdux::prelude::*;
 
-use crate::common::LocationMode;
 use crate::components::{
     map_styler::use_check_epsln_tile_server, LocationConfigurator,
     NavbarWrapper,
 };
 use crate::ui_state::UIState;
+use common::LocationMode;
 
 #[function_component]
 pub fn Sense() -> Html {

@@ -6,8 +6,8 @@
 
 use yewdux::prelude::*;
 
-use crate::common::{Location, LocationConfig};
 use crate::websocket::{Callback, ToFront};
+use common::{Location, LocationConfig};
 
 #[derive(Debug, Clone, PartialEq, Default, Store)]
 pub struct UIState {

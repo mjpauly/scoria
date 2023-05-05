@@ -2,11 +2,6 @@ load("@rules_rust//rust:defs.bzl", "rust_library", "rust_binary", "rust_doc")
 load("@rules_rust//wasm_bindgen:wasm_bindgen.bzl", "rust_wasm_bindgen")
 load("@rules_pkg//pkg:zip.bzl", "pkg_zip")
 
-exports_files(
-    ["rs/common.rs"],
-    visibility = ["//visibility:public"],
-)
-
 # all of the files we need for an http server to serve the frontend, bundled
 # into a zip archive
 pkg_zip(
@@ -53,6 +48,7 @@ rust_library(
         "@stem_crate_index//:dotenvy_macro",
     ],
     deps = [
+        "//src/app/stem:common",
         "@stem_crate_index//:humantime",
         "@stem_crate_index//:js-sys",
         "@stem_crate_index//:obfstr",

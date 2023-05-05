@@ -23,13 +23,10 @@
 //! hysteresis to 1 record count
 
 use crate::app_state::AppState;
-use crate::common::{
-    AutoConfig, LocationAccuracyMode, LocationConfig, LocationMode,
-    OSLocationMode, ToFront,
-};
 use crate::core::print_and_log;
 use crate::database;
 use crate::ws_session::MsgToFront;
+use common::{AutoConfig, LocationAccuracyMode, LocationConfig, ToFront};
 
 static THRESHOLD: i32 = 6;
 static HYSTERESIS: i32 = 1;
@@ -37,56 +34,33 @@ static HYSTERESIS: i32 = 1;
 /// Return whether the standard location service should be enabled
 pub async fn get_standard_location_enabled() -> bool {
     update_auto_location_config().await;
-    let config = get_location_config();
-    let standard_on = config.enabled && config.mode == LocationMode::Standard;
-    let auto_on = config.enabled && config.mode == LocationMode::Auto;
-    standard_on
-        || (auto_on && config.auto_config.mode == OSLocationMode::Standard)
+    get_location_config().os_standard_on()
 }
 
 /// Return whether we should enabled the significant location changes service
 pub fn get_significant_changes_enabled() -> bool {
-    let config = get_location_config();
-    let sig_on =
-        config.enabled && config.mode == LocationMode::SignificantChanges;
-    let auto_on = config.enabled && config.mode == LocationMode::Auto;
-    sig_on
-        || (auto_on
-            && config.auto_config.mode == OSLocationMode::SignificantChanges)
+    get_location_config().os_infrequent_on()
 }
 
 /// Return the distance filter setting (used for standard location service)
 pub fn get_distance_filter() -> f32 {
-    let config = get_location_config();
-    let auto_on = config.enabled && config.mode == LocationMode::Auto;
-    if auto_on {
-        config.auto_config.standard_config.distance_filter
-    } else {
-        config.standard_config.distance_filter
-    }
+    get_location_config().os_distance_filter()
 }
 
 /// Return the location accuracy mode (used for standard location service)
 pub extern "C" fn get_location_accuracy_mode() -> LocationAccuracyMode {
-    let config = get_location_config();
-    let auto_on = config.enabled && config.mode == LocationMode::Auto;
-    if auto_on {
-        config.auto_config.standard_config.accuracy_mode
-    } else {
-        config.standard_config.accuracy_mode
-    }
+    get_location_config().os_accuracy_mode()
 }
 
 /// Update the auto mode. Move from low accuracy to high accuracy when the user
 /// starts moving, and the reverse when they're stationary.
 async fn update_auto_location_config() {
     let config = get_location_config();
-    let auto_on = config.enabled && config.mode == LocationMode::Auto;
-    if !auto_on {
+    if !config.auto_on() {
         // Not in auto mode, don't bother updating
         return;
     }
-    if config.auto_config.mode == OSLocationMode::Standard
+    if config.auto_standard_on()
         && config.auto_config.standard_config.accuracy_mode
             == LocationAccuracyMode::Best
     {
@@ -103,7 +77,7 @@ async fn update_auto_location_config() {
             ));
             set_auto_accuracy(LocationAccuracyMode::HundredMeters);
         }
-    } else if config.auto_config.mode == OSLocationMode::Standard
+    } else if config.auto_standard_on()
         && config.auto_config.standard_config.accuracy_mode
             == LocationAccuracyMode::HundredMeters
     {

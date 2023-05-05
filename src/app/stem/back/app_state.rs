@@ -21,10 +21,10 @@ use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 
-use crate::common::LocationConfig;
 use crate::core::{log_with_dir, print_and_log};
 use crate::paths::{get_library_dir, Paths};
 use crate::ws_session;
+use common::LocationConfig;
 
 /// File where persistent state is stored (joined to library_dir)
 static STATE_FNAME: &str = "persistent_state.json";
@@ -140,11 +140,11 @@ impl AppState {
 
 #[cfg(test)]
 mod tests {
-    use crate::common::{
-        AutoConfig, LocationAccuracyMode, LocationMode, StandardLocationConfig,
-    };
     use crate::init;
     use crate::local::local_fs_setup;
+    use common::{
+        AutoConfig, LocationAccuracyMode, LocationMode, StandardLocationConfig,
+    };
 
     use super::{
         fs, AppState, LocationConfig, OpenOptions, PersistentState, Write,

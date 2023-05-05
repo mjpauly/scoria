@@ -8,7 +8,6 @@ use plotly::{
     Layout, Plot, ScatterMapbox,
 };
 
-use crate::common;
 use crate::plots::plotly_binds::MapboxRelayoutData;
 
 /// Generate a map of data points and return the plot

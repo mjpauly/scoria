@@ -20,8 +20,6 @@
 - [ ] publish to app store
 
 - [ ] conditionally compile logging code
-- [ ] **refactor common code into its own module**
-    - [ ] functions for common location config access operations
 - [ ] have maps_ok respond with 204 No Content instead of 404
 - [ ] maybe construct plotly plots with serde_json's Map and Value directly, to
         avoid limitations of having to define everything up front
@@ -89,6 +87,7 @@
 - [x] submit first app to testflight
 - [x] auto location mode (switch between modes based on movement)
 - [x] preserve user zoom/pan/tilt/rotate when restyling plot
+- [x] refactor common code into its own module
 
 ## Structure
 

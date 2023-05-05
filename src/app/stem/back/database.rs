@@ -40,7 +40,6 @@ use anyhow::Result;
 use sqlx::{migrate::MigrateDatabase, FromRow, Sqlite, SqlitePool};
 
 use crate::app_state::AppState;
-use crate::common;
 
 /// Struct representation of a Location row in the table
 #[derive(Clone, FromRow, Debug)]

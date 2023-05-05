@@ -91,7 +91,7 @@ async fn location_config_propagates(
     assert!(stem::get_distance_filter() == 5.0);
     assert!(
         stem::get_location_accuracy_mode()
-            == stem::common::LocationAccuracyMode::Best
+            == common::LocationAccuracyMode::Best
     );
 
     c.find(Locator::Css("#enable")).await?.click().await?;
@@ -114,7 +114,7 @@ async fn location_config_propagates(
     assert!(stem::get_distance_filter() == 4.0);
     assert!(
         stem::get_location_accuracy_mode()
-            == stem::common::LocationAccuracyMode::TenMeters
+            == common::LocationAccuracyMode::TenMeters
     );
 
     // switch to infrequent location mode

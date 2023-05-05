@@ -11,9 +11,9 @@ use web_sys::{HtmlInputElement, HtmlSelectElement};
 use yew::prelude::*;
 use yewdux::prelude::*;
 
-use crate::common::Location;
 use crate::components::{RANGE_INPUT_STYLE, SELECT_STYLE};
 use crate::ui_state::UIState;
+use common::Location;
 
 /// Our version derives PartialEq so it can be used in yew hooks
 #[derive(Clone, Debug, Copy, PartialEq)]

@@ -6,7 +6,6 @@ use yew::prelude::*;
 use yew_icons::{Icon, IconId};
 use yewdux::prelude::*;
 
-use crate::common::{Location, TimeRange};
 use crate::components::{
     datastream::DataStream,
     location_filter_list::{
@@ -28,6 +27,7 @@ use crate::ui_state::UIState;
 use crate::websocket::{
     use_backend_event_with_deps, ToBack, ToFront, WebsocketService,
 };
+use common::{Location, TimeRange};
 
 #[function_component]
 pub fn Analyze() -> Html {

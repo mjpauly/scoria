@@ -1,6 +1,5 @@
 //! Component for configuring location logging settings.
 
-use std::fmt;
 use std::str::FromStr;
 
 use web_sys::{HtmlInputElement, HtmlSelectElement};
@@ -8,69 +7,25 @@ use yew::prelude::*;
 use yew_icons::{Icon, IconId};
 use yewdux::prelude::*;
 
-use crate::common::{LocationAccuracyMode, LocationMode};
 use crate::components::{SELECT_STYLE, TOGGLE_SWITCH_STYLE};
 use crate::swift_poke;
 use crate::ui_state::UIState;
 use crate::websocket::{ToBack, WebsocketService};
+use common::{LocationAccuracyMode, LocationMode};
 
-// TODO: switch to using serde for string seralization/deserialization
-static ACCURACY_MODE_STRINGS: [(LocationAccuracyMode, &str); 5] = [
-    (LocationAccuracyMode::Best, "Best"),
-    (LocationAccuracyMode::TenMeters, "10 m"),
-    (LocationAccuracyMode::HundredMeters, "100 m"),
-    (LocationAccuracyMode::Kilometer, "1 km"),
-    (LocationAccuracyMode::ThreeKilometers, "3 km"),
+static ACCURACY_MODES: [LocationAccuracyMode; 5] = [
+    LocationAccuracyMode::Best,
+    LocationAccuracyMode::TenMeters,
+    LocationAccuracyMode::HundredMeters,
+    LocationAccuracyMode::Kilometer,
+    LocationAccuracyMode::ThreeKilometers,
 ];
 
-impl fmt::Display for LocationAccuracyMode {
-    /// Allows us to use `.to_string()`
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let item = ACCURACY_MODE_STRINGS.iter().find(|x| x.0 == *self).unwrap();
-        write!(f, "{}", item.1)
-    }
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub struct ParseSelectElemError;
-
-impl std::str::FromStr for LocationAccuracyMode {
-    type Err = ParseSelectElemError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let item = ACCURACY_MODE_STRINGS
-            .iter()
-            .find(|x| x.1 == s)
-            .ok_or(ParseSelectElemError)?;
-        Ok(item.0)
-    }
-}
-
-static MODE_STRINGS: [(LocationMode, &str); 3] = [
-    (LocationMode::Auto, "Automatic"),
-    (LocationMode::Standard, "Standard"),
-    (LocationMode::SignificantChanges, "Infrequent"),
+static LOCATION_MODES: [LocationMode; 3] = [
+    LocationMode::Auto,
+    LocationMode::Standard,
+    LocationMode::SignificantChanges,
 ];
-
-impl fmt::Display for LocationMode {
-    /// Allows us to use `.to_string()`
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let item = MODE_STRINGS.iter().find(|x| x.0 == *self).unwrap();
-        write!(f, "{}", item.1)
-    }
-}
-
-impl std::str::FromStr for LocationMode {
-    type Err = ParseSelectElemError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let item = MODE_STRINGS
-            .iter()
-            .find(|x| x.1 == s)
-            .ok_or(ParseSelectElemError)?;
-        Ok(item.0.clone())
-    }
-}
 
 /// Configure location manager settings
 ///
@@ -83,9 +38,7 @@ pub fn LocationConfigurator() -> Html {
     let config = use_selector(|s: &UIState| s.location_config.clone());
 
     // convenient aliases for the modes that are selected
-    let auto_mode = config.mode == LocationMode::Auto;
-    let standard_mode = config.mode == LocationMode::Standard;
-    let infrequent_mode = config.mode == LocationMode::SignificantChanges;
+    let standard_mode = config.standard_on();
 
     // enable/disable location
     let enabled_on_click = {
@@ -121,11 +74,11 @@ pub fn LocationConfigurator() -> Html {
             swift_poke::poke();
         })
     };
-    let mode_options = MODE_STRINGS.iter().map(|x| {
-        html! { <option> {x.1.to_string()} </option> }
+    let mode_options = LOCATION_MODES.iter().map(|x| {
+        html! { <option> {x.to_string()} </option> }
     });
-    let accuracy_mode_options = ACCURACY_MODE_STRINGS.iter().map(|x| {
-        html! { <option> {x.1.to_string()} </option> }
+    let accuracy_mode_options = ACCURACY_MODES.iter().map(|x| {
+        html! { <option> {x.to_string()} </option> }
     });
     // Need to manually set which option is selected in select element in order
     // to do so programmatically (e.g. when we get an updated state)
@@ -242,7 +195,7 @@ pub fn LocationConfigurator() -> Html {
         </div>
 
         // help tips
-        if *show_help && auto_mode {
+        if *show_help && config.auto_on() {
             <p class="text-neutral-500 text-left px-2 pt-1">
                 {"Automatic mode continuously records location data, balancing
                 battery drain with data accuracy. It logs lower accuracy
@@ -262,7 +215,7 @@ pub fn LocationConfigurator() -> Html {
                 it to a larger number to record data less often and save
                 device storage space."}
             </p>
-        } else if *show_help && infrequent_mode {
+        } else if *show_help && config.infrequent_on() {
             <p class="text-neutral-500 text-left px-2 pt-1">
                 {"Infrequent mode records location only when you move a
                 significant distance, like when you visit a new place. It
