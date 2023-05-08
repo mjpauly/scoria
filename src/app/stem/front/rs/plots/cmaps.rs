@@ -26,6 +26,18 @@ pub fn to_plotly(cmap: &[(f64, &'static str)]) -> ColorScale {
     )
 }
 
+/// Simple search for a close color for the input value (range in 0-1). Could be
+/// sped up with binary_search_by
+#[allow(dead_code)]
+pub fn find_nearest(cmap: &'static [(f64, &str)], val: f64) -> &'static str {
+    for pair in cmap {
+        if val >= pair.0 {
+            return pair.1;
+        }
+    }
+    cmap[0].1
+}
+
 #[allow(dead_code)]
 pub static VIRIDIS: [(f64, &str); 256] = [
     (0.0, "rgb(68,1,84)"),

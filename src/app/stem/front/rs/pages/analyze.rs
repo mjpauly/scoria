@@ -221,7 +221,7 @@ fn PlotComponent(
         use_selector(|s: &UIState| s.use_epsln_tile_server);
     // Show new plot if time range changes and new data comes from backend
 
-    let plot_id = "plot-div";
+    let plot_id = "map-div";
     let plot_initialized = use_state(|| false);
     let on_backend_msg = {
         let plot_initialized = plot_initialized.clone(); // only exports values
@@ -231,6 +231,12 @@ fn PlotComponent(
         move |msg: &ToFront| {
             if let ToFront::LocationTimeRange(_time_range, locations) = msg {
                 let locations = apply_filters(&filters, locations);
+                crate::plots::maplibre::map_plot(
+                    plot_id,
+                    &locations,
+                    map_style.basemap_style.get_url(*use_epsln_tile_server),
+                );
+                /*
                 let marker = get_plot_marker(&locations, map_style.clone());
                 plot_initialized.set(false);
                 plotly_binds::new_plot(
@@ -261,6 +267,7 @@ fn PlotComponent(
                     "plotly_relayout",
                     cb,
                 );
+                */
             }
         }
     };

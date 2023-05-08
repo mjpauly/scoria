@@ -2,6 +2,10 @@
 
 ## To Do
 
+- [ ] investigate maplibre
+- [ ] lines between points
+- [ ] fully persist ui state, have plot reset button
+- [ ] app intoduction/tutorial on first install
 - map usability / configurability
     - [ ] persist selection for export + queries
 - [ ] ability to export log
@@ -14,6 +18,7 @@
     - [ ] data viewership (what map data viewed and when)
     - [ ] battery charge (to correlate with location mode) [ref](https://stackoverflow.com/questions/27475506/check-battery-level-ios-swift)
 - [ ] ability to set preferred units
+- [ ] more up-to-date satellite imagery
 - website
     - [ ] landing page
     - [ ] privacy policy

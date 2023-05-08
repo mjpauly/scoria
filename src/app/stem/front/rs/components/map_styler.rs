@@ -118,29 +118,37 @@ impl BasemapStyle {
         MapboxStyle::Custom(Self::format_tile_url(style, use_epsln))
     }
 
-    pub fn to_plotly(&self, use_epsln: bool) -> MapboxStyle {
+    pub fn get_url(&self, use_epsln: bool) -> String {
         match self {
-            BasemapStyle::Basic => Self::get_style("basic-v2", use_epsln),
-            BasemapStyle::Dataviz => Self::get_style("dataviz", use_epsln),
-            BasemapStyle::Streets => Self::get_style("streets-v2", use_epsln),
-            BasemapStyle::Topo => Self::get_style("topo-v2", use_epsln),
-            BasemapStyle::Outdoor => Self::get_style("outdoor-v2", use_epsln),
+            BasemapStyle::Basic => Self::format_tile_url("basic-v2", use_epsln),
+            BasemapStyle::Dataviz => {
+                Self::format_tile_url("dataviz", use_epsln)
+            }
+            BasemapStyle::Streets => {
+                Self::format_tile_url("streets-v2", use_epsln)
+            }
+            BasemapStyle::Topo => Self::format_tile_url("topo-v2", use_epsln),
+            BasemapStyle::Outdoor => {
+                Self::format_tile_url("outdoor-v2", use_epsln)
+            }
             BasemapStyle::BasicDark => {
-                Self::get_style("basic-v2-dark", use_epsln)
+                Self::format_tile_url("basic-v2-dark", use_epsln)
             }
             BasemapStyle::DatavizDark => {
-                Self::get_style("dataviz-dark", use_epsln)
+                Self::format_tile_url("dataviz-dark", use_epsln)
             }
             BasemapStyle::StreetsDark => {
-                Self::get_style("streets-v2-dark", use_epsln)
+                Self::format_tile_url("streets-v2-dark", use_epsln)
             }
             BasemapStyle::TopoDark => {
-                Self::get_style("topo-v2-dark", use_epsln)
+                Self::format_tile_url("topo-v2-dark", use_epsln)
             }
             BasemapStyle::OutdoorDark => {
-                Self::get_style("outdoor-v2-dark", use_epsln)
+                Self::format_tile_url("outdoor-v2-dark", use_epsln)
             }
-            BasemapStyle::Satellite => Self::get_style("hybrid", use_epsln),
+            BasemapStyle::Satellite => {
+                Self::format_tile_url("hybrid", use_epsln)
+            }
         }
     }
 }
