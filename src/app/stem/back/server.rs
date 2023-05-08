@@ -12,17 +12,22 @@
 
 use std::net::TcpListener;
 
-use rand::RngCore;
-
-use actix_files::{Files, NamedFile};
 use actix_web::dev::Server;
-use actix_web::{web, App, HttpServer};
+use actix_web::http::header::ContentType;
+use actix_web::{get, routes, web, App, HttpServer};
 use actix_web::{HttpResponse, Responder};
+use rand::RngCore;
 
 use crate::app_state::AppState;
 // use crate::core::print_and_log;
-use crate::paths;
 use crate::ws_session::ws_route;
+
+// static files to serve (env vars are set by bazel and poin to file path)
+static INDEX_FILE: &str = include_str!(env!("INDEX_FILE"));
+static WASM_FILE: &[u8] = include_bytes!(env!("WASM_FILE"));
+static JS_FILE: &str = include_str!(env!("JS_FILE"));
+static TAILWIND_FILE: &str = include_str!(env!("TAILWIND_FILE"));
+static PLOTLY_FILE: &str = include_str!(env!("PLOTLY_FILE"));
 
 /// Configuration struct we pass to Swift via C
 #[repr(C)]
@@ -94,27 +99,8 @@ pub async fn shutdown() {
     *AppState::global().server_handle.lock().await = None;
 }
 
-/// Unzip the frontend components from the bundle into {library_dir}/dist.
-/// Must be run during app initialization before the server first starts up.
-pub fn unzip_dist() {
-    let archive = paths::get_bundle_dir().join("dist.zip");
-    if !archive.exists() {
-        panic!("Can't find 'dist.zip' in bundle");
-    }
-    let destination = paths::get_library_dir().join("dist");
-    zip::ZipArchive::new(std::fs::File::open(archive).unwrap())
-        .unwrap()
-        .extract(destination)
-        .unwrap();
-}
-
 fn build(listener: TcpListener, frontend_key: FrontendKey) -> Server {
-    let dist = paths::get_library_dir().join("dist"); // static files
-    let index_file = dist.join("index.html");
     HttpServer::new(move || {
-        let files_service =
-            Files::new("/", dist.clone()).index_file("index.html");
-        let index_file = web::Data::new(index_file.clone());
         let scope = format!("{}", frontend_key.clone().expose());
         App::new()
             // redirect scope so that static files are properly loaded from the
@@ -122,21 +108,21 @@ fn build(listener: TcpListener, frontend_key: FrontendKey) -> Server {
             .service(web::redirect(format!("/{scope}"), format!("/{scope}/")))
             .service(
                 web::scope(&scope)
-                    .route("/health_check", web::get().to(health_check))
+                    // static files
+                    .service(index)
+                    .service(wasm)
+                    .service(js)
+                    .service(tailwind)
+                    .service(plotly)
+                    // dynamic routes
+                    .service(health_check)
                     .route("/ws", web::get().to(ws_route))
-                    // extra SPA routes we want to just get the index file for
-                    .route("/sense", web::get().to(index))
-                    .route("/analyze", web::get().to(index))
-                    .route("/test_page", web::get().to(index))
                     // yew-router adds trailing slashes that change the relative
                     // scope that static files are loaded from on reload, so we
                     // redirect those to the routes without the trailing slash
                     .service(web::redirect("/sense/", "../sense"))
                     .service(web::redirect("/analyze/", "../analyze"))
-                    .service(web::redirect("/test_page/", "../test_page"))
-                    // static files service includes index file at root
-                    .service(files_service)
-                    .app_data(index_file),
+                    .service(web::redirect("/test_page/", "../test_page")),
             )
     })
     .workers(1)
@@ -145,12 +131,49 @@ fn build(listener: TcpListener, frontend_key: FrontendKey) -> Server {
     .run()
 }
 
+#[get("/health_check")]
 async fn health_check() -> impl Responder {
     HttpResponse::Ok()
 }
 
-async fn index(index_file: web::Data<std::path::PathBuf>) -> impl Responder {
-    NamedFile::open_async(index_file.get_ref()).await
+// redirect SPA pages to the index so reloading works
+#[routes]
+#[get("/")]
+#[get("/sense")]
+#[get("/analyze")]
+#[get("/test_page")]
+async fn index() -> impl Responder {
+    HttpResponse::Ok()
+        .content_type(ContentType::html())
+        .body(INDEX_FILE)
+}
+
+#[get("/front_wasm_bg.wasm")]
+async fn wasm() -> impl Responder {
+    HttpResponse::Ok()
+        .insert_header(("content-type", "application/wasm"))
+        .body(WASM_FILE)
+}
+
+#[get("/front_wasm.js")]
+async fn js() -> impl Responder {
+    HttpResponse::Ok()
+        .content_type(ContentType(mime::APPLICATION_JAVASCRIPT_UTF_8))
+        .body(JS_FILE)
+}
+
+#[get("/tailwind.css")]
+async fn tailwind() -> impl Responder {
+    HttpResponse::Ok()
+        .content_type(ContentType(mime::TEXT_CSS_UTF_8))
+        .body(TAILWIND_FILE)
+}
+
+#[get("/plotly.min.js")]
+async fn plotly() -> impl Responder {
+    HttpResponse::Ok()
+        .content_type(ContentType(mime::APPLICATION_JAVASCRIPT_UTF_8))
+        .body(PLOTLY_FILE)
 }
 
 #[cfg(test)]

@@ -65,7 +65,6 @@ pub async fn init(init_paths: paths::Paths) {
     .await
     .unwrap();
     app_state::AppState::init(init_paths, db);
-    server::unzip_dist();
 }
 
 /// Handle shutdown of the app by saving certain persistent state elements to
@@ -183,7 +182,6 @@ pub mod local {
     use super::server;
 
     use std::fs;
-    use std::os::unix::fs::PermissionsExt;
     use std::path::PathBuf;
 
     /// Set the directories to use for the test given a top level directory.
@@ -217,13 +215,10 @@ pub mod local {
 
     /// Set up a directory for local testing. Provided argument is the name of
     /// the directory to have the filesystem under. This function clears it out
-    /// if it already has contents, recreates it, copies the frontend zip bundle
-    /// to the right spot, and returns the paths.
+    /// if it already has contents, recreates it, and returns the paths.
     pub fn local_fs_setup(dir: &str) -> Paths {
         clear_directory(dir);
-        let paths = create_subdirs(dir);
-        copy_bundle(paths.bundle_dir.clone()).unwrap();
-        paths
+        create_subdirs(dir)
     }
 
     /// Clear the test directory from before if it remains. This gets us to a
@@ -250,26 +245,6 @@ pub mod local {
             temp_dir: fullsubdirs[2].clone(),
             bundle_dir: fullsubdirs[3].clone(),
         }
-    }
-
-    /// Copy the bundle into the right directory so the server can start up.
-    fn copy_bundle(
-        bundle_dir: std::path::PathBuf,
-    ) -> Result<(), std::io::Error> {
-        // Copy our bundle into the expected location
-        let bundle_path = "src/app/stem/front/dist.zip";
-        let dest = bundle_dir.join("dist.zip");
-        fs::copy(bundle_path, dest.clone())?;
-        // dist.zip is a bazel output, so it is read-only by default. We change
-        // it to writable so that future invocations of fs::copy will work even
-        // if the sandbox is not cleared, and also so that the read-only
-        // permissions don't propagate further
-        fs::set_permissions(dest.clone(), fs::Permissions::from_mode(0o666))?;
-        println!(
-            "Copied dist.zip & set permissions to: {:#o} (hopefully 0o100666)",
-            fs::metadata(dest)?.permissions().mode()
-        );
-        Ok(())
     }
 
     /// Copy the development database to the local filesystem being set up. This

@@ -1,19 +1,27 @@
 load("@rules_rust//rust:defs.bzl", "rust_library", "rust_binary", "rust_doc")
 load("@rules_rust//wasm_bindgen:wasm_bindgen.bzl", "rust_wasm_bindgen")
-load("@rules_pkg//pkg:zip.bzl", "pkg_zip")
+load("@bazel_skylib//rules:select_file.bzl", "select_file")
 
-# all of the files we need for an http server to serve the frontend, bundled
-# into a zip archive
-pkg_zip(
-    name = "dist",
-    mode = "0666",  # read/write; default would be read/execute, which causes
-                    # some downstream problems when trying to overwrite
-    srcs = [
-        ":front_wasm",
-        ":tailwind",
-        "index.html",
-        ":plotlyjs",
-    ],
+# The static files to include in the server's binary:
+# :index, :wasm_file, :js_file, :tailwind, :plotlyjs
+
+filegroup(
+    name = "index",
+    srcs = ["index.html"],
+    visibility = ["//visibility:public"],
+)
+
+# The generated files to serve (wasm, js launcher)
+select_file(
+    name = "wasm_file",
+    srcs = ":front_wasm",
+    subpath = "front_wasm_bg.wasm",
+    visibility = ["//visibility:public"],
+)
+select_file(
+    name = "js_file",
+    srcs = ":front_wasm",
+    subpath = "front_wasm.js",
     visibility = ["//visibility:public"],
 )
 
@@ -92,6 +100,7 @@ $(execpath @front_npm//tailwindcss/bin:tailwindcss) -i $(location styles.css) \
         -o $@
 """,
     tools = ["@front_npm//tailwindcss/bin:tailwindcss"],
+    visibility = ["//visibility:public"],
 )
 
 # download plotly to include with static files
@@ -99,4 +108,5 @@ genrule(
     name = "plotlyjs",
     outs = ["plotly.min.js"],
     cmd = 'curl https://cdn.plot.ly/plotly-2.20.0.min.js -o $@',
+    visibility = ["//visibility:public"],
 )
