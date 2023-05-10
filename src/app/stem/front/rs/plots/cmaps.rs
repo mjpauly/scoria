@@ -31,12 +31,27 @@ pub fn to_plotly(cmap: &[(f64, &'static str)]) -> ColorScale {
 #[allow(dead_code)]
 pub fn find_nearest(cmap: &'static [(f64, &str)], val: f64) -> &'static str {
     for pair in cmap {
-        if val >= pair.0 {
+        if val <= pair.0 {
             return pair.1;
         }
     }
-    cmap[0].1
+    cmap.last().unwrap().1
 }
+
+/// Get the color of a data point inside the range [cmin-cmax]
+pub fn get_data_color(
+    cmap: &'static [(f64, &str)],
+    val: f64,
+    cmin: f64,
+    cmax: f64,
+) -> &'static str {
+    let normalized = (val - cmin) / (cmax - cmin);
+    find_nearest(cmap, normalized)
+}
+
+// TODO:
+// - put colormap values at decision threshold instead of 0-1
+// - hex code for compactness
 
 #[allow(dead_code)]
 pub static VIRIDIS: [(f64, &str); 256] = [

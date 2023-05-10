@@ -1,7 +1,7 @@
 //! Analysis of collected data.
 
-use plotly::common::Marker;
-use wasm_bindgen::prelude::*;
+use std::rc::Rc;
+
 use yew::prelude::*;
 use yew_icons::{Icon, IconId};
 use yewdux::prelude::*;
@@ -19,15 +19,15 @@ use crate::components::{
     NavbarWrapper, TimeRangePicker, PRIMARY_BUTTON_STYLE,
     SECONDARY_BUTTON_STYLE,
 };
-use crate::plots::plotly_binds::MapboxRelayoutData;
-use crate::plots::{
-    cmaps, maps, plotly_binds, scatter_mapbox_update::ScatterMapboxUpdate,
-};
+use crate::plots::maplibre;
 use crate::ui_state::UIState;
 use crate::websocket::{
     use_backend_event_with_deps, ToBack, ToFront, WebsocketService,
 };
-use common::{Location, TimeRange};
+use common::TimeRange;
+
+#[derive(Debug, Clone, PartialEq)]
+struct ViewDataPlaceholder();
 
 #[function_component]
 pub fn Analyze() -> Html {
@@ -47,12 +47,10 @@ fn AnalyzeLocation() -> Html {
     let time_range = use_state(time_range_today);
     let map_style = MapStyle {
         solid_color: use_state(|| Rgba {
-            r: 10,
-            g: 132,
-            b: 255,
+            rgb: String::from("#0a84ff"),
             a: 1.0,
         }),
-        marker_size: use_state(|| 6_usize),
+        marker_size: use_state(|| 3_usize),
         basemap_style: use_state(|| BasemapStyle::BasicDark),
         colored_datastream: use_state(|| ColoredDataStream::None),
     };
@@ -65,24 +63,16 @@ fn AnalyzeLocation() -> Html {
             threshold: 10.0,
         }]
     });
-    let relayout_data = use_state(|| Option::<MapboxRelayoutData>::None);
-    // Collect the set of active filters, which is used to determine if the plot
-    // is reloaded. This way editing an inactive filter doesn't change the plot.
-    let active_filters: Vec<_> = (*filters)
-        .clone()
-        .into_iter()
-        .filter(|filt| filt.enabled)
-        .collect();
+    let relayout_data = use_state(|| Option::<ViewDataPlaceholder>::None);
 
-    // Ask for new location data from backend after render anytime time_range,
-    // map_style, or active_filters changes
+    // Ask for new location data from backend after render and do a full plot
+    // reload anytime time_range changes
     let wss = use_context::<WebsocketService>().unwrap();
     use_effect_with_deps(
-        move |(time_range, ..)| {
+        move |time_range| {
             wss.send_msg(ToBack::GetLocationTimeRange((**time_range).clone()));
         },
-        // things that will cause a full plot reload if changed:
-        (time_range.clone(), map_style.clone(), active_filters),
+        time_range.clone(),
     );
 
     let settings_tab = use_state(|| SettingsTab::None);
@@ -205,7 +195,7 @@ struct PlotComponentProps {
     time_range: UseStateHandle<TimeRange>,
     map_style: MapStyle,
     filters: UseStateHandle<Vec<Filter>>,
-    relayout_data: UseStateHandle<Option<MapboxRelayoutData>>,
+    relayout_data: UseStateHandle<Option<ViewDataPlaceholder>>,
 }
 
 #[function_component]
@@ -214,7 +204,7 @@ fn PlotComponent(
         time_range,
         map_style,
         filters,
-        relayout_data,
+        relayout_data: _,
     }: &PlotComponentProps,
 ) -> Html {
     let use_epsln_tile_server =
@@ -223,51 +213,45 @@ fn PlotComponent(
 
     let plot_id = "map-div";
     let plot_initialized = use_state(|| false);
+    let map = use_state(|| Option::<Rc<maplibre::Map>>::None);
+    let records = use_state(|| Vec::<common::Location>::new());
+
     let on_backend_msg = {
+        let map = map.clone();
+        let records = records.clone();
         let plot_initialized = plot_initialized.clone(); // only exports values
         let map_style = map_style.clone();
         let filters = filters.clone();
-        let relayout_data = relayout_data.clone();
         move |msg: &ToFront| {
             if let ToFront::LocationTimeRange(_time_range, locations) = msg {
+                // save records
+                let mut newrecords = Vec::new();
+                for rec in locations {
+                    newrecords.push(rec.clone());
+                }
+                records.set(newrecords);
+
+                // filter out unwanted data
                 let locations = apply_filters(&filters, locations);
-                crate::plots::maplibre::map_plot(
+
+                // set the guard to prevent map updates until it has loaded
+                plot_initialized.set(false);
+                let plot_initialized = plot_initialized.clone();
+                let on_load = {
+                    let plot_initialized = plot_initialized.clone();
+                    Box::new(move || plot_initialized.set(true))
+                };
+                let newmap = maplibre::new_map(
                     plot_id,
                     &locations,
                     map_style.basemap_style.get_url(*use_epsln_tile_server),
+                    *map_style.marker_size,
+                    map_style.solid_color.rgb.clone(),
+                    map_style.solid_color.a,
+                    &map_style.colored_datastream,
+                    on_load,
                 );
-                /*
-                let marker = get_plot_marker(&locations, map_style.clone());
-                plot_initialized.set(false);
-                plotly_binds::new_plot(
-                    plot_id,
-                    &maps::map_plot(
-                        locations,
-                        marker,
-                        map_style
-                            .basemap_style
-                            .to_plotly(*use_epsln_tile_server),
-                        (*relayout_data).clone(),
-                    ),
-                );
-                plot_initialized.set(true);
-
-                // add pan/zoom event listener, so we can go back to the
-                // previous zoom/pan/tilt/rotate view when making a new plot
-                let relayout_data = relayout_data.clone();
-                let cb = Box::new(move |v: JsValue| {
-                    let result =
-                        serde_wasm_bindgen::from_value::<MapboxRelayoutData>(v);
-                    if let Ok(data) = result {
-                        relayout_data.set(Some(data));
-                    }
-                });
-                plotly_binds::add_plot_event_listener(
-                    plot_id,
-                    "plotly_relayout",
-                    cb,
-                );
-                */
+                map.set(Some(newmap));
             }
         }
     };
@@ -278,47 +262,28 @@ fn PlotComponent(
 
     // Update plot with new data points without creating a new plot
 
-    // Live updates to the plot freezes panning/zooming events, so we detect
-    // when those events are occuring and disable live updates until after.
-    let is_panning = use_state(|| false);
-    let onpointerdown = {
-        let is_panning = is_panning.clone();
-        Callback::from(move |_| is_panning.set(true))
-    };
-    let onpointerup = {
-        let is_panning = is_panning.clone();
-        Callback::from(move |_| is_panning.set(false))
-    };
-
-    // Backlog of data points to show after panning/zooming finishes
-    let backlog = use_state(Vec::new);
     let on_backend_msg = {
+        let map = map.clone();
+        let records = records.clone();
         let time_range = time_range.clone();
-        let is_panning = is_panning.clone();
-        let backlog = backlog.clone();
+        let map_style = map_style.clone();
+        let filters = filters.clone();
         let plot_initialized = plot_initialized.clone();
         move |msg: &ToFront| {
             // if new location data streamed in
             if let ToFront::LastLocation(location) = msg {
                 // if time range of data we're displaying contains the new data
                 if time_range.contains(&location.datetime) {
-                    let mut new_backlog = (*backlog).clone();
-                    new_backlog.push(location.clone());
-                    if *is_panning || !*plot_initialized {
-                        // panning/zooming active, or the plot does not yet
-                        // exist -> just update backlog
-                        backlog.set(new_backlog);
-                    } else {
-                        // not panning; display new data and clear backlog
-                        let update = ScatterMapboxUpdate::new(
-                            new_backlog.iter().map(|x| x.lat).collect(),
-                            new_backlog.iter().map(|x| x.lon).collect(),
-                            // TODO: use solid marker color for new data
-                            // play with jsfiddle first
-                            // maps::Rgba::new(255, 64, 0, 1.0),
+                    let mut newrecords = (*records).clone();
+                    newrecords.push(location.clone());
+                    records.set(newrecords);
+                    if *plot_initialized {
+                        let recs = apply_filters(&filters, &*records);
+                        maplibre::update_data(
+                            (*map).clone().unwrap(),
+                            &recs,
+                            &map_style.colored_datastream,
                         );
-                        plotly_binds::extend_trace(plot_id, update);
-                        backlog.set(Vec::new());
                     }
                 }
             }
@@ -326,54 +291,47 @@ fn PlotComponent(
     };
     use_backend_event_with_deps(
         on_backend_msg,
-        (time_range.clone(), is_panning, backlog, plot_initialized),
+        (
+            map.clone(),
+            records.clone(),
+            time_range.clone(),
+            map_style.clone(),
+            filters.clone(),
+            plot_initialized.clone(),
+        ),
     );
+
+    // Restyle hook (map style or filters updated)
+    {
+        let map = map.clone();
+        let records = records.clone();
+        let plot_initialized = plot_initialized.clone();
+        use_effect_with_deps(
+            move |(map_style, filters)| {
+                if *plot_initialized {
+                    let recs = apply_filters(&filters, &*records);
+                    // might need to update color property of data source
+                    maplibre::update_data(
+                        (*map).clone().unwrap(),
+                        &recs,
+                        &map_style.colored_datastream,
+                    );
+                    // restyle the map layer that shows the source
+                    maplibre::restyle_layer(
+                        (*map).clone().unwrap(),
+                        *map_style.marker_size,
+                        map_style.solid_color.rgb.clone(),
+                        map_style.solid_color.a,
+                        &map_style.colored_datastream,
+                    );
+                }
+            },
+            (map_style.clone(), filters.clone()),
+        )
+    };
 
     html! {
-        <div id={plot_id} class="w-screen flex-1 min-h-0"
-            onpointerdown={onpointerdown} onpointerup={onpointerup}>
+        <div id={plot_id} class="w-screen flex-1 min-h-0">
         </div>
     }
-}
-
-/// Get the marker for a plot given the vector of locations and the desired map
-/// style.
-fn get_plot_marker(locations: &[&Location], map_style: MapStyle) -> Marker {
-    if *map_style.colored_datastream == ColoredDataStream::None {
-        // No coloring based on data, just use solid color
-        let marker = Marker::new()
-            .color(map_style.solid_color.as_plotly())
-            .size(*map_style.marker_size);
-        return marker;
-    }
-    // Coloring based on data, using a colormap
-    let colorvec = maps::Colorvec(
-        locations
-            .iter()
-            .map(|x| map_style.colored_datastream.get_stream(x))
-            .collect::<Vec<_>>(),
-    );
-    let mut marker = Marker::new()
-        .color(colorvec)
-        .auto_color_scale(false) // don't use plotly's default color scale
-        .show_scale(true) // show the colorbar
-        .opacity(map_style.solid_color.a)
-        .size(*map_style.marker_size);
-    let colorbar = maps::map_colorbar().title(
-        plotly::common::Title::new(&map_style.colored_datastream.to_string())
-            .side(plotly::common::Side::Top),
-    );
-    if *map_style.colored_datastream == ColoredDataStream::Course {
-        // special case for circular cmap
-        marker = marker
-            .color_scale(cmaps::twilight_plotly())
-            .cmin(0.0)
-            .cmax(360.0)
-            .color_bar(colorbar.dtick(90.0));
-    } else {
-        marker = marker
-            .color_scale(cmaps::plasma_plotly())
-            .color_bar(colorbar);
-    }
-    marker
 }

@@ -6,28 +6,21 @@ use std::u8;
 
 use gloo_net::http::Request;
 use obfstr::obfstr;
-use plotly::layout::MapboxStyle;
 use web_sys::{HtmlInputElement, HtmlSelectElement};
 use yew::prelude::*;
 use yewdux::prelude::*;
 
 use crate::components::{RANGE_INPUT_STYLE, SELECT_STYLE};
+use crate::float;
+use crate::plots::cmaps;
 use crate::ui_state::UIState;
 use common::Location;
 
 /// Our version derives PartialEq so it can be used in yew hooks
-#[derive(Clone, Debug, Copy, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Rgba {
-    pub r: u8,
-    pub g: u8,
-    pub b: u8,
+    pub rgb: String, // hex code
     pub a: f64,
-}
-
-impl Rgba {
-    pub fn as_plotly(&self) -> plotly::color::Rgba {
-        plotly::color::Rgba::new(self.r, self.g, self.b, self.a)
-    }
 }
 
 // BASEMAP STYLES
@@ -114,10 +107,6 @@ impl BasemapStyle {
         format!("{base_url}/{style}/{style_json}{key}")
     }
 
-    fn get_style(style: &str, use_epsln: bool) -> MapboxStyle {
-        MapboxStyle::Custom(Self::format_tile_url(style, use_epsln))
-    }
-
     pub fn get_url(&self, use_epsln: bool) -> String {
         match self {
             BasemapStyle::Basic => Self::format_tile_url("basic-v2", use_epsln),
@@ -195,7 +184,7 @@ static DATASTREAM_STRINGS: [(ColoredDataStream, &str); 7] = [
     (ColoredDataStream::None, "None"),
     (ColoredDataStream::Lat, "Lat"),
     (ColoredDataStream::Lon, "Lon"),
-    (ColoredDataStream::HorizAccuracy, "HorizAccuracy"),
+    (ColoredDataStream::HorizAccuracy, "Horizontal Accuracy"),
     (ColoredDataStream::Speed, "Speed"),
     (ColoredDataStream::Course, "Course"),
     (ColoredDataStream::Time, "Time"),
@@ -212,6 +201,30 @@ impl ColoredDataStream {
             ColoredDataStream::Speed => loc.speed,
             ColoredDataStream::Course => loc.course,
             ColoredDataStream::Time => loc.datetime.unix_timestamp() as f64,
+        }
+    }
+
+    /// Returns true if the data is to be colormapped
+    pub fn is_some(&self) -> bool {
+        *self != Self::None
+    }
+
+    /// Calculate the cmin and cmax and return colormap the for a datastream
+    /// given a vec of locations
+    pub fn get_cmap_params(
+        &self,
+        records: &Vec<&common::Location>,
+    ) -> (f64, f64, &'static [(f64, &'static str)]) {
+        let colorvals: Vec<_> =
+            records.iter().map(|x| self.get_stream(x)).collect();
+        if *self == ColoredDataStream::Course {
+            (0.0, 360.0, &cmaps::TWILIGHT)
+        } else {
+            (
+                float::min(&colorvals),
+                float::max(&colorvals),
+                &cmaps::PLASMA,
+            )
         }
     }
 }
@@ -274,13 +287,10 @@ pub fn MapStyler(
     let color_onchange = {
         let solid_color = solid_color.clone();
         Callback::from(move |e: Event| {
-            log::debug!("color onchange");
             let elem: HtmlInputElement = e.target_dyn_into().unwrap();
             let val: &str = &elem.value();
             let new_color = Rgba {
-                r: u8::from_str_radix(&val[1..3], 16).unwrap(),
-                g: u8::from_str_radix(&val[3..5], 16).unwrap(),
-                b: u8::from_str_radix(&val[5..7], 16).unwrap(),
+                rgb: String::from(val),
                 ..*solid_color // preserve alpha
             };
             solid_color.set(new_color);
@@ -294,7 +304,7 @@ pub fn MapStyler(
             let new_opacity = val.to_string().parse::<f64>().unwrap();
             let new_color = Rgba {
                 a: new_opacity,
-                ..*solid_color // other color values
+                ..(*solid_color).clone() // other color values
             };
             solid_color.set(new_color);
         })
@@ -324,11 +334,6 @@ pub fn MapStyler(
         })
     };
 
-    // html formatting
-    let color_string = format!(
-        "#{:02x}{:02x}{:02x}",
-        solid_color.r, solid_color.g, solid_color.b
-    );
     let basemap_options = BASEMAP_STRINGS.iter().map(|x| {
         html! {
             <option selected={x.0 == **basemap_style}>
@@ -359,7 +364,7 @@ pub fn MapStyler(
                 <label for="marker_size">{"Marker Size"}</label>
                 <input type="range" id="marker_size"
                     value={format!("{}", **marker_size)}
-                    min="1" max="20"
+                    min="1" max="10"
                     class={format!("m-1 ml-6 {}", RANGE_INPUT_STYLE)}
                     onchange={size_onchange} />
             </div>
@@ -380,7 +385,8 @@ pub fn MapStyler(
             if **colored_datastream == ColoredDataStream::None {
                 <div class="flex items-center justify-between">
                     <label for="marker_color">{"Marker Color"}</label>
-                    <input type="color" id="marker_color" value={color_string}
+                    <input type="color" id="marker_color"
+                        value={solid_color.rgb.clone()}
                         class="m-1 ml-6 bg-neutral-800"
                         onchange={color_onchange} />
                 </div>
