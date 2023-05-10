@@ -213,7 +213,7 @@ impl ColoredDataStream {
     /// given a vec of locations
     pub fn get_cmap_params(
         &self,
-        records: &Vec<&common::Location>,
+        records: &[&common::Location],
     ) -> (f64, f64, &'static [(f64, &'static str)]) {
         let colorvals: Vec<_> =
             records.iter().map(|x| self.get_stream(x)).collect();

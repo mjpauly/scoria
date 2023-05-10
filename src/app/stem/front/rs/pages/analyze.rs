@@ -207,126 +207,138 @@ fn PlotComponent(
         relayout_data: _,
     }: &PlotComponentProps,
 ) -> Html {
-    let use_epsln_tile_server =
-        use_selector(|s: &UIState| s.use_epsln_tile_server);
-    // Show new plot if time range changes and new data comes from backend
+    // === Cache location data ===
 
-    let plot_id = "map-div";
-    let plot_initialized = use_state(|| false);
-    let map = use_state(|| Option::<Rc<maplibre::Map>>::None);
-    let records = use_state(|| Vec::<common::Location>::new());
+    let records = use_state(Vec::<common::Location>::new);
 
+    // Save the data to plot when receive it from the backend
     let on_backend_msg = {
-        let map = map.clone();
         let records = records.clone();
-        let plot_initialized = plot_initialized.clone(); // only exports values
-        let map_style = map_style.clone();
-        let filters = filters.clone();
+        let time_range = time_range.clone();
         move |msg: &ToFront| {
             if let ToFront::LocationTimeRange(_time_range, locations) = msg {
-                // save records
                 let mut newrecords = Vec::new();
                 for rec in locations {
                     newrecords.push(rec.clone());
                 }
                 records.set(newrecords);
+            } else if let ToFront::LastLocation(location) = msg {
+                if time_range.contains(&location.datetime) {
+                    let mut newrecords = (*records).clone();
+                    newrecords.push(location.clone());
+                    records.set(newrecords);
+                }
+            }
+        }
+    };
+    use_backend_event_with_deps(
+        on_backend_msg,
+        (records.clone(), time_range.clone()),
+    );
 
-                // filter out unwanted data
-                let locations = apply_filters(&filters, locations);
+    // === Initial Map ===
 
-                // set the guard to prevent map updates until it has loaded
-                plot_initialized.set(false);
-                let plot_initialized = plot_initialized.clone();
+    let use_epsln_tile_server =
+        use_selector(|s: &UIState| s.use_epsln_tile_server);
+
+    let plot_id = "map-div";
+    let map_initialized = use_state(|| false);
+    let map = use_state(|| Option::<Rc<maplibre::Map>>::None);
+    let basemap = map_style.basemap_style.get_url(*use_epsln_tile_server);
+
+    // Build the blank map on first render. We don't populate the map with any
+    // data, but we do set up the source and layer needed to update the map.
+    {
+        let map = map.clone();
+        let map_initialized = map_initialized.clone();
+        let map_style = map_style.clone();
+        let basemap = basemap.clone();
+        use_effect_with_deps(
+            move |_| {
                 let on_load = {
-                    let plot_initialized = plot_initialized.clone();
-                    Box::new(move || plot_initialized.set(true))
+                    let map_initialized = map_initialized.clone();
+                    Box::new(move || map_initialized.set(true))
                 };
                 let newmap = maplibre::new_map(
                     plot_id,
-                    &locations,
-                    map_style.basemap_style.get_url(*use_epsln_tile_server),
+                    &[], // don't have data yet, don't plot any points
+                    &basemap,
                     *map_style.marker_size,
-                    map_style.solid_color.rgb.clone(),
+                    &map_style.solid_color.rgb,
                     map_style.solid_color.a,
                     &map_style.colored_datastream,
                     on_load,
                 );
                 map.set(Some(newmap));
-            }
-        }
+            },
+            (),
+        )
     };
-    use_backend_event_with_deps(
-        on_backend_msg,
-        (map_style.clone(), filters.clone()),
-    );
 
-    // Update plot with new data points without creating a new plot
+    // === Update map on new data ===
 
-    let on_backend_msg = {
-        let map = map.clone();
-        let records = records.clone();
-        let time_range = time_range.clone();
-        let map_style = map_style.clone();
-        let filters = filters.clone();
-        let plot_initialized = plot_initialized.clone();
-        move |msg: &ToFront| {
-            // if new location data streamed in
-            if let ToFront::LastLocation(location) = msg {
-                // if time range of data we're displaying contains the new data
-                if time_range.contains(&location.datetime) {
-                    let mut newrecords = (*records).clone();
-                    newrecords.push(location.clone());
-                    records.set(newrecords);
-                    if *plot_initialized {
-                        let recs = apply_filters(&filters, &*records);
-                        maplibre::update_data(
-                            (*map).clone().unwrap(),
-                            &recs,
-                            &map_style.colored_datastream,
-                        );
-                    }
-                }
-            }
-        }
-    };
-    use_backend_event_with_deps(
-        on_backend_msg,
-        (
-            map.clone(),
-            records.clone(),
-            time_range.clone(),
-            map_style.clone(),
-            filters.clone(),
-            plot_initialized.clone(),
-        ),
-    );
-
-    // Restyle hook (map style or filters updated)
+    // Depends on records, filters, and map_initialized. The first two indicate
+    // when the data shown needs to be updated. The third indicates if the map
+    // just finished initializing, which likely happens after we already have
+    // data to plot.
     {
         let map = map.clone();
-        let records = records.clone();
-        let plot_initialized = plot_initialized.clone();
+        let map_style = map_style.clone();
         use_effect_with_deps(
-            move |(map_style, filters)| {
-                if *plot_initialized {
-                    let recs = apply_filters(&filters, &*records);
-                    // might need to update color property of data source
+            move |(records, filters, map_initialized): &(
+                UseStateHandle<Vec<common::Location>>,
+                UseStateHandle<Vec<Filter>>,
+                UseStateHandle<bool>,
+            )| {
+                if **map_initialized {
+                    let recs = apply_filters(filters, records);
                     maplibre::update_data(
                         (*map).clone().unwrap(),
                         &recs,
                         &map_style.colored_datastream,
                     );
-                    // restyle the map layer that shows the source
-                    maplibre::restyle_layer(
+                }
+            },
+            (records.clone(), filters.clone(), map_initialized.clone()),
+        )
+    };
+
+    // === Restyle map ===
+
+    // We do a full map restyling since any change to the base layer will cause
+    // our source and layer to be removed. If only updating other map style
+    // components, update_data and restyle_layer are sufficient. But a full
+    // restyle is not too costly and handles all cases, so this is what we do.
+    {
+        // let map = map.clone();
+        // let map_initialized = map_initialized.clone();
+        // let records = records.clone();
+        // let basemap = basemap.clone();
+        let filters = filters.clone();
+        use_effect_with_deps(
+            move |map_style| {
+                if *map_initialized {
+                    let recs = apply_filters(&filters, &records);
+
+                    // full map restyle to change the base layer
+                    map_initialized.set(false);
+                    let on_style = {
+                        let map_initialized = map_initialized.clone();
+                        Box::new(move || map_initialized.set(true))
+                    };
+                    maplibre::restyle(
                         (*map).clone().unwrap(),
+                        &recs,
+                        &basemap,
                         *map_style.marker_size,
-                        map_style.solid_color.rgb.clone(),
+                        &map_style.solid_color.rgb,
                         map_style.solid_color.a,
                         &map_style.colored_datastream,
+                        on_style,
                     );
                 }
             },
-            (map_style.clone(), filters.clone()),
+            map_style.clone(),
         )
     };
 

@@ -52,6 +52,7 @@ pub fn get_data_color(
 // TODO:
 // - put colormap values at decision threshold instead of 0-1
 // - hex code for compactness
+// - BRIGHT_PLASMA cmap for better contrast against map
 
 #[allow(dead_code)]
 pub static VIRIDIS: [(f64, &str); 256] = [

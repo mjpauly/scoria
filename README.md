@@ -2,7 +2,12 @@
 
 ## To Do
 
-- [ ] investigate maplibre
+- maplibre
+    - [x] initial investigation
+    - [x] update basemap
+    - [ ] data point popup on click
+    - [ ] colorbar
+    - [ ] re-center button
 - [ ] lines between points
 - [ ] fully persist ui state, have plot reset button
 - [ ] app intoduction/tutorial on first install

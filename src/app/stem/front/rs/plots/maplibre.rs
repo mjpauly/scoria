@@ -17,6 +17,8 @@ extern "C" {
 
     #[wasm_bindgen(method)]
     pub fn on(this: &Map, event: &str, listener: &JsValue);
+    #[wasm_bindgen(method)]
+    pub fn once(this: &Map, event: &str, listener: &JsValue);
 
     #[wasm_bindgen(method, js_name = addSource)]
     pub fn add_source(this: &Map, id: &str, data: &JsValue);
@@ -28,34 +30,42 @@ extern "C" {
     #[wasm_bindgen(method, js_name = removeLayer)]
     pub fn remove_layer(this: &Map, id: &str);
 
+    #[wasm_bindgen(method, js_name = setStyle)]
+    pub fn set_style(this: &Map, style: &str);
+
     #[wasm_bindgen(method, js_name = addControl)]
-    pub fn add_attribution_control(this: &Map, control: AttributionControl);
+    pub fn add_navigation_control(
+        this: &Map,
+        control: NavigationControl,
+        position: &str,
+    );
 
     pub type Source;
 
     #[wasm_bindgen(method, js_name = setData)]
-    pub fn set_data(this: &Source, data: &JsValue);
+    pub fn set_data(this: &Source, data: &JsValue) -> JsValue;
 
-    pub type AttributionControl;
+    pub type NavigationControl;
 
     #[wasm_bindgen(constructor, js_namespace = maplibregl,
-                   js_name = AttributionControl)]
-    pub fn new(options: &JsValue) -> AttributionControl;
+                   js_name = NavigationControl)]
+    pub fn new(options: &JsValue) -> NavigationControl;
+
 }
 
 static SOURCE_ID: &str = "datapoints";
 static LAYER_ID: &str = "datapoints";
 
-// TODO: colorbar, popup on select
+// TODO: colorbar, popup on select, re-center button
 pub fn new_map(
     plot_id: &str,
-    records: &Vec<&common::Location>,
-    basemap: String,
+    records: &[&common::Location],
+    basemap: &str,
     marker_size: usize,
-    marker_color: String,
+    marker_color: &str,
     marker_opacity: f64,
     colored_datastream: &ColoredDataStream,
-    on_load: Box<dyn Fn()>, // closure to run in the maps on_load handler
+    callback: Box<dyn Fn()>, // closure to run in the maps on_load handler
 ) -> Rc<Map> {
     let lats: Vec<_> = records.iter().map(|x| x.lat).collect();
     let lons: Vec<_> = records.iter().map(|x| x.lon).collect();
@@ -69,9 +79,18 @@ pub fn new_map(
         "zoom": zoom,
     });
     let map = Map::new(&val_to_jsval(&opts));
-    // Wrap the map in a Rc so we can clone references to it and pass those into
-    // closures.
-    let map = Rc::new(map);
+
+    // Add compass control
+    map.add_navigation_control(
+        NavigationControl::new(&val_to_jsval(&json!({
+            "showCompass": true,
+            "showZoom": false,
+            "visualizePitch": true,
+        }))),
+        "bottom-left",
+    );
+
+    // === Add data source and visible layer ===
 
     let geojson = make_geojson(records, colored_datastream);
     let newsource = json!({
@@ -85,12 +104,16 @@ pub fn new_map(
         colored_datastream,
     );
 
+    // Wrap the map in a Rc so we can clone references to it and pass those into
+    // closures and share the map reference.
+    let map = Rc::new(map);
+
     let on_load: Box<dyn FnMut()> = {
         let map = map.clone();
         Box::new(move || {
             map.add_source(SOURCE_ID, &val_to_jsval(&newsource));
             map.add_layer(&val_to_jsval(&newlayer));
-            on_load();
+            callback();
         })
     };
 
@@ -101,7 +124,7 @@ pub fn new_map(
 /// Update the map's data source
 pub fn update_data(
     map: Rc<Map>,
-    records: &Vec<&common::Location>,
+    records: &[&common::Location],
     colored_datastream: &ColoredDataStream,
 ) {
     let geojson = make_geojson(records, colored_datastream);
@@ -109,10 +132,11 @@ pub fn update_data(
 }
 
 /// Restyle the layer by removing the old layer and adding it back
+#[allow(dead_code)]
 pub fn restyle_layer(
     map: Rc<Map>,
     marker_size: usize,
-    marker_color: String,
+    marker_color: &str,
     marker_opacity: f64,
     colored_datastream: &ColoredDataStream,
 ) {
@@ -126,6 +150,45 @@ pub fn restyle_layer(
     map.add_layer(&val_to_jsval(&newlayer));
 }
 
+/// Restyles the whole plot. Necessary if changing the basemap layer since
+/// sources and layers are removed.
+pub fn restyle(
+    map: Rc<Map>,
+    records: &[&common::Location],
+    basemap: &str,
+    marker_size: usize,
+    marker_color: &str,
+    marker_opacity: f64,
+    colored_datastream: &ColoredDataStream,
+    callback: Box<dyn Fn()>, // closure to run when restyling is complete
+) {
+    let geojson = make_geojson(records, colored_datastream);
+    let newsource = json!({
+        "type": "geojson",
+        "data": geojson,
+    });
+    let newlayer = make_layer(
+        marker_size,
+        marker_color,
+        marker_opacity,
+        colored_datastream,
+    );
+
+    // restyling the basemap also removes our sources and layers, so we need to
+    // add them back when the "styledata" event is emitted.
+    let on_load: Box<dyn FnMut()> = {
+        let map = map.clone();
+        Box::new(move || {
+            map.add_source(SOURCE_ID, &val_to_jsval(&newsource));
+            map.add_layer(&val_to_jsval(&newlayer));
+            callback();
+        })
+    };
+
+    map.once("styledata", &Closure::wrap(on_load).into_js_value());
+    map.set_style(basemap);
+}
+
 /// Convert from a serde_json::Value (loosely-typed object) to a json JsValue
 /// owned by javascript.
 fn val_to_jsval(v: &Value) -> JsValue {
@@ -135,12 +198,14 @@ fn val_to_jsval(v: &Value) -> JsValue {
 
 #[allow(dead_code)]
 fn jsval_to_val(v: JsValue) -> Value {
-    serde_wasm_bindgen::from_value(v).unwrap()
+    // serde_wasm_bindgen::from_value(v).unwrap()
+    let s: String = js_sys::JSON::stringify(&v).unwrap().into();
+    s.into()
 }
 
 fn make_layer(
     marker_size: usize,
-    marker_color: String,
+    marker_color: &str,
     marker_opacity: f64,
     colored_datastream: &ColoredDataStream,
 ) -> Value {
@@ -163,7 +228,7 @@ fn make_layer(
 
 /// Turn the vector of records into a geojson object
 fn make_geojson(
-    records: &Vec<&common::Location>,
+    records: &[&common::Location],
     colored_datastream: &ColoredDataStream,
 ) -> Value {
     let local_offset = time::UtcOffset::current_local_offset().unwrap();
@@ -191,6 +256,8 @@ fn make_geojson(
             .map(|x| {
                 let val = colored_datastream.get_stream(x);
                 let color = cmaps::get_data_color(cmap_to_use, val, cmin, cmax);
+                // select light or dark text color so it shows up against the
+                // popup background
                 let textcolor = if (val - cmin) / (cmax - cmin) > 0.5 {
                     "#eee"
                 } else {
@@ -202,12 +269,11 @@ fn make_geojson(
                         "type": "Point",
                         "coordinates": [x.lon, x.lat]
                     },
-                    "properties":
-                        json!({
-                            "hovertext": hovertext(x),
-                            "color": color,
-                            "textcolor": textcolor,
-                        }),
+                    "properties": {
+                        "hovertext": hovertext(x),
+                        "color": color,
+                        "textcolor": textcolor,
+                    },
                 })
             })
             .collect()

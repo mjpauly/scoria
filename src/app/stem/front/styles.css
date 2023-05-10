@@ -18,3 +18,8 @@
 .mapboxgl-ctrl-attrib-button, .maplibregl-ctrl-attrib-button {
     background-color: hsla(0,0%,100%,0);
 }
+
+/* Make the compass dark-mode friendly */
+.mapboxgl-ctrl-group, .maplibregl-ctrl-group {
+    background: rgba(255,255,255,0.5);
+}
