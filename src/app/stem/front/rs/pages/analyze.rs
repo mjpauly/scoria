@@ -20,14 +20,12 @@ use crate::components::{
     SECONDARY_BUTTON_STYLE,
 };
 use crate::plots::maplibre;
+use crate::plots::maplibre::ViewPosition;
 use crate::ui_state::UIState;
 use crate::websocket::{
     use_backend_event_with_deps, ToBack, ToFront, WebsocketService,
 };
 use common::TimeRange;
-
-#[derive(Debug, Clone, PartialEq)]
-struct ViewDataPlaceholder();
 
 #[function_component]
 pub fn Analyze() -> Html {
@@ -63,22 +61,14 @@ fn AnalyzeLocation() -> Html {
             threshold: 10.0,
         }]
     });
-    let relayout_data = use_state(|| Option::<ViewDataPlaceholder>::None);
-
-    // Ask for new location data from backend after render and do a full plot
-    // reload anytime time_range changes
-    let wss = use_context::<WebsocketService>().unwrap();
-    use_effect_with_deps(
-        move |time_range| {
-            wss.send_msg(ToBack::GetLocationTimeRange((**time_range).clone()));
-        },
-        time_range.clone(),
-    );
+    let view_position = use_state(ViewPosition::default);
 
     let settings_tab = use_state(|| SettingsTab::None);
     // Get the number of filters clamped to the range [0, 2], which is where
     // resizing of the filter list occurs. If the value changes, trigger resize
     let num_filters = (*filters).len().clamp(0, 2);
+    // Also resize if colored datastream .is_some() changes
+    let colored_datastream_is_some = map_style.colored_datastream.is_some();
 
     // after rerender, trigger the plot's resize handler if the visible settings
     // tab has changed, or if that settings tab's size has changed
@@ -87,7 +77,11 @@ fn AnalyzeLocation() -> Html {
             let event = web_sys::Event::new("resize").unwrap();
             web_sys::window().unwrap().dispatch_event(&event).unwrap();
         },
-        (settings_tab.clone(), num_filters),
+        (
+            settings_tab.clone(),
+            num_filters,
+            colored_datastream_is_some,
+        ),
     );
 
     html! {
@@ -96,7 +90,7 @@ fn AnalyzeLocation() -> Html {
                 time_range={time_range.clone()}
                 map_style={map_style.clone()}
                 filters={filters.clone()}
-                relayout_data={relayout_data.clone()}
+                view_position={view_position.clone()}
             />
             if *settings_tab == SettingsTab::MapStyle {
                 <MapStyler map_style={map_style.clone()} />
@@ -195,7 +189,7 @@ struct PlotComponentProps {
     time_range: UseStateHandle<TimeRange>,
     map_style: MapStyle,
     filters: UseStateHandle<Vec<Filter>>,
-    relayout_data: UseStateHandle<Option<ViewDataPlaceholder>>,
+    view_position: UseStateHandle<ViewPosition>,
 }
 
 #[function_component]
@@ -204,14 +198,24 @@ fn PlotComponent(
         time_range,
         map_style,
         filters,
-        relayout_data: _,
+        view_position,
     }: &PlotComponentProps,
 ) -> Html {
     // === Cache location data ===
 
+    // Ask for new location data from backend anytime time_range changes
+    let wss = use_context::<WebsocketService>().unwrap();
+    use_effect_with_deps(
+        move |time_range| {
+            wss.send_msg(ToBack::GetLocationTimeRange((**time_range).clone()));
+        },
+        time_range.clone(),
+    );
+
+    // State handle for the records to plot (but not yet filtered)
     let records = use_state(Vec::<common::Location>::new);
 
-    // Save the data to plot when receive it from the backend
+    // Save the data to plot when we receive it from the backend
     let on_backend_msg = {
         let records = records.clone();
         let time_range = time_range.clone();
@@ -253,21 +257,27 @@ fn PlotComponent(
         let map_initialized = map_initialized.clone();
         let map_style = map_style.clone();
         let basemap = basemap.clone();
+        let view_position = view_position.clone();
         use_effect_with_deps(
             move |_| {
                 let on_load = {
                     let map_initialized = map_initialized.clone();
                     Box::new(move || map_initialized.set(true))
                 };
+                let on_view_change = {
+                    let view_position = view_position.clone();
+                    Box::new(move |data| view_position.set(data))
+                };
                 let newmap = maplibre::new_map(
                     plot_id,
-                    &[], // don't have data yet, don't plot any points
                     &basemap,
                     *map_style.marker_size,
                     &map_style.solid_color.rgb,
                     map_style.solid_color.a,
                     &map_style.colored_datastream,
+                    &view_position,
                     on_load,
+                    on_view_change,
                 );
                 map.set(Some(newmap));
             },
@@ -310,9 +320,10 @@ fn PlotComponent(
     // components, update_data and restyle_layer are sufficient. But a full
     // restyle is not too costly and handles all cases, so this is what we do.
     {
-        // let map = map.clone();
+        // clippy warnings suppressed by not cloning values that can be moved in
+        let map = map.clone();
         // let map_initialized = map_initialized.clone();
-        // let records = records.clone();
+        let records = records.clone();
         // let basemap = basemap.clone();
         let filters = filters.clone();
         use_effect_with_deps(
@@ -342,8 +353,46 @@ fn PlotComponent(
         )
     };
 
+    // === Re-center Plot on Click ===
+
+    let flytodata_onclick = {
+        let map = map.clone();
+        // let records = records.clone();
+        let filters = filters.clone();
+        Callback::from(move |_e: MouseEvent| {
+            let recs = apply_filters(&filters, &records);
+            maplibre::fly_to_data((*map).clone().unwrap(), &recs)
+        })
+    };
+
+    let last_loc = use_selector(|state: &UIState| state.last_location.clone());
+    let flytome_onclick = {
+        // let map = map.clone();
+        Callback::from(move |_e: MouseEvent| {
+            if let Some(loc) = &*last_loc {
+                maplibre::fly_to(
+                    (*map).clone().unwrap(),
+                    (loc.lon, loc.lat),
+                    16.,
+                );
+            }
+        })
+    };
+
     html! {
-        <div id={plot_id} class="w-screen flex-1 min-h-0">
+        <div id={plot_id} class="w-screen flex-1 min-h-0 relative z-0">
+            <div onclick={flytodata_onclick}
+                class="p-1 rounded bg-white w-min opacity-50 \
+                    absolute bottom-[43px] left-2.5 z-40">
+                <Icon icon_id={IconId::BootstrapBoundingBoxCircles}
+                    class="h-[21px] w-[21px] text-[#233333]" />
+            </div>
+            <div onclick={flytome_onclick}
+                class="p-1 rounded bg-white w-min opacity-50 \
+                    absolute bottom-[76px] left-2.5 z-40">
+                <Icon icon_id={IconId::FontAwesomeSolidLocationArrow}
+                    class="h-[21px] w-[21px] text-[#233333]" />
+            </div>
         </div>
     }
 }

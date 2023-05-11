@@ -209,6 +209,7 @@ crates_repository(
             # git = "https://github.com/mjpauly/yew_icons",
             # branch = "main",
             features = [
+                "BootstrapBoundingBoxCircles",
                 "BootstrapBrush",
                 "BootstrapCalendarRange",
                 "BootstrapExclamationTriangle",
@@ -224,6 +225,7 @@ crates_repository(
                 "BootstrapSoundwave",
                 "BootstrapTools",
                 "BootstrapXCircle",
+                "FontAwesomeSolidLocationArrow",
             ],
         ),
         # Unresolved bug if we upgrade to wasm-bindgen 0.2.84, probably because

@@ -40,6 +40,20 @@ extern "C" {
         position: &str,
     );
 
+    #[wasm_bindgen(method, js_name = getCenter)]
+    pub fn get_center(this: &Map) -> LngLat;
+    #[wasm_bindgen(method, js_name = getZoom)]
+    pub fn get_zoom(this: &Map) -> f64;
+    #[wasm_bindgen(method, js_name = getBearing)]
+    pub fn get_bearing(this: &Map) -> f64;
+    #[wasm_bindgen(method, js_name = getPitch)]
+    pub fn get_pitch(this: &Map) -> f64;
+
+    #[wasm_bindgen(method, js_name = flyTo)]
+    pub fn fly_to(this: &Map, options: &JsValue);
+    #[wasm_bindgen(method, js_name = easeTo)]
+    pub fn ease_to(this: &Map, options: &JsValue);
+
     pub type Source;
 
     #[wasm_bindgen(method, js_name = setData)]
@@ -51,32 +65,60 @@ extern "C" {
                    js_name = NavigationControl)]
     pub fn new(options: &JsValue) -> NavigationControl;
 
+    pub type LngLat;
+
+    #[wasm_bindgen(method, getter)]
+    pub fn lng(this: &LngLat) -> f64;
+    #[wasm_bindgen(method, getter)]
+    pub fn lat(this: &LngLat) -> f64;
 }
 
 static SOURCE_ID: &str = "datapoints";
 static LAYER_ID: &str = "datapoints";
 
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct ViewPosition {
+    pub lng: f64,
+    pub lat: f64,
+    pub zoom: f64,
+    pub bearing: f64,
+    pub pitch: f64,
+}
+
+impl ViewPosition {
+    pub fn from_map(map: &Map) -> Self {
+        let center = map.get_center();
+        Self {
+            lng: center.lng(),
+            lat: center.lat(),
+            zoom: map.get_zoom(),
+            bearing: map.get_bearing(),
+            pitch: map.get_pitch(),
+        }
+    }
+}
+
 // TODO: colorbar, popup on select, re-center button
 pub fn new_map(
     plot_id: &str,
-    records: &[&common::Location],
     basemap: &str,
     marker_size: usize,
     marker_color: &str,
     marker_opacity: f64,
     colored_datastream: &ColoredDataStream,
-    callback: Box<dyn Fn()>, // closure to run in the maps on_load handler
+    view_position: &ViewPosition,
+    on_load_callback: Box<dyn Fn()>, // closure to run when the plot loads
+    // closure to run with pan/zoom data
+    on_view_change_callback: Box<dyn Fn(ViewPosition)>,
 ) -> Rc<Map> {
-    let lats: Vec<_> = records.iter().map(|x| x.lat).collect();
-    let lons: Vec<_> = records.iter().map(|x| x.lon).collect();
-    let (lat_center, lon_center, zoom, _, _) = get_view_params(&lats, &lons);
-
     // Create the map and start it loading
     let opts = json!({
         "container": plot_id,
         "style": basemap,
-        "center": [lon_center, lat_center],
-        "zoom": zoom,
+        "center": [view_position.lng, view_position.lat],
+        "zoom": view_position.zoom,
+        "bearing": view_position.bearing,
+        "pitch": view_position.pitch,
     });
     let map = Map::new(&val_to_jsval(&opts));
 
@@ -92,7 +134,8 @@ pub fn new_map(
 
     // === Add data source and visible layer ===
 
-    let geojson = make_geojson(records, colored_datastream);
+    // create a geojson without data points
+    let geojson = make_geojson(&[], colored_datastream);
     let newsource = json!({
         "type": "geojson",
         "data": geojson,
@@ -108,16 +151,25 @@ pub fn new_map(
     // closures and share the map reference.
     let map = Rc::new(map);
 
-    let on_load: Box<dyn FnMut()> = {
+    // Add the data source and layer and notify the yew component when loading
+    // of the map has finished.
+    let on_load: Box<dyn Fn()> = {
         let map = map.clone();
         Box::new(move || {
             map.add_source(SOURCE_ID, &val_to_jsval(&newsource));
             map.add_layer(&val_to_jsval(&newlayer));
-            callback();
+            on_load_callback();
         })
     };
-
     map.on("load", &Closure::wrap(on_load).into_js_value());
+
+    // Notify the yew component of the new view position whenever it changes.
+    let on_view_change: Box<dyn Fn()> = {
+        let map = map.clone();
+        Box::new(move || on_view_change_callback(ViewPosition::from_map(&map)))
+    };
+    map.on("moveend", &Closure::wrap(on_view_change).into_js_value());
+
     map
 }
 
@@ -300,11 +352,33 @@ fn make_geojson(
     })
 }
 
+/// Automatically determine the center of the data and a zoom level that will
+/// fit it, then fly to that view.
+pub fn fly_to_data(map: Rc<Map>, records: &[&common::Location]) {
+    // only recenter the map if there's data to zoom to
+    if !records.is_empty() {
+        let lats: Vec<_> = records.iter().map(|x| x.lat).collect();
+        let lons: Vec<_> = records.iter().map(|x| x.lon).collect();
+        let (lat_center, lon_center, zoom) = get_view_params(&lats, &lons);
+        map.fly_to(&val_to_jsval(&json!({
+            "center": [lon_center, lat_center],
+            "zoom": zoom,
+        })));
+    }
+}
+
+pub fn fly_to(map: Rc<Map>, lnglat: (f64, f64), zoom: f64) {
+    map.fly_to(&val_to_jsval(&json!({
+        "center": [lnglat.0, lnglat.1],
+        "zoom": zoom,
+    })));
+}
+
 /// Calculate the center of a map. Does not take the map size into account, so
 /// is overly conservative (zooms further out than needed)
-fn get_view_params(lats: &[f64], lons: &[f64]) -> (f64, f64, u8, f64, f64) {
+fn get_view_params(lats: &[f64], lons: &[f64]) -> (f64, f64, f64) {
     if lats.is_empty() {
-        return (0., 0., 0, 0., 0.);
+        return (0., 0., 0.);
     }
     let lat_center = (float::max(lats) + float::min(lats)) / 2.;
     let lon_center = (float::max(lons) + float::min(lons)) / 2.;
@@ -317,8 +391,7 @@ fn get_view_params(lats: &[f64], lons: &[f64]) -> (f64, f64, u8, f64, f64) {
     } else {
         lat_zoom
     };
-    let mut zoom = zoom.floor() - 1.;
+    let mut zoom = zoom - 1.;
     zoom = zoom.clamp(0., 16.);
-    let zoom = zoom as u8;
-    (lat_center, lon_center, zoom, 0., 0.)
+    (lat_center, lon_center, zoom)
 }

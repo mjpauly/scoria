@@ -60,8 +60,8 @@ async fn data_generator() {
         stem::core::log_location(
             lat,
             lon,
-            random::<f64>() * 5.0,            // accuracy
-            (vx * vx + vy * vy).sqrt(),       // speed
+            random::<f64>() * 3.0 + 2.0, // accuracy
+            (vx * vx + vy * vy).sqrt(),  // speed
             180. - vy.atan2(vx).to_degrees(), // course
             time::OffsetDateTime::now_utc().unix_timestamp(),
         )
