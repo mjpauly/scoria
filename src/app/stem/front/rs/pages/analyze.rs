@@ -16,7 +16,7 @@ use crate::components::{
         MapStyler, Rgba,
     },
     time_range_picker::time_range_today,
-    NavbarWrapper, TimeRangePicker, PRIMARY_BUTTON_STYLE,
+    Colorbar, NavbarWrapper, TimeRangePicker, PRIMARY_BUTTON_STYLE,
     SECONDARY_BUTTON_STYLE,
 };
 use crate::plots::maplibre;
@@ -67,8 +67,11 @@ fn AnalyzeLocation() -> Html {
     // Get the number of filters clamped to the range [0, 2], which is where
     // resizing of the filter list occurs. If the value changes, trigger resize
     let num_filters = (*filters).len().clamp(0, 2);
-    // Also resize if colored datastream .is_some() changes
+    // Also resize if whether a colorbar is showing changes
     let colored_datastream_is_some = map_style.colored_datastream.is_some();
+    // Time is also a special case for now
+    let colored_datastream_is_time =
+        *map_style.colored_datastream == ColoredDataStream::Time;
 
     // after rerender, trigger the plot's resize handler if the visible settings
     // tab has changed, or if that settings tab's size has changed
@@ -81,6 +84,7 @@ fn AnalyzeLocation() -> Html {
             settings_tab.clone(),
             num_filters,
             colored_datastream_is_some,
+            colored_datastream_is_time,
         ),
     );
 
@@ -201,7 +205,7 @@ fn PlotComponent(
         view_position,
     }: &PlotComponentProps,
 ) -> Html {
-    // === Cache location data ===
+    // === Cache location data === //
 
     // Ask for new location data from backend anytime time_range changes
     let wss = use_context::<WebsocketService>().unwrap();
@@ -240,7 +244,7 @@ fn PlotComponent(
         (records.clone(), time_range.clone()),
     );
 
-    // === Initial Map ===
+    // === Initial Map === //
 
     let use_epsln_tile_server =
         use_selector(|s: &UIState| s.use_epsln_tile_server);
@@ -285,7 +289,7 @@ fn PlotComponent(
         )
     };
 
-    // === Update map on new data ===
+    // === Update map on new data === //
 
     // Depends on records, filters, and map_initialized. The first two indicate
     // when the data shown needs to be updated. The third indicates if the map
@@ -313,7 +317,7 @@ fn PlotComponent(
         )
     };
 
-    // === Restyle map ===
+    // === Restyle map === //
 
     // We do a full map restyling since any change to the base layer will cause
     // our source and layer to be removed. If only updating other map style
@@ -353,11 +357,11 @@ fn PlotComponent(
         )
     };
 
-    // === Re-center Plot on Click ===
+    // === Re-center Plot on Click === //
 
     let flytodata_onclick = {
         let map = map.clone();
-        // let records = records.clone();
+        let records = records.clone();
         let filters = filters.clone();
         Callback::from(move |_e: MouseEvent| {
             let recs = apply_filters(&filters, &records);
@@ -380,6 +384,7 @@ fn PlotComponent(
     };
 
     html! {
+        <>
         <div id={plot_id} class="w-screen flex-1 min-h-0 relative z-0">
             <div onclick={flytodata_onclick}
                 class="p-1 rounded bg-white w-min opacity-50 \
@@ -394,5 +399,12 @@ fn PlotComponent(
                     class="h-[21px] w-[21px] text-[#233333]" />
             </div>
         </div>
+        if map_style.colored_datastream.is_some()
+            && *map_style.colored_datastream != ColoredDataStream::Time {
+            <Colorbar records={records}
+                filters={filters.clone()}
+                colored_datastream={map_style.colored_datastream.clone()}/>
+        }
+        </>
     }
 }

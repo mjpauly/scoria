@@ -182,8 +182,8 @@ pub enum ColoredDataStream {
 
 static DATASTREAM_STRINGS: [(ColoredDataStream, &str); 7] = [
     (ColoredDataStream::None, "None"),
-    (ColoredDataStream::Lat, "Lat"),
-    (ColoredDataStream::Lon, "Lon"),
+    (ColoredDataStream::Lat, "Latitude"),
+    (ColoredDataStream::Lon, "Longitude"),
     (ColoredDataStream::HorizAccuracy, "Horizontal Accuracy"),
     (ColoredDataStream::Speed, "Speed"),
     (ColoredDataStream::Course, "Course"),
@@ -225,6 +225,18 @@ impl ColoredDataStream {
                 float::max(&colorvals),
                 &cmaps::PLASMA,
             )
+        }
+    }
+
+    pub fn name_with_unit(&self) -> String {
+        match *self {
+            ColoredDataStream::None => format!("{}", self),
+            ColoredDataStream::Time => format!("{}", self),
+            ColoredDataStream::Lat => format!("{} (deg)", self),
+            ColoredDataStream::Lon => format!("{} (deg)", self),
+            ColoredDataStream::HorizAccuracy => format!("{} (m)", self),
+            ColoredDataStream::Speed => format!("{} (m/s)", self),
+            ColoredDataStream::Course => format!("{} (deg)", self),
         }
     }
 }

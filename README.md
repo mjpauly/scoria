@@ -5,9 +5,11 @@
 - maplibre
     - [x] initial investigation
     - [x] update basemap
+    - [x] re-center button
+    - [x] colorbar
+    - [ ] (performance) cache the js_sys::Object that contains the data, don't regenerate on every new data point. Or use serde_wasm_bindgen?
     - [ ] data point popup on click
-    - [ ] colorbar
-    - [ ] re-center button
+- [ ] 5m window for going to low accuracy in auto mode
 - [ ] lines between points
 - [ ] fully persist ui state, have plot reset button
 - [ ] app intoduction/tutorial on first install

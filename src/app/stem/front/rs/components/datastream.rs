@@ -26,7 +26,7 @@ pub enum DataStream {
 pub static DATASTREAM_STRINGS: [(DataStream, &str); 5] = [
     (DataStream::Lat, "Lat"),
     (DataStream::Lon, "Lon"),
-    (DataStream::HorizAccuracy, "HorizAccuracy"),
+    (DataStream::HorizAccuracy, "H Accuracy"),
     (DataStream::Speed, "Speed"),
     (DataStream::Course, "Course"),
 ];
