@@ -7,7 +7,7 @@
     - [x] update basemap
     - [x] re-center button
     - [x] colorbar
-    - [ ] (performance) cache the js_sys::Object that contains the data, don't regenerate on every new data point. Or use serde_wasm_bindgen?
+    - [x] (performance) async map updating on new data
     - [ ] data point popup on click
 - [ ] 5m window for going to low accuracy in auto mode
 - [ ] lines between points

@@ -1,6 +1,8 @@
 use std::rc::Rc;
 
+use js_sys::{Array, Object, Reflect};
 use serde_json::{json, Value};
+use std::time::Duration;
 use wasm_bindgen::prelude::*;
 
 use crate::components::map_styler::ColoredDataStream;
@@ -135,7 +137,10 @@ pub fn new_map(
     // === Add data source and visible layer ===
 
     // create a geojson without data points
-    let geojson = make_geojson(&[], colored_datastream);
+    let geojson = json!({
+        "type": "FeatureCollection",
+        "features": [],
+    });
     let newsource = json!({
         "type": "geojson",
         "data": geojson,
@@ -174,13 +179,13 @@ pub fn new_map(
 }
 
 /// Update the map's data source
-pub fn update_data(
+pub async fn update_data(
     map: Rc<Map>,
     records: &[&common::Location],
     colored_datastream: &ColoredDataStream,
 ) {
-    let geojson = make_geojson(records, colored_datastream);
-    map.get_source(LAYER_ID).set_data(&val_to_jsval(&geojson));
+    let geojson = make_geojson_async(records, colored_datastream).await;
+    map.get_source(LAYER_ID).set_data(&geojson);
 }
 
 /// Restyle the layer by removing the old layer and adding it back
@@ -204,6 +209,7 @@ pub fn restyle_layer(
 
 /// Restyles the whole plot. Necessary if changing the basemap layer since
 /// sources and layers are removed.
+//TODO: async make_geojson
 pub fn restyle(
     map: Rc<Map>,
     records: &[&common::Location],
@@ -279,10 +285,71 @@ fn make_layer(
 }
 
 /// Turn the vector of records into a geojson object
+async fn make_geojson_async(
+    records: &[&common::Location],
+    colored_datastream: &ColoredDataStream,
+) -> Object {
+    let (cmin, cmax, cmap_to_use) = colored_datastream.get_cmap_params(records);
+
+    // create the keys to properties once
+    let key_type = JsValue::from_str("type");
+    let key_feature = JsValue::from_str("Feature");
+    let key_point = JsValue::from_str("Point");
+    let key_coordinates = JsValue::from_str("coordinates");
+    let key_geometry = JsValue::from_str("geometry");
+    let key_color = JsValue::from_str("color");
+    let key_properties = JsValue::from_str("properties");
+
+    let features = Array::new();
+
+    // Yield at the greater of every 1000 iterations or the total number / 100.
+    // We let it increase so as to reduce overhead from the timers at the cost
+    // of jank if the number of data points is very large.
+    let yield_period = 1000.max(records.len() / 100);
+    let sleep_duration = Duration::from_micros(1);
+    // log::debug!("yielding every {} iterations", yield_period);
+    let mut i = 0;
+    for rec in records {
+        if i % yield_period == 0 {
+            // periodically yield back execution so we don't block too long
+            yew::platform::time::sleep(sleep_duration).await;
+        }
+        i += 1;
+
+        let feature = Object::new();
+        Reflect::set(&feature, &key_type, &key_feature).unwrap();
+
+        let geometry = Object::new();
+        Reflect::set(&geometry, &key_type, &key_point).unwrap();
+        let coords = Array::new();
+        coords.push(&rec.lon.into());
+        coords.push(&rec.lat.into());
+        Reflect::set(&geometry, &key_coordinates, &coords).unwrap();
+
+        Reflect::set(&feature, &key_geometry, &geometry).unwrap();
+
+        if colored_datastream.is_some() {
+            let val = colored_datastream.get_stream(rec);
+            let color = cmaps::get_data_color(cmap_to_use, val, cmin, cmax);
+            let props = Object::new();
+            Reflect::set(&props, &key_color, &color.into()).unwrap();
+            Reflect::set(&feature, &key_properties, &props).unwrap();
+        }
+        features.push(&feature);
+    }
+
+    let top = Object::new();
+    Reflect::set(&top, &"type".into(), &"FeatureCollection".into()).unwrap();
+    Reflect::set(&top, &"features".into(), &features).unwrap();
+    top
+}
+
+/// Turn the vector of records into a geojson object
 fn make_geojson(
     records: &[&common::Location],
     colored_datastream: &ColoredDataStream,
 ) -> Value {
+    /*
     let local_offset = time::UtcOffset::current_local_offset().unwrap();
     let hovertext = move |loc: &common::Location| {
         format!(
@@ -300,6 +367,14 @@ fn make_geojson(
                 .unwrap()
         )
     };
+    // select light or dark text color so it shows up against the
+    // popup background
+    let textcolor = if (val - cmin) / (cmax - cmin) > 0.5 {
+        "#eee"
+    } else {
+        "#111"
+    };
+    */
     let arr: Vec<_> = if colored_datastream.is_some() {
         let (cmin, cmax, cmap_to_use) =
             colored_datastream.get_cmap_params(records);
@@ -308,13 +383,6 @@ fn make_geojson(
             .map(|x| {
                 let val = colored_datastream.get_stream(x);
                 let color = cmaps::get_data_color(cmap_to_use, val, cmin, cmax);
-                // select light or dark text color so it shows up against the
-                // popup background
-                let textcolor = if (val - cmin) / (cmax - cmin) > 0.5 {
-                    "#eee"
-                } else {
-                    "#111"
-                };
                 json!({
                     "type": "Feature",
                     "geometry": {
@@ -322,9 +390,7 @@ fn make_geojson(
                         "coordinates": [x.lon, x.lat]
                     },
                     "properties": {
-                        "hovertext": hovertext(x),
                         "color": color,
-                        "textcolor": textcolor,
                     },
                 })
             })
@@ -338,9 +404,6 @@ fn make_geojson(
                     "geometry": {
                         "type": "Point",
                         "coordinates": [x.lon, x.lat]
-                    },
-                    "properties": {
-                        "hovertext": hovertext(x),
                     },
                 })
             })

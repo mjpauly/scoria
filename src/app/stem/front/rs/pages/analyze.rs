@@ -305,12 +305,19 @@ fn PlotComponent(
                 UseStateHandle<bool>,
             )| {
                 if **map_initialized {
-                    let recs = apply_filters(filters, records);
-                    maplibre::update_data(
-                        (*map).clone().unwrap(),
-                        &recs,
-                        &map_style.colored_datastream,
-                    );
+                    let map = map.clone();
+                    let map_style = map_style.clone();
+                    let records = records.clone();
+                    let filters = filters.clone();
+                    yew::platform::spawn_local(async move {
+                        let recs = apply_filters(&filters, &records);
+                        maplibre::update_data(
+                            (*map).clone().unwrap(),
+                            &recs,
+                            &map_style.colored_datastream,
+                        )
+                        .await;
+                    })
                 }
             },
             (records.clone(), filters.clone(), map_initialized.clone()),

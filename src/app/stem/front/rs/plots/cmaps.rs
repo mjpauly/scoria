@@ -1,5 +1,12 @@
 use plotly::common::{ColorScale, ColorScaleElement};
 
+#[derive(PartialEq)]
+pub struct CmapParams {
+    pub cmin: f64,
+    pub cmax: f64,
+    pub cmap_arr: &'static [(f64, &'static str)],
+}
+
 /// Sequential, perceptually-uniform colormap
 #[allow(dead_code)]
 pub fn viridis_plotly() -> ColorScale {
