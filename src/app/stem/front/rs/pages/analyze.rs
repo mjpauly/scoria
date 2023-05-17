@@ -306,10 +306,10 @@ fn PlotComponent(
             )| {
                 if **map_initialized {
                     let map = map.clone();
-                    let map_style = map_style.clone();
                     let records = records.clone();
                     let filters = filters.clone();
                     yew::platform::spawn_local(async move {
+                        maplibre::async_yield().await;
                         let recs = apply_filters(&filters, &records);
                         maplibre::update_data(
                             (*map).clone().unwrap(),
@@ -340,24 +340,33 @@ fn PlotComponent(
         use_effect_with_deps(
             move |map_style| {
                 if *map_initialized {
-                    let recs = apply_filters(&filters, &records);
+                    let map = map.clone();
+                    let map_style = map_style.clone();
+                    let basemap = basemap.clone();
+                    let records = records.clone();
+                    let filters = filters.clone();
+                    yew::platform::spawn_local(async move {
+                        maplibre::async_yield().await;
+                        let recs = apply_filters(&filters, &records);
 
-                    // full map restyle to change the base layer
-                    map_initialized.set(false);
-                    let on_style = {
-                        let map_initialized = map_initialized.clone();
-                        Box::new(move || map_initialized.set(true))
-                    };
-                    maplibre::restyle(
-                        (*map).clone().unwrap(),
-                        &recs,
-                        &basemap,
-                        *map_style.marker_size,
-                        &map_style.solid_color.rgb,
-                        map_style.solid_color.a,
-                        &map_style.colored_datastream,
-                        on_style,
-                    );
+                        // full map restyle to change the base layer
+                        map_initialized.set(false);
+                        let on_style = {
+                            let map_initialized = map_initialized.clone();
+                            Box::new(move || map_initialized.set(true))
+                        };
+                        maplibre::restyle(
+                            (*map).clone().unwrap(),
+                            &recs,
+                            &basemap,
+                            *map_style.marker_size,
+                            &map_style.solid_color.rgb,
+                            map_style.solid_color.a,
+                            &map_style.colored_datastream,
+                            on_style,
+                        )
+                        .await;
+                    });
                 }
             },
             map_style.clone(),

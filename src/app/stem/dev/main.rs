@@ -49,12 +49,12 @@ async fn data_generator() {
     // let co = lon + 0.001;
     let mut vx = 0.;
     let mut vy = 0.;
-    // let mut i = 0;
+    let mut i = 0;
     loop {
-        // if i > 15000 {
-        sleep(Duration::from_millis(1000)).await;
-        // }
-        // i += 1;
+        if i > 60 {
+            sleep(Duration::from_millis(1000)).await;
+        }
+        i += 1;
         vx += (random::<f64>() - 0.5) / 10000.0;
         vy += (random::<f64>() - 0.5) / 10000.0;
         // vx = (lat - ca) * -1. / 10.;

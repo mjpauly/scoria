@@ -5,6 +5,7 @@ use yew::prelude::*;
 use crate::components::location_filter_list::{apply_filters, Filter};
 use crate::components::map_styler::ColoredDataStream;
 use crate::plots::cmaps;
+use crate::plots::maplibre::async_yield;
 use common::Location;
 
 #[derive(Properties, PartialEq)]
@@ -26,60 +27,71 @@ pub fn Colorbar(
 
     use_effect_with_deps(
         move |(records, filters, colored_datastream)| {
-            let recs = apply_filters(filters, records);
-            let cmap_params = colored_datastream.get_cmap_params(&recs);
+            let records = records.clone();
+            let filters = filters.clone();
+            let colored_datastream = colored_datastream.clone();
+            yew::platform::spawn_local(async move {
+                // yield control back around costly operations
+                async_yield().await;
+                let recs = apply_filters(&filters, &records);
+                async_yield().await;
+                let cmap_params = colored_datastream.get_cmap_params(&recs);
+                async_yield().await;
 
-            let mut colorbar = plotly::common::ColorBar::new()
-                .orientation(plotly::common::Orientation::Horizontal)
-                .thickness(15)
-                .ticks(plotly::common::Ticks::Outside)
-                .tick_angle(0.)
-                .x_pad(50.)
-                .y(0.)
-                .title(
-                    plotly::common::Title::new(
-                        &colored_datastream.name_with_unit(),
+                let mut colorbar = plotly::common::ColorBar::new()
+                    .orientation(plotly::common::Orientation::Horizontal)
+                    .thickness(15)
+                    .ticks(plotly::common::Ticks::Outside)
+                    .tick_angle(0.)
+                    .x_pad(50.)
+                    .y(0.)
+                    .title(
+                        plotly::common::Title::new(
+                            &colored_datastream.name_with_unit(),
+                        )
+                        .side(plotly::common::Side::Top),
+                    );
+                if *colored_datastream == ColoredDataStream::Course {
+                    colorbar = colorbar
+                        .tick_vals(vec![0., 90., 180., 270., 360.])
+                        .tick_text(vec!["N", "E", "S", "W", "N"]);
+                }
+                // see @maybe_useful_later/time_colorbar.rs for initial code
+                // on doing a colorbar for time (plotly doesn't handle it well)
+                let marker = plotly::common::Marker::new()
+                    .color_scale(cmaps::to_plotly(cmap_params.cmap_arr))
+                    .cmin(cmap_params.cmin)
+                    .cmax(cmap_params.cmax)
+                    .color_bar(colorbar)
+                    .opacity(0.0); // hide the single data point
+
+                let trace =
+                    plotly::Scatter::new(vec![1.], vec![1.]).marker(marker);
+                let bg_color = plotly::color::Rgba::new(0, 0, 0, 0.);
+                let layout = plotly::Layout::new()
+                    .height(80)
+                    .paper_background_color(bg_color)
+                    .plot_background_color(bg_color)
+                    .margin(
+                        plotly::layout::Margin::new()
+                            .top(0)
+                            .left(0)
+                            .bottom(0)
+                            .right(0),
                     )
-                    .side(plotly::common::Side::Top),
-                );
-            if **colored_datastream == ColoredDataStream::Course {
-                colorbar = colorbar
-                    .tick_vals(vec![0., 90., 180., 270., 360.])
-                    .tick_text(vec!["N", "E", "S", "W", "N"]);
-            }
-            // see @maybe_useful_later/time_colorbar.rs for initial code
-            // on doing a colorbar for time (plotly doesn't handle it well)
-            let marker = plotly::common::Marker::new()
-                .color_scale(cmaps::to_plotly(cmap_params.cmap_arr))
-                .cmin(cmap_params.cmin)
-                .cmax(cmap_params.cmax)
-                .color_bar(colorbar)
-                .opacity(0.0); // hide the single data point
+                    .x_axis(plotly::layout::Axis::new().visible(false))
+                    .y_axis(plotly::layout::Axis::new().visible(false));
+                let config = plotly::configuration::Configuration::new()
+                    .responsive(true)
+                    .static_plot(true);
+                let mut plot = plotly::Plot::new();
+                plot.add_trace(trace);
+                plot.set_layout(layout);
+                plot.set_configuration(config);
 
-            let trace = plotly::Scatter::new(vec![1.], vec![1.]).marker(marker);
-            let bg_color = plotly::color::Rgba::new(0, 0, 0, 0.);
-            let layout = plotly::Layout::new()
-                .height(80)
-                .paper_background_color(bg_color)
-                .plot_background_color(bg_color)
-                .margin(
-                    plotly::layout::Margin::new()
-                        .top(0)
-                        .left(0)
-                        .bottom(0)
-                        .right(0),
-                )
-                .x_axis(plotly::layout::Axis::new().visible(false))
-                .y_axis(plotly::layout::Axis::new().visible(false));
-            let config = plotly::configuration::Configuration::new()
-                .responsive(true)
-                .static_plot(true);
-            let mut plot = plotly::Plot::new();
-            plot.add_trace(trace);
-            plot.set_layout(layout);
-            plot.set_configuration(config);
-
-            new_plot_(colorbar_id, &plot.to_js_object()).unwrap();
+                async_yield().await;
+                new_plot_(colorbar_id, &plot.to_js_object()).unwrap();
+            });
         },
         (records.clone(), filters.clone(), colored_datastream.clone()),
     );

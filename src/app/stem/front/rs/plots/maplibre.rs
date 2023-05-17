@@ -100,7 +100,8 @@ impl ViewPosition {
     }
 }
 
-// TODO: colorbar, popup on select, re-center button
+// TODO: popup on select
+#[allow(clippy::too_many_arguments)]
 pub fn new_map(
     plot_id: &str,
     basemap: &str,
@@ -209,8 +210,8 @@ pub fn restyle_layer(
 
 /// Restyles the whole plot. Necessary if changing the basemap layer since
 /// sources and layers are removed.
-//TODO: async make_geojson
-pub fn restyle(
+#[allow(clippy::too_many_arguments)]
+pub async fn restyle(
     map: Rc<Map>,
     records: &[&common::Location],
     basemap: &str,
@@ -220,11 +221,10 @@ pub fn restyle(
     colored_datastream: &ColoredDataStream,
     callback: Box<dyn Fn()>, // closure to run when restyling is complete
 ) {
-    let geojson = make_geojson(records, colored_datastream);
-    let newsource = json!({
-        "type": "geojson",
-        "data": geojson,
-    });
+    let geojson = make_geojson_async(records, colored_datastream).await;
+    let newsource = Object::new();
+    Reflect::set(&newsource, &"type".into(), &"geojson".into()).unwrap();
+    Reflect::set(&newsource, &"data".into(), &geojson).unwrap();
     let newlayer = make_layer(
         marker_size,
         marker_color,
@@ -237,7 +237,7 @@ pub fn restyle(
     let on_load: Box<dyn FnMut()> = {
         let map = map.clone();
         Box::new(move || {
-            map.add_source(SOURCE_ID, &val_to_jsval(&newsource));
+            map.add_source(SOURCE_ID, &newsource);
             map.add_layer(&val_to_jsval(&newlayer));
             callback();
         })
@@ -284,11 +284,21 @@ fn make_layer(
     })
 }
 
+/// Sleep for a very short duration to yield execution back to the scheduler,
+/// and keep from blocking the UI
+pub async fn async_yield() {
+    // const for compile-time evaluation
+    const SLEEP_DURATION: Duration = Duration::from_micros(1);
+    yew::platform::time::sleep(SLEEP_DURATION).await;
+}
+
 /// Turn the vector of records into a geojson object
 async fn make_geojson_async(
     records: &[&common::Location],
     colored_datastream: &ColoredDataStream,
 ) -> Object {
+    // yield before computing cmap params
+    async_yield().await;
     let cmap_params = colored_datastream.get_cmap_params(records);
 
     // create the keys to properties once
@@ -306,15 +316,11 @@ async fn make_geojson_async(
     // We let it increase so as to reduce overhead from the timers at the cost
     // of jank if the number of data points is very large.
     let yield_period = 1000.max(records.len() / 100);
-    let sleep_duration = Duration::from_micros(1);
-    // log::debug!("yielding every {} iterations", yield_period);
-    let mut i = 0;
-    for rec in records {
+    for (i, rec) in records.iter().enumerate() {
         if i % yield_period == 0 {
             // periodically yield back execution so we don't block too long
-            yew::platform::time::sleep(sleep_duration).await;
+            async_yield().await;
         }
-        i += 1;
 
         let feature = Object::new();
         Reflect::set(&feature, &key_type, &key_feature).unwrap();
@@ -342,76 +348,6 @@ async fn make_geojson_async(
     Reflect::set(&top, &"type".into(), &"FeatureCollection".into()).unwrap();
     Reflect::set(&top, &"features".into(), &features).unwrap();
     top
-}
-
-/// Turn the vector of records into a geojson object
-fn make_geojson(
-    records: &[&common::Location],
-    colored_datastream: &ColoredDataStream,
-) -> Value {
-    /*
-    let local_offset = time::UtcOffset::current_local_offset().unwrap();
-    let hovertext = move |loc: &common::Location| {
-        format!(
-            "({:.8}°, {:.8}°)\
-            <br>+/-{:.2} m, {:.2} m/s, {:.2}°\
-            <br>{}",
-            loc.lat,
-            loc.lon,
-            loc.accuracy,
-            loc.speed,
-            loc.course,
-            loc.datetime
-                .to_offset(local_offset)
-                .format(&time::format_description::well_known::Rfc2822)
-                .unwrap()
-        )
-    };
-    // select light or dark text color so it shows up against the
-    // popup background
-    let textcolor = if (val - cmin) / (cmax - cmin) > 0.5 {
-        "#eee"
-    } else {
-        "#111"
-    };
-    */
-    let arr: Vec<_> = if colored_datastream.is_some() {
-        let cmap_params = colored_datastream.get_cmap_params(records);
-        records
-            .iter()
-            .map(|x| {
-                let val = colored_datastream.get_stream(x);
-                let color = cmaps::get_data_color(val, &cmap_params);
-                json!({
-                    "type": "Feature",
-                    "geometry": {
-                        "type": "Point",
-                        "coordinates": [x.lon, x.lat]
-                    },
-                    "properties": {
-                        "color": color,
-                    },
-                })
-            })
-            .collect()
-    } else {
-        records
-            .iter()
-            .map(|x| {
-                json!({
-                    "type": "Feature",
-                    "geometry": {
-                        "type": "Point",
-                        "coordinates": [x.lon, x.lat]
-                    },
-                })
-            })
-            .collect()
-    };
-    json!({
-        "type": "FeatureCollection",
-        "features": arr,
-    })
 }
 
 /// Automatically determine the center of the data and a zoom level that will

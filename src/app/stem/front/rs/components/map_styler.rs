@@ -212,6 +212,14 @@ impl ColoredDataStream {
     /// Calculate the cmin and cmax and return colormap the for a datastream
     /// given a vec of locations
     pub fn get_cmap_params(&self, records: &[&common::Location]) -> CmapParams {
+        if !self.is_some() {
+            // short circuit
+            return CmapParams {
+                cmin: 0.,
+                cmax: 0.,
+                cmap_arr: &cmaps::PLASMA,
+            };
+        }
         let colorvals: Vec<_> =
             records.iter().map(|x| self.get_stream(x)).collect();
         if *self == ColoredDataStream::Course {
