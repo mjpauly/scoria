@@ -12,7 +12,7 @@ use yewdux::prelude::*;
 
 use crate::components::{RANGE_INPUT_STYLE, SELECT_STYLE};
 use crate::float;
-use crate::plots::cmaps;
+use crate::plots::cmaps::{self, CmapParams};
 use crate::ui_state::UIState;
 use common::Location;
 
@@ -211,20 +211,21 @@ impl ColoredDataStream {
 
     /// Calculate the cmin and cmax and return colormap the for a datastream
     /// given a vec of locations
-    pub fn get_cmap_params(
-        &self,
-        records: &[&common::Location],
-    ) -> (f64, f64, &'static [(f64, &'static str)]) {
+    pub fn get_cmap_params(&self, records: &[&common::Location]) -> CmapParams {
         let colorvals: Vec<_> =
             records.iter().map(|x| self.get_stream(x)).collect();
         if *self == ColoredDataStream::Course {
-            (0.0, 360.0, &cmaps::TWILIGHT)
+            CmapParams {
+                cmin: 0.0,
+                cmax: 360.0,
+                cmap_arr: &cmaps::TWILIGHT,
+            }
         } else {
-            (
-                float::min(&colorvals),
-                float::max(&colorvals),
-                &cmaps::PLASMA,
-            )
+            CmapParams {
+                cmin: float::min(&colorvals),
+                cmax: float::max(&colorvals),
+                cmap_arr: &cmaps::PLASMA,
+            }
         }
     }
 

@@ -1,5 +1,8 @@
 use plotly::common::{ColorScale, ColorScaleElement};
 
+/// The set of settings that define how a colormap should be applied to values.
+/// cmin and cmax are the data values at the ends of the colormap. cmap_arr is
+/// a reference to the colormap itself.
 #[derive(PartialEq)]
 pub struct CmapParams {
     pub cmin: f64,
@@ -35,25 +38,21 @@ pub fn to_plotly(cmap: &[(f64, &'static str)]) -> ColorScale {
 
 /// Simple search for a close color for the input value (range in 0-1). Could be
 /// sped up with binary_search_by
-#[allow(dead_code)]
 pub fn find_nearest(cmap: &'static [(f64, &str)], val: f64) -> &'static str {
-    for pair in cmap {
-        if val <= pair.0 {
-            return pair.1;
-        }
-    }
-    cmap.last().unwrap().1
+    // We assume there's no NaNs, so we can unwrap the partial_cmp
+    let res = cmap.binary_search_by(|probe| probe.0.partial_cmp(&val).unwrap());
+    let mut idx = match res {
+        Ok(idx) => idx,
+        Err(idx) => idx,
+    };
+    idx = idx.min(cmap.len() - 1); // ensure we don't go out of bounds
+    cmap[idx].1
 }
 
 /// Get the color of a data point inside the range [cmin-cmax]
-pub fn get_data_color(
-    cmap: &'static [(f64, &str)],
-    val: f64,
-    cmin: f64,
-    cmax: f64,
-) -> &'static str {
-    let normalized = (val - cmin) / (cmax - cmin);
-    find_nearest(cmap, normalized)
+pub fn get_data_color(val: f64, params: &CmapParams) -> &'static str {
+    let normalized = (val - params.cmin) / (params.cmax - params.cmin);
+    find_nearest(params.cmap_arr, normalized)
 }
 
 // TODO:

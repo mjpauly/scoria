@@ -289,7 +289,7 @@ async fn make_geojson_async(
     records: &[&common::Location],
     colored_datastream: &ColoredDataStream,
 ) -> Object {
-    let (cmin, cmax, cmap_to_use) = colored_datastream.get_cmap_params(records);
+    let cmap_params = colored_datastream.get_cmap_params(records);
 
     // create the keys to properties once
     let key_type = JsValue::from_str("type");
@@ -330,7 +330,7 @@ async fn make_geojson_async(
 
         if colored_datastream.is_some() {
             let val = colored_datastream.get_stream(rec);
-            let color = cmaps::get_data_color(cmap_to_use, val, cmin, cmax);
+            let color = cmaps::get_data_color(val, &cmap_params);
             let props = Object::new();
             Reflect::set(&props, &key_color, &color.into()).unwrap();
             Reflect::set(&feature, &key_properties, &props).unwrap();
@@ -376,13 +376,12 @@ fn make_geojson(
     };
     */
     let arr: Vec<_> = if colored_datastream.is_some() {
-        let (cmin, cmax, cmap_to_use) =
-            colored_datastream.get_cmap_params(records);
+        let cmap_params = colored_datastream.get_cmap_params(records);
         records
             .iter()
             .map(|x| {
                 let val = colored_datastream.get_stream(x);
-                let color = cmaps::get_data_color(cmap_to_use, val, cmin, cmax);
+                let color = cmaps::get_data_color(val, &cmap_params);
                 json!({
                     "type": "Feature",
                     "geometry": {

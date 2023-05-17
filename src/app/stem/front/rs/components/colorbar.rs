@@ -27,8 +27,7 @@ pub fn Colorbar(
     use_effect_with_deps(
         move |(records, filters, colored_datastream)| {
             let recs = apply_filters(filters, records);
-            let (cmin, cmax, cmap_to_use) =
-                colored_datastream.get_cmap_params(&recs);
+            let cmap_params = colored_datastream.get_cmap_params(&recs);
 
             let mut colorbar = plotly::common::ColorBar::new()
                 .orientation(plotly::common::Orientation::Horizontal)
@@ -51,9 +50,9 @@ pub fn Colorbar(
             // see @maybe_useful_later/time_colorbar.rs for initial code
             // on doing a colorbar for time (plotly doesn't handle it well)
             let marker = plotly::common::Marker::new()
-                .color_scale(cmaps::to_plotly(cmap_to_use))
-                .cmin(cmin)
-                .cmax(cmax)
+                .color_scale(cmaps::to_plotly(cmap_params.cmap_arr))
+                .cmin(cmap_params.cmin)
+                .cmax(cmap_params.cmax)
                 .color_bar(colorbar)
                 .opacity(0.0); // hide the single data point
 
