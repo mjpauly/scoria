@@ -8,6 +8,8 @@ static_file_targets = [
     "//src/app/stem/front:js_file",
     "//src/app/stem/front:tailwind",
     "//src/app/stem/front:plotlyjs",
+    "//src/app/stem/front:maplibregl",
+    "//src/app/stem/front:maplibregl_css",
 ]
 
 # env var definitions to tell rust compiler where to find the files
@@ -17,6 +19,8 @@ static_file_env_defs = {
     "JS_FILE": "$(location //src/app/stem/front:js_file)",
     "TAILWIND_FILE": "$(location //src/app/stem/front:tailwind)",
     "PLOTLY_FILE": "$(location //src/app/stem/front:plotlyjs)",
+    "MAPLIBRE_FILE": "$(location //src/app/stem/front:maplibregl)",
+    "MAPLIBRE_CSS": "$(location //src/app/stem/front:maplibregl_css)",
 }
 
 rust_library(

@@ -10,6 +10,9 @@
     - [x] (performance) async map updating on new data
     - [ ] data point popup on click
 - [ ] 5m window for going to low accuracy in auto mode
+- bite-sized features
+    - [ ] all time button
+    - [ ] quick time update buttons
 - [ ] lines between points
 - [ ] fully persist ui state, have plot reset button
 - [ ] app intoduction/tutorial on first install

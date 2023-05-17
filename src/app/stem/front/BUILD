@@ -110,3 +110,17 @@ genrule(
     cmd = 'curl https://cdn.plot.ly/plotly-2.20.0.min.js -o $@',
     visibility = ["//visibility:public"],
 )
+
+genrule(
+    name = "maplibregl",
+    outs = ["maplibre-gl.js"],
+    cmd = 'curl https://unpkg.com/maplibre-gl@2.4.0/dist/maplibre-gl.js -o $@',
+    visibility = ["//visibility:public"],
+)
+
+genrule(
+    name = "maplibregl_css",
+    outs = ["maplibre-gl.css"],
+    cmd = 'curl https://unpkg.com/maplibre-gl@2.4.0/dist/maplibre-gl.css -o $@',
+    visibility = ["//visibility:public"],
+)

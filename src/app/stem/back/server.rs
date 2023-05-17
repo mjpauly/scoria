@@ -28,6 +28,8 @@ static WASM_FILE: &[u8] = include_bytes!(env!("WASM_FILE"));
 static JS_FILE: &str = include_str!(env!("JS_FILE"));
 static TAILWIND_FILE: &str = include_str!(env!("TAILWIND_FILE"));
 static PLOTLY_FILE: &str = include_str!(env!("PLOTLY_FILE"));
+static MAPLIBRE_FILE: &str = include_str!(env!("MAPLIBRE_FILE"));
+static MAPLIBRE_CSS: &str = include_str!(env!("MAPLIBRE_CSS"));
 
 /// Configuration struct we pass to Swift via C
 #[repr(C)]
@@ -114,6 +116,8 @@ fn build(listener: TcpListener, frontend_key: FrontendKey) -> Server {
                     .service(js)
                     .service(tailwind)
                     .service(plotly)
+                    .service(maplibre)
+                    .service(maplibre_css)
                     // dynamic routes
                     .service(health_check)
                     .route("/ws", web::get().to(ws_route))
@@ -174,6 +178,20 @@ async fn plotly() -> impl Responder {
     HttpResponse::Ok()
         .content_type(ContentType(mime::APPLICATION_JAVASCRIPT_UTF_8))
         .body(PLOTLY_FILE)
+}
+
+#[get("/maplibre-gl.js")]
+async fn maplibre() -> impl Responder {
+    HttpResponse::Ok()
+        .content_type(ContentType(mime::APPLICATION_JAVASCRIPT_UTF_8))
+        .body(MAPLIBRE_FILE)
+}
+
+#[get("/maplibre-gl.css")]
+async fn maplibre_css() -> impl Responder {
+    HttpResponse::Ok()
+        .content_type(ContentType(mime::TEXT_CSS_UTF_8))
+        .body(MAPLIBRE_CSS)
 }
 
 #[cfg(test)]
