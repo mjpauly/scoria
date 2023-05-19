@@ -259,7 +259,8 @@ fn style_popup(bg_color: &str, text_color: &str) {
     let content_css = format!(
         "background-color: {bg_color}; \
         color: {text_color}; \
-        padding: 2px 5px;"
+        padding: 2px 5px; \
+        opacity: 0.9;"
     );
     add_css_rule(".maplibregl-popup-content", &content_css);
 
@@ -279,7 +280,10 @@ fn style_popup(bg_color: &str, text_color: &str) {
             ".maplibregl-popup-anchor-{class_orientation} \
             .maplibregl-popup-tip"
         );
-        let tip_css = format!("border-{border_orientation}-color: {bg_color};");
+        let tip_css = format!(
+            "border-{border_orientation}-color: {bg_color}; \
+            opacity: 0.9;"
+        );
         add_css_rule(&tip_class, &tip_css);
     }
 }
