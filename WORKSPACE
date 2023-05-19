@@ -195,7 +195,8 @@ crates_repository(
             version = "0.3.60",
             features = [
                 "Performance", "Window", "HtmlInputElement", "Location",
-                "HtmlSelectElement", "Document", "Element",
+                "HtmlSelectElement", "Document", "Element", "CssStyleSheet",
+                "StyleSheetList", "CssRuleList",
             ],
         ),
         "log": crate.spec(

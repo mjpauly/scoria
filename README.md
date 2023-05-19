@@ -8,7 +8,8 @@
     - [x] re-center button
     - [x] colorbar
     - [x] (performance) async map updating on new data
-    - [ ] data point popup on click
+    - [x] data point popup on click
+    - [ ] more clickable data points
 - [ ] 5m window for going to low accuracy in auto mode
 - bite-sized features
     - [ ] all time button

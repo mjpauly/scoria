@@ -1,5 +1,5 @@
 {
-  "checksum": "eff074981fa997ce5f89f161a68ffd24e8f869c5c281c760f114cf6cff62b5a6",
+  "checksum": "871436462e2786bc527cdcf0f58873b38200c2e8d97fb86c9d855e4287b92f4d",
   "crates": {
     "actix 0.13.0": {
       "name": "actix",
@@ -16130,6 +16130,8 @@
             "CloseEvent",
             "CloseEventInit",
             "Coordinates",
+            "CssRuleList",
+            "CssStyleSheet",
             "DataTransfer",
             "DataTransferItem",
             "DataTransferItemList",
@@ -16193,6 +16195,8 @@
             "ShadowRoot",
             "Storage",
             "StorageEvent",
+            "StyleSheet",
+            "StyleSheetList",
             "SubmitEvent",
             "Text",
             "TimeRanges",

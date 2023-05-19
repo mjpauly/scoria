@@ -1,6 +1,6 @@
 //! Analysis of collected data.
 
-use std::rc::Rc;
+use std::{cell::RefCell, rc::Rc};
 
 use yew::prelude::*;
 use yew_icons::{Icon, IconId};
@@ -244,6 +244,49 @@ fn PlotComponent(
         (records.clone(), time_range.clone()),
     );
 
+    // === Popup Display Callback === //
+
+    // use_mut_ref lets us get up-to-date state values
+    let filtered_records = use_mut_ref(Vec::<common::Location>::new);
+    {
+        let filtered_records = filtered_records.clone();
+        use_effect_with_deps(
+            move |(records, filters)| {
+                let recs = apply_filters(filters, records);
+                let mut newrecs = vec![];
+                for r in recs {
+                    newrecs.push(r.clone())
+                }
+                *filtered_records.borrow_mut() = newrecs;
+            },
+            (records.clone(), filters.clone()),
+        );
+    }
+    let solid_color = use_mut_ref(|| map_style.solid_color.rgb.clone());
+    {
+        let solid_color = solid_color.clone();
+        use_effect_with_deps(
+            move |rgb| {
+                *solid_color.borrow_mut() = rgb.clone();
+            },
+            map_style.solid_color.rgb.clone(),
+        );
+    }
+    let get_popup_text = {
+        // let filtered_records = filtered_records.clone();
+        move |lng: f64, lat: f64, color: Option<String>| {
+            let filtered_records = filtered_records.clone();
+            let (lnglat, text) = get_hovertext(filtered_records, lng, lat);
+            if let Some(data_color) = color {
+                // return the location of the data point, the text to display
+                // and the popup's background color
+                (lnglat, text, data_color)
+            } else {
+                (lnglat, text, solid_color.borrow().clone())
+            }
+        }
+    };
+
     // === Initial Map === //
 
     let use_epsln_tile_server =
@@ -276,12 +319,12 @@ fn PlotComponent(
                     plot_id,
                     &basemap,
                     *map_style.marker_size,
-                    &map_style.solid_color.rgb,
-                    map_style.solid_color.a,
+                    &map_style.solid_color,
                     &map_style.colored_datastream,
                     &view_position,
                     on_load,
                     on_view_change,
+                    get_popup_text,
                 );
                 map.set(Some(newmap));
             },
@@ -360,8 +403,7 @@ fn PlotComponent(
                             &recs,
                             &basemap,
                             *map_style.marker_size,
-                            &map_style.solid_color.rgb,
-                            map_style.solid_color.a,
+                            &map_style.solid_color,
                             &map_style.colored_datastream,
                             on_style,
                         )
@@ -423,4 +465,46 @@ fn PlotComponent(
         }
         </>
     }
+}
+
+/// Return the (lng, lat) and text to show in the popup, given the current
+/// record list and the lng and lat coordinates of the click.
+fn get_hovertext(
+    filtered_records: Rc<RefCell<Vec<common::Location>>>,
+    lng: f64,
+    lat: f64,
+) -> ((f64, f64), String) {
+    let local_offset = time::UtcOffset::current_local_offset().unwrap();
+    let distances: Vec<_> = filtered_records
+        .borrow()
+        .iter()
+        .map(|loc| (loc.lat - lat).abs() + (loc.lon - lng).abs())
+        .collect();
+    let mut argmin = 0;
+    // assume the records being plotted have at least one element
+    let mut min_distance = distances[0];
+    for (i, d) in distances.iter().enumerate() {
+        if *d < min_distance {
+            min_distance = *d;
+            argmin = i;
+        }
+    }
+    let loc = &filtered_records.borrow()[argmin];
+    (
+        (loc.lon, loc.lat),
+        format!(
+            "{:.6}°, {:.6}°\
+        <br>+/-{:.2} m, {:.2} m/s, {:.2}°\
+        <br>{}",
+            loc.lat,
+            loc.lon,
+            loc.accuracy,
+            loc.speed,
+            loc.course,
+            loc.datetime
+                .to_offset(local_offset)
+                .format(&time::format_description::well_known::Rfc2822)
+                .unwrap()
+        ),
+    )
 }
