@@ -49,6 +49,7 @@ fn AnalyzeLocation() -> Html {
             a: 1.0,
         }),
         marker_size: use_state(|| 3_usize),
+        line_size: use_state(|| 2_usize),
         basemap_style: use_state(|| BasemapStyle::BasicDark),
         colored_datastream: use_state(|| ColoredDataStream::None),
     };
@@ -319,6 +320,7 @@ fn PlotComponent(
                     plot_id,
                     &basemap,
                     *map_style.marker_size,
+                    *map_style.line_size,
                     &map_style.solid_color,
                     &map_style.colored_datastream,
                     &view_position,
@@ -357,6 +359,8 @@ fn PlotComponent(
                         maplibre::update_data(
                             (*map).clone().unwrap(),
                             &recs,
+                            *map_style.marker_size,
+                            *map_style.line_size,
                             &map_style.colored_datastream,
                         )
                         .await;
@@ -403,6 +407,7 @@ fn PlotComponent(
                             &recs,
                             &basemap,
                             *map_style.marker_size,
+                            *map_style.line_size,
                             &map_style.solid_color,
                             &map_style.colored_datastream,
                             on_style,

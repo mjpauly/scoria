@@ -35,8 +35,16 @@ pub fn Colorbar(
                 async_yield().await;
                 let recs = apply_filters(&filters, &records);
                 async_yield().await;
-                let cmap_params = colored_datastream.get_cmap_params(&recs);
+                let mut cmap_params = colored_datastream.get_cmap_params(&recs);
                 async_yield().await;
+                // Need to handle the case where all data has the same value
+                // In this case the binary_search_by using partial_cmp will
+                // default to picking the middle color in the colormap, so we just need to
+                // make it symmetric around the cmin/cmax value.
+                if cmap_params.cmin == cmap_params.cmax {
+                    cmap_params.cmin -= 1.;
+                    cmap_params.cmax += 1.;
+                }
 
                 let mut colorbar = plotly::common::ColorBar::new()
                     .orientation(plotly::common::Orientation::Horizontal)

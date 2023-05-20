@@ -283,6 +283,7 @@ impl std::str::FromStr for ColoredDataStream {
 pub struct MapStyle {
     pub solid_color: UseStateHandle<Rgba>,
     pub marker_size: UseStateHandle<usize>,
+    pub line_size: UseStateHandle<usize>,
     pub basemap_style: UseStateHandle<BasemapStyle>,
     pub colored_datastream: UseStateHandle<ColoredDataStream>,
     // pub colorscale: ... // solid, viridis, inferno, etc
@@ -300,6 +301,7 @@ pub fn MapStyler(
             MapStyle {
                 solid_color,
                 marker_size,
+                line_size,
                 basemap_style,
                 colored_datastream,
             },
@@ -330,12 +332,20 @@ pub fn MapStyler(
             solid_color.set(new_color);
         })
     };
-    let size_onchange = {
+    let marker_size_onchange = {
         let marker_size = marker_size.clone();
         Callback::from(move |e: Event| {
             let elem: HtmlInputElement = e.target_dyn_into().unwrap();
             let val: &str = &elem.value();
             marker_size.set(val.to_string().parse().unwrap());
+        })
+    };
+    let line_size_onchange = {
+        let line_size = line_size.clone();
+        Callback::from(move |e: Event| {
+            let elem: HtmlInputElement = e.target_dyn_into().unwrap();
+            let val: &str = &elem.value();
+            line_size.set(val.to_string().parse().unwrap());
         })
     };
     let basemap_onchange = {
@@ -382,12 +392,20 @@ pub fn MapStyler(
                     onchange={opacity_onchange} />
             </div>
             <div class="flex items-center justify-between h-8">
-                <label for="marker_size">{"Marker Size"}</label>
+                <label for="marker_size">{"Circle Radius"}</label>
                 <input type="range" id="marker_size"
                     value={format!("{}", **marker_size)}
-                    min="1" max="10"
+                    min="0" max="10"
                     class={format!("m-1 ml-6 {}", RANGE_INPUT_STYLE)}
-                    onchange={size_onchange} />
+                    onchange={marker_size_onchange} />
+            </div>
+            <div class="flex items-center justify-between h-8">
+                <label for="line_size">{"Line Width"}</label>
+                <input type="range" id="line_size"
+                    value={format!("{}", **line_size)}
+                    min="0" max="10"
+                    class={format!("m-1 ml-6 {}", RANGE_INPUT_STYLE)}
+                    onchange={line_size_onchange} />
             </div>
             <div class="flex items-center justify-between">
                 <label for="basemap">{"Basemap Style"}</label>

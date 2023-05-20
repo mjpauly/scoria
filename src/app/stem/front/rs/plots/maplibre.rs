@@ -1,3 +1,7 @@
+//! Bindings and data processing for the Maplibre charts.
+//!
+//! TODO: maplibre just stringifies the json sources anyways. Just do this in
+//! backend and link to the geojson source?
 use std::rc::Rc;
 
 use js_sys::{Array, Object, Reflect};
@@ -31,6 +35,8 @@ extern "C" {
 
     #[wasm_bindgen(method, js_name = addLayer)]
     pub fn add_layer(this: &Map, data: &JsValue);
+    #[wasm_bindgen(method, js_name = addLayer)]
+    pub fn add_layer_below(this: &Map, data: &JsValue, below_id: &JsValue);
     #[wasm_bindgen(method, js_name = removeLayer)]
     pub fn remove_layer(this: &Map, id: &str);
 
@@ -88,8 +94,10 @@ extern "C" {
     pub fn add_to(this: &Popup, map: &Map);
 }
 
-static SOURCE_ID: &str = "datapoints";
-static LAYER_ID: &str = "datapoints";
+static POINTS_SOURCE_ID: &str = "points";
+static POINTS_LAYER_ID: &str = "points";
+static LINES_SOURCE_ID: &str = "lines";
+static LINES_LAYER_ID: &str = "lines";
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct ViewPosition {
@@ -119,6 +127,7 @@ pub fn new_map(
     plot_id: &str,
     basemap: &str,
     marker_size: usize,
+    line_size: usize,
     marker_color: &Rgba,
     colored_datastream: &ColoredDataStream,
     view_position: &ViewPosition,
@@ -154,16 +163,13 @@ pub fn new_map(
 
     // === Add data source and visible layer ===
 
-    // create a geojson without data points
-    let geojson = json!({
-        "type": "FeatureCollection",
-        "features": [],
-    });
-    let newsource = json!({
-        "type": "geojson",
-        "data": geojson,
-    });
-    let newlayer = make_layer(marker_size, marker_color, colored_datastream);
+    // create a geojson source without features
+    let geojson = create_geojson(&Array::new());
+    let source = create_source(&geojson);
+    let points_layer =
+        make_points_layer(marker_size, marker_color, colored_datastream);
+    let lines_layer =
+        make_lines_layer(line_size, marker_color, colored_datastream);
 
     // Wrap the map in a Rc so we can clone references to it and pass those into
     // closures and share the map reference.
@@ -176,12 +182,17 @@ pub fn new_map(
     let on_load: Box<dyn Fn()> = {
         let map = map.clone();
         Box::new(move || {
-            map.add_source(SOURCE_ID, &val_to_jsval(&newsource));
-            map.add_layer(&val_to_jsval(&newlayer));
+            map.add_source(POINTS_SOURCE_ID, &source);
+            map.add_source(LINES_SOURCE_ID, &source);
+            map.add_layer(&val_to_jsval(&points_layer));
+            map.add_layer_below(
+                &val_to_jsval(&lines_layer),
+                &POINTS_LAYER_ID.into(),
+            );
             let popup_callback = popup_callback.clone();
             map.on_layer(
                 "click",
-                LAYER_ID,
+                POINTS_LAYER_ID,
                 &Closure::wrap(
                     Box::new(popup_callback) as Box<dyn Fn(&JsValue)>
                 )
@@ -255,6 +266,7 @@ fn get_popup_callback(
 }
 
 /// Style the maplibre popup with the given background color and text color
+// TODO: delete old css rules
 fn style_popup(bg_color: &str, text_color: &str) {
     let content_css = format!(
         "background-color: {bg_color}; \
@@ -315,10 +327,15 @@ pub fn add_css_rule(class_name: &str, rule: &str) {
 pub async fn update_data(
     map: Rc<Map>,
     records: &[&common::Location],
+    marker_size: usize,
+    line_size: usize,
     colored_datastream: &ColoredDataStream,
 ) {
-    let geojson = make_geojson_async(records, colored_datastream).await;
-    map.get_source(LAYER_ID).set_data(&geojson);
+    let (points_geojson, lines_geojson) =
+        make_geojson_async(records, marker_size, line_size, colored_datastream)
+            .await;
+    map.get_source(POINTS_SOURCE_ID).set_data(&points_geojson);
+    map.get_source(LINES_SOURCE_ID).set_data(&lines_geojson);
 }
 
 /// Restyle the layer by removing the old layer and adding it back
@@ -326,12 +343,18 @@ pub async fn update_data(
 pub fn restyle_layer(
     map: Rc<Map>,
     marker_size: usize,
+    line_size: usize,
     marker_color: &Rgba,
     colored_datastream: &ColoredDataStream,
 ) {
-    let newlayer = make_layer(marker_size, marker_color, colored_datastream);
-    map.remove_layer(LAYER_ID);
-    map.add_layer(&val_to_jsval(&newlayer));
+    let points_layer =
+        make_points_layer(marker_size, marker_color, colored_datastream);
+    let lines_layer =
+        make_lines_layer(line_size, marker_color, colored_datastream);
+    map.remove_layer(POINTS_LAYER_ID);
+    map.remove_layer(LINES_LAYER_ID);
+    map.add_layer(&val_to_jsval(&points_layer));
+    map.add_layer_below(&val_to_jsval(&lines_layer), &POINTS_LAYER_ID.into());
 }
 
 /// Restyles the whole plot. Necessary if changing the basemap layer since
@@ -342,29 +365,46 @@ pub async fn restyle(
     records: &[&common::Location],
     basemap: &str,
     marker_size: usize,
+    line_size: usize,
     marker_color: &Rgba,
     colored_datastream: &ColoredDataStream,
     callback: Box<dyn Fn()>, // closure to run when restyling is complete
 ) {
-    let geojson = make_geojson_async(records, colored_datastream).await;
-    let newsource = Object::new();
-    Reflect::set(&newsource, &"type".into(), &"geojson".into()).unwrap();
-    Reflect::set(&newsource, &"data".into(), &geojson).unwrap();
-    let newlayer = make_layer(marker_size, marker_color, colored_datastream);
+    let (points_geojson, lines_geojson) =
+        make_geojson_async(records, marker_size, line_size, colored_datastream)
+            .await;
+    let points_source = create_source(&points_geojson);
+    let lines_source = create_source(&lines_geojson);
+    let points_layer =
+        make_points_layer(marker_size, marker_color, colored_datastream);
+    let lines_layer =
+        make_lines_layer(line_size, marker_color, colored_datastream);
 
     // restyling the basemap also removes our sources and layers, so we need to
     // add them back when the "styledata" event is emitted.
     let on_load: Box<dyn FnMut()> = {
         let map = map.clone();
         Box::new(move || {
-            map.add_source(SOURCE_ID, &newsource);
-            map.add_layer(&val_to_jsval(&newlayer));
+            map.add_source(POINTS_SOURCE_ID, &points_source);
+            map.add_source(LINES_SOURCE_ID, &lines_source);
+            map.add_layer(&val_to_jsval(&points_layer));
+            map.add_layer_below(
+                &val_to_jsval(&lines_layer),
+                &POINTS_LAYER_ID.into(),
+            );
             callback();
         })
     };
 
     map.once("styledata", &Closure::wrap(on_load).into_js_value());
     map.set_style(basemap);
+}
+
+fn create_source(geojson: &Object) -> Object {
+    let source = Object::new();
+    Reflect::set(&source, &"type".into(), &"geojson".into()).unwrap();
+    Reflect::set(&source, &"data".into(), geojson).unwrap();
+    source
 }
 
 /// Convert from a serde_json::Value (loosely-typed object) to a json JsValue
@@ -381,15 +421,15 @@ fn jsval_to_val(v: JsValue) -> Value {
     s.into()
 }
 
-fn make_layer(
+fn make_points_layer(
     marker_size: usize,
     marker_color: &Rgba,
     colored_datastream: &ColoredDataStream,
 ) -> Value {
     json!({
-        "id": LAYER_ID,
+        "id": POINTS_LAYER_ID,
         "type": "circle",
-        "source": SOURCE_ID,
+        "source": POINTS_SOURCE_ID,
         "paint": {
             "circle-radius": marker_size,
             "circle-color":
@@ -408,6 +448,28 @@ fn make_layer(
     })
 }
 
+fn make_lines_layer(
+    line_size: usize,
+    marker_color: &Rgba,
+    colored_datastream: &ColoredDataStream,
+) -> Value {
+    json!({
+        "id": LINES_LAYER_ID,
+        "type": "line",
+        "source": LINES_SOURCE_ID,
+        "paint": {
+            "line-width": line_size,
+            "line-color":
+                if colored_datastream.is_some() {
+                    json!(["get", "color"])
+                } else {
+                    json!(marker_color.rgb)
+                },
+            "line-opacity": marker_color.a,
+        }
+    })
+}
+
 /// Sleep for a very short duration to yield execution back to the scheduler,
 /// and keep from blocking the UI
 pub async fn async_yield() {
@@ -416,63 +478,158 @@ pub async fn async_yield() {
     yew::platform::time::sleep(SLEEP_DURATION).await;
 }
 
-/// Turn the vector of records into a geojson object
+/// Turn the vector of records into two geojson objects, one for the data points
+/// and one for the lines
+// TODO: split lines in two at antimeridian
 async fn make_geojson_async(
     records: &[&common::Location],
+    marker_size: usize,
+    line_size: usize,
     colored_datastream: &ColoredDataStream,
-) -> Object {
-    log::debug!("make_geojson_async processing {} records", records.len());
+) -> (Object, Object) {
+    // log::debug!("make_geojson_async processing {} records", records.len());
     // yield before computing cmap params
     async_yield().await;
     let cmap_params = colored_datastream.get_cmap_params(records);
 
     // create the keys to properties once
-    let key_type = JsValue::from_str("type");
-    let key_feature = JsValue::from_str("Feature");
-    let key_point = JsValue::from_str("Point");
-    let key_coordinates = JsValue::from_str("coordinates");
-    let key_geometry = JsValue::from_str("geometry");
-    let key_color = JsValue::from_str("color");
-    let key_properties = JsValue::from_str("properties");
+    let keys = ObjKeys {
+        obj_type: JsValue::from_str("type"),
+        feature: JsValue::from_str("Feature"),
+        point: JsValue::from_str("Point"),
+        line: JsValue::from_str("LineString"),
+        coordinates: JsValue::from_str("coordinates"),
+        geometry: JsValue::from_str("geometry"),
+        color: JsValue::from_str("color"),
+        properties: JsValue::from_str("properties"),
+    };
 
-    let features = Array::new();
+    let point_features = Array::new();
+    let line_features = Array::new();
 
     // Yield at the greater of every 1000 iterations or the total number / 100.
     // We let it increase so as to reduce overhead from the timers at the cost
     // of jank if the number of data points is very large.
-    let yield_period = 1000.max(records.len() / 100);
-    for (i, rec) in records.iter().enumerate() {
+    let yield_period = 10_000.max(records.len() / 100);
+    for i in 0..records.len() {
         if i % yield_period == 0 {
             // periodically yield back execution so we don't block too long
             async_yield().await;
         }
 
-        let feature = Object::new();
-        Reflect::set(&feature, &key_type, &key_feature).unwrap();
+        // Whether or not to make the point feature
+        let make_point = marker_size > 0;
+        // With the lines we index one ahead to get the lind endpoint, so we
+        // don't want to make the line on the final record
+        let make_line = line_size > 0 && i < records.len() - 1;
 
-        let geometry = Object::new();
-        Reflect::set(&geometry, &key_type, &key_point).unwrap();
-        let coords = Array::new();
-        coords.push(&rec.lon.into());
-        coords.push(&rec.lat.into());
-        Reflect::set(&geometry, &key_coordinates, &coords).unwrap();
+        let coords = create_coordinates(records[i]);
 
-        Reflect::set(&feature, &key_geometry, &geometry).unwrap();
+        let mut point_feature = None;
+        let mut line_feature = None;
+        if make_point {
+            let point_geometry = create_geometry(&keys, &keys.point, &coords);
+            point_feature =
+                Some(create_feature_with_geometry(&keys, &point_geometry));
+        }
+        if make_line {
+            let end_coords = create_coordinates(records[i + 1]);
+
+            let line_coords = Array::new();
+            line_coords.push(&coords);
+            line_coords.push(&end_coords);
+
+            let line_geometry =
+                create_geometry(&keys, &keys.line, &line_coords);
+            line_feature =
+                Some(create_feature_with_geometry(&keys, &line_geometry));
+        }
 
         if colored_datastream.is_some() {
-            let val = colored_datastream.get_stream(rec);
+            let val = colored_datastream.get_stream(records[i]);
             let color = cmaps::get_data_color(val, &cmap_params);
             let props = Object::new();
-            Reflect::set(&props, &key_color, &color.into()).unwrap();
-            Reflect::set(&feature, &key_properties, &props).unwrap();
+            Reflect::set(&props, &keys.color, &color.into()).unwrap();
+
+            if make_point {
+                Reflect::set(
+                    point_feature.as_ref().unwrap(),
+                    &keys.properties,
+                    &props,
+                )
+                .unwrap();
+            }
+            if make_line {
+                Reflect::set(
+                    line_feature.as_ref().unwrap(),
+                    &keys.properties,
+                    &props,
+                )
+                .unwrap();
+            }
         }
-        features.push(&feature);
+        if make_point {
+            point_features.push(&point_feature.unwrap());
+        }
+        if make_line {
+            line_features.push(&line_feature.unwrap());
+        }
     }
 
-    let top = Object::new();
-    Reflect::set(&top, &"type".into(), &"FeatureCollection".into()).unwrap();
-    Reflect::set(&top, &"features".into(), &features).unwrap();
-    top
+    (
+        create_geojson(&point_features),
+        create_geojson(&line_features),
+    )
+}
+
+struct ObjKeys {
+    obj_type: JsValue,
+    feature: JsValue,
+    point: JsValue,
+    line: JsValue,
+    coordinates: JsValue,
+    geometry: JsValue,
+    color: JsValue,
+    properties: JsValue,
+}
+
+fn create_coordinates(rec: &common::Location) -> Array {
+    let coords = Array::new();
+    coords.push(&rec.lon.into());
+    coords.push(&rec.lat.into());
+    coords
+}
+
+/// Create a js_sys::Object with the specified type and coordinates
+fn create_geometry(
+    keys: &ObjKeys,
+    geom_type: &JsValue,
+    coords: &Array,
+) -> Object {
+    let geometry = Object::new();
+    Reflect::set(&geometry, &keys.obj_type, geom_type).unwrap();
+    Reflect::set(&geometry, &keys.coordinates, coords).unwrap();
+    geometry
+}
+
+/// Create a js_sys::Object with the specified type and coordinates
+fn create_feature_with_geometry(keys: &ObjKeys, geometry: &Object) -> Object {
+    let feature = Object::new();
+    Reflect::set(&feature, &keys.obj_type, &keys.feature).unwrap();
+    Reflect::set(&feature, &keys.geometry, geometry).unwrap();
+    feature
+}
+
+/// Create the top-level geojson object containing the array of features.
+///
+/// This is done once at the end of processing records, so memo-izing the string
+/// JsValues is not important.
+fn create_geojson(features: &Array) -> Object {
+    let geojson = Object::new();
+    Reflect::set(&geojson, &"type".into(), &"FeatureCollection".into())
+        .unwrap();
+    Reflect::set(&geojson, &"features".into(), features).unwrap();
+    geojson
 }
 
 /// Automatically determine the center of the data and a zoom level that will
