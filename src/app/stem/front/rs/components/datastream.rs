@@ -11,7 +11,7 @@ use uom::si::length::meter;
 use uom::si::velocity::meter_per_second;
 use uom::str::ParseQuantityError;
 
-use crate::common::Location;
+use common::Location;
 
 /// All possible data streams, excluding time which is a fairly special case
 #[derive(Clone, Debug, PartialEq)]
@@ -26,7 +26,7 @@ pub enum DataStream {
 pub static DATASTREAM_STRINGS: [(DataStream, &str); 5] = [
     (DataStream::Lat, "Lat"),
     (DataStream::Lon, "Lon"),
-    (DataStream::HorizAccuracy, "HorizAccuracy"),
+    (DataStream::HorizAccuracy, "H Accuracy"),
     (DataStream::Speed, "Speed"),
     (DataStream::Course, "Course"),
 ];

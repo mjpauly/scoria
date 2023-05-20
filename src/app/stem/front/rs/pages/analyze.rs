@@ -1,11 +1,11 @@
 //! Analysis of collected data.
 
-use plotly::common::Marker;
+use std::{cell::RefCell, rc::Rc};
+
 use yew::prelude::*;
 use yew_icons::{Icon, IconId};
 use yewdux::prelude::*;
 
-use crate::common::{Location, TimeRange};
 use crate::components::{
     datastream::DataStream,
     location_filter_list::{
@@ -16,16 +16,16 @@ use crate::components::{
         MapStyler, Rgba,
     },
     time_range_picker::time_range_today,
-    NavbarWrapper, TimeRangePicker, PRIMARY_BUTTON_STYLE,
+    Colorbar, NavbarWrapper, TimeRangePicker, PRIMARY_BUTTON_STYLE,
     SECONDARY_BUTTON_STYLE,
 };
-use crate::plots::{
-    cmaps, maps, plotly_binds, scatter_mapbox_update::ScatterMapboxUpdate,
-};
+use crate::plots::maplibre;
+use crate::plots::maplibre::ViewPosition;
 use crate::ui_state::UIState;
 use crate::websocket::{
     use_backend_event_with_deps, ToBack, ToFront, WebsocketService,
 };
+use common::TimeRange;
 
 #[function_component]
 pub fn Analyze() -> Html {
@@ -45,12 +45,11 @@ fn AnalyzeLocation() -> Html {
     let time_range = use_state(time_range_today);
     let map_style = MapStyle {
         solid_color: use_state(|| Rgba {
-            r: 10,
-            g: 132,
-            b: 255,
+            rgb: String::from("#0a84ff"),
             a: 1.0,
         }),
-        marker_size: use_state(|| 6_usize),
+        marker_size: use_state(|| 3_usize),
+        line_size: use_state(|| 2_usize),
         basemap_style: use_state(|| BasemapStyle::BasicDark),
         colored_datastream: use_state(|| ColoredDataStream::None),
     };
@@ -63,29 +62,17 @@ fn AnalyzeLocation() -> Html {
             threshold: 10.0,
         }]
     });
-    // Collect the set of active filters, which is used to determine if the plot
-    // is reloaded. This way editing an inactive filter doesn't change the plot.
-    let active_filters: Vec<_> = (*filters)
-        .clone()
-        .into_iter()
-        .filter(|filt| filt.enabled)
-        .collect();
-
-    // Ask for new location data from backend after render anytime time_range,
-    // map_style, or active_filters changes
-    let wss = use_context::<WebsocketService>().unwrap();
-    use_effect_with_deps(
-        move |(time_range, ..)| {
-            wss.send_msg(ToBack::GetLocationTimeRange((**time_range).clone()));
-        },
-        // things that will cause a full plot reload if changed:
-        (time_range.clone(), map_style.clone(), active_filters),
-    );
+    let view_position = use_state(ViewPosition::default);
 
     let settings_tab = use_state(|| SettingsTab::None);
     // Get the number of filters clamped to the range [0, 2], which is where
     // resizing of the filter list occurs. If the value changes, trigger resize
     let num_filters = (*filters).len().clamp(0, 2);
+    // Also resize if whether a colorbar is showing changes
+    let colored_datastream_is_some = map_style.colored_datastream.is_some();
+    // Time is also a special case for now
+    let colored_datastream_is_time =
+        *map_style.colored_datastream == ColoredDataStream::Time;
 
     // after rerender, trigger the plot's resize handler if the visible settings
     // tab has changed, or if that settings tab's size has changed
@@ -94,7 +81,12 @@ fn AnalyzeLocation() -> Html {
             let event = web_sys::Event::new("resize").unwrap();
             web_sys::window().unwrap().dispatch_event(&event).unwrap();
         },
-        (settings_tab.clone(), num_filters),
+        (
+            settings_tab.clone(),
+            num_filters,
+            colored_datastream_is_some,
+            colored_datastream_is_time,
+        ),
     );
 
     html! {
@@ -102,7 +94,9 @@ fn AnalyzeLocation() -> Html {
             <PlotComponent
                 time_range={time_range.clone()}
                 map_style={map_style.clone()}
-                filters={filters.clone()} />
+                filters={filters.clone()}
+                view_position={view_position.clone()}
+            />
             if *settings_tab == SettingsTab::MapStyle {
                 <MapStyler map_style={map_style.clone()} />
             }
@@ -200,6 +194,7 @@ struct PlotComponentProps {
     time_range: UseStateHandle<TimeRange>,
     map_style: MapStyle,
     filters: UseStateHandle<Vec<Filter>>,
+    view_position: UseStateHandle<ViewPosition>,
 }
 
 #[function_component]
@@ -208,140 +203,315 @@ fn PlotComponent(
         time_range,
         map_style,
         filters,
+        view_position,
     }: &PlotComponentProps,
 ) -> Html {
-    let use_epsln_tile_server =
-        use_selector(|s: &UIState| s.use_epsln_tile_server);
-    // Show new plot if time range changes and new data comes from backend
+    // === Cache location data === //
 
-    let plot_id = "plot-div";
-    let plot_initialized = use_state(|| false);
-    let on_backend_msg = {
-        let plot_initialized = plot_initialized.clone(); // only exports values
-        let map_style = map_style.clone();
-        let filters = filters.clone();
-        move |msg: &ToFront| {
-            if let ToFront::LocationTimeRange(_time_range, locations) = msg {
-                let locations = apply_filters(&filters, locations);
-                let marker = get_plot_marker(&locations, map_style.clone());
-                plot_initialized.set(false);
-                plotly_binds::new_plot(
-                    plot_id,
-                    &maps::map_plot(
-                        locations,
-                        marker,
-                        map_style
-                            .basemap_style
-                            .to_plotly(*use_epsln_tile_server),
-                    ),
-                );
-                plot_initialized.set(true);
-            }
-        }
-    };
-    use_backend_event_with_deps(
-        on_backend_msg,
-        (map_style.clone(), filters.clone()),
+    // Ask for new location data from backend anytime time_range changes
+    let wss = use_context::<WebsocketService>().unwrap();
+    use_effect_with_deps(
+        move |time_range| {
+            wss.send_msg(ToBack::GetLocationTimeRange((**time_range).clone()));
+        },
+        time_range.clone(),
     );
 
-    // Update plot with new data points without creating a new plot
+    // State handle for the records to plot (but not yet filtered)
+    let records = use_state(Vec::<common::Location>::new);
 
-    // Live updates to the plot freezes panning/zooming events, so we detect
-    // when those events are occuring and disable live updates until after.
-    let is_panning = use_state(|| false);
-    let onpointerdown = {
-        let is_panning = is_panning.clone();
-        Callback::from(move |_| is_panning.set(true))
-    };
-    let onpointerup = {
-        let is_panning = is_panning.clone();
-        Callback::from(move |_| is_panning.set(false))
-    };
-
-    // Backlog of data points to show after panning/zooming finishes
-    let backlog = use_state(Vec::new);
+    // Save the data to plot when we receive it from the backend
     let on_backend_msg = {
+        let records = records.clone();
         let time_range = time_range.clone();
-        let is_panning = is_panning.clone();
-        let backlog = backlog.clone();
-        let plot_initialized = plot_initialized.clone();
         move |msg: &ToFront| {
-            // if new location data streamed in
-            if let ToFront::LastLocation(location) = msg {
-                // if time range of data we're displaying contains the new data
+            if let ToFront::LocationTimeRange(_time_range, locations) = msg {
+                let mut newrecords = Vec::new();
+                for rec in locations {
+                    newrecords.push(rec.clone());
+                }
+                records.set(newrecords);
+            } else if let ToFront::LastLocation(location) = msg {
                 if time_range.contains(&location.datetime) {
-                    let mut new_backlog = (*backlog).clone();
-                    new_backlog.push(location.clone());
-                    if *is_panning || !*plot_initialized {
-                        // panning/zooming active, or the plot does not yet
-                        // exist -> just update backlog
-                        backlog.set(new_backlog);
-                    } else {
-                        // not panning; display new data and clear backlog
-                        let update = ScatterMapboxUpdate::new(
-                            new_backlog.iter().map(|x| x.lat).collect(),
-                            new_backlog.iter().map(|x| x.lon).collect(),
-                            // TODO: use solid marker color for new data
-                            // play with jsfiddle first
-                            // maps::Rgba::new(255, 64, 0, 1.0),
-                        );
-                        plotly_binds::extend_trace(plot_id, update);
-                        backlog.set(Vec::new());
-                    }
+                    let mut newrecords = (*records).clone();
+                    newrecords.push(location.clone());
+                    records.set(newrecords);
                 }
             }
         }
     };
     use_backend_event_with_deps(
         on_backend_msg,
-        (time_range.clone(), is_panning, backlog, plot_initialized),
+        (records.clone(), time_range.clone()),
     );
 
+    // === Popup Display Callback === //
+
+    // use_mut_ref lets us get up-to-date state values
+    let filtered_records = use_mut_ref(Vec::<common::Location>::new);
+    {
+        let filtered_records = filtered_records.clone();
+        use_effect_with_deps(
+            move |(records, filters)| {
+                let recs = apply_filters(filters, records);
+                let mut newrecs = vec![];
+                for r in recs {
+                    newrecs.push(r.clone())
+                }
+                *filtered_records.borrow_mut() = newrecs;
+            },
+            (records.clone(), filters.clone()),
+        );
+    }
+    let solid_color = use_mut_ref(|| map_style.solid_color.rgb.clone());
+    {
+        let solid_color = solid_color.clone();
+        use_effect_with_deps(
+            move |rgb| {
+                *solid_color.borrow_mut() = rgb.clone();
+            },
+            map_style.solid_color.rgb.clone(),
+        );
+    }
+    let get_popup_text = {
+        // let filtered_records = filtered_records.clone();
+        move |lng: f64, lat: f64, color: Option<String>| {
+            let filtered_records = filtered_records.clone();
+            let (lnglat, text) = get_hovertext(filtered_records, lng, lat);
+            if let Some(data_color) = color {
+                // return the location of the data point, the text to display
+                // and the popup's background color
+                (lnglat, text, data_color)
+            } else {
+                (lnglat, text, solid_color.borrow().clone())
+            }
+        }
+    };
+
+    // === Initial Map === //
+
+    let use_epsln_tile_server =
+        use_selector(|s: &UIState| s.use_epsln_tile_server);
+
+    let plot_id = "map-div";
+    let map_initialized = use_state(|| false);
+    let map = use_state(|| Option::<Rc<maplibre::Map>>::None);
+    let basemap = map_style.basemap_style.get_url(*use_epsln_tile_server);
+
+    // Build the blank map on first render. We don't populate the map with any
+    // data, but we do set up the source and layer needed to update the map.
+    {
+        let map = map.clone();
+        let map_initialized = map_initialized.clone();
+        let map_style = map_style.clone();
+        let basemap = basemap.clone();
+        let view_position = view_position.clone();
+        use_effect_with_deps(
+            move |_| {
+                let on_load = {
+                    let map_initialized = map_initialized.clone();
+                    Box::new(move || map_initialized.set(true))
+                };
+                let on_view_change = {
+                    let view_position = view_position.clone();
+                    Box::new(move |data| view_position.set(data))
+                };
+                let newmap = maplibre::new_map(
+                    plot_id,
+                    &basemap,
+                    *map_style.marker_size,
+                    *map_style.line_size,
+                    &map_style.solid_color,
+                    &map_style.colored_datastream,
+                    &view_position,
+                    on_load,
+                    on_view_change,
+                    get_popup_text,
+                );
+                map.set(Some(newmap));
+            },
+            (),
+        )
+    };
+
+    // === Update map on new data === //
+
+    // Depends on records, filters, and map_initialized. The first two indicate
+    // when the data shown needs to be updated. The third indicates if the map
+    // just finished initializing, which likely happens after we already have
+    // data to plot.
+    {
+        let map = map.clone();
+        let map_style = map_style.clone();
+        use_effect_with_deps(
+            move |(records, filters, map_initialized): &(
+                UseStateHandle<Vec<common::Location>>,
+                UseStateHandle<Vec<Filter>>,
+                UseStateHandle<bool>,
+            )| {
+                if **map_initialized {
+                    let map = map.clone();
+                    let records = records.clone();
+                    let filters = filters.clone();
+                    yew::platform::spawn_local(async move {
+                        maplibre::async_yield().await;
+                        let recs = apply_filters(&filters, &records);
+                        maplibre::update_data(
+                            (*map).clone().unwrap(),
+                            &recs,
+                            *map_style.marker_size,
+                            *map_style.line_size,
+                            &map_style.colored_datastream,
+                        )
+                        .await;
+                    })
+                }
+            },
+            (records.clone(), filters.clone(), map_initialized.clone()),
+        )
+    };
+
+    // === Restyle map === //
+
+    // We do a full map restyling since any change to the base layer will cause
+    // our source and layer to be removed. If only updating other map style
+    // components, update_data and restyle_layer are sufficient. But a full
+    // restyle is not too costly and handles all cases, so this is what we do.
+    {
+        // clippy warnings suppressed by not cloning values that can be moved in
+        let map = map.clone();
+        // let map_initialized = map_initialized.clone();
+        let records = records.clone();
+        // let basemap = basemap.clone();
+        let filters = filters.clone();
+        use_effect_with_deps(
+            move |map_style| {
+                if *map_initialized {
+                    let map = map.clone();
+                    let map_style = map_style.clone();
+                    let basemap = basemap.clone();
+                    let records = records.clone();
+                    let filters = filters.clone();
+                    yew::platform::spawn_local(async move {
+                        maplibre::async_yield().await;
+                        let recs = apply_filters(&filters, &records);
+
+                        // full map restyle to change the base layer
+                        map_initialized.set(false);
+                        let on_style = {
+                            let map_initialized = map_initialized.clone();
+                            Box::new(move || map_initialized.set(true))
+                        };
+                        maplibre::restyle(
+                            (*map).clone().unwrap(),
+                            &recs,
+                            &basemap,
+                            *map_style.marker_size,
+                            *map_style.line_size,
+                            &map_style.solid_color,
+                            &map_style.colored_datastream,
+                            on_style,
+                        )
+                        .await;
+                    });
+                }
+            },
+            map_style.clone(),
+        )
+    };
+
+    // === Re-center Plot on Click === //
+
+    let flytodata_onclick = {
+        let map = map.clone();
+        let records = records.clone();
+        let filters = filters.clone();
+        Callback::from(move |_e: MouseEvent| {
+            log::debug!("fly to data clicked");
+            let recs = apply_filters(&filters, &records);
+            maplibre::fly_to_data((*map).clone().unwrap(), &recs)
+        })
+    };
+
+    let last_loc = use_selector(|state: &UIState| state.last_location.clone());
+    let flytome_onclick = {
+        // let map = map.clone();
+        Callback::from(move |_e: MouseEvent| {
+            log::debug!("fly to me clicked");
+            if let Some(loc) = &*last_loc {
+                maplibre::fly_to(
+                    (*map).clone().unwrap(),
+                    (loc.lon, loc.lat),
+                    16.,
+                );
+            }
+        })
+    };
+
     html! {
-        <div id={plot_id} class="w-screen flex-1 min-h-0"
-            onpointerdown={onpointerdown} onpointerup={onpointerup}>
+        <>
+        <div id={plot_id} class="w-screen flex-1 min-h-0 relative z-0">
+            <div onclick={flytodata_onclick}
+                class="p-2 rounded-lg bg-black w-min opacity-50 \
+                    absolute bottom-[3.375rem] left-2.5 z-40">
+                <Icon icon_id={IconId::BootstrapBoundingBoxCircles}
+                    class="h-6 w-6 text-[#aaaaaa]" />
+            </div>
+            <div onclick={flytome_onclick}
+                class="p-2 rounded-lg bg-black w-min opacity-50 \
+                    absolute bottom-[6.125rem] left-2.5 z-40">
+                <Icon icon_id={IconId::FontAwesomeSolidLocationArrow}
+                    class="h-6 w-6 text-[#aaaaaa]" />
+            </div>
         </div>
+        if map_style.colored_datastream.is_some()
+            && *map_style.colored_datastream != ColoredDataStream::Time {
+            <Colorbar records={records}
+                filters={filters.clone()}
+                colored_datastream={map_style.colored_datastream.clone()}/>
+        }
+        </>
     }
 }
 
-/// Get the marker for a plot given the vector of locations and the desired map
-/// style.
-fn get_plot_marker(locations: &[&Location], map_style: MapStyle) -> Marker {
-    if *map_style.colored_datastream == ColoredDataStream::None {
-        // No coloring based on data, just use solid color
-        let marker = Marker::new()
-            .color(map_style.solid_color.as_plotly())
-            .size(*map_style.marker_size);
-        return marker;
+/// Return the (lng, lat) and text to show in the popup, given the current
+/// record list and the lng and lat coordinates of the click.
+fn get_hovertext(
+    filtered_records: Rc<RefCell<Vec<common::Location>>>,
+    lng: f64,
+    lat: f64,
+) -> ((f64, f64), String) {
+    let local_offset = time::UtcOffset::current_local_offset().unwrap();
+    let distances: Vec<_> = filtered_records
+        .borrow()
+        .iter()
+        .map(|loc| (loc.lat - lat).abs() + (loc.lon - lng).abs())
+        .collect();
+    let mut argmin = 0;
+    // assume the records being plotted have at least one element
+    let mut min_distance = distances[0];
+    for (i, d) in distances.iter().enumerate() {
+        if *d < min_distance {
+            min_distance = *d;
+            argmin = i;
+        }
     }
-    // Coloring based on data, using a colormap
-    let colorvec = maps::Colorvec(
-        locations
-            .iter()
-            .map(|x| map_style.colored_datastream.get_stream(x))
-            .collect::<Vec<_>>(),
-    );
-    let mut marker = Marker::new()
-        .color(colorvec)
-        .auto_color_scale(false) // don't use plotly's default color scale
-        .show_scale(true) // show the colorbar
-        .opacity(map_style.solid_color.a)
-        .size(*map_style.marker_size);
-    let colorbar = maps::map_colorbar().title(
-        plotly::common::Title::new(&map_style.colored_datastream.to_string())
-            .side(plotly::common::Side::Top),
-    );
-    if *map_style.colored_datastream == ColoredDataStream::Course {
-        // special case for circular cmap
-        marker = marker
-            .color_scale(cmaps::twilight_plotly())
-            .cmin(0.0)
-            .cmax(360.0)
-            .color_bar(colorbar.dtick(90.0));
-    } else {
-        marker = marker
-            .color_scale(cmaps::plasma_plotly())
-            .color_bar(colorbar);
-    }
-    marker
+    let loc = &filtered_records.borrow()[argmin];
+    (
+        (loc.lon, loc.lat),
+        format!(
+            "{:.6}°, {:.6}°\
+        <br>+/-{:.2} m, {:.2} m/s, {:.2}°\
+        <br>{}",
+            loc.lat,
+            loc.lon,
+            loc.accuracy,
+            loc.speed,
+            loc.course,
+            loc.datetime
+                .to_offset(local_offset)
+                .format(&time::format_description::well_known::Rfc2822)
+                .unwrap()
+        ),
+    )
 }

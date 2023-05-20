@@ -1,6 +1,5 @@
 //! Component for configuring location logging settings.
 
-use std::fmt;
 use std::str::FromStr;
 
 use web_sys::{HtmlInputElement, HtmlSelectElement};
@@ -8,43 +7,25 @@ use yew::prelude::*;
 use yew_icons::{Icon, IconId};
 use yewdux::prelude::*;
 
-use crate::common::LocationAccuracyMode;
 use crate::components::{SELECT_STYLE, TOGGLE_SWITCH_STYLE};
 use crate::swift_poke;
 use crate::ui_state::UIState;
 use crate::websocket::{ToBack, WebsocketService};
+use common::{LocationAccuracyMode, LocationMode};
 
-// TODO: switch to using serde for string seralization/deserialization
-static ACCURACY_MODE_STRINGS: [(LocationAccuracyMode, &str); 5] = [
-    (LocationAccuracyMode::Best, "Best"),
-    (LocationAccuracyMode::TenMeters, "10 m"),
-    (LocationAccuracyMode::HundredMeters, "100 m"),
-    (LocationAccuracyMode::Kilometer, "1 km"),
-    (LocationAccuracyMode::ThreeKilometers, "3 km"),
+static ACCURACY_MODES: [LocationAccuracyMode; 5] = [
+    LocationAccuracyMode::Best,
+    LocationAccuracyMode::TenMeters,
+    LocationAccuracyMode::HundredMeters,
+    LocationAccuracyMode::Kilometer,
+    LocationAccuracyMode::ThreeKilometers,
 ];
 
-impl fmt::Display for LocationAccuracyMode {
-    /// Allows us to use `.to_string()`
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let item = ACCURACY_MODE_STRINGS.iter().find(|x| x.0 == *self).unwrap();
-        write!(f, "{}", item.1)
-    }
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub struct ParseSelectElemError;
-
-impl std::str::FromStr for LocationAccuracyMode {
-    type Err = ParseSelectElemError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let item = ACCURACY_MODE_STRINGS
-            .iter()
-            .find(|x| x.1 == s)
-            .ok_or(ParseSelectElemError)?;
-        Ok(item.0)
-    }
-}
+static LOCATION_MODES: [LocationMode; 3] = [
+    LocationMode::Auto,
+    LocationMode::Standard,
+    LocationMode::SignificantChanges,
+];
 
 /// Configure location manager settings
 ///
@@ -56,28 +37,31 @@ pub fn LocationConfigurator() -> Html {
     let dispatch = Dispatch::<UIState>::new();
     let config = use_selector(|s: &UIState| s.location_config.clone());
 
+    // convenient aliases for the modes that are selected
+    let standard_mode = config.standard_on();
+
     // enable/disable location
     let enabled_on_click = {
         let wss = wss.clone();
         dispatch.reduce_mut_callback(move |s: &mut UIState| {
-            s.location_config.standard_location =
-                !s.location_config.standard_location;
+            s.location_config.enabled = !s.location_config.enabled;
             wss.send_msg(ToBack::SetLocationConfig(s.location_config.clone()));
             swift_poke::poke(); // notify swift to get new value from backend
         })
     };
 
-    // enable/disable significant changes mode
-    let sigchange_on_click = {
+    // location mode
+    let mode_onchange = {
         let wss = wss.clone();
-        dispatch.reduce_mut_callback(move |s: &mut UIState| {
-            s.location_config.significant_changes =
-                !s.location_config.significant_changes;
+        dispatch.reduce_mut_callback_with(move |s: &mut UIState, e: Event| {
+            let elem: HtmlSelectElement = e.target_dyn_into().unwrap();
+            let val: &str = &elem.value();
+            let new_mode = LocationMode::from_str(val).unwrap();
+            s.location_config.mode = new_mode;
             wss.send_msg(ToBack::SetLocationConfig(s.location_config.clone()));
             swift_poke::poke();
         })
     };
-
     // accuracy mode
     let accuracy_mode_onchange = {
         let wss = wss.clone();
@@ -85,25 +69,38 @@ pub fn LocationConfigurator() -> Html {
             let elem: HtmlSelectElement = e.target_dyn_into().unwrap();
             let val: &str = &elem.value();
             let new_mode = LocationAccuracyMode::from_str(val).unwrap();
-            s.location_config.accuracy_mode = new_mode;
+            s.location_config.standard_config.accuracy_mode = new_mode;
             wss.send_msg(ToBack::SetLocationConfig(s.location_config.clone()));
             swift_poke::poke();
         })
     };
-    let accuracy_mode_options = ACCURACY_MODE_STRINGS.iter().map(|x| {
-        html! { <option> {x.1.to_string()} </option> }
+    let mode_options = LOCATION_MODES.iter().map(|x| {
+        html! { <option> {x.to_string()} </option> }
+    });
+    let accuracy_mode_options = ACCURACY_MODES.iter().map(|x| {
+        html! { <option> {x.to_string()} </option> }
     });
     // Need to manually set which option is selected in select element in order
     // to do so programmatically (e.g. when we get an updated state)
-    let select_node_ref = use_node_ref();
+    let accuracy_select_node_ref = use_node_ref();
+    let mode_select_node_ref = use_node_ref();
     {
-        let select_node_ref = select_node_ref.clone();
+        let accuracy_select_node_ref = accuracy_select_node_ref.clone();
+        let mode_select_node_ref = mode_select_node_ref.clone();
         use_effect_with_deps(
-            move |mode| {
-                let elem = select_node_ref.cast::<HtmlSelectElement>().unwrap();
+            move |(mode, accurace_mode)| {
+                let elem =
+                    mode_select_node_ref.cast::<HtmlSelectElement>().unwrap();
                 elem.set_value(&(mode.to_string()));
+                if standard_mode {
+                    let elem = accuracy_select_node_ref
+                        .cast::<HtmlSelectElement>()
+                        .unwrap();
+                    elem.set_value(&(accurace_mode.to_string()));
+                }
             },
-            config.accuracy_mode, // update whenever accuracy_mode changes
+            // update when these change
+            (config.mode.clone(), config.standard_config.accuracy_mode),
         )
     };
 
@@ -111,7 +108,7 @@ pub fn LocationConfigurator() -> Html {
         dispatch.reduce_mut_callback_with(move |s: &mut UIState, e: Event| {
             let elem: HtmlInputElement = e.target_dyn_into().unwrap();
             if let Ok(val) = elem.value().parse::<f32>() {
-                s.location_config.distance_filter = val;
+                s.location_config.standard_config.distance_filter = val;
                 wss.send_msg(ToBack::SetLocationConfig(
                     s.location_config.clone(),
                 ));
@@ -148,88 +145,82 @@ pub fn LocationConfigurator() -> Html {
             // settings line
             <div class="flex items-center justify-between py-2 \
                 border-b border-neutral-800">
-                <label for="standard_location">
-                    {"Standard Location"}
+                <label for="enable">
+                    {"Location Logging"}
                 </label>
                 // need to wrap the toggle switch with this div or the dot won't
                 // scroll with the content
                 // h-min wasn't working so height is hardcoded to the switch
                 // height of 6
                 <div class="relative ml-4 mr-1 h-6">
-                <input type="checkbox" id="standard_location"
-                    checked={config.standard_location}
+                <input type="checkbox" id="enable"
+                    checked={config.enabled}
                     onclick={enabled_on_click}
-                    class={TOGGLE_SWITCH_STYLE}
-                    // disable if significant changes is on and standard
-                    // location is off changes is off (this way it can be turned
-                    // off if state is bad)
-                    disabled={config.significant_changes
-                                && !config.standard_location} />
+                    class={TOGGLE_SWITCH_STYLE} />
                 </div>
             </div>
-            <div class="flex items-center justify-between py-2 \
-                border-b border-neutral-800">
-                <label for="accuracy_mode">{"Accuracy"}</label>
-                <select onchange={accuracy_mode_onchange} id="accuracy_mode"
-                    ref={select_node_ref}
+            <div class={format!("flex items-center justify-between py-2 {}",
+                if standard_mode {"border-b border-neutral-800" } else {""} )}>
+                <label for="location_mode">{"Mode"}</label>
+                <select onchange={mode_onchange} id="location_mode"
+                    ref={mode_select_node_ref}
                     class={format!("ml-4 {}", SELECT_STYLE)}>
-                    {for accuracy_mode_options}
+                    {for mode_options}
                 </select>
             </div>
-            <div class="flex items-center justify-between py-2">
-                <label for="distance_filter">{"Distance Filter"}</label>
-                <div>
-                    <input onchange={dist_filt_onchange} id="distance_filter"
-                        placeholder={format!("{:.2}", config.distance_filter)}
-                        class="ml-4 w-16 rounded bg-black \
-                        border border-neutral-700 \
-                        placeholder:text-neutral-500" />
-                    <span class="mx-1">{"m"}</span>
+            if standard_mode {
+                <div class="flex items-center justify-between py-2 \
+                    border-b border-neutral-800">
+                    <label for="accuracy_mode">{"Accuracy"}</label>
+                    <select onchange={accuracy_mode_onchange} id="accuracy_mode"
+                        ref={accuracy_select_node_ref}
+                        class={format!("ml-4 {}", SELECT_STYLE)}>
+                        {for accuracy_mode_options}
+                    </select>
                 </div>
-            </div>
+                <div class="flex items-center justify-between py-2">
+                    <label for="distance_filter">{"Distance Filter"}</label>
+                    <div>
+                        <input onchange={dist_filt_onchange}
+                            id="distance_filter"
+                            placeholder={format!("{:.2}",
+                                config.standard_config.distance_filter)}
+                            class="ml-4 w-16 rounded bg-black \
+                            border border-neutral-700 \
+                            placeholder:text-neutral-500" />
+                        <span class="mx-1">{"m"}</span>
+                    </div>
+                </div>
+            }
         </div>
 
         // help tips
-        if *show_help {
+        if *show_help && config.auto_on() {
             <p class="text-neutral-500 text-left px-2 pt-1">
-                {"Standard location mode continuously records location
-                data. Setting a worse accuracy level (larger distance)
-                sacrifices accuracy for more efficient power use."}
+                {"Automatic mode continuously records location data, balancing
+                battery drain with data accuracy. It logs lower accuracy
+                location data while stationary, and high accuracy data while
+                moving."}
+            </p>
+        } else if *show_help && standard_mode {
+            <p class="text-neutral-500 text-left px-2 pt-1">
+                {"Standard mode continuously records location data. It gives you
+                more control over the location configuration than auto mode.
+                Setting a worse accuracy level (larger distance) sacrifices
+                accuracy for more efficient power drain."}
             </p>
             <p class="text-neutral-500 text-left px-2 pt-1">
-                {"The distance filter determines how far you must move from your
-                last recorded location before recording new data. Set it to a
-                larger number to record data less often and save device
-                storage space."}
+                {"The distance filter determines how far you must move from
+                your last recorded location before recording new data. Set
+                it to a larger number to record data less often and save
+                device storage space."}
             </p>
-        }
-
-        // settings card
-        <div class="bg-neutral-900 rounded-lg px-4 py-1 mt-2">
-            <div class="flex items-center justify-between py-2">
-                <label for="significant_changes">
-                    {"Significant Changes"}
-                </label>
-                <div class="relative ml-4 mr-1 h-6">
-                <input type="checkbox" id="significant_changes"
-                    checked={config.significant_changes}
-                    onclick={sigchange_on_click}
-                    class={TOGGLE_SWITCH_STYLE}
-                    // disable if standard location is on and significant
-                    // changes is off
-                    disabled={config.standard_location
-                                && !config.significant_changes} />
-                </div>
-            </div>
-        </div>
-
-        // help tips
-        if *show_help {
+        } else if *show_help && config.infrequent_on() {
             <p class="text-neutral-500 text-left px-2 pt-1">
-                {"Significant changes mode records location
-                only when you move a significant distance. It saves more
-                power than the standard location service at the cost of
-                a substantially reduced update rate."}
+                {"Infrequent mode records location only when you move a
+                significant distance, like when you visit a new place. It
+                saves more power than the standard location service at the
+                cost of a substantially reduced update rate."}
             </p>
         }
 

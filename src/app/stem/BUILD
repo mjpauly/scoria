@@ -1,15 +1,42 @@
 load("@rules_rust//rust:defs.bzl", "rust_library", "rust_binary", "rust_test")
 
 
+# static files to bundle into the binary
+static_file_targets = [
+    "//src/app/stem/front:index",
+    "//src/app/stem/front:wasm_file",
+    "//src/app/stem/front:js_file",
+    "//src/app/stem/front:tailwind",
+    "//src/app/stem/front:plotlyjs",
+    "//src/app/stem/front:maplibregl",
+    "//src/app/stem/front:maplibregl_css",
+]
+
+# env var definitions to tell rust compiler where to find the files
+static_file_env_defs = {
+    "INDEX_FILE": "$(location //src/app/stem/front:index)",
+    "WASM_FILE": "$(location //src/app/stem/front:wasm_file)",
+    "JS_FILE": "$(location //src/app/stem/front:js_file)",
+    "TAILWIND_FILE": "$(location //src/app/stem/front:tailwind)",
+    "PLOTLY_FILE": "$(location //src/app/stem/front:plotlyjs)",
+    "MAPLIBRE_FILE": "$(location //src/app/stem/front:maplibregl)",
+    "MAPLIBRE_CSS": "$(location //src/app/stem/front:maplibregl_css)",
+}
+
 rust_library(
     name = "stem",
-    srcs = glob(["back/*.rs"]) + ["//src/app/stem/front:rs/common.rs"],
+    srcs = glob(["back/*.rs"]),
     edition = "2021",
-    compile_data = glob(["migrations/*.sql"]) + [".env", "//:secrets"],
+    compile_data =
+        glob(["migrations/*.sql"])
+        + [".env", "//:secrets"]
+        + static_file_targets,
+    rustc_env = static_file_env_defs,
     proc_macro_deps = [
         "@stem_crate_index//:dotenvy_macro",
     ],
     deps = [
+        ":common",
         ":alloc",
         "@stem_crate_index//:rand",
         "@stem_crate_index//:sqlx",
@@ -19,13 +46,25 @@ rust_library(
         "@stem_crate_index//:actix",
         "@stem_crate_index//:actix-web-actors",
         "@stem_crate_index//:actix-files",
+        "@stem_crate_index//:mime",
         "@stem_crate_index//:serde",
         "@stem_crate_index//:serde_json",
         "@stem_crate_index//:bincode",
-        "@stem_crate_index//:zip",
         "@stem_crate_index//:time",
         "@stem_crate_index//:once_cell",
     ],
+)
+
+# definitions common to both the frontend and the backend
+rust_library(
+    name = "common",
+    srcs = glob(["common/*.rs"]),
+    edition = "2021",
+    deps = [
+        "@stem_crate_index//:serde",
+        "@stem_crate_index//:time",
+    ],
+    visibility = ["//visibility:public"],
 )
 
 # Unit tests embedded within the library.
@@ -33,7 +72,6 @@ rust_test(
     name = "unit_tests",
     crate = ":stem",
     size = "small",  # 20 MB RAM, 1 min timeout
-    data = ["//src/app/stem/front:dist"],
     deps = [
         "@stem_crate_index//:reqwest", # for server health check unit test
     ]
@@ -43,9 +81,9 @@ rust_test(
 rust_test(
     name = "int_tests",
     srcs = glob(["tests/*.rs"]),
-    data = ["//src/app/stem/front:dist"],
     deps = [
         ":stem",
+        ":common",
         "@stem_crate_index//:bincode",
         "@stem_crate_index//:fantoccini",
         "@stem_crate_index//:futures-util",
@@ -64,7 +102,6 @@ rust_binary(
     srcs = ["dev/main.rs"],
     edition = "2021",
     data = [
-        "//src/app/stem/front:dist",
         "db/data.db",
     ],
     deps = [

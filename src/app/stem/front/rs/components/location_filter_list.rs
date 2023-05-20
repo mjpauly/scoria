@@ -21,9 +21,9 @@ use web_sys::{HtmlInputElement, HtmlSelectElement};
 use yew::prelude::*;
 use yew_icons::{Icon, IconId};
 
-use crate::common::Location;
 use crate::components::datastream::{DataStream, DATASTREAM_STRINGS};
 use crate::components::{SELECT_STYLE, TOGGLE_SWITCH_STYLE};
+use common::Location;
 
 /// A filter setting. Determines if data points should be excluded based on
 /// whether the values in DataStream when compared with the threshold using the

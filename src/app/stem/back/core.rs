@@ -10,7 +10,6 @@ use std::fs::OpenOptions;
 use std::io::prelude::*;
 
 use crate::app_state::AppState;
-use crate::common;
 use crate::database;
 use crate::paths::get_documents_dir;
 use crate::ws_session;

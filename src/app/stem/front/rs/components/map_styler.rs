@@ -6,28 +6,21 @@ use std::u8;
 
 use gloo_net::http::Request;
 use obfstr::obfstr;
-use plotly::layout::MapboxStyle;
 use web_sys::{HtmlInputElement, HtmlSelectElement};
 use yew::prelude::*;
 use yewdux::prelude::*;
 
-use crate::common::Location;
 use crate::components::{RANGE_INPUT_STYLE, SELECT_STYLE};
+use crate::float;
+use crate::plots::cmaps::{self, CmapParams};
 use crate::ui_state::UIState;
+use common::Location;
 
 /// Our version derives PartialEq so it can be used in yew hooks
-#[derive(Clone, Debug, Copy, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Rgba {
-    pub r: u8,
-    pub g: u8,
-    pub b: u8,
+    pub rgb: String, // hex code
     pub a: f64,
-}
-
-impl Rgba {
-    pub fn as_plotly(&self) -> plotly::color::Rgba {
-        plotly::color::Rgba::new(self.r, self.g, self.b, self.a)
-    }
 }
 
 // BASEMAP STYLES
@@ -114,33 +107,37 @@ impl BasemapStyle {
         format!("{base_url}/{style}/{style_json}{key}")
     }
 
-    fn get_style(style: &str, use_epsln: bool) -> MapboxStyle {
-        MapboxStyle::Custom(Self::format_tile_url(style, use_epsln))
-    }
-
-    pub fn to_plotly(&self, use_epsln: bool) -> MapboxStyle {
+    pub fn get_url(&self, use_epsln: bool) -> String {
         match self {
-            BasemapStyle::Basic => Self::get_style("basic-v2", use_epsln),
-            BasemapStyle::Dataviz => Self::get_style("dataviz", use_epsln),
-            BasemapStyle::Streets => Self::get_style("streets-v2", use_epsln),
-            BasemapStyle::Topo => Self::get_style("topo-v2", use_epsln),
-            BasemapStyle::Outdoor => Self::get_style("outdoor-v2", use_epsln),
+            BasemapStyle::Basic => Self::format_tile_url("basic-v2", use_epsln),
+            BasemapStyle::Dataviz => {
+                Self::format_tile_url("dataviz", use_epsln)
+            }
+            BasemapStyle::Streets => {
+                Self::format_tile_url("streets-v2", use_epsln)
+            }
+            BasemapStyle::Topo => Self::format_tile_url("topo-v2", use_epsln),
+            BasemapStyle::Outdoor => {
+                Self::format_tile_url("outdoor-v2", use_epsln)
+            }
             BasemapStyle::BasicDark => {
-                Self::get_style("basic-v2-dark", use_epsln)
+                Self::format_tile_url("basic-v2-dark", use_epsln)
             }
             BasemapStyle::DatavizDark => {
-                Self::get_style("dataviz-dark", use_epsln)
+                Self::format_tile_url("dataviz-dark", use_epsln)
             }
             BasemapStyle::StreetsDark => {
-                Self::get_style("streets-v2-dark", use_epsln)
+                Self::format_tile_url("streets-v2-dark", use_epsln)
             }
             BasemapStyle::TopoDark => {
-                Self::get_style("topo-v2-dark", use_epsln)
+                Self::format_tile_url("topo-v2-dark", use_epsln)
             }
             BasemapStyle::OutdoorDark => {
-                Self::get_style("outdoor-v2-dark", use_epsln)
+                Self::format_tile_url("outdoor-v2-dark", use_epsln)
             }
-            BasemapStyle::Satellite => Self::get_style("hybrid", use_epsln),
+            BasemapStyle::Satellite => {
+                Self::format_tile_url("hybrid", use_epsln)
+            }
         }
     }
 }
@@ -185,9 +182,9 @@ pub enum ColoredDataStream {
 
 static DATASTREAM_STRINGS: [(ColoredDataStream, &str); 7] = [
     (ColoredDataStream::None, "None"),
-    (ColoredDataStream::Lat, "Lat"),
-    (ColoredDataStream::Lon, "Lon"),
-    (ColoredDataStream::HorizAccuracy, "HorizAccuracy"),
+    (ColoredDataStream::Lat, "Latitude"),
+    (ColoredDataStream::Lon, "Longitude"),
+    (ColoredDataStream::HorizAccuracy, "Horizontal Accuracy"),
     (ColoredDataStream::Speed, "Speed"),
     (ColoredDataStream::Course, "Course"),
     (ColoredDataStream::Time, "Time"),
@@ -204,6 +201,51 @@ impl ColoredDataStream {
             ColoredDataStream::Speed => loc.speed,
             ColoredDataStream::Course => loc.course,
             ColoredDataStream::Time => loc.datetime.unix_timestamp() as f64,
+        }
+    }
+
+    /// Returns true if the data is to be colormapped
+    pub fn is_some(&self) -> bool {
+        *self != Self::None
+    }
+
+    /// Calculate the cmin and cmax and return colormap the for a datastream
+    /// given a vec of locations
+    pub fn get_cmap_params(&self, records: &[&common::Location]) -> CmapParams {
+        if !self.is_some() {
+            // short circuit
+            return CmapParams {
+                cmin: 0.,
+                cmax: 0.,
+                cmap_arr: &cmaps::PLASMA,
+            };
+        }
+        let colorvals: Vec<_> =
+            records.iter().map(|x| self.get_stream(x)).collect();
+        if *self == ColoredDataStream::Course {
+            CmapParams {
+                cmin: 0.0,
+                cmax: 360.0,
+                cmap_arr: &cmaps::TWILIGHT,
+            }
+        } else {
+            CmapParams {
+                cmin: float::min(&colorvals),
+                cmax: float::max(&colorvals),
+                cmap_arr: &cmaps::PLASMA,
+            }
+        }
+    }
+
+    pub fn name_with_unit(&self) -> String {
+        match *self {
+            ColoredDataStream::None => format!("{}", self),
+            ColoredDataStream::Time => format!("{}", self),
+            ColoredDataStream::Lat => format!("{} (deg)", self),
+            ColoredDataStream::Lon => format!("{} (deg)", self),
+            ColoredDataStream::HorizAccuracy => format!("{} (m)", self),
+            ColoredDataStream::Speed => format!("{} (m/s)", self),
+            ColoredDataStream::Course => format!("{} (deg)", self),
         }
     }
 }
@@ -241,6 +283,7 @@ impl std::str::FromStr for ColoredDataStream {
 pub struct MapStyle {
     pub solid_color: UseStateHandle<Rgba>,
     pub marker_size: UseStateHandle<usize>,
+    pub line_size: UseStateHandle<usize>,
     pub basemap_style: UseStateHandle<BasemapStyle>,
     pub colored_datastream: UseStateHandle<ColoredDataStream>,
     // pub colorscale: ... // solid, viridis, inferno, etc
@@ -258,6 +301,7 @@ pub fn MapStyler(
             MapStyle {
                 solid_color,
                 marker_size,
+                line_size,
                 basemap_style,
                 colored_datastream,
             },
@@ -266,13 +310,10 @@ pub fn MapStyler(
     let color_onchange = {
         let solid_color = solid_color.clone();
         Callback::from(move |e: Event| {
-            log::debug!("color onchange");
             let elem: HtmlInputElement = e.target_dyn_into().unwrap();
             let val: &str = &elem.value();
             let new_color = Rgba {
-                r: u8::from_str_radix(&val[1..3], 16).unwrap(),
-                g: u8::from_str_radix(&val[3..5], 16).unwrap(),
-                b: u8::from_str_radix(&val[5..7], 16).unwrap(),
+                rgb: String::from(val),
                 ..*solid_color // preserve alpha
             };
             solid_color.set(new_color);
@@ -286,17 +327,25 @@ pub fn MapStyler(
             let new_opacity = val.to_string().parse::<f64>().unwrap();
             let new_color = Rgba {
                 a: new_opacity,
-                ..*solid_color // other color values
+                ..(*solid_color).clone() // other color values
             };
             solid_color.set(new_color);
         })
     };
-    let size_onchange = {
+    let marker_size_onchange = {
         let marker_size = marker_size.clone();
         Callback::from(move |e: Event| {
             let elem: HtmlInputElement = e.target_dyn_into().unwrap();
             let val: &str = &elem.value();
             marker_size.set(val.to_string().parse().unwrap());
+        })
+    };
+    let line_size_onchange = {
+        let line_size = line_size.clone();
+        Callback::from(move |e: Event| {
+            let elem: HtmlInputElement = e.target_dyn_into().unwrap();
+            let val: &str = &elem.value();
+            line_size.set(val.to_string().parse().unwrap());
         })
     };
     let basemap_onchange = {
@@ -316,11 +365,6 @@ pub fn MapStyler(
         })
     };
 
-    // html formatting
-    let color_string = format!(
-        "#{:02x}{:02x}{:02x}",
-        solid_color.r, solid_color.g, solid_color.b
-    );
     let basemap_options = BASEMAP_STRINGS.iter().map(|x| {
         html! {
             <option selected={x.0 == **basemap_style}>
@@ -348,12 +392,20 @@ pub fn MapStyler(
                     onchange={opacity_onchange} />
             </div>
             <div class="flex items-center justify-between h-8">
-                <label for="marker_size">{"Marker Size"}</label>
+                <label for="marker_size">{"Circle Radius"}</label>
                 <input type="range" id="marker_size"
                     value={format!("{}", **marker_size)}
-                    min="1" max="20"
+                    min="0" max="10"
                     class={format!("m-1 ml-6 {}", RANGE_INPUT_STYLE)}
-                    onchange={size_onchange} />
+                    onchange={marker_size_onchange} />
+            </div>
+            <div class="flex items-center justify-between h-8">
+                <label for="line_size">{"Line Width"}</label>
+                <input type="range" id="line_size"
+                    value={format!("{}", **line_size)}
+                    min="0" max="10"
+                    class={format!("m-1 ml-6 {}", RANGE_INPUT_STYLE)}
+                    onchange={line_size_onchange} />
             </div>
             <div class="flex items-center justify-between">
                 <label for="basemap">{"Basemap Style"}</label>
@@ -372,7 +424,8 @@ pub fn MapStyler(
             if **colored_datastream == ColoredDataStream::None {
                 <div class="flex items-center justify-between">
                     <label for="marker_color">{"Marker Color"}</label>
-                    <input type="color" id="marker_color" value={color_string}
+                    <input type="color" id="marker_color"
+                        value={solid_color.rgb.clone()}
                         class="m-1 ml-6 bg-neutral-800"
                         onchange={color_onchange} />
                 </div>

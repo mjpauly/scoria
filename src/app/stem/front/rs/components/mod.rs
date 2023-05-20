@@ -1,5 +1,6 @@
 //! Module for components that are to be reused throughout the design.
 
+pub mod colorbar;
 pub mod datastream;
 pub mod location_config;
 pub mod location_filter_list;
@@ -7,6 +8,7 @@ pub mod map_styler;
 pub mod navbar;
 pub mod time_range_picker;
 
+pub use colorbar::Colorbar;
 pub use location_config::LocationConfigurator;
 pub use location_filter_list::LocationFilterList;
 pub use map_styler::MapStyler;

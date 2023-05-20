@@ -1,7 +1,10 @@
 //! Integration tests for the backend's interface (Swift-facing and frontend-
 //! facing).
 
-use stem::common::{Location, LocationConfig, TimeRange, ToBack, ToFront};
+use common::{
+    Location, LocationAccuracyMode, LocationConfig, StandardLocationConfig,
+    TimeRange, ToBack, ToFront,
+};
 
 use crate::setup;
 
@@ -78,7 +81,10 @@ async fn set_location_config_changes_backend_state_impl() {
     let (mut write, _read) = ws_stream.split();
 
     let new_config = LocationConfig {
-        distance_filter: 4.0,
+        standard_config: StandardLocationConfig {
+            distance_filter: 4.0,
+            accuracy_mode: LocationAccuracyMode::Best,
+        },
         ..Default::default()
     };
     let msg = ToBack::SetLocationConfig(new_config.clone());

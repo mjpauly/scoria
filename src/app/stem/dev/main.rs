@@ -49,19 +49,23 @@ async fn data_generator() {
     // let co = lon + 0.001;
     let mut vx = 0.;
     let mut vy = 0.;
+    let mut i = 0;
     loop {
-        sleep(Duration::from_millis(1000)).await;
+        if i > 60 {
+            sleep(Duration::from_millis(1000)).await;
+        }
+        i += 1;
         vx += (random::<f64>() - 0.5) / 10000.0;
         vy += (random::<f64>() - 0.5) / 10000.0;
         // vx = (lat - ca) * -1. / 10.;
         // vy = (lon - co) / 10.;
-        lon = ((lon + vx) + 180.0) % 360.0 - 180.0;
-        lat = ((lat + vy) + 90.0) % 180.0 - 90.0;
+        lon = ((lon + vx) + 180.0).rem_euclid(360.0) - 180.0;
+        lat = ((lat + vy) + 90.0).rem_euclid(180.0) - 90.0;
         stem::core::log_location(
             lat,
             lon,
-            random::<f64>() * 5.0,            // accuracy
-            (vx * vx + vy * vy).sqrt(),       // speed
+            random::<f64>() * 3.0 + 2.0, // accuracy
+            (vx * vx + vy * vy).sqrt(),  // speed
             180. - vy.atan2(vx).to_degrees(), // course
             time::OffsetDateTime::now_utc().unix_timestamp(),
         )

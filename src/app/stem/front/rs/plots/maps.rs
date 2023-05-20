@@ -8,24 +8,35 @@ use plotly::{
     Layout, Plot, ScatterMapbox,
 };
 
-use crate::common;
+use crate::plots::plotly_binds::MapboxRelayoutData;
 
 /// Generate a map of data points and return the plot
 pub fn map_plot(
     records: Vec<&common::Location>,
     marker: Marker,
     mapbox_style: MapboxStyle,
+    relayout_data: Option<MapboxRelayoutData>,
 ) -> plotly::Plot {
     let lats: Vec<_> = records.iter().map(|x| x.lat).collect();
     let lons: Vec<_> = records.iter().map(|x| x.lon).collect();
 
-    let (lat_center, lon_center, zoom);
+    let (lat_center, lon_center, zoom, bearing, pitch);
+    if let Some(data) = relayout_data {
+        (lat_center, lon_center, zoom, bearing, pitch) = (
+            data.center.lat,
+            data.center.lon,
+            data.zoom.round() as u8,
+            data.bearing,
+            data.pitch,
+        );
+    } else {
+        // new plot: calculate where to put the center and zoom
+        (lat_center, lon_center, zoom, bearing, pitch) =
+            get_view_params(&lats, &lons);
+    }
     let mut trace = if !records.is_empty() {
-        // calculate where to put the center
-        (lat_center, lon_center, zoom) = get_center_and_zoom(&lats, &lons);
         ScatterMapbox::new(lats, lons)
     } else {
-        (lat_center, lon_center, zoom) = (0., 0., 0);
         // If we don't have a data point, mapbox-gl-js complains about "there is
         // already a source with this ID"
         ScatterMapbox::new(vec![0.], vec![0.])
@@ -43,7 +54,9 @@ pub fn map_plot(
             Mapbox::new()
                 .style(mapbox_style)
                 .center(Center::new(lat_center, lon_center))
-                .zoom(zoom),
+                .zoom(zoom)
+                .bearing(bearing)
+                .pitch(pitch),
         );
     let config = Configuration::new()
         .responsive(true)
@@ -135,7 +148,10 @@ fn float_max(vals: &[f64]) -> f64 {
 
 /// Recenter a map. Make sure there is at least one data point in the vectors
 /// when calling this.
-fn get_center_and_zoom(lats: &[f64], lons: &[f64]) -> (f64, f64, u8) {
+fn get_view_params(lats: &[f64], lons: &[f64]) -> (f64, f64, u8, f64, f64) {
+    if lats.is_empty() {
+        return (0., 0., 0, 0., 0.);
+    }
     let lat_center = (float_max(lats) + float_min(lats)) / 2.;
     let lon_center = (float_max(lons) + float_min(lons)) / 2.;
     let lat_range = float_max(lats) - float_min(lats);
@@ -150,5 +166,5 @@ fn get_center_and_zoom(lats: &[f64], lons: &[f64]) -> (f64, f64, u8) {
     let mut zoom = zoom.floor() - 1.;
     zoom = zoom.clamp(0., 16.);
     let zoom = zoom as u8;
-    (lat_center, lon_center, zoom)
+    (lat_center, lon_center, zoom, 0., 0.)
 }

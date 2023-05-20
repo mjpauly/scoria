@@ -128,7 +128,7 @@ use wasm_bindgen_futures::spawn_local;
 use yew::functional::{hook, use_context, use_effect_with_deps};
 
 // Re-export the message types
-pub use crate::common::{ToBack, ToFront};
+pub use common::{ToBack, ToFront};
 
 /// Subscribe to backend events.
 ///

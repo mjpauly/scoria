@@ -5,8 +5,8 @@ use time::macros::format_description;
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
 
-use crate::common::TimeRange;
 use crate::components::{DATETIME_INPUT_STYLE, SECONDARY_BUTTON_STYLE};
+use common::TimeRange;
 
 #[derive(Properties, PartialEq)]
 pub struct TimeRangePickerProps {
@@ -24,23 +24,25 @@ pub fn TimeRangePicker(
         let time_range = time_range.clone();
         Callback::from(move |e: Event| {
             let start_elem: HtmlInputElement = e.target_dyn_into().unwrap();
-            let val = parse_datetime_input(&start_elem.value());
-            time_range.set(TimeRange {
-                start: val,
-                ..*time_range
-            });
+            if let Ok(val) = parse_datetime_input(&start_elem.value()) {
+                time_range.set(TimeRange {
+                    start: val,
+                    ..*time_range
+                });
+            }
         })
     };
     let end_onchange = {
         let time_range = time_range.clone();
         Callback::from(move |e: Event| {
             let end_elem: HtmlInputElement = e.target_dyn_into().unwrap();
-            let val = parse_datetime_input(&end_elem.value())
-                + time::Duration::seconds(59); // get all data in the minute
-            time_range.set(TimeRange {
-                end: val,
-                ..*time_range
-            });
+            if let Ok(val) = parse_datetime_input(&end_elem.value()) {
+                time_range.set(TimeRange {
+                    // get all data in the minute
+                    end: val + time::Duration::seconds(59),
+                    ..*time_range
+                });
+            }
         })
     };
 
@@ -98,12 +100,13 @@ pub fn TimeRangePicker(
 }
 
 /// Parse the datetime received from a type="datetime-local" html input.
-fn parse_datetime_input(val: &str) -> time::OffsetDateTime {
+fn parse_datetime_input(
+    val: &str,
+) -> Result<time::OffsetDateTime, time::error::Parse> {
     let format = format_description!("[year]-[month]-[day]T[hour]:[minute]");
     let local_offset = time::UtcOffset::current_local_offset().unwrap();
-    time::PrimitiveDateTime::parse(val, &format)
-        .unwrap()
-        .assume_offset(local_offset)
+    Ok(time::PrimitiveDateTime::parse(val, &format)?
+        .assume_offset(local_offset))
 }
 
 /// Get a time range for today up until now

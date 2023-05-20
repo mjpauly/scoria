@@ -2,13 +2,23 @@
 
 ## To Do
 
+- maplibre
+    - [x] initial investigation
+    - [x] update basemap
+    - [x] re-center button
+    - [x] colorbar
+    - [x] (performance) async map updating on new data
+    - [x] data point popup on click
+    - [ ] more clickable data points
+- [ ] 5m window for going to low accuracy in auto mode
+- bite-sized features
+    - [ ] all time button
+    - [ ] quick time update buttons
+- [ ] lines between points
+- [ ] fully persist ui state, have plot reset button
+- [ ] app intoduction/tutorial on first install
 - map usability / configurability
     - [ ] persist selection for export + queries
-- location settings
-    - [ ] auto mode (switch between modes based on movement)
-- [ ] refactor common code into its own module
-- [ ] conditionally compile logging code
-- [ ] have maps_ok respond with 204 No Content instead of 404
 - [ ] ability to export log
 - [ ] log required: altitude, isProducedByAccessory, and isSimulatedBySoftware;
     floor, verticalAccuracy, speedAccuracy, courseAccuracy
@@ -18,11 +28,18 @@
     - [ ] app usage metadata (when app launched, quit, foregrounded, backgrounded)
     - [ ] data viewership (what map data viewed and when)
     - [ ] battery charge (to correlate with location mode) [ref](https://stackoverflow.com/questions/27475506/check-battery-level-ios-swift)
-- [ ] construct plotly plots with serde_json's Map and Value directly, to avoid
-    limitations of having to define everything up front ([ref](https://stackoverflow.com/questions/59047280/how-to-build-json-arrays-or-objects-dynamically-with-serde-json))
 - [ ] ability to set preferred units
-- [ ] get feedback with test flight
+- [ ] more up-to-date satellite imagery
+- website
+    - [ ] landing page
+    - [ ] privacy policy
 - [ ] publish to app store
+
+- [ ] conditionally compile logging code
+- [ ] have maps_ok respond with 204 No Content instead of 404
+- [ ] maybe construct plotly plots with serde_json's Map and Value directly, to
+        avoid limitations of having to define everything up front
+        ([ref](https://stackoverflow.com/questions/59047280/how-to-build-json-arrays-or-objects-dynamically-with-serde-json))
 
 - later features
     - sensing: environmental noise
@@ -83,6 +100,10 @@
 - [x] persists certain app state values across app launches
 - [x] local plotly instead of hitting cdn every app load
 - [x] show data values when clicking on map
+- [x] submit first app to testflight
+- [x] auto location mode (switch between modes based on movement)
+- [x] preserve user zoom/pan/tilt/rotate when restyling plot
+- [x] refactor common code into its own module
 
 ## Structure
 
@@ -299,7 +320,7 @@ developer.apple.com.
     4b. Distribution: `bazel build //:iosapp --ios_multi_cpus=arm64 --device_debug_entitlements=false --define profile=distribution`
 5. Locate the `.ipa` archive in `bazel-bin/src/app/ios/top/Epsilon.ipa`.
 6. Install/upload the app
-    6a. Developemnt: Go to Xcode -> devices and simulators -> [your device] -> `+`
-        -> archive file
+    6a. Developemnt: Go to Xcode -> devices and simulators -> [your device] ->
+        `+` -> archive file
     6b. Distribution: Drag the archive into the Transporter app to upload to App
         Store Connect.

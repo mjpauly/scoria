@@ -144,14 +144,12 @@ crates_repository(
         "actix-files": crate.spec(
             version = "0.6.2",
         ),
+        "mime": crate.spec(version = "0.3.17"),
         "serde": crate.spec(
             version = "1.0.152",
         ),
         "bincode": crate.spec(version = "1.3.3"),
         "once_cell": crate.spec(version = "1.17.1"),
-        "zip": crate.spec(
-            version = "0.6.4",
-        ),
 
         # frontend
         "dotenvy_macro": crate.spec(version = "0.15.7",),
@@ -165,6 +163,7 @@ crates_repository(
             features = ["wasm"],
         ),
         "serde_json": crate.spec(version = "1.0.94",),
+        "serde-wasm-bindgen": crate.spec(version = "0.5.0",),
         "uom": crate.spec(version = "0.34.0"),
         "yew": crate.spec(
             version = "0.20.0",
@@ -196,7 +195,8 @@ crates_repository(
             version = "0.3.60",
             features = [
                 "Performance", "Window", "HtmlInputElement", "Location",
-                "HtmlSelectElement",
+                "HtmlSelectElement", "Document", "Element", "CssStyleSheet",
+                "StyleSheetList", "CssRuleList",
             ],
         ),
         "log": crate.spec(
@@ -210,6 +210,7 @@ crates_repository(
             # git = "https://github.com/mjpauly/yew_icons",
             # branch = "main",
             features = [
+                "BootstrapBoundingBoxCircles",
                 "BootstrapBrush",
                 "BootstrapCalendarRange",
                 "BootstrapExclamationTriangle",
@@ -225,6 +226,7 @@ crates_repository(
                 "BootstrapSoundwave",
                 "BootstrapTools",
                 "BootstrapXCircle",
+                "FontAwesomeSolidLocationArrow",
             ],
         ),
         # Unresolved bug if we upgrade to wasm-bindgen 0.2.84, probably because
@@ -271,20 +273,6 @@ rust_analyzer_dependencies()
 
 # ==============================================================================
 
-# packaging rules for bundling the UI
-http_archive(
-    name = "rules_pkg",
-    urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/rules_pkg/releases/download/0.8.1/rules_pkg-0.8.1.tar.gz",
-        "https://github.com/bazelbuild/rules_pkg/releases/download/0.8.1/rules_pkg-0.8.1.tar.gz",
-    ],
-    sha256 = "8c20f74bca25d2d442b327ae26768c02cf3c99e93fad0381f32be9aab1967675",
-)
-load("@rules_pkg//:deps.bzl", "rules_pkg_dependencies")
-rules_pkg_dependencies()
-
-# ==============================================================================
-
 # nodejs rules for tailwindcss
 
 http_archive(
@@ -307,3 +295,20 @@ yarn_install(
     yarn_lock = "//src/app/stem/front:yarn.lock",
     frozen_lockfile = False,
 )
+
+# === Skylib === #
+
+# provides convenience rules like select_file
+
+http_archive(
+    name = "bazel_skylib",
+    sha256 = "b8a1527901774180afc798aeb28c4634bdccf19c4d98e7bdd1ce79d1fe9aaad7",
+    urls = [
+        "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/releases/download/1.4.1/bazel-skylib-1.4.1.tar.gz",
+        "https://github.com/bazelbuild/bazel-skylib/releases/download/1.4.1/bazel-skylib-1.4.1.tar.gz",
+    ],
+)
+
+load("@bazel_skylib//:workspace.bzl", "bazel_skylib_workspace")
+
+bazel_skylib_workspace()

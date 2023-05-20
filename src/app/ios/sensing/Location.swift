@@ -11,16 +11,20 @@ class MyLocationManager: NSObject, CLLocationManagerDelegate, ObservableObject {
         super.init()
         
         locationManager.delegate = self
-        setLocationEnabled()
-        setSignificantChanges()
-        setAccuracyMode()
-        setDistanceFilter()
+        updateConfig()
     }
     
     // If myLocationManager is stored as a global variable, it is lazily initialized.
     // `touch` does an access so that it becomes initialized.
     func touch() {
         print_and_log(s: "Initializing location manager")
+    }
+    
+    func updateConfig() {
+        setLocationEnabled()
+        setSignificantChanges()
+        setAccuracyMode()
+        setDistanceFilter()
     }
     
     func requestPermissions() {
@@ -34,7 +38,7 @@ class MyLocationManager: NSObject, CLLocationManagerDelegate, ObservableObject {
     // enable/disable location updating in general
     func setLocationEnabled() {
         let should_enable_location = get_location_enabled()
-        print_and_log(s: "setting location enabled to \(should_enable_location)")
+        //print_and_log(s: "setting location enabled to \(should_enable_location)")
         if should_enable_location {
             requestPermissions()
             locationManager.startUpdatingLocation()
@@ -46,7 +50,7 @@ class MyLocationManager: NSObject, CLLocationManagerDelegate, ObservableObject {
     // enable/disable the significant location changes service
     func setSignificantChanges() {
         let should_enable_slc = get_significant_changes()
-        print_and_log(s: "setting enable significant change mode to \(should_enable_slc)")
+        //print_and_log(s: "setting enable significant change mode to \(should_enable_slc)")
         if should_enable_slc {
             requestPermissions()
             locationManager.startMonitoringSignificantLocationChanges()
@@ -58,7 +62,7 @@ class MyLocationManager: NSObject, CLLocationManagerDelegate, ObservableObject {
     // Set the minimum distance in meters the device must move horizontally before an update event is generated.
     func setDistanceFilter() {
         let dist_filt = get_distance_filter()
-        print_and_log(s: "setting dist filt to \(dist_filt)")
+        //print_and_log(s: "setting dist filt to \(dist_filt)")
         locationManager.distanceFilter = CLLocationDistance(dist_filt)
     }
 
@@ -75,7 +79,7 @@ class MyLocationManager: NSObject, CLLocationManagerDelegate, ObservableObject {
         default:
             converted = kCLLocationAccuracyBest
         }
-        print_and_log(s: "setting accuracy to \(converted)")
+        //print_and_log(s: "setting accuracy to \(converted)")
         locationManager.desiredAccuracy = converted
     }
     
@@ -93,6 +97,28 @@ class MyLocationManager: NSObject, CLLocationManagerDelegate, ObservableObject {
             newLocation.course,
             Int(round(newLocation.timestamp.timeIntervalSince1970))
         )
+        updateConfig()
+        // Spawn an async task which will check if we should change auto modes after a minute
+        // This is important in case the device suddenly stops, and we want to lower the
+        // accuracy level to match the lack of movement.
+        Task.detached {
+            await self.updateConfigAfterOneMinute()
+        }
         
+    }
+    
+    // Waits one minute then calls checks if we should update the accuracy config
+    func updateConfigAfterOneMinute() async {
+        // let startTime = DispatchTime.now()
+        do {
+            try await Task.sleep(nanoseconds: 1_000_000_000 * 60) // one minute
+        } catch {
+            print_and_log(s: "failed to sleep")
+        }
+        // let endTime = DispatchTime.now()
+        // let elapsedTime = endTime.uptimeNanoseconds - startTime.uptimeNanoseconds
+        // let elapsedTimeInSeconds = Double(elapsedTime) / 1_000_000_000
+        // print_and_log(s: "checking location config after \(elapsedTimeInSeconds) seconds")
+        updateConfig()
     }
 }
