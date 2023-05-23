@@ -24,7 +24,7 @@ use sqlx::SqlitePool;
 use crate::core::{log_with_dir, print_and_log};
 use crate::paths::{get_library_dir, Paths};
 use crate::ws_session;
-use common::LocationConfig;
+use common::{BackState, FrontState};
 
 /// File where persistent state is stored (joined to library_dir)
 static STATE_FNAME: &str = "persistent_state.json";
@@ -47,14 +47,18 @@ pub struct AppState {
     // Need an async-aware mutex if we are to await server shutdown with it held
     pub server_handle: tokio::sync::Mutex<Option<ServerHandle>>,
 
+    // State persisted between app launches. It is almost exactly the same as
+    // the UI state.
     pub persistent: Mutex<PersistentState>,
 }
 
-/// State that is persisted across app launches.
+/// State that is persisted across app launches. Consists of two components that
+/// are driven by the frontend and the backend respectively
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Default)]
 #[serde(default)]
 pub struct PersistentState {
-    pub location_config: LocationConfig,
+    pub front: FrontState,
+    pub back: BackState,
 }
 
 impl AppState {
@@ -147,8 +151,8 @@ mod tests {
     };
 
     use super::{
-        fs, AppState, LocationConfig, OpenOptions, PersistentState, Write,
-        STATE_FNAME,
+        fs, AppState, BackState, FrontState, OpenOptions, PersistentState,
+        Write, STATE_FNAME,
     };
 
     #[tokio::test]
@@ -174,14 +178,21 @@ mod tests {
         let state_file = paths.library_dir.clone().join(STATE_FNAME);
 
         let state = PersistentState {
-            location_config: LocationConfig {
-                enabled: true,
-                mode: LocationMode::Standard,
-                standard_config: StandardLocationConfig {
-                    accuracy_mode: LocationAccuracyMode::TenMeters,
-                    distance_filter: 4.0,
+            front: FrontState {
+                location_config: common::UserConfig {
+                    enabled: true,
+                    mode: LocationMode::Standard,
+                    standard_config: StandardLocationConfig {
+                        accuracy_mode: LocationAccuracyMode::TenMeters,
+                        distance_filter: 4.0,
+                    },
                 },
-                auto_config: AutoConfig::default(),
+                use_epsln_tile_server: false,
+            },
+            back: BackState {
+                last_location: None,
+                locations_past_hour: None,
+                auto_location_config: AutoConfig::default(),
             },
         };
         let contents = serde_json::to_string(&state).unwrap();

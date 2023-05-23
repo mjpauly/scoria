@@ -13,7 +13,7 @@ use yewdux::prelude::*;
 use crate::components::{RANGE_INPUT_STYLE, SELECT_STYLE};
 use crate::float;
 use crate::plots::cmaps::{self, CmapParams};
-use crate::ui_state::UIState;
+use crate::ui_state::FrontState;
 use common::Location;
 
 /// Our version derives PartialEq so it can be used in yew hooks
@@ -62,18 +62,19 @@ static BASEMAP_STRINGS: [(BasemapStyle, &str); 11] = [
 /// frontend state to get tiles from it.
 #[hook]
 pub fn use_check_epsln_tile_server() {
-    let dispatch = Dispatch::<UIState>::new();
+    let dispatch = Dispatch::<FrontState>::new();
     yew::platform::spawn_local(async move {
         let result = Request::get(obfstr!("https://api.epsln.com/maps_ok"))
             .send()
             .await;
         if let Ok(resp) = result {
-            dispatch.reduce_mut(|s: &mut UIState| {
+            dispatch.reduce_mut(|s: &mut FrontState| {
                 s.use_epsln_tile_server = resp.status() == 200
             });
         } else {
-            dispatch
-                .reduce_mut(|s: &mut UIState| s.use_epsln_tile_server = false);
+            dispatch.reduce_mut(|s: &mut FrontState| {
+                s.use_epsln_tile_server = false
+            });
         }
     });
 }

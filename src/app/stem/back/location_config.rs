@@ -25,8 +25,8 @@
 use crate::app_state::AppState;
 use crate::core::print_and_log;
 use crate::database;
-use crate::ws_session::MsgToFront;
-use common::{AutoConfig, LocationAccuracyMode, LocationConfig, ToFront};
+use crate::ws_session;
+use common::{AllLocationConfig, AutoConfig, LocationAccuracyMode};
 
 static THRESHOLD: i32 = 6;
 static HYSTERESIS: i32 = 1;
@@ -56,12 +56,12 @@ pub extern "C" fn get_location_accuracy_mode() -> LocationAccuracyMode {
 /// starts moving, and the reverse when they're stationary.
 async fn update_auto_location_config() {
     let config = get_location_config();
-    if !config.auto_on() {
+    if !config.user.auto_on() {
         // Not in auto mode, don't bother updating
         return;
     }
     if config.auto_standard_on()
-        && config.auto_config.standard_config.accuracy_mode
+        && config.auto.standard_config.accuracy_mode
             == LocationAccuracyMode::Best
     {
         // High accuracy mode -> see if we're stopped and should switch to a low
@@ -78,7 +78,7 @@ async fn update_auto_location_config() {
             set_auto_accuracy(LocationAccuracyMode::HundredMeters);
         }
     } else if config.auto_standard_on()
-        && config.auto_config.standard_config.accuracy_mode
+        && config.auto.standard_config.accuracy_mode
             == LocationAccuracyMode::HundredMeters
     {
         // Lower accuracy mode -> maybe go to higher accuracy
@@ -99,19 +99,32 @@ async fn update_auto_location_config() {
             .persistent
             .lock()
             .unwrap()
-            .location_config
-            .auto_config = AutoConfig::default()
+            .back
+            .auto_location_config = AutoConfig::default()
     }
 }
 
 /// Get a cloned copy of the current location config
-fn get_location_config() -> LocationConfig {
-    AppState::global()
+fn get_location_config() -> AllLocationConfig {
+    // Don't try to acquire the same lock twice in the same expression!
+    let user_config = AppState::global()
         .persistent
         .lock()
         .unwrap()
+        .front
         .location_config
-        .clone()
+        .clone();
+    let auto_config = AppState::global()
+        .persistent
+        .lock()
+        .unwrap()
+        .back
+        .auto_location_config
+        .clone();
+    AllLocationConfig {
+        user: user_config,
+        auto: auto_config,
+    }
 }
 
 /// Set the accuracy mode of the standard mode config for auto
@@ -120,8 +133,8 @@ fn set_auto_accuracy(accuracy_mode: LocationAccuracyMode) {
         .persistent
         .lock()
         .unwrap()
-        .location_config
-        .auto_config
+        .back
+        .auto_location_config
         .standard_config
         .accuracy_mode = accuracy_mode;
 
@@ -132,12 +145,6 @@ fn set_auto_accuracy(accuracy_mode: LocationAccuracyMode) {
     // (remember: no locks in `if let` scrutinee!)
     let maybe_addr = AppState::global().ws_addr.lock().unwrap().clone();
     if let Some(addr) = maybe_addr {
-        let location_config = AppState::global()
-            .persistent
-            .lock()
-            .unwrap()
-            .location_config
-            .clone();
-        addr.do_send(MsgToFront(ToFront::LocationConfig(location_config)));
+        addr.do_send(ws_session::SendState);
     }
 }

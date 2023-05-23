@@ -28,7 +28,6 @@ mod websocket;
 use yew::prelude::*;
 use yew_router::prelude::*;
 
-use ui_state::UIState;
 use websocket::WebsocketService;
 
 /// Top level App component for the UI.
@@ -40,9 +39,11 @@ pub fn App() -> Html {
     // Create an id for this function component to associate our callback with
     let id = use_memo(|_| uuid::Uuid::new_v4(), ());
     // Register the app state update callback first ahead of all children
-    wss.subscribe(*id, UIState::get_update_callback());
+    wss.subscribe(*id, ui_state::get_update_callback());
     // Spawn a future that regularly requests updated state info from backend
     wss.clone().spawn_state_requester();
+    // Notify backend whenever the UI state changes
+    ui_state::init_backend_listener(wss.clone());
 
     html! {
         // default parent style for the UI which pages inherit

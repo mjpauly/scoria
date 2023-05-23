@@ -2,20 +2,12 @@
 
 ## To Do
 
-- maplibre
-    - [x] initial investigation
-    - [x] update basemap
-    - [x] re-center button
-    - [x] colorbar
-    - [x] (performance) async map updating on new data
-    - [x] data point popup on click
-    - [ ] more clickable data points
 - [ ] 5m window for going to low accuracy in auto mode
 - bite-sized features
     - [ ] all time button
     - [ ] quick time update buttons
-- [ ] lines between points
 - [ ] fully persist ui state, have plot reset button
+- [ ] create geojson in backend, serve via url
 - [ ] app intoduction/tutorial on first install
 - map usability / configurability
     - [ ] persist selection for export + queries
@@ -104,6 +96,15 @@
 - [x] auto location mode (switch between modes based on movement)
 - [x] preserve user zoom/pan/tilt/rotate when restyling plot
 - [x] refactor common code into its own module
+- maplibre
+    - [x] initial investigation
+    - [x] update basemap
+    - [x] re-center button
+    - [x] colorbar
+    - [x] (performance) async map updating on new data
+    - [x] data point popup on click
+    - [x] more clickable data points
+- [x] lines between points
 
 ## Structure
 
@@ -200,8 +201,9 @@ bazel run //:iosapp
 
 Navigate to `src/app/stem` and run `ibazel run :dev`.
 
-Then open `localhost:8081` in a browser. In Firefox, the responsive web design
-mode lets you change the page aspect ratio to that of a phone (opt-cmd-M).
+Then open `localhost:8081/123` in a browser. In Firefox, the responsive web
+design mode lets you change the page aspect ratio to that of a phone
+(opt-cmd-M).
 
 ### Generate the Xcode Project
 

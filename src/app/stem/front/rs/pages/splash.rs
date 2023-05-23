@@ -16,7 +16,7 @@ pub fn Splash() -> Html {
     let next = Route::Sense { scope };
     let on_get_state = {
         move |msg: &ToFront| {
-            if let ToFront::LocationsPastHour(_) = msg {
+            if let ToFront::FrontState(_) = msg {
                 navigator.push(&next);
             }
         }

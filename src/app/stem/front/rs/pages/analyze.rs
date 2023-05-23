@@ -21,7 +21,7 @@ use crate::components::{
 };
 use crate::plots::maplibre;
 use crate::plots::maplibre::ViewPosition;
-use crate::ui_state::UIState;
+use crate::ui_state::{BackState, FrontState};
 use crate::websocket::{
     use_backend_event_with_deps, ToBack, ToFront, WebsocketService,
 };
@@ -291,7 +291,7 @@ fn PlotComponent(
     // === Initial Map === //
 
     let use_epsln_tile_server =
-        use_selector(|s: &UIState| s.use_epsln_tile_server);
+        use_selector(|s: &FrontState| s.use_epsln_tile_server);
 
     let plot_id = "map-div";
     let map_initialized = use_state(|| false);
@@ -433,7 +433,8 @@ fn PlotComponent(
         })
     };
 
-    let last_loc = use_selector(|state: &UIState| state.last_location.clone());
+    let last_loc =
+        use_selector(|state: &BackState| state.last_location.clone());
     let flytome_onclick = {
         // let map = map.clone();
         Callback::from(move |_e: MouseEvent| {

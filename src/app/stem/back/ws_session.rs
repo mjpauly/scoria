@@ -72,18 +72,15 @@ impl WsSession {
     fn handle_msg(&self, msg: ToBack, ctx: &mut ws::WebsocketContext<Self>) {
         // dbg!(msg.clone());
         match msg {
-            ToBack::GetState => {
-                self.send_state(ctx);
+            ToBack::GetFrontState => {
+                self.send_front_state(ctx);
             }
-            ToBack::SetLocationConfig(val) => {
-                AppState::global()
-                    .persistent
-                    .lock()
-                    .unwrap()
-                    .location_config = val.clone();
-                // re-broadcast the new state in case other components are
-                // listening for it
-                self.send_msg(ToFront::LocationConfig(val), ctx);
+            ToBack::GetBackState => {
+                self.send_back_state(ctx);
+            }
+            ToBack::SetFrontState(val) => {
+                AppState::global().persistent.lock().unwrap().front = val;
+                AppState::save_to_file();
             }
             ToBack::GetLocationTimeRange(time_range) => {
                 self.send_location_time_range(ctx, time_range);
@@ -99,34 +96,44 @@ impl WsSession {
     }
 
     /// Sends all UI state values, used at startup.
-    fn send_state(&self, ctx: &mut ws::WebsocketContext<Self>) {
-        let location_config = AppState::global()
-            .persistent
-            .lock()
-            .unwrap()
-            .location_config
-            .clone();
-        self.send_msg(ToFront::LocationConfig(location_config), ctx);
-
+    fn send_back_state(&self, ctx: &mut ws::WebsocketContext<Self>) {
         // need a future to query the database, so we convert the future
         // into an actor which communicates back to ourselves with the
         // message to send to the frontend (or something like that, see
         // the SO thread linked in the docstring for more)
         let recipient = ctx.address().recipient();
         let fut = async move {
+            // update the last location and number of records in the past hour
             let rec = database::get_last_record().await;
-            if let Some(val) = rec {
-                recipient.do_send(MsgToFront(ToFront::LastLocation(val)));
-            }
+            AppState::global()
+                .persistent
+                .lock()
+                .unwrap()
+                .back
+                .last_location = rec;
+            let n = database::count_records_past_hour().await;
+            AppState::global()
+                .persistent
+                .lock()
+                .unwrap()
+                .back
+                .locations_past_hour = Some(n);
+            // clone the state and send it
+            let back =
+                AppState::global().persistent.lock().unwrap().back.clone();
+            recipient.do_send(MsgToFront(ToFront::BackState(back)));
         };
         fut.into_actor(self).spawn(ctx);
+    }
 
-        // Send num updates in past hour
+    /// Sends all UI state values, used at startup.
+    fn send_front_state(&self, ctx: &mut ws::WebsocketContext<Self>) {
         let recipient = ctx.address().recipient();
         let fut = async move {
-            // let rec = database::get_last_record().await;
-            let count = database::count_records_past_hour().await;
-            recipient.do_send(MsgToFront(ToFront::LocationsPastHour(count)));
+            // clone the state and send it
+            let front =
+                AppState::global().persistent.lock().unwrap().front.clone();
+            recipient.do_send(MsgToFront(ToFront::FrontState(front)));
         };
         fut.into_actor(self).spawn(ctx);
     }
@@ -148,6 +155,7 @@ impl WsSession {
     }
 }
 
+/// Send a particular message to the frontend.
 #[derive(Message)]
 #[rtype(result = "()")]
 pub struct MsgToFront(pub ToFront);
@@ -157,6 +165,19 @@ impl Handler<MsgToFront> for WsSession {
 
     fn handle(&mut self, msg: MsgToFront, ctx: &mut Self::Context) {
         self.send_msg(msg.0, ctx);
+    }
+}
+
+/// Message to indicate that a new BackState should be sent to the frontend
+#[derive(Message)]
+#[rtype(result = "()")]
+pub struct SendState;
+
+impl Handler<SendState> for WsSession {
+    type Result = ();
+
+    fn handle(&mut self, _msg: SendState, ctx: &mut Self::Context) {
+        self.send_back_state(ctx);
     }
 }
 

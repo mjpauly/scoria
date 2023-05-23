@@ -13,7 +13,7 @@ use crate::components::{
     map_styler::use_check_epsln_tile_server, LocationConfigurator,
     NavbarWrapper,
 };
-use crate::ui_state::UIState;
+use crate::ui_state::{BackState, FrontState};
 use common::LocationMode;
 
 #[function_component]
@@ -52,10 +52,13 @@ fn Location() -> Html {
 /// recently.
 #[function_component]
 fn LocationDetails() -> Html {
-    let last_loc = use_selector(|state: &UIState| state.last_location.clone());
+    let last_loc =
+        use_selector(|state: &BackState| state.last_location.clone());
     let locs_per_hour =
-        use_selector(|state: &UIState| state.locations_past_hour);
-    let config = use_selector(|s: &UIState| s.location_config.clone());
+        use_selector(|state: &BackState| state.locations_past_hour);
+    let user_config = use_selector(|s: &FrontState| s.location_config.clone());
+    let auto_config =
+        use_selector(|s: &BackState| s.auto_location_config.clone());
 
     // Update the current state of `now` every second, so things update even if
     // there's no new data coming from the backend
@@ -111,9 +114,9 @@ fn LocationDetails() -> Html {
             } else {
                 <p class="mb-4"> {"No previous location data found."} </p>
             }
-            if config.mode == LocationMode::Auto {
+            if user_config.mode == LocationMode::Auto {
                 <p class="mb-4"> {format!("Auto mode accuracy: {}",
-                    config.auto_config.standard_config.accuracy_mode)}
+                    auto_config.standard_config.accuracy_mode)}
                 </p>
             }
         </>

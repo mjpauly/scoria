@@ -2,8 +2,8 @@
 //! facing).
 
 use common::{
-    Location, LocationAccuracyMode, LocationConfig, StandardLocationConfig,
-    TimeRange, ToBack, ToFront,
+    FrontState, Location, LocationAccuracyMode, StandardLocationConfig,
+    TimeRange, ToBack, ToFront, UserConfig,
 };
 
 use crate::setup;
@@ -80,14 +80,18 @@ async fn set_location_config_changes_backend_state_impl() {
     let (ws_stream, _) = connect_async(url).await.expect("Failed to connect");
     let (mut write, _read) = ws_stream.split();
 
-    let new_config = LocationConfig {
-        standard_config: StandardLocationConfig {
-            distance_filter: 4.0,
-            accuracy_mode: LocationAccuracyMode::Best,
+    // let new_config = UserConfig {
+    let front_state = FrontState {
+        location_config: UserConfig {
+            standard_config: StandardLocationConfig {
+                distance_filter: 4.0,
+                accuracy_mode: LocationAccuracyMode::Best,
+            },
+            ..Default::default()
         },
         ..Default::default()
     };
-    let msg = ToBack::SetLocationConfig(new_config.clone());
+    let msg = ToBack::SetFrontState(front_state.clone());
     let encoded = bincode::serialize(&msg).unwrap();
     write.send(Message::binary(encoded)).await.unwrap();
 
@@ -98,9 +102,9 @@ async fn set_location_config_changes_backend_state_impl() {
         .persistent
         .lock()
         .unwrap()
-        .location_config
+        .front
         .clone();
-    assert_eq!(new_config, persisted);
+    assert_eq!(front_state, persisted);
 }
 
 async fn backend_sends_state_when_requested_impl() {
@@ -111,9 +115,10 @@ async fn backend_sends_state_when_requested_impl() {
     // first let's store a location
     stem::core::log_location(0., 1., 2., 3., 4., 100).await;
 
-    let msg = ToBack::GetState;
-    let encoded = bincode::serialize(&msg).unwrap();
-    write.send(Message::binary(encoded)).await.unwrap();
+    for msg in [ToBack::GetFrontState, ToBack::GetBackState] {
+        let encoded = bincode::serialize(&msg).unwrap();
+        write.send(Message::binary(encoded)).await.unwrap();
+    }
 
     let mut messages = Vec::new();
     for _ in 0..3 {
@@ -126,14 +131,12 @@ async fn backend_sends_state_when_requested_impl() {
     // We find the message within the vector since the order is not guaranteed.
     messages
         .iter()
-        .position(|x| matches!(*x, ToFront::LocationConfig(_)))
-        .expect("Did not receive LocationConfig state");
+        .position(|x| matches!(*x, ToFront::FrontState(_)))
+        .expect("Did not receive FrontState");
     messages
         .iter()
-        .position(|x| matches!(*x, ToFront::LocationsPastHour(_)))
-        .expect("Did not receive LocationsPastHour state");
-    // We expect to have received a LastLocation since the test
-    // log_location_sends_data_to_ui runs before this one
+        .position(|x| matches!(*x, ToFront::BackState(_)))
+        .expect("Did not receive BackState");
     messages
         .iter()
         .position(|x| matches!(*x, ToFront::LastLocation(_)))

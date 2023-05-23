@@ -32,6 +32,7 @@ pub async fn log_location(
     let maybe_addr = AppState::global().ws_addr.lock().unwrap().clone();
     // If the UI is active, we'll send it the new location to display
     if let Some(addr) = maybe_addr {
+        addr.do_send(ws_session::SendState);
         let datetime =
             time::OffsetDateTime::from_unix_timestamp(datetime_epoch).unwrap();
         let loc = common::Location {
@@ -45,12 +46,6 @@ pub async fn log_location(
         addr.do_send(ws_session::MsgToFront(common::ToFront::LastLocation(
             loc,
         )));
-        // We'll also send the number of data points that have been recorded
-        // in the past hour
-        let count = database::count_records_past_hour().await;
-        addr.do_send(ws_session::MsgToFront(
-            common::ToFront::LocationsPastHour(count),
-        ));
     }
 }
 
