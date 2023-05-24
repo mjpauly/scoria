@@ -1,18 +1,21 @@
 //! Colorbar component for location data
 
+use std::rc::Rc;
+
 use yew::prelude::*;
 
-use crate::components::location_filter_list::{apply_filters, Filter};
-use crate::components::map_styler::ColoredDataStream;
+use crate::components::map_styler::get_cmap_params;
 use crate::plots::cmaps;
 use crate::plots::maplibre::async_yield;
+use common::filters::{apply_filters, Filter};
+use common::map_style::ColoredDataStream;
 use common::Location;
 
 #[derive(Properties, PartialEq)]
 pub struct ColorbarProps {
     pub records: UseStateHandle<Vec<Location>>,
-    pub filters: UseStateHandle<Vec<Filter>>,
-    pub colored_datastream: UseStateHandle<ColoredDataStream>,
+    pub filters: Rc<Vec<Filter>>,
+    pub colored_datastream: ColoredDataStream,
 }
 
 #[function_component]
@@ -35,7 +38,8 @@ pub fn Colorbar(
                 async_yield().await;
                 let recs = apply_filters(&filters, &records);
                 async_yield().await;
-                let mut cmap_params = colored_datastream.get_cmap_params(&recs);
+                let mut cmap_params =
+                    get_cmap_params(&colored_datastream, &recs);
                 async_yield().await;
                 // Need to handle the case where all data has the same value
                 // In this case the binary_search_by using partial_cmp will
@@ -59,7 +63,7 @@ pub fn Colorbar(
                         )
                         .side(plotly::common::Side::Top),
                     );
-                if *colored_datastream == ColoredDataStream::Course {
+                if colored_datastream == ColoredDataStream::Course {
                     colorbar = colorbar
                         .tick_vals(vec![0., 90., 180., 270., 360.])
                         .tick_text(vec!["N", "E", "S", "W", "N"]);

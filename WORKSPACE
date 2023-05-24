@@ -177,7 +177,7 @@ crates_repository(
         "time": crate.spec(
             version = "0.3.20",
             features = ["local-offset", "wasm-bindgen", "formatting", "parsing",
-                        "serde",
+                        "serde", "std",
             ],
         ),
         "futures": crate.spec(version = "0.3.26"),

@@ -17,7 +17,7 @@ pub enum ToBack {
 /// Messages from the backend to the frontend
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum ToFront {
-    FrontState(FrontState),
+    FrontState(Option<FrontState>),
     BackState(BackState),
     // Send the last known location for displaying. Used to push new location
     // updates in real time

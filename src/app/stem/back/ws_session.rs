@@ -79,7 +79,7 @@ impl WsSession {
                 self.send_back_state(ctx);
             }
             ToBack::SetFrontState(val) => {
-                AppState::global().persistent.lock().unwrap().front = val;
+                AppState::global().persistent.lock().unwrap().front = Some(val);
                 AppState::save_to_file();
             }
             ToBack::GetLocationTimeRange(time_range) => {

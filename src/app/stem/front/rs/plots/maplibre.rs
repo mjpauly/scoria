@@ -9,9 +9,11 @@ use serde_json::{json, Value};
 use std::time::Duration;
 use wasm_bindgen::{prelude::*, JsCast};
 
-use crate::components::map_styler::{ColoredDataStream, Rgba};
+use crate::components::map_styler::get_cmap_params;
 use crate::float;
 use crate::plots::cmaps;
+use common::map_style::{ColoredDataStream, Rgba};
+use common::view_position::ViewPosition;
 
 #[wasm_bindgen]
 extern "C" {
@@ -99,25 +101,14 @@ static POINTS_LAYER_ID: &str = "points";
 static LINES_SOURCE_ID: &str = "lines";
 static LINES_LAYER_ID: &str = "lines";
 
-#[derive(Debug, Clone, PartialEq, Default)]
-pub struct ViewPosition {
-    pub lng: f64,
-    pub lat: f64,
-    pub zoom: f64,
-    pub bearing: f64,
-    pub pitch: f64,
-}
-
-impl ViewPosition {
-    pub fn from_map(map: &Map) -> Self {
-        let center = map.get_center();
-        Self {
-            lng: center.lng(),
-            lat: center.lat(),
-            zoom: map.get_zoom(),
-            bearing: map.get_bearing(),
-            pitch: map.get_pitch(),
-        }
+pub fn view_pos_from_map(map: &Map) -> ViewPosition {
+    let center = map.get_center();
+    ViewPosition {
+        lng: center.lng(),
+        lat: center.lat(),
+        zoom: map.get_zoom(),
+        bearing: map.get_bearing(),
+        pitch: map.get_pitch(),
     }
 }
 
@@ -206,7 +197,7 @@ pub fn new_map(
     // Notify the yew component of the new view position whenever it changes.
     let on_view_change: Box<dyn Fn()> = {
         let map = map.clone();
-        Box::new(move || on_view_change_callback(ViewPosition::from_map(&map)))
+        Box::new(move || on_view_change_callback(view_pos_from_map(&map)))
     };
     map.on("moveend", &Closure::wrap(on_view_change).into_js_value());
 
@@ -490,7 +481,7 @@ async fn make_geojson_async(
     // log::debug!("make_geojson_async processing {} records", records.len());
     // yield before computing cmap params
     async_yield().await;
-    let cmap_params = colored_datastream.get_cmap_params(records);
+    let cmap_params = get_cmap_params(colored_datastream, records);
 
     // create the keys to properties once
     let keys = ObjKeys {

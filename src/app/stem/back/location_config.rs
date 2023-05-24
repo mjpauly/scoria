@@ -26,6 +26,7 @@ use crate::app_state::AppState;
 use crate::core::print_and_log;
 use crate::database;
 use crate::ws_session;
+use common::UserConfig;
 use common::{AllLocationConfig, AutoConfig, LocationAccuracyMode};
 
 static THRESHOLD: i32 = 6;
@@ -106,14 +107,13 @@ async fn update_auto_location_config() {
 
 /// Get a cloned copy of the current location config
 fn get_location_config() -> AllLocationConfig {
-    // Don't try to acquire the same lock twice in the same expression!
-    let user_config = AppState::global()
-        .persistent
-        .lock()
-        .unwrap()
-        .front
-        .location_config
-        .clone();
+    let front_state =
+        AppState::global().persistent.lock().unwrap().front.clone();
+    let user_config = if let Some(s) = front_state {
+        s.location_config
+    } else {
+        UserConfig::default()
+    };
     let auto_config = AppState::global()
         .persistent
         .lock()

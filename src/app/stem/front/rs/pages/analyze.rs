@@ -7,25 +7,18 @@ use yew_icons::{Icon, IconId};
 use yewdux::prelude::*;
 
 use crate::components::{
-    datastream::DataStream,
-    location_filter_list::{
-        apply_filters, Filter, FilterOp, LocationFilterList,
-    },
-    map_styler::{
-        use_check_epsln_tile_server, BasemapStyle, ColoredDataStream, MapStyle,
-        MapStyler, Rgba,
-    },
-    time_range_picker::time_range_today,
+    location_filter_list::LocationFilterList,
+    map_styler::{get_basemap_url, use_check_epsln_tile_server, MapStyler},
     Colorbar, NavbarWrapper, TimeRangePicker, PRIMARY_BUTTON_STYLE,
     SECONDARY_BUTTON_STYLE,
 };
 use crate::plots::maplibre;
-use crate::plots::maplibre::ViewPosition;
 use crate::ui_state::{BackState, FrontState};
 use crate::websocket::{
     use_backend_event_with_deps, ToBack, ToFront, WebsocketService,
 };
-use common::TimeRange;
+use common::filters::{apply_filters, Filter};
+use common::map_style::ColoredDataStream;
 
 #[function_component]
 pub fn Analyze() -> Html {
@@ -42,27 +35,8 @@ pub fn Analyze() -> Html {
 #[function_component]
 fn AnalyzeLocation() -> Html {
     // Plot configuration values passed to children
-    let time_range = use_state(time_range_today);
-    let map_style = MapStyle {
-        solid_color: use_state(|| Rgba {
-            rgb: String::from("#0a84ff"),
-            a: 1.0,
-        }),
-        marker_size: use_state(|| 3_usize),
-        line_size: use_state(|| 2_usize),
-        basemap_style: use_state(|| BasemapStyle::BasicDark),
-        colored_datastream: use_state(|| ColoredDataStream::None),
-    };
-    let filters = use_state(|| {
-        vec![Filter {
-            id: 0,
-            enabled: false,
-            datastream: DataStream::HorizAccuracy,
-            op: FilterOp::GreaterThan,
-            threshold: 10.0,
-        }]
-    });
-    let view_position = use_state(ViewPosition::default);
+    let map_style = use_selector(|s: &FrontState| s.map.style.clone());
+    let filters = use_selector(|s: &FrontState| s.map.filters.clone());
 
     let settings_tab = use_state(|| SettingsTab::None);
     // Get the number of filters clamped to the range [0, 2], which is where
@@ -72,7 +46,7 @@ fn AnalyzeLocation() -> Html {
     let colored_datastream_is_some = map_style.colored_datastream.is_some();
     // Time is also a special case for now
     let colored_datastream_is_time =
-        *map_style.colored_datastream == ColoredDataStream::Time;
+        map_style.colored_datastream == ColoredDataStream::Time;
 
     // after rerender, trigger the plot's resize handler if the visible settings
     // tab has changed, or if that settings tab's size has changed
@@ -91,20 +65,15 @@ fn AnalyzeLocation() -> Html {
 
     html! {
         <div class="flex flex-col h-full">
-            <PlotComponent
-                time_range={time_range.clone()}
-                map_style={map_style.clone()}
-                filters={filters.clone()}
-                view_position={view_position.clone()}
-            />
+            <PlotComponent />
             if *settings_tab == SettingsTab::MapStyle {
-                <MapStyler map_style={map_style.clone()} />
+                <MapStyler />
             }
             if *settings_tab == SettingsTab::TimeRange {
-                <TimeRangePicker time_range={time_range.clone()} />
+                <TimeRangePicker />
             }
             if *settings_tab == SettingsTab::Filters {
-                <LocationFilterList filters={filters.clone()} />
+                <LocationFilterList />
             }
             <SettingsPicker tab={settings_tab.clone()} />
         </div>
@@ -187,25 +156,15 @@ fn SettingsPicker(SettingsPickerProps { tab }: &SettingsPickerProps) -> Html {
     }
 }
 
-/// Show a plot given a time range of values. Auto updates if new data streamed
-/// from backend falls within the time range.
-#[derive(Properties, PartialEq)]
-struct PlotComponentProps {
-    time_range: UseStateHandle<TimeRange>,
-    map_style: MapStyle,
-    filters: UseStateHandle<Vec<Filter>>,
-    view_position: UseStateHandle<ViewPosition>,
-}
-
 #[function_component]
-fn PlotComponent(
-    PlotComponentProps {
-        time_range,
-        map_style,
-        filters,
-        view_position,
-    }: &PlotComponentProps,
-) -> Html {
+fn PlotComponent() -> Html {
+    // === Plot Settings State === //
+    let time_range = use_selector(|s: &FrontState| s.map.time_range.clone());
+    let map_style = use_selector(|s: &FrontState| s.map.style.clone());
+    let filters = use_selector(|s: &FrontState| s.map.filters.clone());
+    let view_position = use_selector(|s: &FrontState| s.map.view_pos.clone());
+    let front_dispatch = Dispatch::<FrontState>::new();
+
     // === Cache location data === //
 
     // Ask for new location data from backend anytime time_range changes
@@ -240,10 +199,7 @@ fn PlotComponent(
             }
         }
     };
-    use_backend_event_with_deps(
-        on_backend_msg,
-        (records.clone(), time_range.clone()),
-    );
+    use_backend_event_with_deps(on_backend_msg, (records.clone(), time_range));
 
     // === Popup Display Callback === //
 
@@ -296,7 +252,8 @@ fn PlotComponent(
     let plot_id = "map-div";
     let map_initialized = use_state(|| false);
     let map = use_state(|| Option::<Rc<maplibre::Map>>::None);
-    let basemap = map_style.basemap_style.get_url(*use_epsln_tile_server);
+    let basemap =
+        get_basemap_url(&map_style.basemap_style, *use_epsln_tile_server);
 
     // Build the blank map on first render. We don't populate the map with any
     // data, but we do set up the source and layer needed to update the map.
@@ -305,22 +262,22 @@ fn PlotComponent(
         let map_initialized = map_initialized.clone();
         let map_style = map_style.clone();
         let basemap = basemap.clone();
-        let view_position = view_position.clone();
+        // let view_position = view_position.clone();
+        // let front_dispatch = front_dispatch.clone();
         use_effect_with_deps(
             move |_| {
                 let on_load = {
                     let map_initialized = map_initialized.clone();
                     Box::new(move || map_initialized.set(true))
                 };
-                let on_view_change = {
-                    let view_position = view_position.clone();
-                    Box::new(move |data| view_position.set(data))
-                };
+                let on_view_change = Box::new(move |data| {
+                    front_dispatch.reduce_mut(|s| s.map.view_pos = data)
+                });
                 let newmap = maplibre::new_map(
                     plot_id,
                     &basemap,
-                    *map_style.marker_size,
-                    *map_style.line_size,
+                    map_style.marker_size,
+                    map_style.line_size,
                     &map_style.solid_color,
                     &map_style.colored_datastream,
                     &view_position,
@@ -346,7 +303,7 @@ fn PlotComponent(
         use_effect_with_deps(
             move |(records, filters, map_initialized): &(
                 UseStateHandle<Vec<common::Location>>,
-                UseStateHandle<Vec<Filter>>,
+                Rc<Vec<Filter>>,
                 UseStateHandle<bool>,
             )| {
                 if **map_initialized {
@@ -359,8 +316,8 @@ fn PlotComponent(
                         maplibre::update_data(
                             (*map).clone().unwrap(),
                             &recs,
-                            *map_style.marker_size,
-                            *map_style.line_size,
+                            map_style.marker_size,
+                            map_style.line_size,
                             &map_style.colored_datastream,
                         )
                         .await;
@@ -406,8 +363,8 @@ fn PlotComponent(
                             (*map).clone().unwrap(),
                             &recs,
                             &basemap,
-                            *map_style.marker_size,
-                            *map_style.line_size,
+                            map_style.marker_size,
+                            map_style.line_size,
                             &map_style.solid_color,
                             &map_style.colored_datastream,
                             on_style,
@@ -466,9 +423,9 @@ fn PlotComponent(
             </div>
         </div>
         if map_style.colored_datastream.is_some()
-            && *map_style.colored_datastream != ColoredDataStream::Time {
+            && map_style.colored_datastream != ColoredDataStream::Time {
             <Colorbar records={records}
-                filters={filters.clone()}
+                filters={filters}
                 colored_datastream={map_style.colored_datastream.clone()}/>
         }
         </>

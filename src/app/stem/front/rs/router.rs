@@ -1,8 +1,12 @@
 //! Page router. Shows different pages according to the URL extension.
 
-use crate::pages;
 use yew::prelude::*;
 use yew_router::prelude::*;
+use yewdux::prelude::*;
+
+use crate::pages;
+use crate::ui_state::FrontState;
+use common::state::PersistedRoute;
 
 /// The possible routes for our app.
 ///
@@ -31,8 +35,18 @@ pub enum Route {
 }
 
 /// Switches what is displayed based on the route URL.
-pub fn switch(routes: Route) -> Html {
-    match routes {
+pub fn switch(route: Route) -> Html {
+    // save the route in the app state, so it can be retrieved at startup again
+    let persist_route = || {
+        let dispatch = Dispatch::<FrontState>::new();
+        dispatch.reduce_mut(|state| state.route = route.as_persisted_route());
+    };
+    match route {
+        Route::Sense { .. } => persist_route(),
+        Route::Analyze { .. } => persist_route(),
+        _ => (),
+    }
+    match route {
         // Route::Sense => html! { <h1>{ "Home" }</h1> },
         Route::Sense { .. } => html! { <pages::Sense /> },
         Route::Splash { .. } => html! { <pages::Splash /> },
@@ -56,4 +70,26 @@ pub fn get_scope() -> String {
         .next()
         .unwrap()
         .to_string()
+}
+
+/// PersistedRoute defines the route that is persisted between app launches.
+/// Certain routes are not be persisted in the backend (Splash, NotFound,
+/// TestPage).
+impl Route {
+    pub fn from_persisted_route(r: &PersistedRoute) -> Self {
+        let scope = get_scope();
+        match *r {
+            PersistedRoute::Sense => Self::Sense { scope },
+            PersistedRoute::Analyze => Self::Analyze { scope },
+        }
+    }
+
+    fn as_persisted_route(&self) -> PersistedRoute {
+        match self {
+            Route::Sense { .. } => PersistedRoute::Sense,
+            Route::Analyze { .. } => PersistedRoute::Analyze,
+            // should not get here, but if we do, persist Sense
+            _ => PersistedRoute::Sense,
+        }
+    }
 }

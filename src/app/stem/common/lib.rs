@@ -2,10 +2,13 @@
 //!
 //! Messages are serialized with bincode.
 
+pub mod filters;
 pub mod location;
 pub mod location_config;
+pub mod map_style;
 pub mod state;
 pub mod time_range;
+pub mod view_position;
 pub mod ws_messages;
 
 pub use location::Location;

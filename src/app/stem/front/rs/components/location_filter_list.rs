@@ -14,152 +14,76 @@
 //!     - Threshold value
 //!     - Enable/disable toggle switch
 
-use std::fmt;
 use std::str::FromStr;
 
 use web_sys::{HtmlInputElement, HtmlSelectElement};
 use yew::prelude::*;
 use yew_icons::{Icon, IconId};
+use yewdux::prelude::*;
 
-use crate::components::datastream::{DataStream, DATASTREAM_STRINGS};
-use crate::components::{SELECT_STYLE, TOGGLE_SWITCH_STYLE};
-use common::Location;
-
-/// A filter setting. Determines if data points should be excluded based on
-/// whether the values in DataStream when compared with the threshold using the
-/// operator returns true.
-///
-/// E.g. (datastream, op, threshold) of:
-/// (DataStream::HorizAccuracy, FilterOp::GreaterThan, 20.0)
-/// would exclude data where the horizontal accuracy is worse than 20 meters.
-#[derive(Clone, Debug, PartialEq)]
-pub struct Filter {
-    pub id: usize,
-    pub enabled: bool, // quick toggle on/off
-    pub datastream: DataStream,
-    pub op: FilterOp,
-    pub threshold: f64,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum FilterOp {
-    GreaterThan,
-    LessThan,
-    GreatherThanOrEq,
-    LessThanOrEq,
-    IsEq,
-    IsNotEq,
-}
-
-impl Filter {
-    /// Returns true if we should remove the location and false if we should
-    /// keep it.
-    pub fn should_remove(&self, loc: &Location) -> bool {
-        if !self.enabled {
-            // shouldn't remove the location if the filter isn't enabled
-            return false;
-        }
-        let val = self.datastream.get_stream(loc);
-        let threshold = self.threshold;
-        match self.op {
-            FilterOp::GreaterThan => val > threshold,
-            FilterOp::LessThan => val < threshold,
-            FilterOp::GreatherThanOrEq => val >= threshold,
-            FilterOp::LessThanOrEq => val <= threshold,
-            FilterOp::IsEq => val == threshold,
-            FilterOp::IsNotEq => val != threshold,
-        }
-    }
-}
-
-/// Apply a set of filters to a slice of locations. Data is filtered out if ANY
-/// filter condition's `should_remove` method returns true.
-///
-/// Returns a vector since we need to collect the filter or the closure lives
-/// too long.
-pub fn apply_filters<'a>(
-    filters: &[Filter],
-    records: &'a [Location],
-) -> Vec<&'a Location> {
-    records
-        .iter()
-        .filter(|loc| {
-            let mut should_remove = false;
-            for filt in filters {
-                should_remove |= filt.should_remove(loc)
-            }
-            // invert condition, since filter discards on `false`
-            !should_remove
-        })
-        .collect()
-}
-
-#[derive(Properties, PartialEq)]
-pub struct LocationFilterListProps {
-    pub filters: UseStateHandle<Vec<Filter>>,
-}
+use crate::{
+    components::{SELECT_STYLE, TOGGLE_SWITCH_STYLE},
+    ui_state::FrontState,
+};
+use common::filters::{
+    DataStream, Filter, FilterOp, DATASTREAM_STRINGS, OP_STRINGS,
+};
 
 #[function_component]
-pub fn LocationFilterList(
-    LocationFilterListProps { filters }: &LocationFilterListProps,
-) -> Html {
+pub fn LocationFilterList() -> Html {
+    let dispatch = Dispatch::<FrontState>::new();
+    let filters = use_selector(|s: &FrontState| s.map.filters.clone());
     // global add filter button
-    let onremove = {
-        let filters = filters.clone();
-        Callback::from(move |id: usize| {
-            let mut entries = (*filters).clone();
+    let onremove = dispatch.reduce_mut_callback_with(
+        move |s: &mut FrontState, id: usize| {
+            let mut entries = s.map.filters.clone();
             entries.retain(|entry| entry.id != id);
-            filters.set(entries)
-        })
-    };
-    let ontoggle = {
-        let filters = filters.clone();
-        Callback::from(move |id: usize| {
-            let mut entries = (*filters).clone();
+            s.map.filters = entries
+        },
+    );
+    let ontoggle = dispatch.reduce_mut_callback_with(
+        move |s: &mut FrontState, id: usize| {
+            let mut entries = s.map.filters.clone();
             let entry = entries.iter_mut().find(|entry| entry.id == id);
             if let Some(entry) = entry {
                 entry.enabled = !entry.enabled;
             }
-            filters.set(entries);
-        })
-    };
-    let onchange_stream = {
-        let filters = filters.clone();
-        Callback::from(move |(id, datastream): (usize, DataStream)| {
-            let mut entries = (*filters).clone();
+            s.map.filters = entries
+        },
+    );
+    let onchange_stream = dispatch.reduce_mut_callback_with(
+        move |s: &mut FrontState, (id, datastream): (usize, DataStream)| {
+            let mut entries = s.map.filters.clone();
             let entry = entries.iter_mut().find(|entry| entry.id == id);
             if let Some(entry) = entry {
                 entry.datastream = datastream;
             }
-            filters.set(entries);
-        })
-    };
-    let onchange_op = {
-        let filters = filters.clone();
-        Callback::from(move |(id, op): (usize, FilterOp)| {
-            let mut entries = (*filters).clone();
+            s.map.filters = entries
+        },
+    );
+    let onchange_op = dispatch.reduce_mut_callback_with(
+        move |s: &mut FrontState, (id, op): (usize, FilterOp)| {
+            let mut entries = s.map.filters.clone();
             let entry = entries.iter_mut().find(|entry| entry.id == id);
             if let Some(entry) = entry {
                 entry.op = op;
             }
-            filters.set(entries);
-        })
-    };
-    let onchange_threshold = {
-        let filters = filters.clone();
-        Callback::from(move |(id, threshold): (usize, f64)| {
-            let mut entries = (*filters).clone();
+            s.map.filters = entries
+        },
+    );
+    let onchange_threshold = dispatch.reduce_mut_callback_with(
+        move |s: &mut FrontState, (id, threshold): (usize, f64)| {
+            let mut entries = s.map.filters.clone();
             let entry = entries.iter_mut().find(|entry| entry.id == id);
             if let Some(entry) = entry {
                 entry.threshold = threshold;
             }
-            filters.set(entries);
-        })
-    };
-    let onadd = {
-        let filters = filters.clone();
-        move |_| {
-            let mut entries = (*filters).clone();
+            s.map.filters = entries
+        },
+    );
+    let onadd =
+        dispatch.reduce_mut_callback_with(move |s: &mut FrontState, _| {
+            let mut entries = s.map.filters.clone();
             entries.push(Filter {
                 id: entries.last().map(|entry| entry.id + 1).unwrap_or(1),
                 enabled: false,
@@ -167,10 +91,9 @@ pub fn LocationFilterList(
                 op: FilterOp::GreaterThan,
                 threshold: 10.0,
             });
-            filters.set(entries)
-        }
-    };
-    let num_filters = (**filters).len();
+            s.map.filters = entries
+        });
+    let num_filters = (*filters).len();
     let height = if num_filters == 0 {
         "h-[4.5rem]" // 18 tailwind units (16 for item + 2x1 margin)
     } else if num_filters == 1 {
@@ -325,38 +248,5 @@ fn FilterEntry(props: &FilterEntryProps) -> Html {
             </div>
 
         </div>
-    }
-}
-
-static OP_STRINGS: [(FilterOp, &str); 6] = [
-    (FilterOp::GreaterThan, ">"),
-    (FilterOp::LessThan, "<"),
-    (FilterOp::GreatherThanOrEq, "≥"),
-    (FilterOp::LessThanOrEq, "≤"),
-    (FilterOp::IsEq, "="),
-    (FilterOp::IsNotEq, "≠"),
-];
-
-impl fmt::Display for FilterOp {
-    /// Allows us to use `.to_string()` on BasemapStyle
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        // unwrap since we shouldn't fail to find the enum variant
-        let item = OP_STRINGS.iter().find(|x| x.0 == *self).unwrap();
-        write!(f, "{}", item.1)
-    }
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub struct ParseFilterOpError;
-
-impl std::str::FromStr for FilterOp {
-    type Err = ParseFilterOpError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let item = OP_STRINGS
-            .iter()
-            .find(|x| x.1 == s)
-            .ok_or(ParseFilterOpError)?;
-        Ok(item.0.clone())
     }
 }

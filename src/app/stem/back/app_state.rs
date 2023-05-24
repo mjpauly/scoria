@@ -57,7 +57,11 @@ pub struct AppState {
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Default)]
 #[serde(default)]
 pub struct PersistentState {
-    pub front: FrontState,
+    // We let the frontend initialize its state, so it starts out as None in the
+    // backend until it is sent. This is needed since the backend can't derive
+    // certain values, such as a time range that uses the local time zone
+    // offset, due to a security flaw.
+    pub front: Option<FrontState>,
     pub back: BackState,
 }
 
@@ -147,7 +151,8 @@ mod tests {
     use crate::init;
     use crate::local::local_fs_setup;
     use common::{
-        AutoConfig, LocationAccuracyMode, LocationMode, StandardLocationConfig,
+        state::MapState, AutoConfig, LocationAccuracyMode, LocationMode,
+        StandardLocationConfig, TimeRange,
     };
 
     use super::{
@@ -178,7 +183,7 @@ mod tests {
         let state_file = paths.library_dir.clone().join(STATE_FNAME);
 
         let state = PersistentState {
-            front: FrontState {
+            front: Some(FrontState {
                 location_config: common::UserConfig {
                     enabled: true,
                     mode: LocationMode::Standard,
@@ -188,7 +193,17 @@ mod tests {
                     },
                 },
                 use_epsln_tile_server: false,
-            },
+                map: MapState {
+                    time_range: TimeRange {
+                        start: time::OffsetDateTime::now_utc(),
+                        end: time::OffsetDateTime::now_utc(),
+                    },
+                    style: Default::default(),
+                    filters: vec![],
+                    view_pos: Default::default(),
+                },
+                route: Default::default(),
+            }),
             back: BackState {
                 last_location: None,
                 locations_past_hour: None,

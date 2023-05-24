@@ -1,6 +1,7 @@
 //! Integration tests for the backend's interface (Swift-facing and frontend-
 //! facing).
 
+use common::state::MapState;
 use common::{
     FrontState, Location, LocationAccuracyMode, StandardLocationConfig,
     TimeRange, ToBack, ToFront, UserConfig,
@@ -89,7 +90,17 @@ async fn set_location_config_changes_backend_state_impl() {
             },
             ..Default::default()
         },
-        ..Default::default()
+        route: Default::default(),
+        use_epsln_tile_server: Default::default(),
+        map: MapState {
+            time_range: TimeRange {
+                start: time::OffsetDateTime::now_utc(),
+                end: time::OffsetDateTime::now_utc(),
+            },
+            style: Default::default(),
+            filters: vec![],
+            view_pos: Default::default(),
+        },
     };
     let msg = ToBack::SetFrontState(front_state.clone());
     let encoded = bincode::serialize(&msg).unwrap();
@@ -104,7 +115,7 @@ async fn set_location_config_changes_backend_state_impl() {
         .unwrap()
         .front
         .clone();
-    assert_eq!(front_state, persisted);
+    assert_eq!(front_state, persisted.unwrap());
 }
 
 async fn backend_sends_state_when_requested_impl() {

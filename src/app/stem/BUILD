@@ -63,6 +63,7 @@ rust_library(
     deps = [
         "@stem_crate_index//:serde",
         "@stem_crate_index//:time",
+        "@stem_crate_index//:uom",
     ],
     visibility = ["//visibility:public"],
 )
