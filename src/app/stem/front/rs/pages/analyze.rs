@@ -384,7 +384,6 @@ fn PlotComponent() -> Html {
         let records = records.clone();
         let filters = filters.clone();
         Callback::from(move |_e: MouseEvent| {
-            log::debug!("fly to data clicked");
             let recs = apply_filters(&filters, &records);
             maplibre::fly_to_data((*map).clone().unwrap(), &recs)
         })
@@ -395,7 +394,6 @@ fn PlotComponent() -> Html {
     let flytome_onclick = {
         // let map = map.clone();
         Callback::from(move |_e: MouseEvent| {
-            log::debug!("fly to me clicked");
             if let Some(loc) = &*last_loc {
                 maplibre::fly_to(
                     (*map).clone().unwrap(),
@@ -409,18 +407,18 @@ fn PlotComponent() -> Html {
     html! {
         <>
         <div id={plot_id} class="w-screen flex-1 min-h-0 relative z-0">
-            <div onclick={flytodata_onclick}
+            <button onclick={flytodata_onclick}
                 class="p-2 rounded-lg bg-black w-min opacity-50 \
                     absolute bottom-[3.375rem] left-2.5 z-40">
                 <Icon icon_id={IconId::BootstrapBoundingBoxCircles}
                     class="h-6 w-6 text-[#aaaaaa]" />
-            </div>
-            <div onclick={flytome_onclick}
+            </button>
+            <button onclick={flytome_onclick}
                 class="p-2 rounded-lg bg-black w-min opacity-50 \
                     absolute bottom-[6.125rem] left-2.5 z-40">
                 <Icon icon_id={IconId::FontAwesomeSolidLocationArrow}
                     class="h-6 w-6 text-[#aaaaaa]" />
-            </div>
+            </button>
         </div>
         if map_style.colored_datastream.is_some()
             && map_style.colored_datastream != ColoredDataStream::Time {

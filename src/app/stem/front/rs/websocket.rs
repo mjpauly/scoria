@@ -369,7 +369,10 @@ impl WebsocketService {
 
     /// Periodically retrieve state again (particularly num locations past hour)
     pub fn spawn_state_requester(self) {
-        // get the front state once at startup
+        // Get the back and front state at startup. Placing it here speeds up
+        // the access slightly since we don't have to wait for the spawned
+        // future to run
+        self.send_msg(ToBack::GetBackState);
         self.send_msg(ToBack::GetFrontState);
         yew::platform::spawn_local(async move {
             loop {

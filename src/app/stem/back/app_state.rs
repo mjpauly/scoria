@@ -21,7 +21,7 @@ use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 
-use crate::core::{log_with_dir, print_and_log};
+use crate::core::log_with_dir;
 use crate::paths::{get_library_dir, Paths};
 use crate::ws_session;
 use common::{BackState, FrontState};
@@ -105,7 +105,6 @@ impl AppState {
                 Ok(parsed) => {
                     let msg = "Successfully loaded app state from file.";
                     println!("{}", msg);
-                    log_with_dir(msg, &paths.documents_dir);
                     parsed
                 }
                 Err(e) => {
@@ -142,7 +141,6 @@ impl AppState {
             serde_json::to_string(&*Self::global().persistent.lock().unwrap())
                 .unwrap();
         file.write_all(state_str.as_bytes()).unwrap();
-        print_and_log(&format!("Saved app state: {}.", state_str));
     }
 }
 

@@ -6,7 +6,8 @@
 - bite-sized features
     - [ ] all time button
     - [ ] quick time update buttons
-- [ ] fully persist ui state, have plot reset button
+- [x] fully persist ui state
+- [ ] plot reset button
 - [ ] create geojson in backend, serve via url
 - [ ] app intoduction/tutorial on first install
 - map usability / configurability
@@ -326,3 +327,10 @@ developer.apple.com.
         `+` -> archive file
     6b. Distribution: Drag the archive into the Transporter app to upload to App
         Store Connect.
+
+## General Troubleshooting
+
+### Onclick Events Don't Fire on Div Padding
+
+For some reason, on iOS onclick events don't fire when the padding of a div is
+clicked, only the content. This can be fixed by changing the div into a button.
