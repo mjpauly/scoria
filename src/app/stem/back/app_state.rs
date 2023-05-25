@@ -103,8 +103,7 @@ impl AppState {
         let persistent = if let Ok(input) = fs::read_to_string(state_file) {
             match serde_json::from_str(&input) {
                 Ok(parsed) => {
-                    let msg = "Successfully loaded app state from file.";
-                    println!("{}", msg);
+                    println!("Successfully loaded app state: {:?}", parsed);
                     parsed
                 }
                 Err(e) => {

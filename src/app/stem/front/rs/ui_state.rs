@@ -13,10 +13,7 @@ use std::{
     rc::Rc,
 };
 
-use common::{
-    filters::{DataStream, Filter, FilterOp},
-    state::MapState,
-};
+use common::state::MapState;
 use yewdux::prelude::*;
 
 use crate::{
@@ -32,21 +29,14 @@ pub struct FrontState(common::FrontState);
 impl Default for FrontState {
     fn default() -> Self {
         Self(common::FrontState {
-            route: Default::default(),
-            location_config: Default::default(),
-            use_epsln_tile_server: Default::default(),
             map: MapState {
+                // timezone-aware time_range, which is preferred over the
+                // default implementation in common::state, which is a backup
+                // the backend can run if deserialization fails.
                 time_range: time_range_today(),
-                style: Default::default(),
-                filters: vec![Filter {
-                    id: 0,
-                    enabled: false,
-                    datastream: DataStream::HorizAccuracy,
-                    op: FilterOp::GreaterThan,
-                    threshold: 100.0,
-                }],
-                view_pos: Default::default(),
+                ..Default::default()
             },
+            ..Default::default()
         })
     }
 }

@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use crate::Location;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
 pub struct MapStyle {
     pub solid_color: Rgba,
     pub marker_size: usize,

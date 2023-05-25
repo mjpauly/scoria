@@ -7,6 +7,8 @@
     - [ ] all time button
     - [ ] quick time update buttons
 - [x] fully persist ui state
+- [x] investigate serde default
+- [ ] show colormap or not
 - [ ] plot reset button
 - [ ] create geojson in backend, serve via url
 - [ ] app intoduction/tutorial on first install
