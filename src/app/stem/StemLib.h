@@ -39,3 +39,5 @@ bool get_location_enabled(void);
 float get_distance_filter(void);
 bool get_significant_changes(void);
 LocAccuracyMode get_location_accuracy_mode(void);
+
+bool should_share_sqlite_log(void);

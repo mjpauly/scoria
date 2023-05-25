@@ -25,6 +25,9 @@ pub enum Route {
     #[at("/:scope/analyze/")]
     Analyze { scope: String },
 
+    #[at("/:scope/settings/")]
+    Settings { scope: String },
+
     // Test UI edge cases
     #[at("/:scope/test_page/")]
     TestPage { scope: String },
@@ -44,6 +47,7 @@ pub fn switch(route: Route) -> Html {
     match route {
         Route::Sense { .. } => persist_route(),
         Route::Analyze { .. } => persist_route(),
+        Route::Settings { .. } => persist_route(),
         _ => (),
     }
     match route {
@@ -51,6 +55,7 @@ pub fn switch(route: Route) -> Html {
         Route::Sense { .. } => html! { <pages::Sense /> },
         Route::Splash { .. } => html! { <pages::Splash /> },
         Route::Analyze { .. } => html! { <pages::Analyze /> },
+        Route::Settings { .. } => html! { <pages::Settings /> },
         Route::TestPage { .. } => html! { <pages::TestPage /> },
         Route::NotFound { .. } => html! {
                 <h1 class="text-primary text-3xl mb-6 mt-16">
@@ -60,27 +65,29 @@ pub fn switch(route: Route) -> Html {
     }
 }
 
-/// Retrieve the scope from the current url, so that we can pass it to a route.
-pub fn get_scope() -> String {
-    let location = web_sys::window().unwrap().location();
-    let binding = location.pathname().unwrap();
-    binding
-        .trim_matches('/')
-        .split('/')
-        .next()
-        .unwrap()
-        .to_string()
-}
-
 /// PersistedRoute defines the route that is persisted between app launches.
 /// Certain routes are not be persisted in the backend (Splash, NotFound,
 /// TestPage).
 impl Route {
+    /// Retrieve the scope from the current url, so that we can pass it to a
+    /// route.
+    pub fn get_scope() -> String {
+        let location = web_sys::window().unwrap().location();
+        let binding = location.pathname().unwrap();
+        binding
+            .trim_matches('/')
+            .split('/')
+            .next()
+            .unwrap()
+            .to_string()
+    }
+
     pub fn from_persisted_route(r: &PersistedRoute) -> Self {
-        let scope = get_scope();
+        let scope = Self::get_scope();
         match *r {
             PersistedRoute::Sense => Self::Sense { scope },
             PersistedRoute::Analyze => Self::Analyze { scope },
+            PersistedRoute::Settings => Self::Settings { scope },
         }
     }
 
@@ -88,6 +95,7 @@ impl Route {
         match self {
             Route::Sense { .. } => PersistedRoute::Sense,
             Route::Analyze { .. } => PersistedRoute::Analyze,
+            Route::Settings { .. } => PersistedRoute::Settings,
             // should not get here, but if we do, persist Sense
             _ => PersistedRoute::Sense,
         }

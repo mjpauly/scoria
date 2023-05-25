@@ -50,6 +50,8 @@ pub struct AppState {
     // State persisted between app launches. It is almost exactly the same as
     // the UI state.
     pub persistent: Mutex<PersistentState>,
+
+    pub swift_messages: Mutex<SwiftMessages>,
 }
 
 /// State that is persisted across app launches. Consists of two components that
@@ -63,6 +65,13 @@ pub struct PersistentState {
     // offset, due to a security flaw.
     pub front: Option<FrontState>,
     pub back: BackState,
+}
+
+/// Temporary data to communicate to Swift
+#[derive(Debug, Default)]
+pub struct SwiftMessages {
+    // tell swift to share the SQLite log in a share sheet
+    pub should_share_sqlite_log: bool,
 }
 
 impl AppState {
@@ -124,6 +133,7 @@ impl AppState {
                 ws_addr: Mutex::new(None),
                 server_handle: tokio::sync::Mutex::new(None),
                 persistent: Mutex::new(persistent),
+                swift_messages: Mutex::new(Default::default()),
             }))
             .expect("Could not initialize AppState");
     }

@@ -12,6 +12,8 @@ pub enum ToBack {
     // Set a new value for the UI/Persistent State
     SetFrontState(FrontState),
     GetLocationTimeRange(TimeRange),
+
+    ShareSqliteLog,
 }
 
 /// Messages from the backend to the frontend

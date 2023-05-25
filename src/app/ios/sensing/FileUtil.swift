@@ -19,6 +19,41 @@ func shareFile(file: URL) {
     }
 }
 
+func shareFileWithDifferentName(originalURL: URL, desiredFilename: String) {
+    // Create a temporary file URL with the desired filename
+    let temporaryDirectory = FileManager.default.temporaryDirectory
+    let temporaryURL = temporaryDirectory.appendingPathComponent(desiredFilename)
+    
+    do {
+        // Copy the original file to the temporary location with the desired filename
+        try FileManager.default.copyItem(at: originalURL, to: temporaryURL)
+        
+        // Create a sharing activity view controller
+        let activityViewController = UIActivityViewController(activityItems: [temporaryURL], applicationActivities: nil)
+        
+        // Show the share-view
+        // Get the first window from the connectedScenes object
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene {
+            // Get the root view controller of the first window
+            let rootViewController = windowScene.windows.first?.rootViewController
+            
+            // Present the sharing activity view controller
+            rootViewController?.present(activityViewController, animated: true, completion: nil)
+            
+            // Remove the temporary file after sharing is complete
+            activityViewController.completionWithItemsHandler = { _, _, _, _ in
+                do {
+                    try FileManager.default.removeItem(at: temporaryURL)
+                } catch {
+                    print("Error removing temporary file: \(error)")
+                }
+            }
+        }
+    } catch {
+        print("Error copying file: \(error)")
+    }
+}
+
 func getDocumentsDirectory() -> URL {
     // find all possible documents directories for this user
     let paths = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)

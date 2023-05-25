@@ -52,6 +52,7 @@ pub enum PersistedRoute {
     #[default]
     Sense,
     Analyze,
+    Settings,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

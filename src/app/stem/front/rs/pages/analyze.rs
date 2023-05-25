@@ -410,7 +410,7 @@ fn PlotComponent() -> Html {
             <button onclick={flytodata_onclick}
                 class="p-2 rounded-lg bg-black w-min opacity-50 \
                     absolute bottom-[3.375rem] left-2.5 z-40">
-                <Icon icon_id={IconId::BootstrapBoundingBoxCircles}
+                <Icon icon_id={IconId::BootstrapFullscreen}
                     class="h-6 w-6 text-[#aaaaaa]" />
             </button>
             <button onclick={flytome_onclick}

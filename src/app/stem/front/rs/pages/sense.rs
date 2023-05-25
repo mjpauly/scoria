@@ -7,44 +7,56 @@
 // );
 
 use yew::prelude::*;
+use yew_icons::{Icon, IconId};
+use yew_router::prelude::*;
 use yewdux::prelude::*;
 
 use crate::components::{
     map_styler::use_check_epsln_tile_server, LocationConfigurator,
     NavbarWrapper,
 };
+use crate::router::Route;
 use crate::ui_state::{BackState, FrontState};
 use common::LocationMode;
 
 #[function_component]
 pub fn Sense() -> Html {
     use_check_epsln_tile_server();
+    let navigator = use_navigator().unwrap();
+    let settings_onclick = Callback::from(move |_e: MouseEvent| {
+        navigator.push(&Route::Settings {
+            scope: Route::get_scope(),
+        })
+    });
     html! {
-        <>
+        <NavbarWrapper>
+            <button onclick={settings_onclick}
+                class="absolute left-6 top-14 p-2 \
+                rounded-lg bg-neutral-800 text-neutral-200">
+                <Icon icon_id={IconId::BootstrapList} class="h-6 w-6" />
+            </button>
             <Location />
-        </>
+        </NavbarWrapper>
     }
 }
 
 #[function_component]
 fn Location() -> Html {
     html! {
-        <NavbarWrapper>
-            <div class="flex flex-col h-full pt-16">
-                // my-auto: center vertically in the flex (better than
-                //      justify-center, which ALWAYS centers and thus cuts off
-                //      content if it's too big for the container)
-                <div class="my-auto">
-                    <h1 class="text-primary text-3xl mb-6">
-                        {"Location"}
-                    </h1>
+        <div class="flex flex-col h-full pt-16">
+            // my-auto: center vertically in the flex (better than
+            //      justify-center, which ALWAYS centers and thus cuts off
+            //      content if it's too big for the container)
+            <div class="my-auto">
+                <h1 class="text-primary text-3xl mb-6">
+                    {"Location"}
+                </h1>
 
-                    <LocationDetails />
-                    <LocationConfigurator />
+                <LocationDetails />
+                <LocationConfigurator />
 
-                </div>
             </div>
-        </NavbarWrapper>
+        </div>
     }
 }
 

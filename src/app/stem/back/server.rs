@@ -126,6 +126,7 @@ fn build(listener: TcpListener, frontend_key: FrontendKey) -> Server {
                     // redirect those to the routes without the trailing slash
                     .service(web::redirect("/sense/", "../sense"))
                     .service(web::redirect("/analyze/", "../analyze"))
+                    .service(web::redirect("/settings/", "../settings"))
                     .service(web::redirect("/test_page/", "../test_page")),
             )
     })
@@ -145,6 +146,7 @@ async fn health_check() -> impl Responder {
 #[get("/")]
 #[get("/sense")]
 #[get("/analyze")]
+#[get("/settings")]
 #[get("/test_page")]
 async fn index() -> impl Responder {
     HttpResponse::Ok()

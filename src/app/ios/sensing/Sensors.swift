@@ -20,9 +20,11 @@ public func app_shutdown() {
     handle_shutdown()
 }
 
-public func update_sensor_config() {
+// handler for pokes that come from the frontend
+public func handle_poke() {
     // load config from backend since we got poked by the frontend
     myLocationManager.updateConfig()
+    check_share_sqlite_log()
 }
 
 public func print_and_log(s: String) {
@@ -40,4 +42,19 @@ public func handle_foreground() {
     let server_config = handle_enter_foreground()
     server_port = server_config.port
     server_scope = server_config.scope
+}
+
+public func check_share_sqlite_log() {
+    if should_share_sqlite_log() {
+        let db_fname = "data.db"
+        let base = getDocumentsDirectory()
+        let db_url = base.appendingPathComponent(db_fname)
+        
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd_HH-mm-ss"
+        let formattedDateTime = dateFormatter.string(from: Date())
+        let desired_fname = "Epsilon_Export_\(formattedDateTime).sqlite"
+        
+        shareFileWithDifferentName(originalURL: db_url, desiredFilename: desired_fname)
+    }
 }

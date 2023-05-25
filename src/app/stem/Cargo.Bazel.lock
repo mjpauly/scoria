@@ -1,5 +1,5 @@
 {
-  "checksum": "566e29381d38454311a4c46ec320d0ab7b29b707238ac5757e3210c266ab3641",
+  "checksum": "50accf7ceef64266fc64bf4fe956413f1c03afce4caafaebef31d1a74d753673",
   "crates": {
     "actix 0.13.0": {
       "name": "actix",
@@ -17695,21 +17695,17 @@
         ],
         "crate_features": {
           "common": [
-            "BootstrapBoundingBoxCircles",
+            "BootstrapBoxArrowUp",
             "BootstrapBrush",
             "BootstrapCalendarRange",
-            "BootstrapExclamationTriangle",
-            "BootstrapFilter",
+            "BootstrapFullscreen",
             "BootstrapFunnel",
             "BootstrapGlobeAmericas",
-            "BootstrapJournal",
             "BootstrapJournalText",
-            "BootstrapMap",
+            "BootstrapList",
             "BootstrapPlusLg",
             "BootstrapQuestionCircle",
-            "BootstrapSave",
-            "BootstrapSoundwave",
-            "BootstrapTools",
+            "BootstrapX",
             "BootstrapXCircle",
             "FontAwesomeSolidLocationArrow",
             "data_uri",

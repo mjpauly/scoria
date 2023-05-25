@@ -141,6 +141,18 @@ pub extern "C" fn get_location_accuracy_mode() -> common::LocationAccuracyMode {
     location_config::get_location_accuracy_mode()
 }
 
+/// Tell swift to share the SQLite log in a share sheet
+#[no_mangle]
+pub extern "C" fn should_share_sqlite_log() -> bool {
+    let state = app_state::AppState::global();
+    let mut guard = state.swift_messages.lock().unwrap();
+    let should_share = guard.should_share_sqlite_log;
+    // unset the setting if it was true
+    guard.should_share_sqlite_log = false;
+    should_share
+    // drop the lock guard
+}
+
 /// Unit tests for the top-level library interface.
 #[cfg(test)]
 pub mod tests {

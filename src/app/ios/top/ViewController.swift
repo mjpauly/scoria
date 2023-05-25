@@ -74,7 +74,7 @@ extension ViewController: WKScriptMessageHandler{
         }
         
         // pass the poke to the sensing module
-        update_sensor_config()
+        handle_poke()
         
         return
         
