@@ -153,6 +153,16 @@ pub extern "C" fn should_share_sqlite_log() -> bool {
     // drop the lock guard
 }
 
+/// Tell swift to share the SQLite log in a share sheet
+#[no_mangle]
+pub extern "C" fn should_request_when_in_use_authorization() -> bool {
+    let state = app_state::AppState::global();
+    let mut guard = state.swift_messages.lock().unwrap();
+    let should_share = guard.should_request_when_in_use_authorization;
+    guard.should_request_when_in_use_authorization = false;
+    should_share
+}
+
 /// Unit tests for the top-level library interface.
 #[cfg(test)]
 pub mod tests {

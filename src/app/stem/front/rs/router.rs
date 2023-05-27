@@ -28,6 +28,9 @@ pub enum Route {
     #[at("/:scope/settings/")]
     Settings { scope: String },
 
+    #[at("/:scope/intro/")]
+    Intro { scope: String },
+
     // Test UI edge cases
     #[at("/:scope/test_page/")]
     TestPage { scope: String },
@@ -56,6 +59,7 @@ pub fn switch(route: Route) -> Html {
         Route::Splash { .. } => html! { <pages::Splash /> },
         Route::Analyze { .. } => html! { <pages::Analyze /> },
         Route::Settings { .. } => html! { <pages::Settings /> },
+        Route::Intro { .. } => html! { <pages::Intro /> },
         Route::TestPage { .. } => html! { <pages::TestPage /> },
         Route::NotFound { .. } => html! {
                 <h1 class="text-primary text-3xl mb-6 mt-16">
@@ -88,6 +92,7 @@ impl Route {
             PersistedRoute::Sense => Self::Sense { scope },
             PersistedRoute::Analyze => Self::Analyze { scope },
             PersistedRoute::Settings => Self::Settings { scope },
+            PersistedRoute::Intro => Self::Intro { scope },
         }
     }
 
@@ -96,6 +101,7 @@ impl Route {
             Route::Sense { .. } => PersistedRoute::Sense,
             Route::Analyze { .. } => PersistedRoute::Analyze,
             Route::Settings { .. } => PersistedRoute::Settings,
+            Route::Intro { .. } => PersistedRoute::Intro,
             // should not get here, but if we do, persist Sense
             _ => PersistedRoute::Sense,
         }

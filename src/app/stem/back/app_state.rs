@@ -72,6 +72,7 @@ pub struct PersistentState {
 pub struct SwiftMessages {
     // tell swift to share the SQLite log in a share sheet
     pub should_share_sqlite_log: bool,
+    pub should_request_when_in_use_authorization: bool,
 }
 
 impl AppState {
@@ -199,7 +200,6 @@ mod tests {
                         distance_filter: 4.0,
                     },
                 },
-                use_epsln_tile_server: false,
                 map: MapState {
                     time_range: TimeRange {
                         start: time::OffsetDateTime::now_utc(),
@@ -209,7 +209,7 @@ mod tests {
                     filters: vec![],
                     view_pos: Default::default(),
                 },
-                route: Default::default(),
+                ..Default::default()
             }),
             back: BackState {
                 last_location: None,

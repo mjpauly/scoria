@@ -11,7 +11,8 @@
 - [ ] show colormap or not
 - [ ] plot reset button
 - [ ] create geojson in backend, serve via url
-- [ ] app intoduction/tutorial on first install
+- [x] app intoduction/tutorial on first install
+- [ ] prevent horizontal rotation
 - map usability / configurability
     - [ ] persist selection for export + queries
 - [ ] ability to export log

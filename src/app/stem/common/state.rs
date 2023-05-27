@@ -33,6 +33,9 @@ pub struct BackState {
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct FrontState {
+    // Last version of the introduction/tutorial that was viewed
+    pub last_viewed_intro_version: usize,
+
     pub route: PersistedRoute,
 
     // Location configuration
@@ -53,6 +56,7 @@ pub enum PersistedRoute {
     Sense,
     Analyze,
     Settings,
+    Intro,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

@@ -5,6 +5,7 @@ use common::state::PersistedRoute;
 use yew::prelude::*;
 use yew_router::prelude::*;
 
+use crate::pages::intro::INTRO_VERSION;
 use crate::router::Route;
 use crate::websocket::{use_backend_event, ToFront};
 
@@ -18,9 +19,13 @@ pub fn Splash() -> Html {
             if let ToFront::FrontState(s) = msg {
                 // get the previously persisted route, if it exists
                 let next = if let Some(state) = s {
-                    Route::from_persisted_route(&state.route)
+                    if state.last_viewed_intro_version < INTRO_VERSION {
+                        Route::from_persisted_route(&PersistedRoute::Intro)
+                    } else {
+                        Route::from_persisted_route(&state.route)
+                    }
                 } else {
-                    Route::from_persisted_route(&PersistedRoute::Sense)
+                    Route::from_persisted_route(&PersistedRoute::Intro)
                 };
                 navigator.push(&next);
             }

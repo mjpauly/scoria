@@ -2,9 +2,6 @@ load("@rules_rust//rust:defs.bzl", "rust_library", "rust_binary", "rust_doc")
 load("@rules_rust//wasm_bindgen:wasm_bindgen.bzl", "rust_wasm_bindgen")
 load("@bazel_skylib//rules:select_file.bzl", "select_file")
 
-# The static files to include in the server's binary:
-# :index, :wasm_file, :js_file, :tailwind, :plotlyjs
-
 filegroup(
     name = "index",
     srcs = ["index.html"],
@@ -122,5 +119,18 @@ genrule(
     name = "maplibregl_css",
     outs = ["maplibre-gl.css"],
     cmd = 'curl https://unpkg.com/maplibre-gl@2.4.0/dist/maplibre-gl.css -o $@',
+    visibility = ["//visibility:public"],
+)
+
+# static images showing what location authorizations look like
+
+filegroup(
+    name = "when_in_use_auth",
+    srcs = ["static/when_in_use_auth.png"],
+    visibility = ["//visibility:public"],
+)
+filegroup(
+    name = "always_auth",
+    srcs = ["static/always_auth.png"],
     visibility = ["//visibility:public"],
 )

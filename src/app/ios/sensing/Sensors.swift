@@ -23,8 +23,16 @@ public func app_shutdown() {
 // handler for pokes that come from the frontend
 public func handle_poke() {
     // load config from backend since we got poked by the frontend
+    check_request_when_in_use_authorization()
     myLocationManager.updateConfig()
     check_share_sqlite_log()
+}
+
+// check if we should prompt for when-in-use authorization
+func check_request_when_in_use_authorization() {
+    if should_request_when_in_use_authorization() {
+        myLocationManager.locationManager.requestWhenInUseAuthorization()
+    }
 }
 
 public func print_and_log(s: String) {

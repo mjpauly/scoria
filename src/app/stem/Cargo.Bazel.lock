@@ -1,5 +1,5 @@
 {
-  "checksum": "50accf7ceef64266fc64bf4fe956413f1c03afce4caafaebef31d1a74d753673",
+  "checksum": "3e1e726b5210eb4e42c2393bb28d49d43ca7733929f977557705e05056d77560",
   "crates": {
     "actix 0.13.0": {
       "name": "actix",
@@ -17698,6 +17698,8 @@
             "BootstrapBoxArrowUp",
             "BootstrapBrush",
             "BootstrapCalendarRange",
+            "BootstrapChevronLeft",
+            "BootstrapChevronRight",
             "BootstrapFullscreen",
             "BootstrapFunnel",
             "BootstrapGlobeAmericas",

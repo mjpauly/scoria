@@ -213,6 +213,8 @@ crates_repository(
                 "BootstrapBoxArrowUp",
                 "BootstrapBrush",
                 "BootstrapCalendarRange",
+                "BootstrapChevronLeft",
+                "BootstrapChevronRight",
                 "BootstrapFullscreen",
                 "BootstrapFunnel",
                 "BootstrapGlobeAmericas",

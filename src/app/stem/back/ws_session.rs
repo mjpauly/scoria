@@ -92,6 +92,13 @@ impl WsSession {
                     .unwrap()
                     .should_share_sqlite_log = true;
             }
+            ToBack::RequestWhenInUseAuthorization => {
+                AppState::global()
+                    .swift_messages
+                    .lock()
+                    .unwrap()
+                    .should_request_when_in_use_authorization = true;
+            }
         }
     }
 

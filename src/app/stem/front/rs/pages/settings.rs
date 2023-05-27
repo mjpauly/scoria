@@ -37,11 +37,29 @@ pub fn DataLogSettings() -> Html {
         wss.send_msg(ToBack::ShareSqliteLog);
         swift_poke::poke();
     });
+
+    let navigator = use_navigator().unwrap();
+    let show_intro_onclick = Callback::from(move |_e: MouseEvent| {
+        navigator.push(&Route::Intro {
+            scope: Route::get_scope(),
+        })
+    });
     html! {
         // flex container for centering
         <div class="mt-2 mb-1 flex px-4">
         // centered, width-limited container
         <div class="grow max-w-prose mx-auto">
+
+        // settings card
+        <div class="bg-neutral-900 rounded-lg px-4 py-1 mt-2 mb-5">
+            // settings line
+            <button onclick={show_intro_onclick}
+                class="flex items-center justify-between py-2 w-full">
+                <span class="text-primary">
+                    {"Show Epsilon Introduction"}
+                </span>
+            </button>
+        </div>
 
         // title
         <div class="relative">

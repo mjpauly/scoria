@@ -41,3 +41,4 @@ bool get_significant_changes(void);
 LocAccuracyMode get_location_accuracy_mode(void);
 
 bool should_share_sqlite_log(void);
+bool should_request_when_in_use_authorization(void);

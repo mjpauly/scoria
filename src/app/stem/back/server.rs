@@ -30,6 +30,9 @@ static TAILWIND_FILE: &str = include_str!(env!("TAILWIND_FILE"));
 static PLOTLY_FILE: &str = include_str!(env!("PLOTLY_FILE"));
 static MAPLIBRE_FILE: &str = include_str!(env!("MAPLIBRE_FILE"));
 static MAPLIBRE_CSS: &str = include_str!(env!("MAPLIBRE_CSS"));
+static WHEN_IN_USE_AUTH_PNG: &[u8] =
+    include_bytes!(env!("WHEN_IN_USE_AUTH_PNG"));
+static ALWAYS_AUTH_PNG: &[u8] = include_bytes!(env!("ALWAYS_AUTH_PNG"));
 
 /// Configuration struct we pass to Swift via C
 #[repr(C)]
@@ -118,6 +121,8 @@ fn build(listener: TcpListener, frontend_key: FrontendKey) -> Server {
                     .service(plotly)
                     .service(maplibre)
                     .service(maplibre_css)
+                    .service(when_in_use_auth_png)
+                    .service(always_auth_png)
                     // dynamic routes
                     .service(health_check)
                     .route("/ws", web::get().to(ws_route))
@@ -127,6 +132,7 @@ fn build(listener: TcpListener, frontend_key: FrontendKey) -> Server {
                     .service(web::redirect("/sense/", "../sense"))
                     .service(web::redirect("/analyze/", "../analyze"))
                     .service(web::redirect("/settings/", "../settings"))
+                    .service(web::redirect("/intro/", "../intro"))
                     .service(web::redirect("/test_page/", "../test_page")),
             )
     })
@@ -147,6 +153,7 @@ async fn health_check() -> impl Responder {
 #[get("/sense")]
 #[get("/analyze")]
 #[get("/settings")]
+#[get("/intro")]
 #[get("/test_page")]
 async fn index() -> impl Responder {
     HttpResponse::Ok()
@@ -194,6 +201,24 @@ async fn maplibre_css() -> impl Responder {
     HttpResponse::Ok()
         .content_type(ContentType(mime::TEXT_CSS_UTF_8))
         .body(MAPLIBRE_CSS)
+}
+
+#[routes]
+#[get("/when_in_use_auth.png")]
+#[get("/intro/when_in_use_auth.png")]
+async fn when_in_use_auth_png() -> impl Responder {
+    HttpResponse::Ok()
+        .content_type(ContentType(mime::IMAGE_PNG))
+        .body(WHEN_IN_USE_AUTH_PNG)
+}
+
+#[routes]
+#[get("/always_auth.png")]
+#[get("/intro/always_auth.png")]
+async fn always_auth_png() -> impl Responder {
+    HttpResponse::Ok()
+        .content_type(ContentType(mime::IMAGE_PNG))
+        .body(ALWAYS_AUTH_PNG)
 }
 
 #[cfg(test)]

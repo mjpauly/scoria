@@ -13,6 +13,7 @@ pub enum ToBack {
     SetFrontState(FrontState),
     GetLocationTimeRange(TimeRange),
 
+    RequestWhenInUseAuthorization,
     ShareSqliteLog,
 }
 

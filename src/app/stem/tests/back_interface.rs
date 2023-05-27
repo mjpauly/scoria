@@ -90,8 +90,6 @@ async fn set_location_config_changes_backend_state_impl() {
             },
             ..Default::default()
         },
-        route: Default::default(),
-        use_epsln_tile_server: Default::default(),
         map: MapState {
             time_range: TimeRange {
                 start: time::OffsetDateTime::now_utc(),
@@ -101,6 +99,7 @@ async fn set_location_config_changes_backend_state_impl() {
             filters: vec![],
             view_pos: Default::default(),
         },
+        ..Default::default()
     };
     let msg = ToBack::SetFrontState(front_state.clone());
     let encoded = bincode::serialize(&msg).unwrap();
