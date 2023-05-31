@@ -106,7 +106,7 @@ fn TesterNotice() -> Html {
 fn BackupNotice() -> Html {
     let wss = use_context::<WebsocketService>().unwrap();
     let export_onclick = Callback::from(move |_e: MouseEvent| {
-        wss.send_msg(ToBack::ShareSqliteLog);
+        wss.send_msg(ToBack::ExportSqliteLog);
         swift_poke::poke();
     });
     html! {

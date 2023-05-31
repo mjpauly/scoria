@@ -4,9 +4,7 @@ import StemLib
 
 class MyLocationManager: NSObject, CLLocationManagerDelegate, ObservableObject {
     let locationManager = CLLocationManager()
-    
-    let sqlURL: URL = getDocumentsDirectory().appendingPathComponent("data.db")
-    
+        
     override init() {
         super.init()
         

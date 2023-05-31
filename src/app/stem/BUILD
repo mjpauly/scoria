@@ -79,6 +79,7 @@ rust_test(
     size = "small",  # 20 MB RAM, 1 min timeout
     deps = [
         "@stem_crate_index//:reqwest", # for server health check unit test
+        "@stem_crate_index//:futures-core",
     ]
 )
 

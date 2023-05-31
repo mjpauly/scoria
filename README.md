@@ -6,13 +6,18 @@
 - bite-sized features
     - [ ] all time button
     - [ ] quick time update buttons
+    - [ ] persist time delta instead of absolute times
 - [x] fully persist ui state
 - [x] investigate serde default
+- [ ] reset to "today" view if user is away from the app for 1+ hr
+- [ ] time of day colormapping
+- [ ] action failure alterts
 - [ ] show colormap or not
 - [ ] plot reset button
 - [ ] create geojson in backend, serve via url
 - [x] app intoduction/tutorial on first install
 - [ ] prevent horizontal rotation
+- [ ] in-app feedback form
 - map usability / configurability
     - [ ] persist selection for export + queries
 - [ ] ability to export log
@@ -25,6 +30,8 @@
     - [ ] data viewership (what map data viewed and when)
     - [ ] battery charge (to correlate with location mode) [ref](https://stackoverflow.com/questions/27475506/check-battery-level-ios-swift)
 - [ ] ability to set preferred units
+- [ ] integrate time and SI units under shared traits
+- [ ] rustsec checks of dependencies
 - [ ] more up-to-date satellite imagery
 - website
     - [ ] landing page

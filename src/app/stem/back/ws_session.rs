@@ -85,12 +85,19 @@ impl WsSession {
             ToBack::GetLocationTimeRange(time_range) => {
                 self.send_location_time_range(ctx, time_range);
             }
-            ToBack::ShareSqliteLog => {
+            ToBack::ExportSqliteLog => {
                 AppState::global()
                     .swift_messages
                     .lock()
                     .unwrap()
-                    .should_share_sqlite_log = true;
+                    .should_export_sqlite_log = true;
+            }
+            ToBack::ImportSqliteLog => {
+                AppState::global()
+                    .swift_messages
+                    .lock()
+                    .unwrap()
+                    .should_import_sqlite_log = true;
             }
             ToBack::RequestWhenInUseAuthorization => {
                 AppState::global()

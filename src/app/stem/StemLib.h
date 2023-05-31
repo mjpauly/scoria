@@ -40,5 +40,7 @@ float get_distance_filter(void);
 bool get_significant_changes(void);
 LocAccuracyMode get_location_accuracy_mode(void);
 
-bool should_share_sqlite_log(void);
 bool should_request_when_in_use_authorization(void);
+bool should_export_sqlite_log(void);
+bool should_import_sqlite_log(void);
+void import_from_sqlite_log(const char*);

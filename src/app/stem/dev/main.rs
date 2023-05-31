@@ -50,15 +50,16 @@ async fn data_generator() {
     let mut vx = 0.;
     let mut vy = 0.;
     let mut i = 0;
+    let starting_n = 60;
+    let mut t = time::OffsetDateTime::now_utc().unix_timestamp() - starting_n;
     loop {
-        if i > 60 {
+        if i > starting_n {
             sleep(Duration::from_millis(1000)).await;
         }
         i += 1;
+        t += 1;
         vx += (random::<f64>() - 0.5) / 10000.0;
         vy += (random::<f64>() - 0.5) / 10000.0;
-        // vx = (lat - ca) * -1. / 10.;
-        // vy = (lon - co) / 10.;
         lon = ((lon + vx) + 180.0).rem_euclid(360.0) - 180.0;
         lat = ((lat + vy) + 90.0).rem_euclid(180.0) - 90.0;
         stem::core::log_location(
@@ -67,7 +68,7 @@ async fn data_generator() {
             random::<f64>() * 3.0 + 2.0, // accuracy
             (vx * vx + vy * vy).sqrt(),  // speed
             180. - vy.atan2(vx).to_degrees(), // course
-            time::OffsetDateTime::now_utc().unix_timestamp(),
+            t,
         )
         .await;
     }

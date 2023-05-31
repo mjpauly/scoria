@@ -33,8 +33,15 @@ pub fn Settings() -> Html {
 #[function_component]
 pub fn DataLogSettings() -> Html {
     let wss = use_context::<WebsocketService>().unwrap();
-    let export_onclick = Callback::from(move |_e: MouseEvent| {
-        wss.send_msg(ToBack::ShareSqliteLog);
+    let export_onclick = {
+        let wss = wss.clone();
+        Callback::from(move |_e: MouseEvent| {
+            wss.send_msg(ToBack::ExportSqliteLog);
+            swift_poke::poke();
+        })
+    };
+    let import_onclick = Callback::from(move |_e: MouseEvent| {
+        wss.send_msg(ToBack::ImportSqliteLog);
         swift_poke::poke();
     });
 
@@ -72,15 +79,34 @@ pub fn DataLogSettings() -> Html {
             <button onclick={export_onclick}
                 class="flex items-center justify-between py-2 w-full">
                 <span class="text-primary">
-                    {"Export Data Log"}
+                    {"Export Log"}
                 </span>
             </button>
         </div>
-
-        // help tips
         <p class="text-neutral-500 text-left px-2 pt-1">
             {"Exported logs can be imported back into Epsilon. You can
             use this to backup your data or migrate between devices."}
+        </p>
+
+        // settings card
+        <div class="bg-neutral-900 rounded-lg px-4 py-1 mt-2">
+            // settings line
+            <button onclick={import_onclick}
+                class="flex items-center justify-between py-2 w-full">
+                <span class="text-primary">
+                    {"Import Log"}
+                </span>
+            </button>
+        </div>
+        <p class="text-neutral-500 text-left px-2 pt-1">
+            {"Import an Epsilon log that was previously exported. The data will
+            be added to your current log. Duplicate data points are determined
+            by timestamp, and are not imported."}
+        </p>
+        <p class="text-neutral-500 text-left px-2 pt-1">
+            {"Since imported data is irreversibly added to your log, using this
+            feature for looking at data that is not your own is not recommended.
+            Let us know if you want this kind of feature."}
         </p>
 
         </div>

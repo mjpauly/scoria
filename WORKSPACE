@@ -120,6 +120,7 @@ crates_repository(
     isolated = False,  # cache results of the previous invocation to
                        # ${HOME}/.cargo so using it is fast
     packages = {
+        "futures-core": crate.spec(version = "0.3.28"),
         "rand": crate.spec(version = "0.8.5"),
         "sqlx": crate.spec(
             version = "0.6.2",

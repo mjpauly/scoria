@@ -141,16 +141,39 @@ pub extern "C" fn get_location_accuracy_mode() -> common::LocationAccuracyMode {
     location_config::get_location_accuracy_mode()
 }
 
-/// Tell swift to share the SQLite log in a share sheet
+/// Tell swift to export the SQLite log in a share sheet
 #[no_mangle]
-pub extern "C" fn should_share_sqlite_log() -> bool {
+pub extern "C" fn should_export_sqlite_log() -> bool {
     let state = app_state::AppState::global();
     let mut guard = state.swift_messages.lock().unwrap();
-    let should_share = guard.should_share_sqlite_log;
+    let should_export = guard.should_export_sqlite_log;
     // unset the setting if it was true
-    guard.should_share_sqlite_log = false;
-    should_share
+    guard.should_export_sqlite_log = false;
+    // Checkpoint the database so all outstanding transactions move from the WAL
+    // file to the database
+    runtime::get_runtime().block_on(async {
+        database::checkpoint_db().await;
+    });
+    should_export
     // drop the lock guard
+}
+
+/// Tell swift to import a SQLite log with a document picker
+#[no_mangle]
+pub extern "C" fn should_import_sqlite_log() -> bool {
+    let state = app_state::AppState::global();
+    let mut guard = state.swift_messages.lock().unwrap();
+    let should_import = guard.should_import_sqlite_log;
+    guard.should_import_sqlite_log = false;
+    should_import
+}
+
+#[no_mangle]
+pub extern "C" fn import_from_sqlite_log(import_path: *const c_char) {
+    let import_path = PathBuf::from(cstr_to_string(import_path));
+    runtime::get_runtime().block_on(async {
+        database::import_database_records(import_path).await
+    })
 }
 
 /// Tell swift to share the SQLite log in a share sheet
@@ -158,9 +181,9 @@ pub extern "C" fn should_share_sqlite_log() -> bool {
 pub extern "C" fn should_request_when_in_use_authorization() -> bool {
     let state = app_state::AppState::global();
     let mut guard = state.swift_messages.lock().unwrap();
-    let should_share = guard.should_request_when_in_use_authorization;
+    let should_request = guard.should_request_when_in_use_authorization;
     guard.should_request_when_in_use_authorization = false;
-    should_share
+    should_request
 }
 
 /// Unit tests for the top-level library interface.

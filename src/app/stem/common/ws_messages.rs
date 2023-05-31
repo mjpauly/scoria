@@ -14,7 +14,8 @@ pub enum ToBack {
     GetLocationTimeRange(TimeRange),
 
     RequestWhenInUseAuthorization,
-    ShareSqliteLog,
+    ExportSqliteLog,
+    ImportSqliteLog,
 }
 
 /// Messages from the backend to the frontend

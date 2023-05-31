@@ -15,21 +15,23 @@
 //! var. Depending on our build config, the output file will be in a different
 //! output directory.
 
-use std::fs;
 use std::fs::File;
 use std::io::Write;
 use std::path::Path;
+use std::{fs, str::FromStr};
 
-use sqlx::{migrate::MigrateDatabase, Connection, Sqlite, SqliteConnection};
+use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode};
+use sqlx::{ConnectOptions, Connection};
 
 const DB_PREFIX: &str = "sqlite://";
 const DB_FNAME: &str = "data.db";
 
 async fn migrate_db(db_path: &str) -> Result<(), sqlx::Error> {
-    if !Sqlite::database_exists(db_path).await? {
-        Sqlite::create_database(db_path).await?;
-    }
-    let mut conn = SqliteConnection::connect(db_path).await?;
+    let mut conn = SqliteConnectOptions::from_str(db_path)?
+        .create_if_missing(true)
+        .journal_mode(SqliteJournalMode::Wal)
+        .connect()
+        .await?;
     // embed our migrations from "migrations/" into our binary
     sqlx::migrate!().run(&mut conn).await?;
     conn.close().await.unwrap();

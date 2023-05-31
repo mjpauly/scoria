@@ -70,9 +70,11 @@ pub struct PersistentState {
 /// Temporary data to communicate to Swift
 #[derive(Debug, Default)]
 pub struct SwiftMessages {
-    // tell swift to share the SQLite log in a share sheet
-    pub should_share_sqlite_log: bool,
     pub should_request_when_in_use_authorization: bool,
+    // tell swift to export the SQLite log in a share sheet
+    pub should_export_sqlite_log: bool,
+    // tell swift to import the SQLite log
+    pub should_import_sqlite_log: bool,
 }
 
 impl AppState {
