@@ -11,6 +11,7 @@ use std::io::prelude::*;
 
 use crate::app_state::AppState;
 use crate::database;
+use crate::geojson::update_geojson;
 use crate::paths::get_documents_dir;
 use crate::ws_session;
 
@@ -43,9 +44,7 @@ pub async fn log_location(
             course,
             datetime,
         };
-        addr.do_send(ws_session::MsgToFront(common::ToFront::LastLocation(
-            loc,
-        )));
+        tokio::spawn(update_geojson(Some(loc)));
     }
 }
 

@@ -1,111 +1,95 @@
 //! Colorbar component for location data
 
-use std::rc::Rc;
-
+use plotly::common::{ColorScale, ColorScaleElement};
 use yew::prelude::*;
+use yewdux::prelude::*;
 
-use crate::components::map_styler::get_cmap_params;
-use crate::plots::cmaps;
-use crate::plots::maplibre::async_yield;
-use common::filters::{apply_filters, Filter};
+use crate::ui_state::{BackState, FrontState};
 use common::map_style::ColoredDataStream;
-use common::Location;
 
-#[derive(Properties, PartialEq)]
-pub struct ColorbarProps {
-    pub records: UseStateHandle<Vec<Location>>,
-    pub filters: Rc<Vec<Filter>>,
-    pub colored_datastream: ColoredDataStream,
+pub fn cmap_to_plotly(cmap: &[(f64, &'static str)]) -> ColorScale {
+    let mut scale: Vec<_> = cmap
+        .iter()
+        .map(|x| ColorScaleElement(x.0, x.1.to_string()))
+        .collect();
+    // Plotly requires the colorscale to go from 0 to 1 or it shows a default
+    // colormap
+    scale[0].0 = 0.;
+    ColorScale::Vector(scale)
 }
 
 #[function_component]
-pub fn Colorbar(
-    ColorbarProps {
-        records,
-        filters,
-        colored_datastream,
-    }: &ColorbarProps,
-) -> Html {
+pub fn Colorbar() -> Html {
     let colorbar_id = "colorbar";
+    let cmap_params = use_selector(|s: &BackState| s.cmap_params.clone());
+    let colored_datastream =
+        use_selector(|s: &FrontState| s.map.style.colored_datastream.clone());
 
     use_effect_with_deps(
-        move |(records, filters, colored_datastream)| {
-            let records = records.clone();
-            let filters = filters.clone();
-            let colored_datastream = colored_datastream.clone();
-            yew::platform::spawn_local(async move {
-                // yield control back around costly operations
-                async_yield().await;
-                let recs = apply_filters(&filters, &records);
-                async_yield().await;
-                let mut cmap_params =
-                    get_cmap_params(&colored_datastream, &recs);
-                async_yield().await;
-                // Need to handle the case where all data has the same value
-                // In this case the binary_search_by using partial_cmp will
-                // default to picking the middle color in the colormap, so we just need to
-                // make it symmetric around the cmin/cmax value.
-                if cmap_params.cmin == cmap_params.cmax {
-                    cmap_params.cmin -= 1.;
-                    cmap_params.cmax += 1.;
-                }
+        move |(cmap_params, colored_datastream)| {
+            let mut cmap_params = (**cmap_params).clone();
+            // Need to handle the case where all data has the same value
+            // In this case the binary_search_by using partial_cmp will
+            // default to picking the middle color in the colormap, so we just
+            // need to make it symmetric around the cmin/cmax value.
+            if cmap_params.cmin == cmap_params.cmax {
+                cmap_params.cmin -= 1.;
+                cmap_params.cmax += 1.;
+            }
 
-                let mut colorbar = plotly::common::ColorBar::new()
-                    .orientation(plotly::common::Orientation::Horizontal)
-                    .thickness(15)
-                    .ticks(plotly::common::Ticks::Outside)
-                    .tick_angle(0.)
-                    .x_pad(50.)
-                    .y(0.)
-                    .title(
-                        plotly::common::Title::new(
-                            &colored_datastream.name_with_unit(),
-                        )
-                        .side(plotly::common::Side::Top),
-                    );
-                if colored_datastream == ColoredDataStream::Course {
-                    colorbar = colorbar
-                        .tick_vals(vec![0., 90., 180., 270., 360.])
-                        .tick_text(vec!["N", "E", "S", "W", "N"]);
-                }
-                // see @maybe_useful_later/time_colorbar.rs for initial code
-                // on doing a colorbar for time (plotly doesn't handle it well)
-                let marker = plotly::common::Marker::new()
-                    .color_scale(cmaps::to_plotly(cmap_params.cmap_arr))
-                    .cmin(cmap_params.cmin)
-                    .cmax(cmap_params.cmax)
-                    .color_bar(colorbar)
-                    .opacity(0.0); // hide the single data point
-
-                let trace =
-                    plotly::Scatter::new(vec![1.], vec![1.]).marker(marker);
-                let bg_color = plotly::color::Rgba::new(0, 0, 0, 0.);
-                let layout = plotly::Layout::new()
-                    .height(80)
-                    .paper_background_color(bg_color)
-                    .plot_background_color(bg_color)
-                    .margin(
-                        plotly::layout::Margin::new()
-                            .top(0)
-                            .left(0)
-                            .bottom(0)
-                            .right(0),
+            let mut colorbar = plotly::common::ColorBar::new()
+                .orientation(plotly::common::Orientation::Horizontal)
+                .thickness(15)
+                .ticks(plotly::common::Ticks::Outside)
+                .tick_angle(0.)
+                .x_pad(50.)
+                .y(0.)
+                .title(
+                    plotly::common::Title::new(
+                        &colored_datastream.name_with_unit(),
                     )
-                    .x_axis(plotly::layout::Axis::new().visible(false))
-                    .y_axis(plotly::layout::Axis::new().visible(false));
-                let config = plotly::configuration::Configuration::new()
-                    .responsive(true)
-                    .static_plot(true);
-                let mut plot = plotly::Plot::new();
-                plot.add_trace(trace);
-                plot.set_layout(layout);
-                plot.set_configuration(config);
+                    .side(plotly::common::Side::Top),
+                );
+            if **colored_datastream == ColoredDataStream::Course {
+                colorbar = colorbar
+                    .tick_vals(vec![0., 90., 180., 270., 360.])
+                    .tick_text(vec!["N", "E", "S", "W", "N"]);
+            }
+            // see @maybe_useful_later/time_colorbar.rs for initial code
+            // on doing a colorbar for time (plotly doesn't handle it well)
+            let marker = plotly::common::Marker::new()
+                .color_scale(cmap_to_plotly(cmap_params.cmap.cmap_array()))
+                .cmin(cmap_params.cmin)
+                .cmax(cmap_params.cmax)
+                .color_bar(colorbar)
+                .opacity(0.0); // hide the single data point
 
-                async_yield().await;
-                new_plot_(colorbar_id, &plot.to_js_object()).unwrap();
-            });
+            let trace = plotly::Scatter::new(vec![1.], vec![1.]).marker(marker);
+            let bg_color = plotly::color::Rgba::new(0, 0, 0, 0.);
+            let layout = plotly::Layout::new()
+                .height(80)
+                .paper_background_color(bg_color)
+                .plot_background_color(bg_color)
+                .margin(
+                    plotly::layout::Margin::new()
+                        .top(0)
+                        .left(0)
+                        .bottom(0)
+                        .right(0),
+                )
+                .x_axis(plotly::layout::Axis::new().visible(false))
+                .y_axis(plotly::layout::Axis::new().visible(false));
+            let config = plotly::configuration::Configuration::new()
+                .responsive(true)
+                .static_plot(true);
+            let mut plot = plotly::Plot::new();
+            plot.add_trace(trace);
+            plot.set_layout(layout);
+            plot.set_configuration(config);
+
+            new_plot_(colorbar_id, &plot.to_js_object()).unwrap();
         },
-        (records.clone(), filters.clone(), colored_datastream.clone()),
+        (cmap_params, colored_datastream),
     );
     html! {
         <div id={colorbar_id}> </div>

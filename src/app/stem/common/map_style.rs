@@ -4,7 +4,10 @@ use std::fmt;
 
 use serde::{Deserialize, Serialize};
 
-use crate::Location;
+use crate::{
+    cmaps::{Cmap, CmapParams},
+    float, Location,
+};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
@@ -150,6 +153,34 @@ impl ColoredDataStream {
             ColoredDataStream::HorizAccuracy => format!("{} (m)", self),
             ColoredDataStream::Speed => format!("{} (m/s)", self),
             ColoredDataStream::Course => format!("{} (deg)", self),
+        }
+    }
+
+    /// Calculate the cmin and cmax and return colormap the for a datastream
+    /// given a vec of locations
+    pub fn get_cmap_params(&self, records: &[&Location]) -> CmapParams {
+        if !self.is_some() {
+            // short circuit
+            return CmapParams {
+                cmin: 0.,
+                cmax: 0.,
+                cmap: Cmap::Plasma,
+            };
+        }
+        let colorvals: Vec<_> =
+            records.iter().map(|x| self.get_stream(x)).collect();
+        if *self == ColoredDataStream::Course {
+            CmapParams {
+                cmin: 0.0,
+                cmax: 360.0,
+                cmap: Cmap::Twilight,
+            }
+        } else {
+            CmapParams {
+                cmin: float::min(&colorvals),
+                cmax: float::max(&colorvals),
+                cmap: Cmap::Plasma,
+            }
         }
     }
 }

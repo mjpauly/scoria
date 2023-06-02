@@ -10,8 +10,6 @@ use yew::prelude::*;
 use yewdux::prelude::*;
 
 use crate::components::{RANGE_INPUT_STYLE, SELECT_STYLE};
-use crate::float;
-use crate::plots::cmaps::{self, CmapParams};
 use crate::ui_state::FrontState;
 use common::map_style::{
     BasemapStyle, ColoredDataStream, BASEMAP_STRINGS, DATASTREAM_STRINGS,
@@ -85,39 +83,6 @@ pub fn get_basemap_url(style: &BasemapStyle, use_epsln: bool) -> String {
             format_tile_url("outdoor-v2-dark", use_epsln)
         }
         BasemapStyle::Satellite => format_tile_url("hybrid", use_epsln),
-    }
-}
-
-// COLORED DATA STREAM
-
-/// Calculate the cmin and cmax and return colormap the for a datastream
-/// given a vec of locations
-pub fn get_cmap_params(
-    stream: &ColoredDataStream,
-    records: &[&common::Location],
-) -> CmapParams {
-    if !stream.is_some() {
-        // short circuit
-        return CmapParams {
-            cmin: 0.,
-            cmax: 0.,
-            cmap_arr: &cmaps::PLASMA,
-        };
-    }
-    let colorvals: Vec<_> =
-        records.iter().map(|x| stream.get_stream(x)).collect();
-    if *stream == ColoredDataStream::Course {
-        CmapParams {
-            cmin: 0.0,
-            cmax: 360.0,
-            cmap_arr: &cmaps::TWILIGHT,
-        }
-    } else {
-        CmapParams {
-            cmin: float::min(&colorvals),
-            cmax: float::max(&colorvals),
-            cmap_arr: &cmaps::PLASMA,
-        }
     }
 }
 

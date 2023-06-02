@@ -17,7 +17,6 @@
 //! let style: String = format!("rouned {}", scale);
 
 mod components;
-mod float;
 mod pages;
 mod plots;
 mod router;

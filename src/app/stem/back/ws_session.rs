@@ -9,10 +9,11 @@ use actix_web::{web, Error, HttpRequest, HttpResponse};
 use actix_web_actors::ws;
 use std::time::{Duration, Instant};
 
-use crate::app_state::AppState;
 use crate::core::print_and_log;
 use crate::database;
-use common::{TimeRange, ToBack, ToFront};
+use crate::geojson::update_geojson;
+use crate::{app_state::AppState, geojson::get_popup_text};
+use common::{ToBack, ToFront};
 
 /// How often heartbeat pings are sent
 #[allow(dead_code)]
@@ -81,9 +82,10 @@ impl WsSession {
             ToBack::SetFrontState(val) => {
                 AppState::global().persistent.lock().unwrap().front = Some(val);
                 AppState::save_to_file();
-            }
-            ToBack::GetLocationTimeRange(time_range) => {
-                self.send_location_time_range(ctx, time_range);
+                let fut = async move {
+                    update_geojson(None).await;
+                };
+                fut.into_actor(self).spawn(ctx);
             }
             ToBack::ExportSqliteLog => {
                 AppState::global()
@@ -105,6 +107,15 @@ impl WsSession {
                     .lock()
                     .unwrap()
                     .should_request_when_in_use_authorization = true;
+            }
+            ToBack::GetPopupText((location, data_color)) => {
+                let recipient = ctx.address().recipient();
+                let fut = async move {
+                    recipient.do_send(MsgToFront(
+                        get_popup_text(location, data_color).await,
+                    ))
+                };
+                fut.into_actor(self).spawn(ctx);
             }
         }
     }
@@ -155,22 +166,6 @@ impl WsSession {
             let front =
                 AppState::global().persistent.lock().unwrap().front.clone();
             recipient.do_send(MsgToFront(ToFront::FrontState(front)));
-        };
-        fut.into_actor(self).spawn(ctx);
-    }
-
-    /// Send location data in a given range of time
-    fn send_location_time_range(
-        &self,
-        ctx: &mut ws::WebsocketContext<Self>,
-        time_range: TimeRange,
-    ) {
-        let recipient = ctx.address().recipient();
-        let fut = async move {
-            let records = database::get_records_time_range(&time_range).await;
-            recipient.do_send(MsgToFront(ToFront::LocationTimeRange(
-                time_range, records,
-            )));
         };
         fut.into_actor(self).spawn(ctx);
     }

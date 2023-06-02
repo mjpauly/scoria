@@ -1,31 +1,33 @@
-use plotly::common::{ColorScale, ColorScaleElement};
+//! Colormap scales and functions to find the right data color.
+
+use serde::{Deserialize, Serialize};
+
+#[derive(PartialEq, Debug, Default, Clone, Serialize, Deserialize)]
+pub enum Cmap {
+    #[default]
+    Plasma,
+    Viridis,
+    Twilight,
+}
+
+impl Cmap {
+    pub fn cmap_array(&self) -> &'static [(f64, &'static str)] {
+        match self {
+            Self::Plasma => &PLASMA,
+            Self::Viridis => &VIRIDIS,
+            Self::Twilight => &TWILIGHT,
+        }
+    }
+}
 
 /// The set of settings that define how a colormap should be applied to values.
 /// cmin and cmax are the data values at the ends of the colormap. cmap_arr is
 /// a reference to the colormap itself.
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Default, Clone, Serialize, Deserialize)]
 pub struct CmapParams {
     pub cmin: f64,
     pub cmax: f64,
-    pub cmap_arr: &'static [(f64, &'static str)],
-}
-
-/// Sequential, perceptually-uniform colormap
-#[allow(dead_code)]
-pub fn viridis_plotly() -> ColorScale {
-    to_plotly(&VIRIDIS)
-}
-
-/// Sequential, perceptually-uniform colormap
-#[allow(dead_code)]
-pub fn plasma_plotly() -> ColorScale {
-    to_plotly(&PLASMA)
-}
-
-/// Cyclic, perceptually-uniform colormap
-#[allow(dead_code)]
-pub fn twilight_plotly() -> ColorScale {
-    to_plotly(&TWILIGHT)
+    pub cmap: Cmap,
 }
 
 /// Given a hex color code, return true if the color is more bright than dark.
@@ -36,17 +38,6 @@ pub fn hex_color_is_bright(hex: &str) -> bool {
     let b = u16::from_str_radix(&hex[3..5], 16).unwrap();
     let g = u16::from_str_radix(&hex[5..7], 16).unwrap();
     r + b + g > 382
-}
-
-pub fn to_plotly(cmap: &[(f64, &'static str)]) -> ColorScale {
-    let mut scale: Vec<_> = cmap
-        .iter()
-        .map(|x| ColorScaleElement(x.0, x.1.to_string()))
-        .collect();
-    // Plotly requires the colorscale to go from 0 to 1 or it shows a default
-    // colormap
-    scale[0].0 = 0.;
-    ColorScale::Vector(scale)
 }
 
 /// Simple search for a close color for the input value (range in 0-1). Could be
@@ -72,7 +63,7 @@ pub fn get_data_color(val: f64, params: &CmapParams) -> &'static str {
     // If cmax==cmin this will return NaN, which means partial_cmp's Option will
     // default to Equal, giving us the middle value in the colormap.
     let normalized = (val - params.cmin) / (params.cmax - params.cmin);
-    find_nearest(params.cmap_arr, normalized)
+    find_nearest(params.cmap.cmap_array(), normalized)
 }
 
 #[allow(dead_code)]

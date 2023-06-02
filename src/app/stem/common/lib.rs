@@ -2,7 +2,11 @@
 //!
 //! Messages are serialized with bincode.
 
+use serde::{Deserialize, Serialize};
+
+pub mod cmaps;
 pub mod filters;
+pub mod float;
 pub mod location;
 pub mod location_config;
 pub mod map_style;
@@ -19,3 +23,9 @@ pub use location_config::{
 pub use state::{BackState, FrontState};
 pub use time_range::TimeRange;
 pub use ws_messages::{ToBack, ToFront};
+
+#[derive(PartialEq, Debug, Default, Clone, Serialize, Deserialize)]
+pub struct LngLat {
+    pub lng: f64,
+    pub lat: f64,
+}

@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{BackState, FrontState, Location, TimeRange};
+use crate::{BackState, FrontState, LngLat};
 
 /// Messages from the frontend to the backend over the websocket
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -11,7 +11,7 @@ pub enum ToBack {
     GetBackState,
     // Set a new value for the UI/Persistent State
     SetFrontState(FrontState),
-    GetLocationTimeRange(TimeRange),
+    GetPopupText((LngLat, Option<String>)),
 
     RequestWhenInUseAuthorization,
     ExportSqliteLog,
@@ -23,8 +23,10 @@ pub enum ToBack {
 pub enum ToFront {
     FrontState(Option<FrontState>),
     BackState(BackState),
-    // Send the last known location for displaying. Used to push new location
-    // updates in real time
-    LastLocation(Location),
-    LocationTimeRange(TimeRange, Vec<Location>),
+    GeojsonUpdated,
+    PopupText {
+        location: LngLat,
+        text: String,
+        bg_color: String,
+    },
 }

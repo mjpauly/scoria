@@ -17,11 +17,13 @@ use std::io::Write;
 use std::sync::{Arc, Mutex};
 
 use actix_web::dev::ServerHandle;
+use common::state::MapState;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 
 use crate::core::log_with_dir;
+use crate::geojson::Geojson;
 use crate::paths::{get_library_dir, Paths};
 use crate::ws_session;
 use common::{BackState, FrontState};
@@ -52,6 +54,19 @@ pub struct AppState {
     pub persistent: Mutex<PersistentState>,
 
     pub swift_messages: Mutex<SwiftMessages>,
+
+    pub map_data: Mutex<MapData>,
+}
+
+/// Data to to shown on the map in the analyze tab, and helpers for calculating
+/// it.
+#[derive(Debug, Default)]
+pub struct MapData {
+    // data to plot (gets stringified in the actix route)
+    pub points_geojson: Geojson,
+    pub lines_geojson: Geojson,
+    // previous map state to determine if an update is needed
+    pub prev_map_state: Option<MapState>,
 }
 
 /// State that is persisted across app launches. Consists of two components that
@@ -137,6 +152,7 @@ impl AppState {
                 server_handle: tokio::sync::Mutex::new(None),
                 persistent: Mutex::new(persistent),
                 swift_messages: Mutex::new(Default::default()),
+                map_data: Mutex::new(Default::default()),
             }))
             .expect("Could not initialize AppState");
     }
@@ -161,7 +177,7 @@ mod tests {
     use crate::init;
     use crate::local::local_fs_setup;
     use common::{
-        state::MapState, AutoConfig, LocationAccuracyMode, LocationMode,
+        state::MapState, LocationAccuracyMode, LocationMode,
         StandardLocationConfig, TimeRange,
     };
 
@@ -213,11 +229,7 @@ mod tests {
                 },
                 ..Default::default()
             }),
-            back: BackState {
-                last_location: None,
-                locations_past_hour: None,
-                auto_location_config: AutoConfig::default(),
-            },
+            back: BackState::default(),
         };
         let contents = serde_json::to_string(&state).unwrap();
         let mut file = OpenOptions::new()

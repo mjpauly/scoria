@@ -1,6 +1,6 @@
 //! Analysis of collected data.
 
-use std::{cell::RefCell, rc::Rc};
+use std::rc::Rc;
 
 use yew::prelude::*;
 use yew_icons::{Icon, IconId};
@@ -17,8 +17,8 @@ use crate::ui_state::{BackState, FrontState};
 use crate::websocket::{
     use_backend_event_with_deps, ToBack, ToFront, WebsocketService,
 };
-use common::filters::{apply_filters, Filter};
 use common::map_style::ColoredDataStream;
+use common::LngLat;
 
 #[function_component]
 pub fn Analyze() -> Html {
@@ -158,100 +158,48 @@ fn SettingsPicker(SettingsPickerProps { tab }: &SettingsPickerProps) -> Html {
 
 #[function_component]
 fn PlotComponent() -> Html {
-    // === Plot Settings State === //
-    let time_range = use_selector(|s: &FrontState| s.map.time_range.clone());
-    let map_style = use_selector(|s: &FrontState| s.map.style.clone());
-    let filters = use_selector(|s: &FrontState| s.map.filters.clone());
-    let view_position = use_selector(|s: &FrontState| s.map.view_pos.clone());
-    let front_dispatch = Dispatch::<FrontState>::new();
+    // maplibre map handle
+    let map = use_state(|| Option::<Rc<maplibre::Map>>::None);
 
-    // === Cache location data === //
+    // === Popup Callbacks === //
 
-    // Ask for new location data from backend anytime time_range changes
-    let wss = use_context::<WebsocketService>().unwrap();
-    use_effect_with_deps(
-        move |time_range| {
-            wss.send_msg(ToBack::GetLocationTimeRange((**time_range).clone()));
-        },
-        time_range.clone(),
-    );
-
-    // State handle for the records to plot (but not yet filtered)
-    let records = use_state(Vec::<common::Location>::new);
-
-    // Save the data to plot when we receive it from the backend
-    let on_backend_msg = {
-        let records = records.clone();
-        let time_range = time_range.clone();
+    // called by maplibre when a click is detected
+    let request_popup = {
+        let wss = use_context::<WebsocketService>().unwrap();
+        move |params: (LngLat, Option<String>)| {
+            wss.send_msg(ToBack::GetPopupText(params));
+        }
+    };
+    // adds the popup to the map when the popup contents come from the backend
+    let on_get_popup_text = {
+        let map = map.clone();
         move |msg: &ToFront| {
-            if let ToFront::LocationTimeRange(_time_range, locations) = msg {
-                let mut newrecords = Vec::new();
-                for rec in locations {
-                    newrecords.push(rec.clone());
-                }
-                records.set(newrecords);
-            } else if let ToFront::LastLocation(location) = msg {
-                if time_range.contains(&location.datetime) {
-                    let mut newrecords = (*records).clone();
-                    newrecords.push(location.clone());
-                    records.set(newrecords);
-                }
+            // if *msg == ToFront::GeojsonUpdated && *map_initialized {
+            if let ToFront::PopupText {
+                location,
+                text,
+                bg_color,
+            } = msg
+            {
+                maplibre::add_popup(
+                    (*map).clone().unwrap(),
+                    location,
+                    text,
+                    bg_color,
+                );
             }
         }
     };
-    use_backend_event_with_deps(on_backend_msg, (records.clone(), time_range));
-
-    // === Popup Display Callback === //
-
-    // use_mut_ref lets us get up-to-date state values
-    let filtered_records = use_mut_ref(Vec::<common::Location>::new);
-    {
-        let filtered_records = filtered_records.clone();
-        use_effect_with_deps(
-            move |(records, filters)| {
-                let recs = apply_filters(filters, records);
-                let mut newrecs = vec![];
-                for r in recs {
-                    newrecs.push(r.clone())
-                }
-                *filtered_records.borrow_mut() = newrecs;
-            },
-            (records.clone(), filters.clone()),
-        );
-    }
-    let solid_color = use_mut_ref(|| map_style.solid_color.rgb.clone());
-    {
-        let solid_color = solid_color.clone();
-        use_effect_with_deps(
-            move |rgb| {
-                *solid_color.borrow_mut() = rgb.clone();
-            },
-            map_style.solid_color.rgb.clone(),
-        );
-    }
-    let get_popup_text = {
-        // let filtered_records = filtered_records.clone();
-        move |lng: f64, lat: f64, color: Option<String>| {
-            let filtered_records = filtered_records.clone();
-            let (lnglat, text) = get_hovertext(filtered_records, lng, lat);
-            if let Some(data_color) = color {
-                // return the location of the data point, the text to display
-                // and the popup's background color
-                (lnglat, text, data_color)
-            } else {
-                (lnglat, text, solid_color.borrow().clone())
-            }
-        }
-    };
+    use_backend_event_with_deps(on_get_popup_text, map.clone());
 
     // === Initial Map === //
 
-    let use_epsln_tile_server =
-        use_selector(|s: &FrontState| s.use_epsln_tile_server);
-
     let plot_id = "map-div";
     let map_initialized = use_state(|| false);
-    let map = use_state(|| Option::<Rc<maplibre::Map>>::None);
+
+    let map_style = use_selector(|s: &FrontState| s.map.style.clone());
+    let use_epsln_tile_server =
+        use_selector(|s: &FrontState| s.use_epsln_tile_server);
     let basemap =
         get_basemap_url(&map_style.basemap_style, *use_epsln_tile_server);
 
@@ -262,8 +210,9 @@ fn PlotComponent() -> Html {
         let map_initialized = map_initialized.clone();
         let map_style = map_style.clone();
         let basemap = basemap.clone();
-        // let view_position = view_position.clone();
-        // let front_dispatch = front_dispatch.clone();
+        let view_position =
+            use_selector(|s: &FrontState| s.map.view_pos.clone());
+        let front_dispatch = Dispatch::<FrontState>::new();
         use_effect_with_deps(
             move |_| {
                 let on_load = {
@@ -283,7 +232,7 @@ fn PlotComponent() -> Html {
                     &view_position,
                     on_load,
                     on_view_change,
-                    get_popup_text,
+                    request_popup,
                 );
                 map.set(Some(newmap));
             },
@@ -293,40 +242,32 @@ fn PlotComponent() -> Html {
 
     // === Update map on new data === //
 
-    // Depends on records, filters, and map_initialized. The first two indicate
-    // when the data shown needs to be updated. The third indicates if the map
-    // just finished initializing, which likely happens after we already have
-    // data to plot.
+    // Update when the backend tells us the geojson is up-to-date
+    let on_geojson_update = {
+        let map = map.clone();
+        let map_initialized = map_initialized.clone();
+        move |msg: &ToFront| {
+            if *msg == ToFront::GeojsonUpdated && *map_initialized {
+                maplibre::update_data((*map).clone().unwrap());
+            }
+        }
+    };
+    use_backend_event_with_deps(on_geojson_update, map_initialized.clone());
+
+    // Also update when map_initialized becomes true, which may happen after
+    // the backend updates the geojson. If this happens before the geojson
+    // update, then we'll just get the previous geojson data momentarily.
     {
         let map = map.clone();
-        let map_style = map_style.clone();
         use_effect_with_deps(
-            move |(records, filters, map_initialized): &(
-                UseStateHandle<Vec<common::Location>>,
-                Rc<Vec<Filter>>,
-                UseStateHandle<bool>,
-            )| {
+            move |map_initialized| {
                 if **map_initialized {
-                    let map = map.clone();
-                    let records = records.clone();
-                    let filters = filters.clone();
-                    yew::platform::spawn_local(async move {
-                        maplibre::async_yield().await;
-                        let recs = apply_filters(&filters, &records);
-                        maplibre::update_data(
-                            (*map).clone().unwrap(),
-                            &recs,
-                            map_style.marker_size,
-                            map_style.line_size,
-                            &map_style.colored_datastream,
-                        )
-                        .await;
-                    })
+                    maplibre::update_data((*map).clone().unwrap());
                 }
             },
-            (records.clone(), filters.clone(), map_initialized.clone()),
+            map_initialized.clone(),
         )
-    };
+    }
 
     // === Restyle map === //
 
@@ -335,42 +276,25 @@ fn PlotComponent() -> Html {
     // components, update_data and restyle_layer are sufficient. But a full
     // restyle is not too costly and handles all cases, so this is what we do.
     {
-        // clippy warnings suppressed by not cloning values that can be moved in
         let map = map.clone();
-        // let map_initialized = map_initialized.clone();
-        let records = records.clone();
-        // let basemap = basemap.clone();
-        let filters = filters.clone();
         use_effect_with_deps(
             move |map_style| {
                 if *map_initialized {
-                    let map = map.clone();
-                    let map_style = map_style.clone();
-                    let basemap = basemap.clone();
-                    let records = records.clone();
-                    let filters = filters.clone();
-                    yew::platform::spawn_local(async move {
-                        maplibre::async_yield().await;
-                        let recs = apply_filters(&filters, &records);
-
-                        // full map restyle to change the base layer
-                        map_initialized.set(false);
-                        let on_style = {
-                            let map_initialized = map_initialized.clone();
-                            Box::new(move || map_initialized.set(true))
-                        };
-                        maplibre::restyle(
-                            (*map).clone().unwrap(),
-                            &recs,
-                            &basemap,
-                            map_style.marker_size,
-                            map_style.line_size,
-                            &map_style.solid_color,
-                            &map_style.colored_datastream,
-                            on_style,
-                        )
-                        .await;
-                    });
+                    // full map restyle to change the base layer
+                    map_initialized.set(false);
+                    let on_style = {
+                        let map_initialized = map_initialized.clone();
+                        Box::new(move || map_initialized.set(true))
+                    };
+                    maplibre::restyle(
+                        (*map).clone().unwrap(),
+                        &basemap,
+                        map_style.marker_size,
+                        map_style.line_size,
+                        &map_style.solid_color,
+                        &map_style.colored_datastream,
+                        on_style,
+                    )
                 }
             },
             map_style.clone(),
@@ -381,28 +305,26 @@ fn PlotComponent() -> Html {
 
     let flytodata_onclick = {
         let map = map.clone();
-        let records = records.clone();
-        let filters = filters.clone();
+        let data_center =
+            use_selector(|state: &BackState| state.data_center.clone());
         Callback::from(move |_e: MouseEvent| {
-            let recs = apply_filters(&filters, &records);
-            maplibre::fly_to_data((*map).clone().unwrap(), &recs)
+            if let Some(center) = &*data_center {
+                maplibre::fly_to(
+                    (*map).clone().unwrap(),
+                    (center.0.lng, center.0.lat),
+                    center.1,
+                )
+            }
         })
     };
 
     let last_loc =
         use_selector(|state: &BackState| state.last_location.clone());
-    let flytome_onclick = {
-        // let map = map.clone();
-        Callback::from(move |_e: MouseEvent| {
-            if let Some(loc) = &*last_loc {
-                maplibre::fly_to(
-                    (*map).clone().unwrap(),
-                    (loc.lon, loc.lat),
-                    16.,
-                );
-            }
-        })
-    };
+    let flytome_onclick = Callback::from(move |_e: MouseEvent| {
+        if let Some(loc) = &*last_loc {
+            maplibre::fly_to((*map).clone().unwrap(), (loc.lon, loc.lat), 16.);
+        }
+    });
 
     html! {
         <>
@@ -422,52 +344,8 @@ fn PlotComponent() -> Html {
         </div>
         if map_style.colored_datastream.is_some()
             && map_style.colored_datastream != ColoredDataStream::Time {
-            <Colorbar records={records}
-                filters={filters}
-                colored_datastream={map_style.colored_datastream.clone()}/>
+            <Colorbar />
         }
         </>
     }
-}
-
-/// Return the (lng, lat) and text to show in the popup, given the current
-/// record list and the lng and lat coordinates of the click.
-fn get_hovertext(
-    filtered_records: Rc<RefCell<Vec<common::Location>>>,
-    lng: f64,
-    lat: f64,
-) -> ((f64, f64), String) {
-    let local_offset = time::UtcOffset::current_local_offset().unwrap();
-    let distances: Vec<_> = filtered_records
-        .borrow()
-        .iter()
-        .map(|loc| (loc.lat - lat).abs() + (loc.lon - lng).abs())
-        .collect();
-    let mut argmin = 0;
-    // assume the records being plotted have at least one element
-    let mut min_distance = distances[0];
-    for (i, d) in distances.iter().enumerate() {
-        if *d < min_distance {
-            min_distance = *d;
-            argmin = i;
-        }
-    }
-    let loc = &filtered_records.borrow()[argmin];
-    (
-        (loc.lon, loc.lat),
-        format!(
-            "{:.6}°, {:.6}°\
-        <br>+/-{:.2} m, {:.2} m/s, {:.2}°\
-        <br>{}",
-            loc.lat,
-            loc.lon,
-            loc.accuracy,
-            loc.speed,
-            loc.course,
-            loc.datetime
-                .to_offset(local_offset)
-                .format(&time::format_description::well_known::Rfc2822)
-                .unwrap()
-        ),
-    )
 }

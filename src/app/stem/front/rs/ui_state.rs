@@ -86,9 +86,9 @@ pub fn get_update_callback() -> Callback {
             // update our known backend state
             back_dispatch.reduce_mut(|s| **s = val.clone())
         }
-        // This message handled by other callbacks, and not stored globally
-        ToFront::LocationTimeRange(..) => (),
-        ToFront::LastLocation(..) => (),
+        // These messages handled by other callbacks, and not stored globally
+        ToFront::GeojsonUpdated => (),
+        ToFront::PopupText { .. } => (),
     };
     Box::new(callback)
 }

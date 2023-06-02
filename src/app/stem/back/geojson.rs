@@ -1,0 +1,329 @@
+//! Builds the geojson data to plot in maplibre.
+
+use std::fmt;
+
+use actix_web::{
+    http::header::{CacheControl, CacheDirective, ContentType},
+    routes, HttpResponse, Responder,
+};
+use serde::Serialize;
+
+use crate::{app_state::AppState, database, ws_session};
+use common::{
+    cmaps,
+    filters::apply_filters,
+    float,
+    state::{MapState, PersistedRoute},
+    LngLat, Location, ToFront,
+};
+
+#[routes]
+#[get("/points.geojson")]
+#[get("/analyze/points.geojson")]
+pub async fn points_geojson_route() -> impl Responder {
+    HttpResponse::Ok()
+        .content_type(ContentType(mime::APPLICATION_JSON))
+        .insert_header(CacheControl(vec![CacheDirective::NoCache]))
+        .body(
+            AppState::global()
+                .map_data
+                .lock()
+                .unwrap()
+                .points_geojson
+                .to_string(),
+        )
+}
+
+#[routes]
+#[get("/lines.geojson")]
+#[get("/analyze/lines.geojson")]
+pub async fn lines_geojson_route() -> impl Responder {
+    HttpResponse::Ok()
+        .content_type(ContentType(mime::APPLICATION_JSON))
+        .insert_header(CacheControl(vec![CacheDirective::NoCache]))
+        .body(
+            AppState::global()
+                .map_data
+                .lock()
+                .unwrap()
+                .lines_geojson
+                .to_string(),
+        )
+}
+
+#[derive(Debug, Serialize)]
+#[serde(tag = "type")]
+pub enum Geojson {
+    FeatureCollection { features: Vec<GeojsonFeature> },
+}
+
+impl Geojson {
+    pub fn new_empty() -> Self {
+        Self::FeatureCollection { features: vec![] }
+    }
+}
+
+impl fmt::Display for Geojson {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", serde_json::to_string(self).unwrap())
+    }
+}
+
+impl Default for Geojson {
+    fn default() -> Self {
+        Self::new_empty()
+    }
+}
+
+#[derive(Debug, Serialize)]
+#[serde(tag = "type")]
+pub enum GeojsonFeature {
+    Feature {
+        geometry: GeojsonGeometry,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        properties: Option<GeojsonProperties>,
+    },
+}
+
+#[derive(Debug, Serialize)]
+#[serde(tag = "type")]
+pub enum GeojsonGeometry {
+    Point { coordinates: (f64, f64) }, // (lng, lat)
+    LineString { coordinates: Vec<(f64, f64)> },
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct GeojsonProperties {
+    color: Option<String>, // color of the data point and popup background
+}
+
+/// Determine if the map state/style is different in a way that means we should
+/// update the geojson.
+fn map_state_is_different(prev: &MapState, curr: &MapState) -> bool {
+    prev.time_range != curr.time_range
+        || prev.filters != curr.filters
+        || prev.style.colored_datastream != curr.style.colored_datastream
+}
+
+/// Determine if we should update the geojson data
+///
+/// update conditions (AND):
+///     frontend is connected
+///     the route is on the analyze tab
+///     there is new data in time range
+///             OR the map state/style is different from before
+fn should_update_geojson(new_data: Option<Location>) -> Option<MapState> {
+    // get the map configuration state
+    let app_state = AppState::global();
+    let persistent_guard = app_state.persistent.lock().unwrap();
+    persistent_guard.front.as_ref()?; // if no frontend, no reason to plot
+    let route = &persistent_guard.front.as_ref().unwrap().route;
+    if route != &PersistedRoute::Analyze {
+        // not looking at the map, don't update data
+        return None;
+    }
+    let map_state = &persistent_guard.front.as_ref().unwrap().map;
+    let mut map_data_guard = app_state.map_data.lock().unwrap();
+    if let Some(prev_map_state) = &map_data_guard.prev_map_state {
+        let new_data_in_time_range = new_data
+            .map(|l| map_state.time_range.contains(&l.datetime))
+            .unwrap_or(false);
+        if !new_data_in_time_range
+            && !map_state_is_different(prev_map_state, map_state)
+        {
+            // same map state and no new data, don't bother updating
+            return None;
+        }
+    }
+    // store the current state as the previous state
+    map_data_guard.prev_map_state = Some(map_state.clone());
+    Some(map_state.clone())
+}
+
+/// Build both the points and lines geojson
+///
+/// new_data indicates if this is triggered by new location data as opposed to a
+/// change to the map's style
+pub async fn update_geojson(new_data: Option<Location>) {
+    let map_state = match should_update_geojson(new_data) {
+        Some(s) => s,
+        None => return,
+    };
+    let colored_datastream = &map_state.style.colored_datastream;
+
+    let records = database::get_records_time_range(&map_state.time_range).await;
+    let filtered_records = apply_filters(&map_state.filters, &records);
+    println!("processing {} records", filtered_records.len());
+    let make_points = map_state.style.marker_size > 0;
+    let make_lines = map_state.style.line_size > 0;
+    let cmap_params = colored_datastream.get_cmap_params(&filtered_records);
+
+    let app_state = AppState::global();
+    let mut persistent_guard = app_state.persistent.lock().unwrap();
+    if filtered_records.is_empty() {
+        persistent_guard.back.data_center = None;
+    } else {
+        persistent_guard.back.data_center =
+            Some(get_view_params(&filtered_records));
+    }
+    persistent_guard.back.cmap_params = cmap_params.clone();
+    drop(persistent_guard);
+    // Send the new back state to the frontend
+    let maybe_addr = AppState::global().ws_addr.lock().unwrap().clone();
+    if let Some(addr) = maybe_addr {
+        addr.do_send(ws_session::SendState);
+    }
+
+    let mut points = Vec::new();
+    let mut lines = Vec::new();
+    for i in 0..filtered_records.len() {
+        // With the lines we index one ahead to get the line endpoint, so we
+        // don't want to make the line on the final record
+        let make_line = make_lines && i < filtered_records.len() - 1;
+
+        let properties = if colored_datastream.is_some() {
+            let val = colored_datastream.get_stream(filtered_records[i]);
+            let color = cmaps::get_data_color(val, &cmap_params);
+            Some(GeojsonProperties {
+                color: Some(color.to_string()),
+            })
+        } else {
+            None
+        };
+
+        let coords = (filtered_records[i].lon, filtered_records[i].lat);
+
+        if make_points {
+            points.push(GeojsonFeature::Feature {
+                geometry: GeojsonGeometry::Point {
+                    coordinates: coords,
+                },
+                properties: properties.clone(),
+            })
+        }
+        if make_line {
+            let end_coords =
+                (filtered_records[i + 1].lon, filtered_records[i + 1].lat);
+            lines.push(GeojsonFeature::Feature {
+                geometry: GeojsonGeometry::LineString {
+                    coordinates: vec![coords, end_coords],
+                },
+                properties,
+            })
+        }
+    }
+    let points_geojson = Geojson::FeatureCollection { features: points };
+    let lines_geojson = Geojson::FeatureCollection { features: lines };
+    let mut map_data_guard = app_state.map_data.lock().unwrap();
+    map_data_guard.points_geojson = points_geojson;
+    map_data_guard.lines_geojson = lines_geojson;
+
+    let maybe_addr = AppState::global().ws_addr.lock().unwrap().clone();
+    if let Some(addr) = maybe_addr {
+        addr.do_send(ws_session::MsgToFront(ToFront::GeojsonUpdated));
+    }
+}
+
+/// Calculate the center of a map. Does not take the map size into account, so
+/// is overly conservative (zooms further out than needed)
+fn get_view_params(records: &[&common::Location]) -> (LngLat, f64) {
+    if records.is_empty() {
+        return Default::default();
+    }
+    let lats: Vec<_> = records.iter().map(|x| x.lat).collect();
+    let lons: Vec<_> = records.iter().map(|x| x.lon).collect();
+    let lat_center = (float::max(&lats) + float::min(&lats)) / 2.;
+    let lon_center = (float::max(&lons) + float::min(&lons)) / 2.;
+    let lat_range = float::max(&lats) - float::min(&lats);
+    let lon_range = float::max(&lons) - float::min(&lons);
+    let lat_zoom = (360. / lat_range * lat_center.to_radians().cos()).log2();
+    let lon_zoom = (360. / lon_range).log2();
+    let zoom = if lat_zoom > lon_zoom {
+        lon_zoom
+    } else {
+        lat_zoom
+    };
+    let mut zoom = zoom - 1.;
+    zoom = zoom.clamp(0., 16.);
+    (
+        LngLat {
+            lng: lon_center,
+            lat: lat_center,
+        },
+        zoom,
+    )
+}
+
+/// Get the popup text for a click at a given location. Also takes the point's
+/// color if it exists. Returns the location to put the popup, the text,
+/// and the desired color of the popup's background
+pub async fn get_popup_text(
+    lnglat: LngLat,
+    data_color: Option<String>,
+) -> ToFront {
+    let map_state = AppState::global()
+        .persistent
+        .lock()
+        .unwrap()
+        .front
+        .as_ref()
+        .unwrap()
+        .map
+        .clone();
+    let records = database::get_records_time_range(&map_state.time_range).await;
+    let filtered_records = apply_filters(&map_state.filters, &records);
+
+    let local_offset = map_state.time_range.start.offset();
+    let distances: Vec<_> = filtered_records
+        .iter()
+        .map(|loc| (loc.lat - lnglat.lat).abs() + (loc.lon - lnglat.lng).abs())
+        .collect();
+    let mut argmin = 0;
+    // assume the records being plotted have at least one element
+    let mut min_distance = distances[0];
+    for (i, d) in distances.iter().enumerate() {
+        if *d < min_distance {
+            min_distance = *d;
+            argmin = i;
+        }
+    }
+    let loc = &filtered_records[argmin];
+    let bg_color = if let Some(color) = data_color {
+        color
+    } else {
+        AppState::global()
+            .persistent
+            .lock()
+            .unwrap()
+            .front
+            .as_ref()
+            .unwrap()
+            .map
+            .style
+            .solid_color
+            .rgb
+            .clone()
+    };
+    let text = format!(
+        "{:.6}°, {:.6}°\
+        <br>+/-{:.2} m, {:.2} m/s, {:.2}°\
+        <br>{}",
+        loc.lat,
+        loc.lon,
+        loc.accuracy,
+        loc.speed,
+        loc.course,
+        loc.datetime
+            .to_offset(local_offset)
+            .format(&time::format_description::well_known::Rfc2822)
+            .unwrap()
+    );
+    ToFront::PopupText {
+        location: LngLat {
+            lng: loc.lon,
+            lat: loc.lat,
+        },
+        text,
+        bg_color,
+    }
+}

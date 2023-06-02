@@ -12,10 +12,11 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    cmaps::CmapParams,
     filters::{DataStream, Filter, FilterOp},
     map_style::MapStyle,
     view_position::ViewPosition,
-    AutoConfig, Location, TimeRange, UserConfig,
+    AutoConfig, LngLat, Location, TimeRange, UserConfig,
 };
 
 /// Driven by backend
@@ -27,6 +28,10 @@ pub struct BackState {
 
     pub last_location: Option<Location>,
     pub locations_past_hour: Option<i32>,
+
+    // data-derived state for the map view
+    pub data_center: Option<(LngLat, f64)>, // (LngLat, zoom)
+    pub cmap_params: CmapParams,
 }
 
 /// Driven by frontend
@@ -99,6 +104,6 @@ pub fn default_accuracy_filter() -> Vec<Filter> {
         enabled: true,
         datastream: DataStream::HorizAccuracy,
         op: FilterOp::GreaterThan,
-        threshold: 10.0,
+        threshold: 100.0,
     }]
 }

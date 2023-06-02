@@ -19,6 +19,7 @@ use actix_web::{HttpResponse, Responder};
 use rand::RngCore;
 
 use crate::app_state::AppState;
+use crate::geojson::{lines_geojson_route, points_geojson_route};
 // use crate::core::print_and_log;
 use crate::ws_session::ws_route;
 
@@ -125,6 +126,8 @@ fn build(listener: TcpListener, frontend_key: FrontendKey) -> Server {
                     .service(always_auth_png)
                     // dynamic routes
                     .service(health_check)
+                    .service(points_geojson_route)
+                    .service(lines_geojson_route)
                     .route("/ws", web::get().to(ws_route))
                     // yew-router adds trailing slashes that change the relative
                     // scope that static files are loaded from on reload, so we
