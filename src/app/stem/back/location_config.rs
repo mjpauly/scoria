@@ -29,7 +29,8 @@ use crate::ws_session;
 use common::UserConfig;
 use common::{AllLocationConfig, AutoConfig, LocationAccuracyMode};
 
-static THRESHOLD: i32 = 6;
+static MINUTE_THRESHOLD: i32 = 6;
+static FIVE_MINUTE_THRESHOLD: i32 = 30;
 static HYSTERESIS: i32 = 1;
 
 /// Return whether the standard location service should be enabled
@@ -61,39 +62,7 @@ async fn update_auto_location_config() {
         // Not in auto mode, don't bother updating
         return;
     }
-    if config.auto_standard_on()
-        && config.auto.standard_config.accuracy_mode
-            == LocationAccuracyMode::Best
-    {
-        // High accuracy mode -> see if we're stopped and should switch to a low
-        // accuracy mode
-        // TODO: if battery < 20% -> go to significant changes mode
-        let minute_ago =
-            time::OffsetDateTime::now_utc() - time::Duration::minutes(1);
-        let count = database::count_records_since(minute_ago).await;
-        if count < THRESHOLD {
-            print_and_log(&format!(
-                "switching to low accuracy, count past minute = {}",
-                count
-            ));
-            set_auto_accuracy(LocationAccuracyMode::HundredMeters);
-        }
-    } else if config.auto_standard_on()
-        && config.auto.standard_config.accuracy_mode
-            == LocationAccuracyMode::HundredMeters
-    {
-        // Lower accuracy mode -> maybe go to higher accuracy
-        let minute_ago =
-            time::OffsetDateTime::now_utc() - time::Duration::minutes(1);
-        let count = database::count_records_since(minute_ago).await;
-        if count >= THRESHOLD + HYSTERESIS {
-            print_and_log(&format!(
-                "switching to high accuracy, count past minute = {}",
-                count
-            ));
-            set_auto_accuracy(LocationAccuracyMode::Best);
-        }
-    } else {
+    if !config.auto_standard_on() {
         // shouldn't get here, but if we do we'll set the location mode to
         // the default auto config
         AppState::global()
@@ -103,6 +72,37 @@ async fn update_auto_location_config() {
             .back
             .auto_location_config = AutoConfig::default()
     }
+    let now = time::OffsetDateTime::now_utc();
+    let minute_ago = now - time::Duration::minutes(1);
+    let five_minutes_ago = now - time::Duration::minutes(5);
+    let minute_count = database::count_records_since(minute_ago).await;
+    let five_minute_count =
+        database::count_records_since(five_minutes_ago).await;
+    if config.auto_standard_on()
+        && config.auto.standard_config.accuracy_mode
+            == LocationAccuracyMode::Best
+        && minute_count < MINUTE_THRESHOLD
+        && five_minute_count < FIVE_MINUTE_THRESHOLD
+    {
+        // TODO: if battery < 20% -> go to significant changes mode
+        print_and_log(&format!(
+            "switching to low accuracy, count past minute = {}, count past 5 \
+            minutes = {}",
+            minute_count, five_minute_count
+        ));
+        set_auto_accuracy(LocationAccuracyMode::HundredMeters);
+    } else if config.auto_standard_on()
+        && config.auto.standard_config.accuracy_mode
+            == LocationAccuracyMode::HundredMeters
+        && minute_count >= MINUTE_THRESHOLD + HYSTERESIS
+    {
+        print_and_log(&format!(
+            "switching to high accuracy, count past minute = {}",
+            minute_count
+        ));
+        set_auto_accuracy(LocationAccuracyMode::Best);
+    }
+    // do nothing otherwise
 }
 
 /// Get a cloned copy of the current location config

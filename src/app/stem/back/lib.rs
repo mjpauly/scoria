@@ -20,7 +20,7 @@ pub mod app_state; // backend state storage
 pub mod core; // high-level app logic that spans multiple modules
 pub mod database; // manages the SQLite database
 pub mod geojson; // construct the data to display in the frontend
-pub mod location_config; // location configuration
+pub mod location_config; // location logging configuration
 pub mod paths; // stores and retrieve file system paths
 pub mod runtime; // retrieves async runtime for use in the sync C interface
 pub mod server; // server for the UI

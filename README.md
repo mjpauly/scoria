@@ -2,32 +2,32 @@
 
 ## To Do
 
-- [ ] 5m window for going to low accuracy in auto mode
 - bite-sized features
     - [ ] all time button
     - [ ] quick time update buttons
     - [ ] *persist time delta instead of absolute times*
-- [ ] reset to "today" view if user is away from the app for 1+ hr
+- [ ] reset to "today" time range and data-centered view if user is away from
+    the app for 1+ hr
+- [ ] ability to set preferred units
+- [ ] integrate time and SI units under shared traits
 - [ ] time of day colormapping
-- [ ] action failure alterts
+- [ ] action failure alterts (esp for importing)
+- [ ] improved startup error handling
 - [ ] show colormap or not
 - [ ] plot reset button
-- [ ] prevent horizontal rotation
+- [ ] prevent horizontal app rotation
 - [ ] in-app feedback form
-- map usability / configurability
-    - [ ] persist selection for export + queries
+- [ ] export tab on map (csv, maybe image)
 - [ ] log required: altitude, isProducedByAccessory, and isSimulatedBySoftware;
     floor, verticalAccuracy, speedAccuracy, courseAccuracy
     :: all required! don't want people to need to opt in -> reduces how much people actually collect
+    - [ ] also whether data was imported
 - [ ] log more metadata
     - [ ] location config metadata (when settings were changed)
     - [ ] app usage metadata (when app launched, quit, foregrounded, backgrounded)
     - [ ] data viewership (what map data viewed and when)
     - [ ] battery charge (to correlate with location mode) [ref](https://stackoverflow.com/questions/27475506/check-battery-level-ios-swift)
-- [ ] ability to set preferred units
-- [ ] integrate time and SI units under shared traits
 - [ ] rustsec checks of dependencies
-- [ ] more up-to-date satellite imagery
 - website
     - [ ] landing page
     - [ ] privacy policy
@@ -118,6 +118,7 @@
 - [x] more persistently cache plotly and maplibre
 - [x] decimate data if more than 50k points
 - [x] ability to export/import log
+- [x] 5m window for going to low accuracy in auto mode
 
 ## Structure
 
