@@ -17,6 +17,10 @@ use common::{
     LngLat, Location, ToFront,
 };
 
+// The maximum number of data points to put into the geojson. If greater, we
+// decimate (select every nth) by a factor large enough to get under 50k points.
+static DECIMATION_THRESHOLD: usize = 50_000;
+
 #[routes]
 #[get("/points.geojson")]
 #[get("/analyze/points.geojson")]
@@ -140,31 +144,44 @@ fn should_update_geojson(new_data: Option<Location>) -> Option<MapState> {
     Some(map_state.clone())
 }
 
+/// Downsample the records if the number of points is greater than
+/// DECIMATION_THRESHOLD. Downsamples by a number large enough to get below the
+/// threshold. The number of records output will be between half the threshold
+/// and the threshold.
+fn decimate_records<'a>(records: &'a [&Location]) -> Vec<&'a Location> {
+    if records.len() > DECIMATION_THRESHOLD {
+        let decimation_factor = (records.len() as f64
+            / DECIMATION_THRESHOLD as f64)
+            .ceil() as usize;
+        // remove the second reference with .copied()
+        records.iter().step_by(decimation_factor).copied().collect()
+    } else {
+        records.to_vec()
+    }
+}
+
 /// Build both the points and lines geojson
 ///
 /// new_data indicates if this is triggered by new location data as opposed to a
 /// change to the map's style
 pub async fn update_geojson(new_data: Option<Location>) {
-    let map_state = match should_update_geojson(new_data) {
-        Some(s) => s,
-        None => return,
-    };
+    let Some(map_state) = should_update_geojson(new_data) else { return };
     let colored_datastream = &map_state.style.colored_datastream;
 
-    let records = database::get_records_time_range(&map_state.time_range).await;
-    let filtered_records = apply_filters(&map_state.filters, &records);
-    println!("processing {} records", filtered_records.len());
+    let raw_records =
+        database::get_records_time_range(&map_state.time_range).await;
+    let filtered_records = apply_filters(&map_state.filters, &raw_records);
+    let records = decimate_records(&filtered_records);
     let make_points = map_state.style.marker_size > 0;
     let make_lines = map_state.style.line_size > 0;
-    let cmap_params = colored_datastream.get_cmap_params(&filtered_records);
+    let cmap_params = colored_datastream.get_cmap_params(&records);
 
     let app_state = AppState::global();
     let mut persistent_guard = app_state.persistent.lock().unwrap();
-    if filtered_records.is_empty() {
+    if records.is_empty() {
         persistent_guard.back.data_center = None;
     } else {
-        persistent_guard.back.data_center =
-            Some(get_view_params(&filtered_records));
+        persistent_guard.back.data_center = Some(get_view_params(&records));
     }
     persistent_guard.back.cmap_params = cmap_params.clone();
     drop(persistent_guard);
@@ -176,13 +193,13 @@ pub async fn update_geojson(new_data: Option<Location>) {
 
     let mut points = Vec::new();
     let mut lines = Vec::new();
-    for i in 0..filtered_records.len() {
+    for i in 0..records.len() {
         // With the lines we index one ahead to get the line endpoint, so we
         // don't want to make the line on the final record
-        let make_line = make_lines && i < filtered_records.len() - 1;
+        let make_line = make_lines && i < records.len() - 1;
 
         let properties = if colored_datastream.is_some() {
-            let val = colored_datastream.get_stream(filtered_records[i]);
+            let val = colored_datastream.get_stream(records[i]);
             let color = cmaps::get_data_color(val, &cmap_params);
             Some(GeojsonProperties {
                 color: Some(color.to_string()),
@@ -191,7 +208,7 @@ pub async fn update_geojson(new_data: Option<Location>) {
             None
         };
 
-        let coords = (filtered_records[i].lon, filtered_records[i].lat);
+        let coords = (records[i].lon, records[i].lat);
 
         if make_points {
             points.push(GeojsonFeature::Feature {
@@ -202,8 +219,7 @@ pub async fn update_geojson(new_data: Option<Location>) {
             })
         }
         if make_line {
-            let end_coords =
-                (filtered_records[i + 1].lon, filtered_records[i + 1].lat);
+            let end_coords = (records[i + 1].lon, records[i + 1].lat);
             lines.push(GeojsonFeature::Feature {
                 geometry: GeojsonGeometry::LineString {
                     coordinates: vec![coords, end_coords],
@@ -270,11 +286,12 @@ pub async fn get_popup_text(
         .unwrap()
         .map
         .clone();
-    let records = database::get_records_time_range(&map_state.time_range).await;
-    let filtered_records = apply_filters(&map_state.filters, &records);
+    let raw_records =
+        database::get_records_time_range(&map_state.time_range).await;
+    let records = apply_filters(&map_state.filters, &raw_records);
 
     let local_offset = map_state.time_range.start.offset();
-    let distances: Vec<_> = filtered_records
+    let distances: Vec<_> = records
         .iter()
         .map(|loc| (loc.lat - lnglat.lat).abs() + (loc.lon - lnglat.lng).abs())
         .collect();
@@ -287,7 +304,7 @@ pub async fn get_popup_text(
             argmin = i;
         }
     }
-    let loc = &filtered_records[argmin];
+    let loc = &records[argmin];
     let bg_color = if let Some(color) = data_color {
         color
     } else {

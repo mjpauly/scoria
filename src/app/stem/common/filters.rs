@@ -65,12 +65,13 @@ pub fn apply_filters<'a>(
     records
         .iter()
         .filter(|loc| {
-            let mut should_remove = false;
             for filt in filters {
-                should_remove |= filt.should_remove(loc)
+                if filt.should_remove(loc) {
+                    // invert condition, since filter discards on `false`
+                    return false;
+                }
             }
-            // invert condition, since filter discards on `false`
-            !should_remove
+            true
         })
         .collect()
 }

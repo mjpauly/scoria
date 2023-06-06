@@ -27,3 +27,8 @@ user.bazelrc
 
 # osm data
 /src/server/tiles/build
+
+# cached third party js libraries
+/src/app/stem/front/static/maplibre-gl.css
+/src/app/stem/front/static/maplibre-gl.js
+/src/app/stem/front/static/plotly.min.js

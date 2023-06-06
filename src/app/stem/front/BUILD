@@ -100,25 +100,28 @@ $(execpath @front_npm//tailwindcss/bin:tailwindcss) -i $(location styles.css) \
     visibility = ["//visibility:public"],
 )
 
-# download plotly to include with static files
-genrule(
+# Script to download the plotly and maplibre libs and place them in the static/
+# directory. This persists the libraries longer than bazel's cache might,
+# ensuring they are accessible for the lifetime of this this work tree.
+# Run the download with `bazel run :download_third_party_js_libraries`
+sh_binary(
+    name = "download_js_libs",
+    srcs = ["download_js_libs.sh"],
+)
+
+filegroup(
     name = "plotlyjs",
-    outs = ["plotly.min.js"],
-    cmd = 'curl https://cdn.plot.ly/plotly-2.20.0.min.js -o $@',
+    srcs = ["static/plotly.min.js"],
     visibility = ["//visibility:public"],
 )
-
-genrule(
+filegroup(
     name = "maplibregl",
-    outs = ["maplibre-gl.js"],
-    cmd = 'curl https://unpkg.com/maplibre-gl@2.4.0/dist/maplibre-gl.js -o $@',
+    srcs = ["static/maplibre-gl.js"],
     visibility = ["//visibility:public"],
 )
-
-genrule(
+filegroup(
     name = "maplibregl_css",
-    outs = ["maplibre-gl.css"],
-    cmd = 'curl https://unpkg.com/maplibre-gl@2.4.0/dist/maplibre-gl.css -o $@',
+    srcs = ["static/maplibre-gl.css"],
     visibility = ["//visibility:public"],
 )
 

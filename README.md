@@ -6,21 +6,16 @@
 - bite-sized features
     - [ ] all time button
     - [ ] quick time update buttons
-    - [ ] persist time delta instead of absolute times
-- [x] fully persist ui state
-- [x] investigate serde default
+    - [ ] *persist time delta instead of absolute times*
 - [ ] reset to "today" view if user is away from the app for 1+ hr
 - [ ] time of day colormapping
 - [ ] action failure alterts
 - [ ] show colormap or not
 - [ ] plot reset button
-- [ ] create geojson in backend, serve via url
-- [x] app intoduction/tutorial on first install
 - [ ] prevent horizontal rotation
 - [ ] in-app feedback form
 - map usability / configurability
     - [ ] persist selection for export + queries
-- [ ] ability to export log
 - [ ] log required: altitude, isProducedByAccessory, and isSimulatedBySoftware;
     floor, verticalAccuracy, speedAccuracy, courseAccuracy
     :: all required! don't want people to need to opt in -> reduces how much people actually collect
@@ -116,6 +111,13 @@
     - [x] data point popup on click
     - [x] more clickable data points
 - [x] lines between points
+- [x] fully persist ui state
+- [x] investigate serde default
+- [x] app intoduction/tutorial on first install
+- [x] create geojson in backend, serve via url
+- [x] more persistently cache plotly and maplibre
+- [x] decimate data if more than 50k points
+- [x] ability to export/import log
 
 ## Structure
 
@@ -162,16 +164,9 @@ src
 
 ### Pre-commit checklist
 
-Test, lint, format.
-
-```
-bazel run :dev
-bazel run //:iosapp
-bazel test //src/app/stem:unit_tests
-bazel test //src/app/stem:int_tests --spawn_strategy=local
-bazel build --aspects=@rules_rust//rust:defs.bzl%rust_clippy_aspect --output_groups=clippy_checks //...
-bazel build --@rules_rust//:rustfmt.toml=//:rustfmt.toml --aspects=@rules_rust//rust:defs.bzl%rustfmt_aspect --output_groups=rustfmt_checks //...
-```
+First, verify desired features work in dev with `bazel run //src/app/stem:dev`,
+then check with the ios app using `bazel run //:iosapp`. Finally, use
+`./precommit.sh` to run tests, lints, and format.
 
 ### Setup
 
@@ -195,12 +190,20 @@ For compile-time checked query macros with `sqlx` we need a development database
 for `sqlx` to connect to and check queries against. Run the following command:
 
 ```
-bazel run src/app/stem:db_gen
+bazel run //src/app/stem:db_gen
 ```
 
 This is slightly suboptimal. Ideally it would integrate into the build system
 automatically, getting generated anytime we compile the app. See `db_gen.rs` for
 notes on this issue.
+
+We also explicitly cache our third party javascript libraries in our source
+tree. If we rely on bazel to cache it, we'll periodically need to redownload it
+when unrelated build config settings change.
+
+```
+bazel run //src/app/stem/front:download_js_libs
+```
 
 ### Running the App in the Simulator
 
@@ -210,11 +213,11 @@ bazel run //:iosapp
 
 ### Interactively Developing the UI
 
-Navigate to `src/app/stem` and run `ibazel run :dev`.
+Run `ibazel run //src/app/stem:dev`.
 
 Then open `localhost:8081/123` in a browser. In Firefox, the responsive web
 design mode lets you change the page aspect ratio to that of a phone
-(opt-cmd-M).
+(opt-cmd-M). Developer tools can be opened with opt-cmd-I.
 
 ### Generate the Xcode Project
 
