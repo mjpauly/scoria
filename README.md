@@ -2,10 +2,7 @@
 
 ## To Do
 
-- bite-sized features
-    - [ ] all time button
-    - [ ] quick time update buttons
-    - [ ] *persist time delta instead of absolute times*
+- [ ] quick time update buttons
 - [ ] reset to "today" time range and data-centered view if user is away from
     the app for 1+ hr
 - [ ] ability to set preferred units
@@ -18,6 +15,7 @@
 - [ ] prevent horizontal app rotation
 - [ ] in-app feedback form
 - [ ] export tab on map (csv, maybe image)
+- [ ] nullable speed and course data
 - [ ] log required: altitude, isProducedByAccessory, and isSimulatedBySoftware;
     floor, verticalAccuracy, speedAccuracy, courseAccuracy
     :: all required! don't want people to need to opt in -> reduces how much people actually collect
@@ -119,6 +117,8 @@
 - [x] decimate data if more than 50k points
 - [x] ability to export/import log
 - [x] 5m window for going to low accuracy in auto mode
+- [x] all time button
+- [x] persist time delta instead of absolute times
 
 ## Structure
 

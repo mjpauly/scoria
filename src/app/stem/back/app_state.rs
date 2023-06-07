@@ -176,10 +176,7 @@ impl AppState {
 mod tests {
     use crate::init;
     use crate::local::local_fs_setup;
-    use common::{
-        state::MapState, LocationAccuracyMode, LocationMode,
-        StandardLocationConfig, TimeRange,
-    };
+    use common::{LocationAccuracyMode, LocationMode, StandardLocationConfig};
 
     use super::{
         fs, AppState, BackState, FrontState, OpenOptions, PersistentState,
@@ -217,15 +214,6 @@ mod tests {
                         accuracy_mode: LocationAccuracyMode::TenMeters,
                         distance_filter: 4.0,
                     },
-                },
-                map: MapState {
-                    time_range: TimeRange {
-                        start: time::OffsetDateTime::now_utc(),
-                        end: time::OffsetDateTime::now_utc(),
-                    },
-                    style: Default::default(),
-                    filters: vec![],
-                    view_pos: Default::default(),
                 },
                 ..Default::default()
             }),

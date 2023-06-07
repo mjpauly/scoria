@@ -15,6 +15,7 @@ use crate::{
     cmaps::CmapParams,
     filters::{DataStream, Filter, FilterOp},
     map_style::MapStyle,
+    time_range::TimeDeltaRange,
     view_position::ViewPosition,
     AutoConfig, LngLat, Location, TimeRange, UserConfig,
 };
@@ -67,6 +68,12 @@ pub enum PersistedRoute {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct MapState {
+    // time_delta_range is the persisted source of truth on the time range to
+    // display, but time-fixed time_range is used to get data to plot, and is
+    // updated only on particular actions, like an explicit time update, or when
+    // the app is opened. This way the range is fixed while the app is open, but
+    // updates to the delta range on launch.
+    pub time_delta_range: TimeDeltaRange,
     pub time_range: TimeRange,
     pub style: MapStyle,
     pub filters: Vec<Filter>,
@@ -79,7 +86,8 @@ pub struct MapState {
 impl Default for MapState {
     fn default() -> Self {
         Self {
-            time_range: plus_minus_day_utc(),
+            time_delta_range: plus_minus_day_utc(),
+            time_range: (&plus_minus_day_utc()).into(),
             style: Default::default(),
             filters: default_accuracy_filter(),
             view_pos: Default::default(),
@@ -91,11 +99,14 @@ impl Default for MapState {
 /// timezone offset, so it is safe to be run by the backend. This is a backup
 /// in case deserialization doesn't work. On first install the frontend should
 /// be what initializes the time_range.
-pub fn plus_minus_day_utc() -> TimeRange {
-    let now = time::OffsetDateTime::now_utc();
-    let start = now - time::Duration::DAY;
-    let end = now + time::Duration::DAY;
-    TimeRange { start, end }
+pub fn plus_minus_day_utc() -> TimeDeltaRange {
+    TimeDeltaRange {
+        start_offset: -time::Duration::DAY,
+        end_offset: time::Duration::DAY,
+        snap_start_to_day: false,
+        snap_end_to_day: false,
+        offset: None,
+    }
 }
 
 pub fn default_accuracy_filter() -> Vec<Filter> {

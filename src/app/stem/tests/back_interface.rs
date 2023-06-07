@@ -1,10 +1,9 @@
 //! Integration tests for the backend's interface (Swift-facing and frontend-
 //! facing).
 
-use common::state::MapState;
 use common::{
-    FrontState, LocationAccuracyMode, StandardLocationConfig, TimeRange,
-    ToBack, UserConfig,
+    FrontState, LocationAccuracyMode, StandardLocationConfig, ToBack,
+    UserConfig,
 };
 
 use crate::setup;
@@ -98,15 +97,6 @@ async fn set_location_config_changes_backend_state_impl() {
                 accuracy_mode: LocationAccuracyMode::Best,
             },
             ..Default::default()
-        },
-        map: MapState {
-            time_range: TimeRange {
-                start: time::OffsetDateTime::now_utc(),
-                end: time::OffsetDateTime::now_utc(),
-            },
-            style: Default::default(),
-            filters: vec![],
-            view_pos: Default::default(),
         },
         ..Default::default()
     };

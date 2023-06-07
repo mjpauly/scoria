@@ -17,7 +17,7 @@ use common::state::MapState;
 use yewdux::prelude::*;
 
 use crate::{
-    components::time_range_picker::time_range_today,
+    components::time_range_picker::time_delta_range_today,
     websocket::{Callback, ToBack, ToFront, WebsocketService},
 };
 
@@ -30,10 +30,10 @@ impl Default for FrontState {
     fn default() -> Self {
         Self(common::FrontState {
             map: MapState {
-                // timezone-aware time_range, which is preferred over the
+                // timezone-aware time_delta_range, which is preferred over the
                 // default implementation in common::state, which is a backup
                 // the backend can run if deserialization fails.
-                time_range: time_range_today(),
+                time_delta_range: time_delta_range_today(),
                 ..Default::default()
             },
             ..Default::default()
@@ -74,12 +74,27 @@ impl DerefMut for BackState {
 
 pub fn get_update_callback() -> Callback {
     let front_dispatch = Dispatch::<FrontState>::new();
+    // logic for setting the front state when it's received from the backend
+    let set_front_state = move |mut state: common::FrontState| {
+        // backend failed to deserialize -> set to correct offset
+        if state.map.time_delta_range.offset.is_none() {
+            state.map.time_delta_range = time_delta_range_today();
+        }
+        // Update our "static" time_range to match the delta range
+        // This way the selected time_range doesn't abruptly change on
+        // the user as time passes while the app is open, but updates
+        // between app launches
+        // TODO: reset to today if they've been away for 1+ hour
+        state.map.time_range = (&state.map.time_delta_range).into();
+        front_dispatch.reduce_mut(|s| **s = state)
+    };
+
     let back_dispatch = Dispatch::<BackState>::new();
     let callback = move |msg: &ToFront| match msg {
         ToFront::FrontState(val) => {
             // we get the FrontState at startup
             if let Some(state) = val {
-                front_dispatch.reduce_mut(|s| **s = state.clone())
+                set_front_state(state.clone());
             }
         }
         ToFront::BackState(val) => {
