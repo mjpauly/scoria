@@ -9,7 +9,7 @@ use web_sys::{HtmlInputElement, HtmlSelectElement};
 use yew::prelude::*;
 use yewdux::prelude::*;
 
-use crate::components::{RANGE_INPUT_STYLE, SELECT_STYLE};
+use crate::components::{RANGE_INPUT_STYLE, SELECT_STYLE, TOGGLE_SWITCH_STYLE};
 use crate::ui_state::FrontState;
 use common::map_style::{
     BasemapStyle, ColoredDataStream, BASEMAP_STRINGS, DATASTREAM_STRINGS,
@@ -137,6 +137,11 @@ pub fn MapStyler() -> Html {
                 ColoredDataStream::from_str(val).unwrap();
         },
     );
+    let colorbar_on_click = {
+        dispatch.reduce_mut_callback(move |s: &mut FrontState| {
+            s.map.style.show_colorbar = !s.map.style.show_colorbar;
+        })
+    };
 
     let basemap_options = BASEMAP_STRINGS.iter().map(|x| {
         html! {
@@ -201,6 +206,17 @@ pub fn MapStyler() -> Html {
                         value={style.solid_color.rgb.clone()}
                         class="m-1 ml-6 bg-neutral-800"
                         onchange={color_onchange} />
+                </div>
+            } else if style.colored_datastream != ColoredDataStream::Time {
+                // since no colorbar for time, colorbar option is hidden
+                <div class="flex items-center justify-between">
+                    <label for="colorbar">{"Colorbar"}</label>
+                    <div class="relative ml-4 mr-1 h-6">
+                        <input type="checkbox" id="colorbar"
+                            checked={style.show_colorbar}
+                            onclick={colorbar_on_click}
+                            class={TOGGLE_SWITCH_STYLE} />
+                    </div>
                 </div>
             }
         </div>

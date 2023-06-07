@@ -17,7 +17,7 @@ use common::state::MapState;
 use yewdux::prelude::*;
 
 use crate::{
-    components::time_range_picker::time_delta_range_today,
+    components::time_range_picker::{local_offset, time_delta_range_today},
     websocket::{Callback, ToBack, ToFront, WebsocketService},
 };
 
@@ -76,10 +76,12 @@ pub fn get_update_callback() -> Callback {
     let front_dispatch = Dispatch::<FrontState>::new();
     // logic for setting the front state when it's received from the backend
     let set_front_state = move |mut state: common::FrontState| {
-        // backend failed to deserialize -> set to correct offset
         if state.map.time_delta_range.offset.is_none() {
+            // Backend failed to deserialize -> set to correct offset
             state.map.time_delta_range = time_delta_range_today();
         }
+        // Always ensure the UTC offset is up-to-date
+        state.map.time_delta_range.offset = Some(local_offset());
         // Update our "static" time_range to match the delta range
         // This way the selected time_range doesn't abruptly change on
         // the user as time passes while the app is open, but updates

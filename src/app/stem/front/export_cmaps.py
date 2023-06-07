@@ -23,4 +23,5 @@ def print_cmap(c):
 
 # print_cmap(cm.viridis.colors)
 # print_cmap(cm.plasma.colors)
-print_cmap(cm.twilight.colors)
+# print_cmap(cm.twilight.colors)
+print_cmap(cm.twilight_shifted.colors)

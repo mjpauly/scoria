@@ -174,7 +174,8 @@ pub async fn update_geojson(new_data: Option<Location>) {
     let records = decimate_records(&filtered_records);
     let make_points = map_state.style.marker_size > 0;
     let make_lines = map_state.style.line_size > 0;
-    let cmap_params = colored_datastream.get_cmap_params(&records);
+    let offset = map_state.time_range.start.offset();
+    let cmap_params = colored_datastream.get_cmap_params(&records, &offset);
 
     let app_state = AppState::global();
     let mut persistent_guard = app_state.persistent.lock().unwrap();
@@ -199,7 +200,7 @@ pub async fn update_geojson(new_data: Option<Location>) {
         let make_line = make_lines && i < records.len() - 1;
 
         let properties = if colored_datastream.is_some() {
-            let val = colored_datastream.get_stream(records[i]);
+            let val = colored_datastream.get_stream(records[i], &offset);
             let color = cmaps::get_data_color(val, &cmap_params);
             Some(GeojsonProperties {
                 color: Some(color.to_string()),

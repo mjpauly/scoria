@@ -54,6 +54,14 @@ pub fn Colorbar() -> Html {
                 colorbar = colorbar
                     .tick_vals(vec![0., 90., 180., 270., 360.])
                     .tick_text(vec!["N", "E", "S", "W", "N"]);
+            } else if **colored_datastream == ColoredDataStream::TimeOfDay {
+                let vals = [0., 6., 12., 18., 24.]
+                    .iter()
+                    .map(|x| x * 60. * 60.)
+                    .collect::<Vec<f64>>();
+                colorbar = colorbar
+                    .tick_vals(vals)
+                    .tick_text(vec!["0:00", "6:00", "12:00", "18:00", "0:00"])
             }
             // see @maybe_useful_later/time_colorbar.rs for initial code
             // on doing a colorbar for time (plotly doesn't handle it well)

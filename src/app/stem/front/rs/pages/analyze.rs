@@ -42,9 +42,7 @@ fn AnalyzeLocation() -> Html {
     // Get the number of filters clamped to the range [0, 2], which is where
     // resizing of the filter list occurs. If the value changes, trigger resize
     let num_filters = (*filters).len().clamp(0, 2);
-    // Also resize if whether a colorbar is showing changes
-    let colored_datastream_is_some = map_style.colored_datastream.is_some();
-    // Time is also a special case for now
+    // Colorbar toggle hidden on Time selection
     let colored_datastream_is_time =
         map_style.colored_datastream == ColoredDataStream::Time;
 
@@ -58,8 +56,8 @@ fn AnalyzeLocation() -> Html {
         (
             settings_tab.clone(),
             num_filters,
-            colored_datastream_is_some,
             colored_datastream_is_time,
+            map_style.should_show_colorbar(),
         ),
     );
 
@@ -342,8 +340,7 @@ fn PlotComponent() -> Html {
                     class="h-6 w-6 text-[#aaaaaa]" />
             </button>
         </div>
-        if map_style.colored_datastream.is_some()
-            && map_style.colored_datastream != ColoredDataStream::Time {
+        if map_style.should_show_colorbar() {
             <Colorbar />
         }
         </>

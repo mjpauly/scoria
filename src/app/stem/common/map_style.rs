@@ -17,6 +17,15 @@ pub struct MapStyle {
     pub line_size: usize,
     pub basemap_style: BasemapStyle,
     pub colored_datastream: ColoredDataStream,
+    pub show_colorbar: bool,
+}
+
+impl MapStyle {
+    pub fn should_show_colorbar(&self) -> bool {
+        self.show_colorbar
+            && self.colored_datastream.is_some()
+            && self.colored_datastream != ColoredDataStream::Time
+    }
 }
 
 impl Default for MapStyle {
@@ -30,6 +39,7 @@ impl Default for MapStyle {
             line_size: 2,
             basemap_style: Default::default(),
             colored_datastream: Default::default(),
+            show_colorbar: true,
         }
     }
 }
@@ -113,9 +123,10 @@ pub enum ColoredDataStream {
     Speed,
     Course,
     Time,
+    TimeOfDay,
 }
 
-pub static DATASTREAM_STRINGS: [(ColoredDataStream, &str); 7] = [
+pub static DATASTREAM_STRINGS: [(ColoredDataStream, &str); 8] = [
     (ColoredDataStream::None, "None"),
     (ColoredDataStream::Lat, "Latitude"),
     (ColoredDataStream::Lon, "Longitude"),
@@ -123,11 +134,16 @@ pub static DATASTREAM_STRINGS: [(ColoredDataStream, &str); 7] = [
     (ColoredDataStream::Speed, "Speed"),
     (ColoredDataStream::Course, "Course"),
     (ColoredDataStream::Time, "Time"),
+    (ColoredDataStream::TimeOfDay, "Time of Day"),
 ];
 
 impl ColoredDataStream {
     /// Selects the right data stream from a common::Location struct
-    pub fn get_stream(&self, loc: &Location) -> f64 {
+    pub fn get_stream(&self, loc: &Location, offset: &time::UtcOffset) -> f64 {
+        let time_of_day_to_seconds = |timestamp: &time::OffsetDateTime| {
+            let hms = timestamp.to_offset(*offset).time().as_hms();
+            (hms.0 as f64) * 60. * 60. + (hms.1 as f64) * 60. + (hms.2 as f64)
+        };
         match self {
             ColoredDataStream::None => 0.,
             ColoredDataStream::Lat => loc.lat,
@@ -136,6 +152,9 @@ impl ColoredDataStream {
             ColoredDataStream::Speed => loc.speed,
             ColoredDataStream::Course => loc.course,
             ColoredDataStream::Time => loc.datetime.unix_timestamp() as f64,
+            ColoredDataStream::TimeOfDay => {
+                time_of_day_to_seconds(&loc.datetime)
+            }
         }
     }
 
@@ -148,6 +167,7 @@ impl ColoredDataStream {
         match *self {
             ColoredDataStream::None => format!("{}", self),
             ColoredDataStream::Time => format!("{}", self),
+            ColoredDataStream::TimeOfDay => format!("{}", self),
             ColoredDataStream::Lat => format!("{} (deg)", self),
             ColoredDataStream::Lon => format!("{} (deg)", self),
             ColoredDataStream::HorizAccuracy => format!("{} (m)", self),
@@ -158,30 +178,33 @@ impl ColoredDataStream {
 
     /// Calculate the cmin and cmax and return colormap the for a datastream
     /// given a vec of locations
-    pub fn get_cmap_params(&self, records: &[&Location]) -> CmapParams {
+    pub fn get_cmap_params(
+        &self,
+        records: &[&Location],
+        offset: &time::UtcOffset,
+    ) -> CmapParams {
+        let mut params = CmapParams {
+            cmin: 0.,
+            cmax: 0.,
+            cmap: Cmap::Plasma,
+        };
         if !self.is_some() {
-            // short circuit
-            return CmapParams {
-                cmin: 0.,
-                cmax: 0.,
-                cmap: Cmap::Plasma,
-            };
+            // no data-based color mapping, just short circuit
+            return params;
         }
-        let colorvals: Vec<_> =
-            records.iter().map(|x| self.get_stream(x)).collect();
         if *self == ColoredDataStream::Course {
-            CmapParams {
-                cmin: 0.0,
-                cmax: 360.0,
-                cmap: Cmap::Twilight,
-            }
+            params.cmax = 360.;
+            params.cmap = Cmap::Twilight;
+        } else if *self == ColoredDataStream::TimeOfDay {
+            params.cmax = 24. * 60. * 60.;
+            params.cmap = Cmap::TwilightShifted;
         } else {
-            CmapParams {
-                cmin: float::min(&colorvals),
-                cmax: float::max(&colorvals),
-                cmap: Cmap::Plasma,
-            }
+            let colorvals: Vec<_> =
+                records.iter().map(|x| self.get_stream(x, offset)).collect();
+            params.cmin = float::min(&colorvals);
+            params.cmax = float::max(&colorvals);
         }
+        params
     }
 }
 

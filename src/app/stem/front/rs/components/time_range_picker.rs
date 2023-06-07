@@ -119,7 +119,7 @@ pub fn TimeRangePicker() -> Html {
     }
 }
 
-fn local_offset() -> time::UtcOffset {
+pub fn local_offset() -> time::UtcOffset {
     time::UtcOffset::current_local_offset().unwrap()
 }
 
