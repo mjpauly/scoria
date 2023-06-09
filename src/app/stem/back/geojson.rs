@@ -111,34 +111,44 @@ fn map_state_is_different(prev: &MapState, curr: &MapState) -> bool {
 
 /// Determine if we should update the geojson data
 ///
-/// update conditions (AND):
-///     frontend is connected
-///     the route is on the analyze tab
-///     there is new data in time range
-///             OR the map state/style is different from before
-fn should_update_geojson(new_data: Option<Location>) -> Option<MapState> {
+/// update conditions:
+/// app was foregrounded
+/// || (the route is on the analyze tab
+///     && (there is new data in time range
+///         || the map state/style is different from before))
+fn should_update_geojson(
+    new_data: Option<Location>,
+    foregrounded: bool,
+) -> Option<MapState> {
     // get the map configuration state
     let app_state = AppState::global();
     let persistent_guard = app_state.persistent.lock().unwrap();
-    persistent_guard.front.as_ref()?; // if no frontend, no reason to plot
-    let route = &persistent_guard.front.as_ref().unwrap().route;
-    if route != &PersistedRoute::Analyze {
-        // not looking at the map, don't update data
-        return None;
-    }
-    let map_state = &persistent_guard.front.as_ref().unwrap().map;
+    // the '?' operator returns None if the frontend hasn't been initialized yet
+    let map_state = &persistent_guard.front.as_ref()?.map;
     let mut map_data_guard = app_state.map_data.lock().unwrap();
-    if let Some(prev_map_state) = &map_data_guard.prev_map_state {
-        let new_data_in_time_range = new_data
-            .map(|l| map_state.time_range.contains(&l.datetime))
-            .unwrap_or(false);
-        if !new_data_in_time_range
-            && !map_state_is_different(prev_map_state, map_state)
-        {
-            // same map state and no new data, don't bother updating
+    // Always update when app is foregrounded since data may have come in while
+    // we were in the background. We don't update the geojson in the background
+    // since it's costly.
+    // 'if' blocks test if we should NOT update (passed by returning None)
+    if !foregrounded {
+        let route = &persistent_guard.front.as_ref().unwrap().route;
+        if route != &PersistedRoute::Analyze {
+            // not looking at the map, don't update data
             return None;
         }
+        if let Some(prev_map_state) = &map_data_guard.prev_map_state {
+            let new_data_in_time_range = new_data
+                .map(|l| map_state.time_range.contains(&l.datetime))
+                .unwrap_or(false);
+            if !new_data_in_time_range
+                && !map_state_is_different(prev_map_state, map_state)
+            {
+                // same map state and no new data, don't bother updating
+                return None;
+            }
+        }
     }
+    // -> Should update if we get here <-
     // store the current state as the previous state
     map_data_guard.prev_map_state = Some(map_state.clone());
     Some(map_state.clone())
@@ -160,12 +170,20 @@ fn decimate_records<'a>(records: &'a [&Location]) -> Vec<&'a Location> {
     }
 }
 
-/// Build both the points and lines geojson
+/// Build both the points and lines geojson. Doesn't necessarily update; that is
+/// determined by should_update_geojson().
 ///
-/// new_data indicates if this is triggered by new location data as opposed to a
-/// change to the map's style
-pub async fn update_geojson(new_data: Option<Location>) {
-    let Some(map_state) = should_update_geojson(new_data) else { return };
+/// This function is called whenever the front state changes, new location data
+/// is logged while the frontend is active, or the app is foregrounded.
+///
+/// 'new_data' indicates if this is triggered by new location data as opposed to
+/// a change to the map's style
+///
+/// 'foregrounded' indicates if this is triggered when the app is foregrounded
+pub async fn update_geojson(new_data: Option<Location>, foregrounded: bool) {
+    let Some(map_state) = should_update_geojson(new_data, foregrounded) else {
+        return
+    };
     let colored_datastream = &map_state.style.colored_datastream;
 
     let raw_records =
@@ -186,7 +204,7 @@ pub async fn update_geojson(new_data: Option<Location>) {
     }
     persistent_guard.back.cmap_params = cmap_params.clone();
     drop(persistent_guard);
-    // Send the new back state to the frontend
+    // Send the new back state (cmap params and data center) to the frontend
     let maybe_addr = AppState::global().ws_addr.lock().unwrap().clone();
     if let Some(addr) = maybe_addr {
         addr.do_send(ws_session::SendState);

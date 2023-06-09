@@ -26,7 +26,7 @@ ios_application(
 # Bump the build_version when submitting a new build to App Store Connect
 apple_bundle_version(
     name = "app_version",
-    build_version = "1.0.7",
+    build_version = "1.0.8",
     short_version_string = "1.0",
 )
 

@@ -44,7 +44,7 @@ pub async fn log_location(
             course,
             datetime,
         };
-        tokio::spawn(update_geojson(Some(loc)));
+        tokio::spawn(update_geojson(Some(loc), false));
     }
 }
 

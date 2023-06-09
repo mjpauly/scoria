@@ -80,7 +80,11 @@ pub extern "C" fn handle_shutdown() {
 /// app is brought to the foreground.
 #[no_mangle]
 pub extern "C" fn handle_enter_foreground() -> server::ServerConfig {
-    runtime::get_runtime().block_on(async { server::run(0, true).await })
+    runtime::get_runtime().block_on(async {
+        // We may have received new data while in the background
+        tokio::spawn(geojson::update_geojson(None, true));
+        server::run(0, true).await
+    })
 }
 
 /// When the app goes the background we stop the server. This way we release

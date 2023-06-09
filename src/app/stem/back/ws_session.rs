@@ -83,7 +83,7 @@ impl WsSession {
                 AppState::global().persistent.lock().unwrap().front = Some(val);
                 AppState::save_to_file();
                 let fut = async move {
-                    update_geojson(None).await;
+                    update_geojson(None, false).await;
                 };
                 fut.into_actor(self).spawn(ctx);
             }
