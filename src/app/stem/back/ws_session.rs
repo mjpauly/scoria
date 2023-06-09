@@ -9,7 +9,7 @@ use actix_web::{web, Error, HttpRequest, HttpResponse};
 use actix_web_actors::ws;
 use std::time::{Duration, Instant};
 
-use crate::core::print_and_log;
+use crate::core::debug;
 use crate::database;
 use crate::geojson::update_geojson;
 use crate::{app_state::AppState, geojson::get_popup_text};
@@ -30,10 +30,11 @@ pub async fn ws_route(
 ) -> Result<HttpResponse, Error> {
     // Disallow another websocket connection if one is already active
     if AppState::global().ws_addr.lock().unwrap().is_some() {
-        print_and_log("Additional UI websocket connection rejected.");
+        debug("Additional UI websocket connection rejected.");
         return Ok(HttpResponse::Unauthorized()
             .body("Only one UI connection allowed."));
     }
+    debug("Frontend Websocket Connected");
     ws::start(WsSession { hb: Instant::now() }, &req, stream)
 }
 
@@ -54,9 +55,7 @@ impl WsSession {
             // check client heartbeats
             if Instant::now().duration_since(act.hb) > CLIENT_TIMEOUT {
                 // heartbeat timed out
-                print_and_log(
-                    "Websocket Client heartbeat failed, disconnecting!",
-                );
+                debug("Websocket Client heartbeat failed, disconnecting!");
 
                 // stop actor
                 ctx.stop();
@@ -246,10 +245,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsSession {
             }
             ws::Message::Text(text) => println!("got text {}", text),
             ws::Message::Close(reason) => {
-                print_and_log(&format!(
-                    "Closing Websocket with reason: {:?}",
-                    reason
-                ));
+                debug(&format!("Closing websocket with reason: {:?}", reason));
                 ctx.close(reason);
                 ctx.stop();
             }

@@ -45,7 +45,7 @@ use sqlx::{
     FromRow, SqlitePool,
 };
 
-use crate::{app_state::AppState, core::print_and_log};
+use crate::{app_state::AppState, core::debug};
 
 // Embed our migrations from "migrations/" into our binary at compile time
 static MIGRATOR: Migrator = sqlx::migrate!();
@@ -205,21 +205,19 @@ async fn count_all_records(conn: &SqlitePool) -> i32 {
 /// migrate it to the current schema, if it's out of date.
 pub async fn import_database_records(import_db_path: PathBuf) {
     let import_db_url = import_db_path.display().to_string();
-    println!("importing file at {}", import_db_url);
+    debug(&format!("importing file at {}", import_db_url));
     // Open a connection to the database if possible
     let import_conn = match SqlitePool::connect(&import_db_url).await {
         Ok(c) => c,
         Err(e) => {
-            print_and_log(&format!(
-                "Failed to open connection to import db. Err: {e}"
-            ));
+            debug(&format!("Failed to open connection to import db. Err: {e}"));
             // TODO: send failure feedback to user
             return;
         }
     };
     // Migrate the databse and close it.
     if let Err(e) = MIGRATOR.run(&import_conn).await {
-        print_and_log(&format!("Failed to migrate import db. Err: {e}"));
+        debug(&format!("Failed to migrate import db. Err: {e}"));
         import_conn.close().await;
         return;
     }
@@ -244,14 +242,14 @@ pub async fn import_database_records(import_db_path: PathBuf) {
     .execute(&conn)
     .await;
     if let Err(e) = result {
-        print_and_log(&format!("Failed to import records. Err: {e}"));
+        debug(&format!("Failed to import records. Err: {e}"));
         return;
     }
 
     let n_final = count_all_records(&conn).await;
     let n_imported = n_final - n_initial;
 
-    print_and_log(&format!(
+    debug(&format!(
         "Successfully imported {} records. ({} duplicates ignored.)",
         n_imported,
         n_to_import - n_imported

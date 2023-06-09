@@ -7,10 +7,8 @@
     the app for 1+ hr
 - [ ] ability to set preferred units
 - [ ] integrate time and SI units under shared traits
-- [ ] time of day colormapping
 - [ ] action failure alterts (esp for importing)
 - [ ] improved startup error handling
-- [ ] show colormap or not
 - [ ] plot reset button
 - [ ] prevent horizontal app rotation
 - [ ] in-app feedback form
@@ -119,6 +117,9 @@
 - [x] 5m window for going to low accuracy in auto mode
 - [x] all time button
 - [x] persist time delta instead of absolute times
+- [x] time of day colormapping
+- [x] show colormap or not
+- [x] better debug logging
 
 ## Structure
 

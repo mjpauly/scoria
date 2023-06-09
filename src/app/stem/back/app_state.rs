@@ -22,7 +22,7 @@ use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 
-use crate::core::log_with_dir;
+use crate::core::{log_with_dir, timestamp};
 use crate::geojson::Geojson;
 use crate::paths::{get_library_dir, Paths};
 use crate::ws_session;
@@ -127,22 +127,43 @@ impl AppState {
     /// Actual init implementation shared between both test and non-test cases
     fn do_init(state: &OnceCell<Arc<AppState>>, paths: Paths, db: SqlitePool) {
         let state_file = paths.library_dir.join(STATE_FNAME);
-        let persistent = if let Ok(input) = fs::read_to_string(state_file) {
-            match serde_json::from_str(&input) {
+        let persistent = match fs::read_to_string(state_file) {
+            Ok(input) => match serde_json::from_str(&input) {
                 Ok(parsed) => {
-                    println!("Successfully loaded app state: {:?}", parsed);
+                    let msg = &format!(
+                        "DEBUG {} Successfully loaded app state:\n {:?}\n
+                         File contents were \"{}\"",
+                        timestamp(),
+                        parsed,
+                        input
+                    );
+                    println!("{}", msg);
+                    log_with_dir(msg, &paths.documents_dir);
                     parsed
                 }
                 Err(e) => {
-                    let msg =
-                        &format!("Failed to parse state due to error: {}", e);
+                    let msg = &format!(
+                        "DEBUG {} Failed to parse state due to error: {}\
+                        File contents were \"{}\"",
+                        timestamp(),
+                        e,
+                        input
+                    );
                     println!("{}", msg);
                     log_with_dir(msg, &paths.documents_dir);
                     PersistentState::default()
                 }
+            },
+            Err(e) => {
+                let msg = &format!(
+                    "DEBUG {} Failed to read state file due to error: {}",
+                    timestamp(),
+                    e
+                );
+                println!("{}", msg);
+                log_with_dir(msg, &paths.documents_dir);
+                PersistentState::default()
             }
-        } else {
-            PersistentState::default()
         };
         (*state)
             .set(Arc::new(AppState {

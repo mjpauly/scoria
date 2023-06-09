@@ -66,12 +66,14 @@ pub async fn init(init_paths: paths::Paths) {
     .await
     .unwrap();
     app_state::AppState::init(init_paths, db);
+    core::debug("===== App Startup =====");
 }
 
 /// Handle shutdown of the app by saving certain persistent state elements to
 /// the filesystem, which will be read-back at startup.
 #[no_mangle]
 pub extern "C" fn handle_shutdown() {
+    core::debug("----- App Shutdown -----");
     app_state::AppState::save_to_file();
 }
 
@@ -80,6 +82,7 @@ pub extern "C" fn handle_shutdown() {
 /// app is brought to the foreground.
 #[no_mangle]
 pub extern "C" fn handle_enter_foreground() -> server::ServerConfig {
+    core::debug("App Foregrounded");
     runtime::get_runtime().block_on(async {
         // We may have received new data while in the background
         tokio::spawn(geojson::update_geojson(None, true));
@@ -94,6 +97,7 @@ pub extern "C" fn handle_enter_foreground() -> server::ServerConfig {
 /// helps).
 #[no_mangle]
 pub extern "C" fn handle_enter_background() {
+    core::debug("App Backgrounded");
     runtime::get_runtime().block_on(async {
         server::shutdown().await;
     });

@@ -34,6 +34,7 @@ impl Default for FrontState {
                 // default implementation in common::state, which is a backup
                 // the backend can run if deserialization fails.
                 time_delta_range: time_delta_range_today(),
+                time_range: (&time_delta_range_today()).into(),
                 ..Default::default()
             },
             ..Default::default()

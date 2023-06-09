@@ -67,3 +67,15 @@ pub fn print_and_log(line: &str) {
     let docdir = get_documents_dir();
     log_with_dir(line, &docdir);
 }
+
+// TODO: get log crate working
+pub fn timestamp() -> String {
+    let now = time::OffsetDateTime::now_utc()
+        .to_offset(time::UtcOffset::from_hms(-7, 0, 0).unwrap());
+    now.format(&time::format_description::well_known::Rfc2822)
+        .unwrap()
+}
+
+pub fn debug(msg: &str) {
+    print_and_log(&format!("DEBUG {} {}", timestamp(), msg))
+}
