@@ -6,6 +6,7 @@ pub mod location_filter_list;
 pub mod map_styler;
 pub mod navbar;
 pub mod time_range_picker;
+pub mod unit_picker;
 
 pub use colorbar::Colorbar;
 pub use location_config::LocationConfigurator;

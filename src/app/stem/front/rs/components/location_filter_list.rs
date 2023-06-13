@@ -25,8 +25,9 @@ use crate::{
     components::{SELECT_STYLE, TOGGLE_SWITCH_STYLE},
     ui_state::FrontState,
 };
-use common::filters::{
-    DataStream, Filter, FilterOp, DATASTREAM_STRINGS, OP_STRINGS,
+use common::{
+    filters::{DataStream, Filter, FilterOp, DATASTREAM_STRINGS, OP_STRINGS},
+    units::LengthUnits,
 };
 
 #[function_component]
@@ -81,15 +82,26 @@ pub fn LocationFilterList() -> Html {
             s.map.filters = entries
         },
     );
+    let unit_pref = use_selector(|s: &FrontState| s.unit_pref.clone());
     let onadd =
         dispatch.reduce_mut_callback_with(move |s: &mut FrontState, _| {
             let mut entries = s.map.filters.clone();
+            // pick rounder values for imperial units
+            let threshold = match unit_pref.small_length {
+                LengthUnits::Kilometer => 10.,
+                LengthUnits::Meter => 10.,
+                LengthUnits::Foot => LengthUnits::Foot.to_base_unit(30.),
+                LengthUnits::Mile => LengthUnits::Mile.to_base_unit(0.006),
+                LengthUnits::NauticalMile => {
+                    LengthUnits::NauticalMile.to_base_unit(0.005)
+                }
+            };
             entries.push(Filter {
                 id: entries.last().map(|entry| entry.id + 1).unwrap_or(1),
                 enabled: false,
                 datastream: DataStream::HorizAccuracy,
                 op: FilterOp::GreaterThan,
-                threshold: 10.0,
+                threshold,
             });
             s.map.filters = entries
         });
@@ -175,13 +187,15 @@ fn FilterEntry(props: &FilterEntryProps) -> Html {
             onchange_op.emit((id, op))
         }
     };
+    let unit_pref = use_selector(|s: &FrontState| s.unit_pref.clone());
     let onchange_threshold = {
         let onchange_threshold = props.onchange_threshold.clone();
         let stream = filt.datastream.clone();
+        let unit_pref = unit_pref.clone();
         move |e: Event| {
             let elem: HtmlInputElement = e.target_dyn_into().unwrap();
             let val: &str = &elem.value();
-            if let Ok(threshold) = stream.parse_value(val) {
+            if let Ok(threshold) = stream.parse_value(&unit_pref, val) {
                 onchange_threshold.emit((id, threshold))
             }
             elem.set_value("");
@@ -221,13 +235,14 @@ fn FilterEntry(props: &FilterEntryProps) -> Html {
                     class="h-5 w-5 text-neutral-500" />
             </button>
 
-            <select class={SELECT_STYLE} ref={stream_node_ref}
+            <select class={format!("ml-2 {}", SELECT_STYLE)}
+                ref={stream_node_ref}
                 id={format!("filt_{}_datastream", filt.id)}
-                    onchange={onchange_stream}>
+                onchange={onchange_stream}>
                 {for stream_options.clone()}
             </select>
 
-            <select class={SELECT_STYLE} ref={op_node_ref}
+            <select class={format!("ml-2 {}", SELECT_STYLE)} ref={op_node_ref}
                 id={format!("filt_{}_op", filt.id)}
                 onchange={onchange_op}>
                 {for op_options.clone()}
@@ -235,13 +250,14 @@ fn FilterEntry(props: &FilterEntryProps) -> Html {
 
             <input onchange={onchange_threshold}
                 id={format!("filt_{}_threshold", filt.id)}
-                placeholder={filt.datastream.format_value(filt.threshold)}
-                class="w-16 rounded bg-black \
+                placeholder={filt.datastream.format_value(
+                                &unit_pref, filt.threshold)}
+                class="w-16 flex-grow ml-2 rounded bg-black \
                 border border-neutral-700 \
                 placeholder:text-neutral-500"
             />
 
-            <div class="relative h-6">
+            <div class="relative h-6 ml-2">
                 <input type="checkbox" checked={filt.enabled} onclick={ontoggle}
                     id={format!("filt_{}_toggle", filt.id)}
                     class={TOGGLE_SWITCH_STYLE} />

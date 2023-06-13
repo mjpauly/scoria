@@ -14,6 +14,7 @@ use common::{
     filters::apply_filters,
     float,
     state::{MapState, PersistedRoute},
+    units::UnitPreference,
     LngLat, Location, ToFront,
 };
 
@@ -296,15 +297,12 @@ pub async fn get_popup_text(
     lnglat: LngLat,
     data_color: Option<String>,
 ) -> ToFront {
-    let map_state = AppState::global()
-        .persistent
-        .lock()
-        .unwrap()
-        .front
-        .as_ref()
-        .unwrap()
-        .map
-        .clone();
+    let (map_state, unit_pref) = {
+        let state = AppState::global();
+        let persistent = state.persistent.lock().unwrap();
+        let front = persistent.front.as_ref().unwrap();
+        (front.map.clone(), front.unit_pref.clone())
+    };
     let raw_records =
         database::get_records_time_range(&map_state.time_range).await;
     let records = apply_filters(&map_state.filters, &raw_records);
@@ -324,36 +322,9 @@ pub async fn get_popup_text(
         }
     }
     let loc = &records[argmin];
-    let bg_color = if let Some(color) = data_color {
-        color
-    } else {
-        AppState::global()
-            .persistent
-            .lock()
-            .unwrap()
-            .front
-            .as_ref()
-            .unwrap()
-            .map
-            .style
-            .solid_color
-            .rgb
-            .clone()
-    };
-    let text = format!(
-        "{:.6}°, {:.6}°\
-        <br>+/-{:.2} m, {:.2} m/s, {:.2}°\
-        <br>{}",
-        loc.lat,
-        loc.lon,
-        loc.accuracy,
-        loc.speed,
-        loc.course,
-        loc.datetime
-            .to_offset(local_offset)
-            .format(&time::format_description::well_known::Rfc2822)
-            .unwrap()
-    );
+    let text = location_popup_text(local_offset, &unit_pref, loc);
+    let bg_color =
+        data_color.unwrap_or(map_state.style.solid_color.rgb.clone());
     ToFront::PopupText {
         location: LngLat {
             lng: loc.lon,
@@ -362,4 +333,25 @@ pub async fn get_popup_text(
         text,
         bg_color,
     }
+}
+
+pub fn location_popup_text(
+    local_offset: time::UtcOffset,
+    unit_pref: &UnitPreference,
+    loc: &common::Location,
+) -> String {
+    format!(
+        "{}, {}<br>\
+        +/-{}, {}, {}<br>\
+        {}",
+        unit_pref.format_angle(loc.lat, Some(6)),
+        unit_pref.format_angle(loc.lon, Some(6)),
+        unit_pref.format_small_length(loc.accuracy, Some(2)),
+        unit_pref.format_velocity(loc.speed, Some(2)),
+        unit_pref.format_angle(loc.course, Some(2)),
+        loc.datetime
+            .to_offset(local_offset)
+            .format(&time::format_description::well_known::Rfc2822)
+            .unwrap()
+    )
 }

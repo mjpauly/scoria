@@ -12,6 +12,7 @@ pub mod location_config;
 pub mod map_style;
 pub mod state;
 pub mod time_range;
+pub mod units;
 pub mod view_position;
 pub mod ws_messages;
 

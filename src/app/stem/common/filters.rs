@@ -4,6 +4,7 @@ use std::fmt;
 
 use serde::{Deserialize, Serialize};
 
+use crate::units::{LengthUnits, UnitPreference};
 use crate::Location;
 
 /// A filter setting. Determines if data points should be excluded based on
@@ -112,13 +113,6 @@ impl std::str::FromStr for FilterOp {
 // Displayable enum for datastream selection and parsing/formatting of values
 // with correct units.
 
-use std::str::FromStr;
-
-use uom::fmt::DisplayStyle;
-use uom::si::angle::degree;
-use uom::si::f64::*;
-use uom::si::length::meter;
-use uom::si::velocity::meter_per_second;
 use uom::str::ParseQuantityError;
 
 /// All possible data streams, excluding time which is a fairly special case
@@ -155,51 +149,37 @@ impl DataStream {
 
     /// Parse a string such as "1.0 m" or "5 ft" into a quantity, then into f64
     /// as the base unit (meters for length)
-    pub fn parse_value(&self, val: &str) -> Result<f64, ParseQuantityError> {
-        let result = match self {
-            DataStream::Lat => Angle::from_str(val).map(|x| x.get::<degree>()),
-            DataStream::Lon => Angle::from_str(val).map(|x| x.get::<degree>()),
-            DataStream::HorizAccuracy => {
-                Length::from_str(val).map(|x| x.get::<meter>())
-            }
-            DataStream::Speed => {
-                Velocity::from_str(val).map(|x| x.get::<meter_per_second>())
-            }
-            DataStream::Course => {
-                Angle::from_str(val).map(|x| x.get::<degree>())
-            }
-        };
-        if result.is_ok() {
-            return result;
+    pub fn parse_value(
+        &self,
+        unit_pref: &UnitPreference,
+        val: &str,
+    ) -> Result<f64, ParseQuantityError> {
+        match self {
+            DataStream::Lat => unit_pref.parse_angle(val),
+            DataStream::Lon => unit_pref.parse_angle(val),
+            DataStream::HorizAccuracy => unit_pref.parse_small_length(val),
+            DataStream::Speed => unit_pref.parse_velocity(val),
+            DataStream::Course => unit_pref.parse_angle(val),
         }
-        // failed to parse with units, try to parse a number with units assumed
-        // to be the default
-        // TODO: parse as user-preference units
-        if let Ok(parsed) = val.parse::<f64>() {
-            return Ok(parsed);
-        }
-        result
     }
 
     /// Format a value to a string with units corresponding to the stream type.
-    pub fn format_value(&self, val: f64) -> String {
-        // TODO: format with user-preference units
-        let l = Length::format_args(meter, DisplayStyle::Abbreviation);
-        let a = Angle::format_args(degree, DisplayStyle::Abbreviation);
-        let v =
-            Velocity::format_args(meter_per_second, DisplayStyle::Abbreviation);
+    pub fn format_value(&self, unit_pref: &UnitPreference, val: f64) -> String {
         match self {
-            DataStream::Lat => format!("{}", a.with(Angle::new::<degree>(val))),
-            DataStream::Lon => format!("{}", a.with(Angle::new::<degree>(val))),
+            DataStream::Lat => unit_pref.format_angle(val, None),
+            DataStream::Lon => unit_pref.format_angle(val, None),
             DataStream::HorizAccuracy => {
-                format!("{}", l.with(Length::new::<meter>(val)))
+                // Troubles with imprecise displaying on feet, e.g. 29.9999999..
+                // so we cap the precision
+                match unit_pref.small_length {
+                    LengthUnits::Foot => {
+                        unit_pref.format_small_length(val, Some(1))
+                    }
+                    _ => unit_pref.format_small_length(val, None),
+                }
             }
-            DataStream::Speed => {
-                format!("{}", v.with(Velocity::new::<meter_per_second>(val)))
-            }
-            DataStream::Course => {
-                format!("{}", a.with(Angle::new::<degree>(val)))
-            }
+            DataStream::Speed => unit_pref.format_velocity(val, None),
+            DataStream::Course => unit_pref.format_angle(val, None),
         }
     }
 }

@@ -2,6 +2,7 @@
 
 ## To Do
 
+- [ ] Multi-page settings
 - [ ] quick time update buttons
 - [ ] reset to "today" time range and data-centered view if user is away from
     the app for 1+ hr

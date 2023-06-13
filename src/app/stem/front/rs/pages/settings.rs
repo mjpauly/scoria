@@ -4,6 +4,7 @@ use yew::prelude::*;
 use yew_icons::{Icon, IconId};
 use yew_router::prelude::*;
 
+use crate::components::unit_picker::UnitPicker;
 use crate::router::Route;
 use crate::swift_poke;
 use crate::websocket::{ToBack, WebsocketService};
@@ -67,6 +68,8 @@ pub fn DataLogSettings() -> Html {
                 </span>
             </button>
         </div>
+
+        <UnitPicker/>
 
         // title
         <div class="relative">

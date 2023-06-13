@@ -16,6 +16,7 @@ use crate::{
     filters::{DataStream, Filter, FilterOp},
     map_style::MapStyle,
     time_range::TimeDeltaRange,
+    units::UnitPreference,
     view_position::ViewPosition,
     AutoConfig, LngLat, Location, TimeRange, UserConfig,
 };
@@ -52,6 +53,9 @@ pub struct FrontState {
 
     // State of the plot view
     pub map: MapState,
+
+    // User's preferred display units
+    pub unit_pref: UnitPreference,
 }
 
 /// The page the frontend is on. Only variants that we care to persist between
