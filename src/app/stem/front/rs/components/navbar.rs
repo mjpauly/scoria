@@ -41,23 +41,13 @@ pub fn Navbar() -> Html {
     let navigator = use_navigator().unwrap();
     let curr_route: Option<Route> = use_route();
 
-    // Retrieve the scope from the url
-    let scope = Route::get_scope();
-
     // We scale the icons differently since their visual size for the same width
     // is sometimes different.
     let view_routes = vec![
         // (route, label, icon, icon_scale)
+        (Route::Sense, "Log", IconId::BootstrapJournalText, "h-6 w-6"),
         (
-            Route::Sense {
-                scope: scope.clone(),
-            },
-            "Log",
-            IconId::BootstrapJournalText,
-            "h-6 w-6",
-        ),
-        (
-            Route::Analyze { scope },
+            Route::Analyze,
             "Map",
             IconId::BootstrapGlobeAmericas,
             "h-6 w-6",

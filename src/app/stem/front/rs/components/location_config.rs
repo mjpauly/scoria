@@ -100,11 +100,16 @@ pub fn LocationConfigurator() -> Html {
         )
     };
 
+    let unit_pref = use_selector(|s: &FrontState| s.unit_pref.clone());
+    let dist_filt_text = unit_pref.format_small_length(
+        config.standard_config.distance_filter as f64,
+        Some(2),
+    );
     let dist_filt_onchange = dispatch.reduce_mut_callback_with(
         move |s: &mut FrontState, e: Event| {
             let elem: HtmlInputElement = e.target_dyn_into().unwrap();
-            if let Ok(val) = elem.value().parse::<f32>() {
-                s.location_config.standard_config.distance_filter = val;
+            if let Ok(val) = unit_pref.parse_small_length(&elem.value()) {
+                s.location_config.standard_config.distance_filter = val as f32;
                 swift_poke::poke();
             }
             elem.set_value("");
@@ -135,7 +140,7 @@ pub fn LocationConfigurator() -> Html {
         </div>
 
         // settings card
-        <div class="bg-neutral-900 rounded-lg px-4 py-1 mt-2">
+        <div class="bg-neutral-900 rounded-lg px-4 mt-2">
             // settings line
             <div class="flex items-center justify-between py-2 \
                 border-b border-neutral-800">
@@ -174,16 +179,12 @@ pub fn LocationConfigurator() -> Html {
                 </div>
                 <div class="flex items-center justify-between py-2">
                     <label for="distance_filter">{"Distance Filter"}</label>
-                    <div>
-                        <input onchange={dist_filt_onchange}
-                            id="distance_filter"
-                            placeholder={format!("{:.2}",
-                                config.standard_config.distance_filter)}
-                            class="ml-4 w-16 rounded bg-black \
-                            border border-neutral-700 \
-                            placeholder:text-neutral-500" />
-                        <span class="mx-1">{"m"}</span>
-                    </div>
+                    <input onchange={dist_filt_onchange}
+                        id="distance_filter"
+                        placeholder={dist_filt_text}
+                        class="ml-4 w-24 rounded bg-black \
+                        border border-neutral-700 \
+                        placeholder:text-neutral-500" />
                 </div>
             }
         </div>

@@ -24,10 +24,28 @@ pub fn Colorbar() -> Html {
     let cmap_params = use_selector(|s: &BackState| s.cmap_params.clone());
     let colored_datastream =
         use_selector(|s: &FrontState| s.map.style.colored_datastream.clone());
+    let unit_pref = use_selector(|s: &FrontState| s.unit_pref.clone());
 
     use_effect_with_deps(
         move |(cmap_params, colored_datastream)| {
             let mut cmap_params = (**cmap_params).clone();
+            // Convert cmax/cmin to preferred units
+            match **colored_datastream {
+                ColoredDataStream::HorizAccuracy => {
+                    cmap_params.cmin =
+                        unit_pref.small_length.from_base_unit(cmap_params.cmin);
+                    cmap_params.cmax =
+                        unit_pref.small_length.from_base_unit(cmap_params.cmax);
+                }
+                ColoredDataStream::Speed => {
+                    cmap_params.cmin =
+                        unit_pref.velocity.from_base_unit(cmap_params.cmin);
+                    cmap_params.cmax =
+                        unit_pref.velocity.from_base_unit(cmap_params.cmax);
+                }
+                _ => (),
+            };
+
             // Need to handle the case where all data has the same value
             // In this case the binary_search_by using partial_cmp will
             // default to picking the middle color in the colormap, so we just
@@ -46,7 +64,7 @@ pub fn Colorbar() -> Html {
                 .y(0.)
                 .title(
                     plotly::common::Title::new(
-                        &colored_datastream.name_with_unit(),
+                        &colored_datastream.name_with_unit(&unit_pref),
                     )
                     .side(plotly::common::Side::Top),
                 );

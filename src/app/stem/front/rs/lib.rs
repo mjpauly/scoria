@@ -44,6 +44,9 @@ pub fn App() -> Html {
     // Notify backend whenever the UI state changes
     ui_state::init_backend_listener(wss.clone());
 
+    // Get the frontend key / scope to use as the router basename
+    let basename = format!("/{}", router::get_scope());
+
     html! {
         // default parent style for the UI which pages inherit
         <div class="text-center bg-black \
@@ -51,7 +54,7 @@ pub fn App() -> Html {
                     // background gradients should work behind navbar!
                     // bg-gradient-to-b from-purple-900 to-pink-900">
             <ContextProvider<WebsocketService> context={wss}>
-                <BrowserRouter>
+                <BrowserRouter basename={basename}>
                     <Switch<router::Route> render={router::switch} />
                 </BrowserRouter>
             </ContextProvider<WebsocketService>>

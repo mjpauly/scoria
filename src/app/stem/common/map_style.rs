@@ -6,7 +6,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     cmaps::{Cmap, CmapParams},
-    float, Location,
+    float,
+    units::UnitPreference,
+    Location,
 };
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -163,16 +165,20 @@ impl ColoredDataStream {
         *self != Self::None
     }
 
-    pub fn name_with_unit(&self) -> String {
+    pub fn name_with_unit(&self, unit_pref: &UnitPreference) -> String {
         match *self {
             ColoredDataStream::None => format!("{}", self),
             ColoredDataStream::Time => format!("{}", self),
             ColoredDataStream::TimeOfDay => format!("{}", self),
-            ColoredDataStream::Lat => format!("{} (deg)", self),
-            ColoredDataStream::Lon => format!("{} (deg)", self),
-            ColoredDataStream::HorizAccuracy => format!("{} (m)", self),
-            ColoredDataStream::Speed => format!("{} (m/s)", self),
-            ColoredDataStream::Course => format!("{} (deg)", self),
+            ColoredDataStream::Lat => format!("{} (º)", self),
+            ColoredDataStream::Lon => format!("{} (º)", self),
+            ColoredDataStream::HorizAccuracy => {
+                format!("{} ({})", self, unit_pref.small_length.abbreviation())
+            }
+            ColoredDataStream::Speed => {
+                format!("{} ({})", self, unit_pref.velocity.abbreviation())
+            }
+            ColoredDataStream::Course => format!("{} (º)", self),
         }
     }
 

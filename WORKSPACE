@@ -214,6 +214,7 @@ crates_repository(
                 "BootstrapBoxArrowUp",
                 "BootstrapBrush",
                 "BootstrapCalendarRange",
+                "BootstrapCheck",
                 "BootstrapChevronLeft",
                 "BootstrapChevronRight",
                 "BootstrapFullscreen",

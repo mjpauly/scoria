@@ -324,7 +324,7 @@ pub async fn get_popup_text(
     let loc = &records[argmin];
     let text = location_popup_text(local_offset, &unit_pref, loc);
     let bg_color =
-        data_color.unwrap_or(map_state.style.solid_color.rgb.clone());
+        data_color.unwrap_or_else(|| map_state.style.solid_color.rgb.clone());
     ToFront::PopupText {
         location: LngLat {
             lng: loc.lon,

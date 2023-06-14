@@ -15,18 +15,19 @@ use crate::components::{
     map_styler::use_check_epsln_tile_server, LocationConfigurator,
     NavbarWrapper,
 };
-use crate::router::Route;
+use crate::router::SettingsRoute;
 use crate::ui_state::{BackState, FrontState};
-use common::LocationMode;
+use common::{LocationAccuracyMode, LocationMode};
 
 #[function_component]
 pub fn Sense() -> Html {
     use_check_epsln_tile_server();
     let navigator = use_navigator().unwrap();
+    // retrieve the previous settings page
+    let settings_route =
+        use_selector(|s: &FrontState| s.settings_route.clone());
     let settings_onclick = Callback::from(move |_e: MouseEvent| {
-        navigator.push(&Route::Settings {
-            scope: Route::get_scope(),
-        })
+        navigator.push(&SettingsRoute::from_persisted_route(&settings_route))
     });
     html! {
         <NavbarWrapper>
@@ -71,6 +72,7 @@ fn LocationDetails() -> Html {
     let user_config = use_selector(|s: &FrontState| s.location_config.clone());
     let auto_config =
         use_selector(|s: &BackState| s.auto_location_config.clone());
+    let unit_pref = use_selector(|s: &FrontState| s.unit_pref.clone());
 
     // Update the current state of `now` every second, so things update even if
     // there's no new data coming from the backend
@@ -84,51 +86,63 @@ fn LocationDetails() -> Html {
             1_000, // millis
         );
     }
-    // Time since last location data in human readable form
-    let mut time_since = String::from("");
-    if let Some(loc) = &*last_loc {
+    let prev_loc_html = if let Some(loc) = &*last_loc {
         let dur = *now - loc.datetime;
-        if dur > time::Duration::seconds(2) {
-            time_since = format!(
+        // Time since last location data in human readable form
+        let time_since = if dur > time::Duration::seconds(2) {
+            format!(
                 "{} ago",
                 humantime::format_duration(
                     time::Duration::seconds(dur.whole_seconds()).unsigned_abs()
                 )
-            );
+            )
         } else {
-            time_since = String::from("<2s ago");
+            String::from("<2s ago")
+        };
+        let latlon_text = format!(
+            "{}, {}",
+            unit_pref.format_angle(loc.lat, Some(5)),
+            unit_pref.format_angle(loc.lon, Some(5))
+        );
+        let accuracy_speed_course = format!(
+            "+/-{}, {}, {}",
+            unit_pref.format_small_length(loc.accuracy, Some(2)),
+            unit_pref.format_velocity(loc.speed, Some(2)),
+            unit_pref.format_angle(loc.course, Some(2))
+        );
+        html! {
+            // allow selection of the current location details
+            <div class="select-text">
+
+            <p class="font-bold mb-2"> {"Last Location"} </p>
+            <p> {latlon_text} </p>
+            <p> {accuracy_speed_course} </p>
+            <p class="mb-4"> {time_since} </p>
+            if let Some(n_locs) = *locs_per_hour {
+                <p class="whitespace-nowrap">
+                    {format!("Num data points in past hour: {}", n_locs)}
+                </p>
+                <p class="mb-4">
+                    {format!("{:.2} updates/minute", n_locs as f32 / 60.0)}
+                </p>
+            }
+
+            </div>
         }
-    }
+    } else {
+        html! { <p class="mb-4"> {"No previous location data found."} </p> }
+    };
     html! {
         <>
-            // deref then ref since we don't want to move the data out
-            if let Some(loc) = &*last_loc {
-                // allow selection of the current location details
-                <div class="select-text">
-
-                <p class="font-bold mb-2"> {"Last Location"} </p>
-                <p> {format!("{:.5}, {:.5}", loc.lat, loc.lon)} </p>
-                <p> {format!("+/-{:.2} m, {:.2} m/s, {:.2}°",
-                             loc.accuracy, loc.speed, loc.course)}
-                </p>
-                <p class="mb-4"> {time_since} </p>
-                if let Some(n_locs) = *locs_per_hour {
-                    <p class="whitespace-nowrap">
-                        {format!("Num data points in past hour: {}", n_locs)}
-                    </p>
-                    <p class="mb-4">
-                        {format!("{:.2} updates/minute", n_locs as f32 / 60.0)}
-                    </p>
-                }
-
-                </div>
-
-            } else {
-                <p class="mb-4"> {"No previous location data found."} </p>
-            }
+            {prev_loc_html}
             if user_config.mode == LocationMode::Auto {
                 <p class="mb-4"> {format!("Auto mode accuracy: {}",
-                    auto_config.standard_config.accuracy_mode)}
+                    if auto_config.standard_config.accuracy_mode
+                        == LocationAccuracyMode::Best {
+                        "High"
+                    } else {
+                        "Low"
+                    })}
                 </p>
             }
         </>

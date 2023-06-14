@@ -11,6 +11,7 @@ use uom::si::angle;
 use uom::si::f64::*;
 use uom::si::length;
 use uom::si::velocity;
+use uom::si::Unit;
 use uom::str::ParseQuantityError;
 
 // Epsilon's internal unit representation
@@ -30,7 +31,7 @@ pub struct UnitPreference {
 
 impl Default for UnitPreference {
     fn default() -> Self {
-        Self::imperial_default()
+        Self::metric_default()
     }
 }
 
@@ -182,6 +183,28 @@ impl LengthUnits {
         quantity.get::<BaseLength>()
     }
 
+    /// Turn a value in Epsilon's base unit to the preferred unit
+    pub fn from_base_unit(&self, val: f64) -> f64 {
+        let quantity = Length::new::<BaseLength>(val);
+        match self {
+            Self::Kilometer => quantity.get::<length::kilometer>(),
+            Self::Meter => quantity.get::<length::meter>(),
+            Self::Foot => quantity.get::<length::foot>(),
+            Self::Mile => quantity.get::<length::mile>(),
+            Self::NauticalMile => quantity.get::<length::nautical_mile>(),
+        }
+    }
+
+    pub fn abbreviation(&self) -> &'static str {
+        match self {
+            Self::Kilometer => length::kilometer::abbreviation(),
+            Self::Meter => length::meter::abbreviation(),
+            Self::Foot => length::foot::abbreviation(),
+            Self::Mile => length::mile::abbreviation(),
+            Self::NauticalMile => length::nautical_mile::abbreviation(),
+        }
+    }
+
     /// Format a base unit value into a string with user preference units
     pub fn format_from_base_unit(
         &self,
@@ -222,6 +245,31 @@ impl VelocityUnits {
             Self::Knot => Velocity::new::<velocity::knot>(val),
         };
         quantity.get::<BaseVelocity>()
+    }
+
+    pub fn from_base_unit(&self, val: f64) -> f64 {
+        let quantity = Velocity::new::<BaseVelocity>(val);
+        match self {
+            Self::MeterPerSecond => {
+                quantity.get::<velocity::meter_per_second>()
+            }
+            Self::KilometerPerHour => {
+                quantity.get::<velocity::kilometer_per_hour>()
+            }
+            Self::MilePerHour => quantity.get::<velocity::mile_per_hour>(),
+            Self::Knot => quantity.get::<velocity::knot>(),
+        }
+    }
+
+    pub fn abbreviation(&self) -> &'static str {
+        match self {
+            Self::MeterPerSecond => velocity::meter_per_second::abbreviation(),
+            Self::KilometerPerHour => {
+                velocity::kilometer_per_hour::abbreviation()
+            }
+            Self::MilePerHour => velocity::mile_per_hour::abbreviation(),
+            Self::Knot => velocity::knot::abbreviation(),
+        }
     }
 
     pub fn format_from_base_unit(

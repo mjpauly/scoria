@@ -4,18 +4,103 @@ use std::str::FromStr;
 
 use web_sys::HtmlSelectElement;
 use yew::prelude::*;
+use yew_icons::{Icon, IconId};
 use yewdux::prelude::*;
 
 use crate::{components::SELECT_STYLE, ui_state::FrontState};
 use common::units::{
-    LengthUnits, VelocityUnits, LENGTH_STRINGS, VELOCITY_STRINGS,
+    LengthUnits, UnitPreference, VelocityUnits, LENGTH_STRINGS,
+    VELOCITY_STRINGS,
 };
 
-// TODO: preset buttons which show as highlighted/selected after click
-// ok if this highlighting doesn't persist
+/// Show three preset options to the user when the open the page. If their
+/// settings aren't exactly the same as a the metric or imperial defaults, or
+/// they select "Custom", show the CustomUnitPicker element.
+#[derive(PartialEq)]
+enum UnitPreset {
+    Metric,
+    Imperial,
+    Custom,
+}
 
 #[function_component]
 pub fn UnitPicker() -> Html {
+    let dispatch = Dispatch::<FrontState>::new();
+    let unit_pref = use_selector(|s: &FrontState| s.unit_pref.clone());
+
+    // show the correct preset as selected if the units match
+    let preset = use_state(|| {
+        if *unit_pref == UnitPreference::metric_default() {
+            UnitPreset::Metric
+        } else if *unit_pref == UnitPreference::imperial_default() {
+            UnitPreset::Imperial
+        } else {
+            UnitPreset::Custom
+        }
+    });
+    let metric_onclick = {
+        let preset = preset.clone();
+        dispatch.reduce_mut_callback(move |s: &mut FrontState| {
+            preset.set(UnitPreset::Metric);
+            s.unit_pref = UnitPreference::metric_default();
+        })
+    };
+    let imperial_onclick = {
+        let preset = preset.clone();
+        dispatch.reduce_mut_callback(move |s: &mut FrontState| {
+            preset.set(UnitPreset::Imperial);
+            s.unit_pref = UnitPreference::imperial_default();
+        })
+    };
+    let custom_onclick = {
+        let preset = preset.clone();
+        Callback::from(move |_e| {
+            preset.set(UnitPreset::Custom);
+        })
+    };
+    html! {
+        <>
+
+        // settings card
+        <div class="bg-neutral-900 rounded-lg px-4">
+            // settings line
+            <button class="py-2 border-b border-neutral-800 w-full \
+                flex items-center justify-between" onclick={metric_onclick}>
+                <label>{"Metric"}</label>
+                if *preset == UnitPreset::Metric {
+                    <Icon icon_id={IconId::BootstrapCheck}
+                        class="h-6 w-6 text-primary" />
+                }
+            </button>
+            <button class="py-2 border-b border-neutral-800 w-full \
+                flex items-center justify-between" onclick={imperial_onclick}>
+                <label>{"Imperial"}</label>
+                if *preset == UnitPreset::Imperial {
+                    <Icon icon_id={IconId::BootstrapCheck}
+                        class="h-6 w-6 text-primary" />
+                }
+            </button>
+            <button class="py-2 w-full flex items-center justify-between"
+                onclick={custom_onclick}>
+                <label>{"Custom"}</label>
+                if *preset == UnitPreset::Custom {
+                    <Icon icon_id={IconId::BootstrapCheck}
+                        class="h-6 w-6 text-primary" />
+                }
+            </button>
+        </div>
+
+        if *preset == UnitPreset::Custom {
+            <div class="h-4"></div>
+            <CustomUnitPicker />
+        }
+
+        </>
+    }
+}
+
+#[function_component]
+pub fn CustomUnitPicker() -> Html {
     let dispatch = Dispatch::<FrontState>::new();
     let unit_pref = use_selector(|s: &FrontState| s.unit_pref.clone());
 
@@ -79,19 +164,12 @@ pub fn UnitPicker() -> Html {
                 let e = velocity_node_ref.cast::<HtmlSelectElement>().unwrap();
                 e.set_value(&(unit_pref.velocity.to_string()));
             },
-            unit_pref.clone(),
+            unit_pref,
         )
     };
     html! {
-        // flex container for centering
-        <div class="mt-2 mb-1 flex px-4">
-        // centered, width-limited container
-        <div class="grow max-w-prose mx-auto">
-
-        <p class="font-bold"> {"Preferred Units"} </p>
-
         // settings card
-        <div class="bg-neutral-900 rounded-lg px-4 py-1 mt-2">
+        <div class="bg-neutral-900 rounded-lg px-4">
             // settings line
             <div class="flex items-center justify-between py-2 \
                 border-b border-neutral-800">
@@ -119,9 +197,6 @@ pub fn UnitPicker() -> Html {
                     {for velocity_options.clone()}
                 </select>
             </div>
-        </div>
-
-        </div>
         </div>
     }
 }

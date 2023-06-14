@@ -1,12 +1,10 @@
 //! Simple empty page to show while the UI state is loaded from the backend.
 //! Reduces flickering.
 
-use common::state::PersistedRoute;
 use yew::prelude::*;
 use yew_router::prelude::*;
 
-use crate::pages::intro::INTRO_VERSION;
-use crate::router::Route;
+use crate::router::navigate_to_last_page;
 use crate::websocket::{use_backend_event, ToFront};
 
 /// Splash page when the app is loading. Redirects to the sense page when the
@@ -17,17 +15,7 @@ pub fn Splash() -> Html {
     let on_get_state = {
         move |msg: &ToFront| {
             if let ToFront::FrontState(s) = msg {
-                // get the previously persisted route, if it exists
-                let next = if let Some(state) = s {
-                    if state.last_viewed_intro_version < INTRO_VERSION {
-                        Route::from_persisted_route(&PersistedRoute::Intro)
-                    } else {
-                        Route::from_persisted_route(&state.route)
-                    }
-                } else {
-                    Route::from_persisted_route(&PersistedRoute::Intro)
-                };
-                navigator.push(&next);
+                navigate_to_last_page(s, &navigator);
             }
         }
     };

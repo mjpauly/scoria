@@ -21,11 +21,8 @@ pub fn Intro() -> Html {
     dispatch.reduce_mut(|s| s.last_viewed_intro_version = INTRO_VERSION);
 
     let navigator = use_navigator().unwrap();
-    let exit_intro_onclick = Callback::from(move |_e: MouseEvent| {
-        navigator.push(&Route::Sense {
-            scope: Route::get_scope(),
-        })
-    });
+    let exit_intro_onclick =
+        Callback::from(move |_e: MouseEvent| navigator.push(&Route::Sense));
 
     // subpage that is being viewed
     let subpage = use_state(|| 1);

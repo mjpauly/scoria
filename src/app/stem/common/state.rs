@@ -44,6 +44,7 @@ pub struct FrontState {
     pub last_viewed_intro_version: usize,
 
     pub route: PersistedRoute,
+    pub settings_route: PersistedSettingsRoute,
 
     // Location configuration
     pub location_config: UserConfig,
@@ -65,8 +66,18 @@ pub enum PersistedRoute {
     #[default]
     Sense,
     Analyze,
-    Settings,
+    SettingsRoot,
+    SettingsSubpage,
     Intro,
+}
+
+/// The settings page the frontend is on
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+pub enum PersistedSettingsRoute {
+    #[default]
+    Root,
+    General,
+    Data,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

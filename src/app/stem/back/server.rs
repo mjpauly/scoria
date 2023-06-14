@@ -135,8 +135,7 @@ fn build(listener: TcpListener, frontend_key: FrontendKey) -> Server {
                     .service(web::redirect("/sense/", "../sense"))
                     .service(web::redirect("/analyze/", "../analyze"))
                     .service(web::redirect("/settings/", "../settings"))
-                    .service(web::redirect("/intro/", "../intro"))
-                    .service(web::redirect("/test_page/", "../test_page")),
+                    .service(web::redirect("/intro/", "../intro")),
             )
     })
     .workers(1)
@@ -156,6 +155,8 @@ async fn health_check() -> impl Responder {
 #[get("/sense")]
 #[get("/analyze")]
 #[get("/settings")]
+#[get("/settings/appearance")]
+#[get("/settings/data")]
 #[get("/intro")]
 #[get("/test_page")]
 async fn index() -> impl Responder {
@@ -164,42 +165,54 @@ async fn index() -> impl Responder {
         .body(INDEX_FILE)
 }
 
+#[routes]
 #[get("/front_wasm_bg.wasm")]
+#[get("/settings/front_wasm_bg.wasm")]
 async fn wasm() -> impl Responder {
     HttpResponse::Ok()
         .insert_header(("content-type", "application/wasm"))
         .body(WASM_FILE)
 }
 
+#[routes]
 #[get("/front_wasm.js")]
+#[get("/settings/front_wasm.js")]
 async fn js() -> impl Responder {
     HttpResponse::Ok()
         .content_type(ContentType(mime::APPLICATION_JAVASCRIPT_UTF_8))
         .body(JS_FILE)
 }
 
+#[routes]
 #[get("/tailwind.css")]
+#[get("/settings/tailwind.css")]
 async fn tailwind() -> impl Responder {
     HttpResponse::Ok()
         .content_type(ContentType(mime::TEXT_CSS_UTF_8))
         .body(TAILWIND_FILE)
 }
 
+#[routes]
 #[get("/plotly.min.js")]
+#[get("/settings/plotly.min.js")]
 async fn plotly() -> impl Responder {
     HttpResponse::Ok()
         .content_type(ContentType(mime::APPLICATION_JAVASCRIPT_UTF_8))
         .body(PLOTLY_FILE)
 }
 
+#[routes]
 #[get("/maplibre-gl.js")]
+#[get("/settings/maplibre-gl.js")]
 async fn maplibre() -> impl Responder {
     HttpResponse::Ok()
         .content_type(ContentType(mime::APPLICATION_JAVASCRIPT_UTF_8))
         .body(MAPLIBRE_FILE)
 }
 
+#[routes]
 #[get("/maplibre-gl.css")]
+#[get("/settings/maplibre-gl.css")]
 async fn maplibre_css() -> impl Responder {
     HttpResponse::Ok()
         .content_type(ContentType(mime::TEXT_CSS_UTF_8))
