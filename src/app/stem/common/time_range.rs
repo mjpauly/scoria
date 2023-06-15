@@ -46,3 +46,25 @@ pub struct TimeDeltaRange {
     // an optional utc offset so snap-to-day works with local time
     pub offset: Option<time::UtcOffset>,
 }
+
+impl Default for TimeDeltaRange {
+    /// Time range to use if it can't be parsed from file. Does not depend on
+    /// the timezone offset, so it is safe to be run by the backend. This is a
+    /// backup in case deserialization doesn't work. On first install the
+    /// frontend should be what initializes the time_range.
+    fn default() -> Self {
+        Self {
+            start_offset: -time::Duration::DAY,
+            end_offset: time::Duration::DAY,
+            snap_start_to_day: false,
+            snap_end_to_day: false,
+            offset: None,
+        }
+    }
+}
+
+impl Default for TimeRange {
+    fn default() -> Self {
+        (&TimeDeltaRange::default()).into()
+    }
+}

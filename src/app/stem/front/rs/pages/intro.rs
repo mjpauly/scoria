@@ -134,12 +134,7 @@ fn BackupNotice() -> Html {
             </div>
 
             <p class="mb-3">
-                {"This option is also accessible from the "}
-                <span class="inline-flex items-baseline">
-                    <Icon class="h-5 w-5" icon_id={IconId::BootstrapList}/>
-                </span>
-                {" button on the Log page. The next version will have the option
-                to import your data back into the app."}
+                {"This option is also accessible from the settings."}
             </p>
 
         </div>

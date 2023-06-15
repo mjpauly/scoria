@@ -21,18 +21,36 @@ use crate::{
     AutoConfig, LngLat, Location, TimeRange, UserConfig,
 };
 
+/// Pick the type's default if it fails to deserialize. This ensures that an
+/// error during deserialization doesn't cause the whole thing to fail.
+/// `#[serde(default)]` on containers only picks the default if a field is
+/// missing, not if there's an error deserializing. This is important for cases
+/// when, for example, the name of an enum variant changes between app versions.
+pub fn ok_or_default<'de, D, T>(d: D) -> Result<T, D::Error>
+where
+    T: Deserialize<'de> + Default,
+    D: serde::Deserializer<'de>,
+{
+    T::deserialize(d).or_else(|_| Ok(T::default()))
+}
+
 /// Driven by backend
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 // Missing fields are filled in by the struct returned by the default
 #[serde(default)]
 pub struct BackState {
+    #[serde(deserialize_with = "ok_or_default")]
     pub auto_location_config: AutoConfig,
 
+    #[serde(deserialize_with = "ok_or_default")]
     pub last_location: Option<Location>,
+    #[serde(deserialize_with = "ok_or_default")]
     pub locations_past_hour: Option<i32>,
 
     // data-derived state for the map view
+    #[serde(deserialize_with = "ok_or_default")]
     pub data_center: Option<(LngLat, f64)>, // (LngLat, zoom)
+    #[serde(deserialize_with = "ok_or_default")]
     pub cmap_params: CmapParams,
 }
 
@@ -41,21 +59,28 @@ pub struct BackState {
 #[serde(default)]
 pub struct FrontState {
     // Last version of the introduction/tutorial that was viewed
+    #[serde(deserialize_with = "ok_or_default")]
     pub last_viewed_intro_version: usize,
 
+    #[serde(deserialize_with = "ok_or_default")]
     pub route: PersistedRoute,
+    #[serde(deserialize_with = "ok_or_default")]
     pub settings_route: PersistedSettingsRoute,
 
     // Location configuration
+    #[serde(deserialize_with = "ok_or_default")]
     pub location_config: UserConfig,
 
     // Whether to use epsln tile server
+    #[serde(deserialize_with = "ok_or_default")]
     pub use_epsln_tile_server: bool,
 
     // State of the plot view
+    #[serde(deserialize_with = "ok_or_default")]
     pub map: MapState,
 
     // User's preferred display units
+    #[serde(deserialize_with = "ok_or_default")]
     pub unit_pref: UnitPreference,
 }
 
@@ -88,10 +113,15 @@ pub struct MapState {
     // updated only on particular actions, like an explicit time update, or when
     // the app is opened. This way the range is fixed while the app is open, but
     // updates to the delta range on launch.
+    #[serde(deserialize_with = "ok_or_default")]
     pub time_delta_range: TimeDeltaRange,
+    #[serde(deserialize_with = "ok_or_default")]
     pub time_range: TimeRange,
+    #[serde(deserialize_with = "ok_or_default")]
     pub style: MapStyle,
+    #[serde(deserialize_with = "ok_or_default")]
     pub filters: Vec<Filter>,
+    #[serde(deserialize_with = "ok_or_default")]
     pub view_pos: ViewPosition,
 }
 
@@ -101,26 +131,12 @@ pub struct MapState {
 impl Default for MapState {
     fn default() -> Self {
         Self {
-            time_delta_range: plus_minus_day_utc(),
-            time_range: (&plus_minus_day_utc()).into(),
+            time_delta_range: Default::default(),
+            time_range: Default::default(),
             style: Default::default(),
             filters: default_accuracy_filter(),
             view_pos: Default::default(),
         }
-    }
-}
-
-/// Time range to use if it can't be parsed from file. Does not depend on the
-/// timezone offset, so it is safe to be run by the backend. This is a backup
-/// in case deserialization doesn't work. On first install the frontend should
-/// be what initializes the time_range.
-pub fn plus_minus_day_utc() -> TimeDeltaRange {
-    TimeDeltaRange {
-        start_offset: -time::Duration::DAY,
-        end_offset: time::Duration::DAY,
-        snap_start_to_day: false,
-        snap_end_to_day: false,
-        offset: None,
     }
 }
 

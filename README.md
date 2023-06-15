@@ -2,16 +2,11 @@
 
 ## To Do
 
-- [ ] Multi-page settings
 - [ ] quick time update buttons
 - [ ] reset to "today" time range and data-centered view if user is away from
     the app for 1+ hr
-- [ ] ability to set preferred units
-- [ ] integrate time and SI units under shared traits
 - [ ] action failure alterts (esp for importing)
 - [ ] improved startup error handling
-- [ ] plot reset button
-- [ ] prevent horizontal app rotation
 - [ ] in-app feedback form
 - [ ] export tab on map (csv, maybe image)
 - [ ] nullable speed and course data
@@ -19,22 +14,21 @@
     floor, verticalAccuracy, speedAccuracy, courseAccuracy
     :: all required! don't want people to need to opt in -> reduces how much people actually collect
     - [ ] also whether data was imported
+- [ ] rustsec checks of dependencies
+- website
+    - [ ] landing page
+    - [ ] privacy policy
+- [ ] upgrade maptiler account
+- [ ] publish to app store
+
 - [ ] log more metadata
     - [ ] location config metadata (when settings were changed)
     - [ ] app usage metadata (when app launched, quit, foregrounded, backgrounded)
     - [ ] data viewership (what map data viewed and when)
     - [ ] battery charge (to correlate with location mode) [ref](https://stackoverflow.com/questions/27475506/check-battery-level-ios-swift)
-- [ ] rustsec checks of dependencies
-- website
-    - [ ] landing page
-    - [ ] privacy policy
-- [ ] publish to app store
-
 - [ ] conditionally compile logging code
-- [ ] have maps_ok respond with 204 No Content instead of 404
-- [ ] maybe construct plotly plots with serde_json's Map and Value directly, to
-        avoid limitations of having to define everything up front
-        ([ref](https://stackoverflow.com/questions/59047280/how-to-build-json-arrays-or-objects-dynamically-with-serde-json))
+- [ ] have maps\_ok respond with 204 No Content instead of 404
+- [ ] custom map style that uses more black
 
 - later features
     - sensing: environmental noise
@@ -121,6 +115,9 @@
 - [x] time of day colormapping
 - [x] show colormap or not
 - [x] better debug logging
+- [x] Multi-page settings
+- [x] ability to set preferred units
+- [x] prevent horizontal app rotation
 
 ## Structure
 

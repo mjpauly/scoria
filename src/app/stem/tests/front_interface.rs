@@ -107,7 +107,7 @@ async fn location_config_propagates(
         .await?;
 
     let dist_filt_elem = c.find(Locator::Css("#distance_filter")).await?;
-    dist_filt_elem.send_keys("4").await?;
+    dist_filt_elem.send_keys("4 m").await?;
 
     c.find(Locator::Css("#accuracy_mode"))
         .await?

@@ -17,7 +17,7 @@ use std::io::Write;
 use std::sync::{Arc, Mutex};
 
 use actix_web::dev::ServerHandle;
-use common::state::MapState;
+use common::state::{ok_or_default, MapState};
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
@@ -77,8 +77,11 @@ pub struct PersistentState {
     // We let the frontend initialize its state, so it starts out as None in the
     // backend until it is sent. This is needed since the backend can't derive
     // certain values, such as a time range that uses the local time zone
-    // offset, due to a security flaw.
+    // offset, due to troubles with getting the time zone (or rather just
+    // not feeling confident that it's safe enough to do so).
+    #[serde(deserialize_with = "ok_or_default")]
     pub front: Option<FrontState>,
+    #[serde(deserialize_with = "ok_or_default")]
     pub back: BackState,
 }
 
@@ -253,5 +256,60 @@ mod tests {
 
         let parsed = (*AppState::global().persistent.lock().unwrap()).clone();
         assert_eq!(state, parsed);
+    }
+
+    /// Test that invalid fields in the persisted state file are deserialized as
+    /// their default. This is important for cases when, for example, the name
+    /// of an enum variant changes. Without the attribute
+    /// `#[serde(deserialize_with = "ok_or_default")]`, the entire
+    /// deserialization will fail.
+    #[tokio::test]
+    async fn state_deserialization_uses_default_for_invalid_fields() {
+        let dir = "state_serde_deserialize_is_robust/";
+        let paths = local_fs_setup(dir);
+        let state_file = paths.library_dir.clone().join(STATE_FNAME);
+
+        let contents = r##"{"front":{"last_viewed_intro_version":0,"route":"DefinitelyNotARoute","settings_route":"Root","use_epsln_tile_server":true},"back":{"locations_past_hour":2,"cmap_params":{"cmap":"NotARealCmap"}}}"##;
+        let mut file = OpenOptions::new()
+            .create(true)
+            .write(true)
+            .truncate(true)
+            .open(state_file)
+            .unwrap();
+        file.write_all(contents.as_bytes()).unwrap();
+
+        init(paths).await;
+
+        let parsed = (*AppState::global().persistent.lock().unwrap()).clone();
+
+        // can't compare the whole structs since they contain times that would
+        // differ, so we just check the data we expect to have been correctly
+        // persisted, and the state that should have been initialized from
+        // default
+        assert_eq!(parsed.front.as_ref().unwrap().last_viewed_intro_version, 0);
+        assert_eq!(
+            parsed.front.as_ref().unwrap().settings_route,
+            common::state::PersistedSettingsRoute::Root
+        );
+        assert!(parsed.front.as_ref().unwrap().use_epsln_tile_server);
+        assert_eq!(parsed.back.locations_past_hour, Some(2));
+
+        // values that should be the default
+        assert_eq!(
+            parsed.front.as_ref().unwrap().route,
+            common::state::PersistedRoute::default()
+        );
+        assert_eq!(
+            parsed.front.as_ref().unwrap().location_config,
+            common::location_config::UserConfig::default()
+        );
+        assert_eq!(
+            parsed.front.as_ref().unwrap().unit_pref,
+            common::units::UnitPreference::default()
+        );
+        assert_eq!(
+            parsed.back.cmap_params.cmap,
+            common::cmaps::Cmap::default()
+        );
     }
 }
