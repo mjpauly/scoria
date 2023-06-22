@@ -260,6 +260,40 @@ load("@stem_crate_index//:defs.bzl", "crate_repositories")
 
 crate_repositories()
 
+# crate index for the website, which has different dependency needs
+crates_repository(
+    name = "website_crate_index",
+    cargo_lockfile = "//src/server/website:Cargo.lock",
+    lockfile = "//src/server/website:Cargo.Bazel.lock",
+    isolated = False,
+    packages = {
+        "actix-web": crate.spec( version = "4.3.0", features = ["rustls"]),
+        "mime": crate.spec(version = "0.3.17"),
+        "secrecy": crate.spec( version = "0.8.0",),
+        "serde": crate.spec( version = "1.0.152",),
+        "sqlx": crate.spec(
+            version = "0.6.2",
+            features = ["runtime-tokio-native-tls", "postgres", "time", "macros"],
+            # features = ["runtime-tokio-rustls", "postgres", "time", "macros"],
+        ),
+        "time": crate.spec( version = "0.3.20",),
+        "tokio": crate.spec( version = "1.24.2", features = ["full"],),
+        "openssl": crate.spec( version = ">=0.10.55",), # fix RUSTSEC-2023-0044
+
+        # dev + testing
+        "reqwest": crate.spec(version = "0.11.15"),
+
+    },
+    splicing_config = splicing_config(resolver_version = "2"),
+    render_config = render_config(
+        default_package_name = ""
+    ),
+)
+
+load("@website_crate_index//:defs.bzl", "crate_repositories")
+
+crate_repositories()
+
 
 # rust analyzer
 # Our project isn't structured as a Cargo project, so we need to generate the

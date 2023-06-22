@@ -2,22 +2,26 @@
 
 ## To Do
 
+- [ ] cargo audit in precommit
 - [ ] quick time update buttons
 - [ ] reset to "today" time range and data-centered view if user is away from
     the app for 1+ hr
 - [ ] action failure alterts (esp for importing)
 - [ ] improved startup error handling
 - [ ] in-app feedback form
+- [ ] prompt for desired units in introduction
 - [ ] export tab on map (csv, maybe image)
 - [ ] nullable speed and course data
+- [ ] notify user when they close the app that keeping it open is best
 - [ ] log required: altitude, isProducedByAccessory, and isSimulatedBySoftware;
     floor, verticalAccuracy, speedAccuracy, courseAccuracy
     :: all required! don't want people to need to opt in -> reduces how much people actually collect
     - [ ] also whether data was imported
 - [ ] rustsec checks of dependencies
 - website
-    - [ ] landing page
+    - [ ] landing/marketing page
     - [ ] privacy policy
+    - [ ] feedback/support
 - [ ] upgrade maptiler account
 - [ ] publish to app store
 

@@ -28,12 +28,7 @@ filegroup(
 )
 
 # default rustfmt settings
-
-label_flag(
-    name = "rustfmt.toml",
-    build_setting_default = "//src/app/stem:rustfmt.toml",
-    visibility = ["//visibility:public"],
-)
+exports_files(["rustfmt.toml"])
 
 
 # Platform definitions that are used in the 'platform_mappings' file
