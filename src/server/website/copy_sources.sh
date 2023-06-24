@@ -17,6 +17,7 @@ rsync -a --delete .bazelversion $1/
 mkdir -p $1/src/server/website
 rsync -a --delete src/server/website/Dockerfile $1/
 rsync -a --delete src/server/website/BUILD $1/src/server/website/BUILD
+touch $1/src/server/website/.env
 rsync -a --delete src/server/website/Cargo.lock $1/src/server/website/Cargo.lock
 rsync -a --delete src/server/website/Cargo.Bazel.lock $1/src/server/website/Cargo.Bazel.lock
 rsync -a --delete src/server/website/aft $1/src/server/website/

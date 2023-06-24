@@ -46,7 +46,7 @@ impl DatabaseSettings {
     }
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 pub enum Environment {
     Local,
     Production,
@@ -72,7 +72,10 @@ pub fn get_configuration() -> Settings {
         .unwrap_or_else(|_| "local".into())
         .try_into()
         .expect("Failed to parse APP_ENVIRONMENT.");
+    println!("Detected environment: {:?}", environment);
     if environment == Environment::Local {
+        // For local dev we still need 0.0.0.0 as the host address if we're
+        // inside docker.
         let host = std::env::var("INSIDE_DOCKER")
             .map(|_| "0.0.0.0".to_string())
             .unwrap_or_else(|_| "127.0.0.1".into());
@@ -92,25 +95,12 @@ pub fn get_configuration() -> Settings {
             },
         }
     } else {
-        println!("db username: {:?}", std::env::var("APP_DATABASE__USERNAME"));
-        println!("db host: {:?}", std::env::var("APP_DATABASE__HOST"));
-        println!("db port: {:?}", std::env::var("APP_DATABASE__PORT"));
         Settings {
             application: ApplicationSettings {
                 port: 8000,
                 host: "0.0.0.0".into(),
                 base_url: std::env::var("APP_APPLICATION__BASE_URL").unwrap(),
             },
-            database: DatabaseSettings {
-                username: "".into(),
-                password: Secret::new("".into()),
-                port: 0,
-                host: "".into(),
-                database_name: "".into(),
-                require_ssl: true,
-            },
-            // TODO:
-            /*
             database: DatabaseSettings {
                 username: std::env::var("APP_DATABASE__USERNAME").unwrap(),
                 password: Secret::new(
@@ -125,7 +115,6 @@ pub fn get_configuration() -> Settings {
                     .unwrap(),
                 require_ssl: true,
             },
-            */
         }
     }
 }

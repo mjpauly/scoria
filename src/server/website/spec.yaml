@@ -39,6 +39,13 @@ services:
       - key: APP_ENVIRONMENT
         scope: RUN_TIME
         value: production
+domains:
+- domain: epsln.com
+  type: PRIMARY
+  zone: epsln.com
+- domain: www.epsln.com
+  type: ALIAS
+  zone: epsln.com
 databases:
   - engine: PG
     name: feedback

@@ -1,6 +1,16 @@
-# Building/Running Locally
+# Bazel Testing
 
-Build the image locally
+```
+ibazel run :website_bin
+```
+
+Submit the contact form:
+```
+curl -i -X POST -d 'subject=Test_subject_1&body=Body_1&email=' 127.0.0.1:8000/contact
+```
+
+# Building/Running the Docker Image Locally
+
 ```
 # from repo root:
 docker build -t website -f src/server/website/Dockerfile .

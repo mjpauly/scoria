@@ -268,17 +268,22 @@ crates_repository(
     isolated = False,
     packages = {
         "actix-web": crate.spec( version = "4.3.0", features = ["rustls"]),
+        "anyhow": crate.spec( version = "1.0.68",),
         "mime": crate.spec(version = "0.3.17"),
+        "openssl": crate.spec( version = "0.10.55",), # fix RUSTSEC-2023-0044
         "secrecy": crate.spec( version = "0.8.0",),
         "serde": crate.spec( version = "1.0.152",),
         "sqlx": crate.spec(
             version = "0.6.2",
-            features = ["runtime-tokio-native-tls", "postgres", "time", "macros"],
-            # features = ["runtime-tokio-rustls", "postgres", "time", "macros"],
+            features = ["macros", "postgres", "runtime-tokio-native-tls",
+                        "time", "uuid"],
         ),
         "time": crate.spec( version = "0.3.20",),
         "tokio": crate.spec( version = "1.24.2", features = ["full"],),
-        "openssl": crate.spec( version = ">=0.10.55",), # fix RUSTSEC-2023-0044
+        "uuid": crate.spec(
+            version = "1.3.0",
+            features = ["v4", "fast-rng", "macro-diagnostics",]
+        ),
 
         # dev + testing
         "reqwest": crate.spec(version = "0.11.15"),

@@ -13,6 +13,7 @@ COPY BUILD .
 COPY WORKSPACE .
 COPY .bazelversion .
 COPY src/server/website/BUILD src/server/website/BUILD
+COPY src/server/website/.env src/server/website/.env
 COPY src/server/website/Cargo.lock src/server/website/Cargo.lock
 COPY src/server/website/Cargo.Bazel.lock src/server/website/Cargo.Bazel.lock
 COPY src/server/website/aft src/server/website/aft
@@ -34,7 +35,7 @@ FROM debian:bookworm-slim as deps
 # pkg-config causes tzdata to install, which prompts for timezone, so we set
 # DEBIAN_FRONTEND to prevent the interactive prompt
 RUN apt update && DEBIAN_FRONTEND=noninteractive apt install -y \
-    wget g++ unzip zip pkg-config openssl libssl-dev
+    wget g++ unzip zip pkg-config openssl libssl-dev cmark
 
 # $TARGETARCH gives either "amd64" or "arm64", which we use to get the right
 # bazelisk binary. More info:

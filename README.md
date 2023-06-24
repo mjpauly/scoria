@@ -186,6 +186,9 @@ then check with the ios app using `bazel run //:iosapp`. Finally, use
 - geckodriver: webdriver for testing the ui
     - `cargo install geckodriver`
     - Called automatically by `stem:int_tests`
+- cmark: produces html from markdown
+    - `brew install cmark` (v0.30.0 tested)
+    - Called by website
 
 Secrets are placed in a top-level `.env` file. They are not checked into source
 control; ask for them.

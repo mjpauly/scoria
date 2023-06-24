@@ -69,6 +69,7 @@ pub fn run(
         App::new()
             .route("/health_check", web::get().to(health_check))
             .service(get_static_file_services())
+            .service(contact_form_submitted)
             // .route("/subscriptions", web::post().to(subscribe))
             // .route("/subscriptions/confirm", web::get().to(confirm))
             .app_data(db_pool.clone())
