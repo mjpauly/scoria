@@ -2,28 +2,25 @@
 
 ## To Do
 
-- [ ] cargo audit in precommit
+- pre app store release
+    - [ ] cargo audit in precommit
+    - [ ] rust build for release
+    - [ ] action failure alterts (esp for importing)
+    - [ ] improved startup error handling
+    - [ ] in-app feedback form
+    - [ ] prompt for desired units in introduction
+    - [ ] nullable speed and course data
+    - [ ] log required: altitude, isProducedByAccessory, and isSimulatedBySoftware;
+        floor, verticalAccuracy, speedAccuracy, courseAccuracy
+        :: all required! don't want people to need to opt in -> reduces how much people actually collect
+        - [ ] also whether data was imported
+    - [ ] upgrade maptiler account
+- [ ] publish to app store
 - [ ] quick time update buttons
 - [ ] reset to "today" time range and data-centered view if user is away from
     the app for 1+ hr
-- [ ] action failure alterts (esp for importing)
-- [ ] improved startup error handling
-- [ ] in-app feedback form
-- [ ] prompt for desired units in introduction
 - [ ] export tab on map (csv, maybe image)
-- [ ] nullable speed and course data
 - [ ] notify user when they close the app that keeping it open is best
-- [ ] log required: altitude, isProducedByAccessory, and isSimulatedBySoftware;
-    floor, verticalAccuracy, speedAccuracy, courseAccuracy
-    :: all required! don't want people to need to opt in -> reduces how much people actually collect
-    - [ ] also whether data was imported
-- [ ] rustsec checks of dependencies
-- website
-    - [ ] landing/marketing page
-    - [ ] privacy policy
-    - [ ] feedback/support
-- [ ] upgrade maptiler account
-- [ ] publish to app store
 
 - [ ] log more metadata
     - [ ] location config metadata (when settings were changed)
@@ -33,6 +30,7 @@
 - [ ] conditionally compile logging code
 - [ ] have maps\_ok respond with 204 No Content instead of 404
 - [ ] custom map style that uses more black
+- [ ] arcgis HD satellite maps
 
 - later features
     - sensing: environmental noise
@@ -40,7 +38,7 @@
          - lookup marker from public DB (apple maps?, openstreetmap?)
     - perform queries
          - visits (last time, first time, total, time spent, when visits happen)
-         - traveling (different modes, time spent, num trips, when it happens)
+         - traveling (different modes, time spent, num trips, when it happens, distance)
          - trends
 
 ## Completed
@@ -122,6 +120,10 @@
 - [x] Multi-page settings
 - [x] ability to set preferred units
 - [x] prevent horizontal app rotation
+- website
+    - [x] landing/marketing page
+    - [x] privacy policy
+    - [x] feedback/support
 
 ## Structure
 
