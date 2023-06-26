@@ -19,6 +19,7 @@ use actix_web::{HttpResponse, Responder};
 use rand::RngCore;
 
 use crate::app_state::AppState;
+use crate::geojson::{lines_geojson_route, points_geojson_route};
 // use crate::core::print_and_log;
 use crate::ws_session::ws_route;
 
@@ -30,6 +31,9 @@ static TAILWIND_FILE: &str = include_str!(env!("TAILWIND_FILE"));
 static PLOTLY_FILE: &str = include_str!(env!("PLOTLY_FILE"));
 static MAPLIBRE_FILE: &str = include_str!(env!("MAPLIBRE_FILE"));
 static MAPLIBRE_CSS: &str = include_str!(env!("MAPLIBRE_CSS"));
+static WHEN_IN_USE_AUTH_PNG: &[u8] =
+    include_bytes!(env!("WHEN_IN_USE_AUTH_PNG"));
+static ALWAYS_AUTH_PNG: &[u8] = include_bytes!(env!("ALWAYS_AUTH_PNG"));
 
 /// Configuration struct we pass to Swift via C
 #[repr(C)]
@@ -118,15 +122,20 @@ fn build(listener: TcpListener, frontend_key: FrontendKey) -> Server {
                     .service(plotly)
                     .service(maplibre)
                     .service(maplibre_css)
+                    .service(when_in_use_auth_png)
+                    .service(always_auth_png)
                     // dynamic routes
                     .service(health_check)
+                    .service(points_geojson_route)
+                    .service(lines_geojson_route)
                     .route("/ws", web::get().to(ws_route))
                     // yew-router adds trailing slashes that change the relative
                     // scope that static files are loaded from on reload, so we
                     // redirect those to the routes without the trailing slash
                     .service(web::redirect("/sense/", "../sense"))
                     .service(web::redirect("/analyze/", "../analyze"))
-                    .service(web::redirect("/test_page/", "../test_page")),
+                    .service(web::redirect("/settings/", "../settings"))
+                    .service(web::redirect("/intro/", "../intro")),
             )
     })
     .workers(1)
@@ -145,6 +154,10 @@ async fn health_check() -> impl Responder {
 #[get("/")]
 #[get("/sense")]
 #[get("/analyze")]
+#[get("/settings")]
+#[get("/settings/appearance")]
+#[get("/settings/data")]
+#[get("/intro")]
 #[get("/test_page")]
 async fn index() -> impl Responder {
     HttpResponse::Ok()
@@ -152,46 +165,76 @@ async fn index() -> impl Responder {
         .body(INDEX_FILE)
 }
 
+#[routes]
 #[get("/front_wasm_bg.wasm")]
+#[get("/settings/front_wasm_bg.wasm")]
 async fn wasm() -> impl Responder {
     HttpResponse::Ok()
         .insert_header(("content-type", "application/wasm"))
         .body(WASM_FILE)
 }
 
+#[routes]
 #[get("/front_wasm.js")]
+#[get("/settings/front_wasm.js")]
 async fn js() -> impl Responder {
     HttpResponse::Ok()
         .content_type(ContentType(mime::APPLICATION_JAVASCRIPT_UTF_8))
         .body(JS_FILE)
 }
 
+#[routes]
 #[get("/tailwind.css")]
+#[get("/settings/tailwind.css")]
 async fn tailwind() -> impl Responder {
     HttpResponse::Ok()
         .content_type(ContentType(mime::TEXT_CSS_UTF_8))
         .body(TAILWIND_FILE)
 }
 
+#[routes]
 #[get("/plotly.min.js")]
+#[get("/settings/plotly.min.js")]
 async fn plotly() -> impl Responder {
     HttpResponse::Ok()
         .content_type(ContentType(mime::APPLICATION_JAVASCRIPT_UTF_8))
         .body(PLOTLY_FILE)
 }
 
+#[routes]
 #[get("/maplibre-gl.js")]
+#[get("/settings/maplibre-gl.js")]
 async fn maplibre() -> impl Responder {
     HttpResponse::Ok()
         .content_type(ContentType(mime::APPLICATION_JAVASCRIPT_UTF_8))
         .body(MAPLIBRE_FILE)
 }
 
+#[routes]
 #[get("/maplibre-gl.css")]
+#[get("/settings/maplibre-gl.css")]
 async fn maplibre_css() -> impl Responder {
     HttpResponse::Ok()
         .content_type(ContentType(mime::TEXT_CSS_UTF_8))
         .body(MAPLIBRE_CSS)
+}
+
+#[routes]
+#[get("/when_in_use_auth.png")]
+#[get("/intro/when_in_use_auth.png")]
+async fn when_in_use_auth_png() -> impl Responder {
+    HttpResponse::Ok()
+        .content_type(ContentType(mime::IMAGE_PNG))
+        .body(WHEN_IN_USE_AUTH_PNG)
+}
+
+#[routes]
+#[get("/always_auth.png")]
+#[get("/intro/always_auth.png")]
+async fn always_auth_png() -> impl Responder {
+    HttpResponse::Ok()
+        .content_type(ContentType(mime::IMAGE_PNG))
+        .body(ALWAYS_AUTH_PNG)
 }
 
 #[cfg(test)]

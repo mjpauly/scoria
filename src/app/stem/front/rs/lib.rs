@@ -17,7 +17,6 @@
 //! let style: String = format!("rouned {}", scale);
 
 mod components;
-mod float;
 mod pages;
 mod plots;
 mod router;
@@ -28,7 +27,6 @@ mod websocket;
 use yew::prelude::*;
 use yew_router::prelude::*;
 
-use ui_state::UIState;
 use websocket::WebsocketService;
 
 /// Top level App component for the UI.
@@ -40,9 +38,14 @@ pub fn App() -> Html {
     // Create an id for this function component to associate our callback with
     let id = use_memo(|_| uuid::Uuid::new_v4(), ());
     // Register the app state update callback first ahead of all children
-    wss.subscribe(*id, UIState::get_update_callback());
+    wss.subscribe(*id, ui_state::get_update_callback());
     // Spawn a future that regularly requests updated state info from backend
     wss.clone().spawn_state_requester();
+    // Notify backend whenever the UI state changes
+    ui_state::init_backend_listener(wss.clone());
+
+    // Get the frontend key / scope to use as the router basename
+    let basename = format!("/{}", router::get_scope());
 
     html! {
         // default parent style for the UI which pages inherit
@@ -51,7 +54,7 @@ pub fn App() -> Html {
                     // background gradients should work behind navbar!
                     // bg-gradient-to-b from-purple-900 to-pink-900">
             <ContextProvider<WebsocketService> context={wss}>
-                <BrowserRouter>
+                <BrowserRouter basename={basename}>
                     <Switch<router::Route> render={router::switch} />
                 </BrowserRouter>
             </ContextProvider<WebsocketService>>

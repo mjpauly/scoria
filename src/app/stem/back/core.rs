@@ -11,6 +11,7 @@ use std::io::prelude::*;
 
 use crate::app_state::AppState;
 use crate::database;
+use crate::geojson::update_geojson;
 use crate::paths::get_documents_dir;
 use crate::ws_session;
 
@@ -32,6 +33,7 @@ pub async fn log_location(
     let maybe_addr = AppState::global().ws_addr.lock().unwrap().clone();
     // If the UI is active, we'll send it the new location to display
     if let Some(addr) = maybe_addr {
+        addr.do_send(ws_session::SendState);
         let datetime =
             time::OffsetDateTime::from_unix_timestamp(datetime_epoch).unwrap();
         let loc = common::Location {
@@ -42,15 +44,7 @@ pub async fn log_location(
             course,
             datetime,
         };
-        addr.do_send(ws_session::MsgToFront(common::ToFront::LastLocation(
-            loc,
-        )));
-        // We'll also send the number of data points that have been recorded
-        // in the past hour
-        let count = database::count_records_past_hour().await;
-        addr.do_send(ws_session::MsgToFront(
-            common::ToFront::LocationsPastHour(count),
-        ));
+        tokio::spawn(update_geojson(Some(loc), false));
     }
 }
 
@@ -72,4 +66,16 @@ pub fn print_and_log(line: &str) {
     println!("{}", line);
     let docdir = get_documents_dir();
     log_with_dir(line, &docdir);
+}
+
+// TODO: get log crate working
+pub fn timestamp() -> String {
+    let now = time::OffsetDateTime::now_utc()
+        .to_offset(time::UtcOffset::from_hms(-7, 0, 0).unwrap());
+    now.format(&time::format_description::well_known::Rfc2822)
+        .unwrap()
+}
+
+pub fn debug(msg: &str) {
+    print_and_log(&format!("DEBUG {} {}", timestamp(), msg))
 }

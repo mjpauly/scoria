@@ -18,64 +18,82 @@ use std::fmt;
 
 use serde::{Deserialize, Serialize};
 
-/// Location configuration
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+/// Complete location configuration
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Default)]
 #[serde(default)]
-pub struct LocationConfig {
-    pub enabled: bool,
-    pub mode: LocationMode, // user-facing location mode (includes "auto")
-    pub standard_config: StandardLocationConfig, // standard mode user settings
-    pub auto_config: AutoConfig, // auto mode configuration
+pub struct AllLocationConfig {
+    pub user: UserConfig,
+    pub auto: AutoConfig,
 }
 
-impl LocationConfig {
-    pub fn auto_on(&self) -> bool {
-        self.enabled && self.mode == LocationMode::Auto
-    }
-    pub fn standard_on(&self) -> bool {
-        self.enabled && self.mode == LocationMode::Standard
-    }
-    pub fn infrequent_on(&self) -> bool {
-        self.enabled && self.mode == LocationMode::SignificantChanges
-    }
+impl AllLocationConfig {
     /// Returns whether auto mode is on and currently set to Standard
     pub fn auto_standard_on(&self) -> bool {
-        self.auto_on() && self.auto_config.mode == OSLocationMode::Standard
+        self.user.auto_on() && self.auto.standard_on()
     }
     /// Returns whether auto mode is on and currently set to Infrequent
     pub fn auto_infrequent_on(&self) -> bool {
-        self.auto_on()
-            && self.auto_config.mode == OSLocationMode::SignificantChanges
+        self.user.auto_on() && self.auto.infrequent_on()
     }
     /// Returns whether the OS mode is set to Standard
     pub fn os_standard_on(&self) -> bool {
-        self.standard_on() || self.auto_standard_on()
+        self.user.standard_on() || self.auto_standard_on()
     }
     /// Returns whether the OS mode is set to Infrequent
     pub fn os_infrequent_on(&self) -> bool {
-        self.infrequent_on() || self.auto_infrequent_on()
+        self.user.infrequent_on() || self.auto_infrequent_on()
     }
     /// Returns the distance filter that the OS should know
     pub fn os_distance_filter(&self) -> f32 {
-        if self.auto_on() {
-            self.auto_config.standard_config.distance_filter
+        if self.user.auto_on() {
+            self.auto.standard_config.distance_filter
         } else {
-            self.standard_config.distance_filter
+            self.user.standard_config.distance_filter
         }
     }
     /// Returns the accuracy mode that the OS should know
     pub fn os_accuracy_mode(&self) -> LocationAccuracyMode {
-        if self.auto_on() {
-            self.auto_config.standard_config.accuracy_mode
+        if self.user.auto_on() {
+            self.auto.standard_config.accuracy_mode
         } else {
-            self.standard_config.accuracy_mode
+            self.user.standard_config.accuracy_mode
         }
+    }
+}
+
+/// Location configuration user settings
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[serde(default)]
+pub struct UserConfig {
+    pub enabled: bool,
+    pub mode: LocationMode, // user-facing location mode (includes "auto")
+    pub standard_config: StandardLocationConfig, // standard mode user settings
+}
+
+impl UserConfig {
+    pub fn is_auto(&self) -> bool {
+        self.mode == LocationMode::Auto
+    }
+    pub fn is_standard(&self) -> bool {
+        self.mode == LocationMode::Standard
+    }
+    pub fn is_infrequent(&self) -> bool {
+        self.mode == LocationMode::SignificantChanges
+    }
+    pub fn auto_on(&self) -> bool {
+        self.enabled && self.is_auto()
+    }
+    pub fn standard_on(&self) -> bool {
+        self.enabled && self.is_standard()
+    }
+    pub fn infrequent_on(&self) -> bool {
+        self.enabled && self.is_infrequent()
     }
 }
 
 /// The location settigns we get at initial install, or if we fail to retrieve
 /// the previous state when restarting.
-impl Default for LocationConfig {
+impl Default for UserConfig {
     fn default() -> Self {
         Self {
             enabled: false,
@@ -84,7 +102,6 @@ impl Default for LocationConfig {
                 accuracy_mode: LocationAccuracyMode::Best,
                 distance_filter: 5.0,
             },
-            auto_config: AutoConfig::default(),
         }
     }
 }
@@ -122,6 +139,15 @@ pub struct AutoConfig {
     pub standard_config: StandardLocationConfig,
 }
 
+impl AutoConfig {
+    pub fn standard_on(&self) -> bool {
+        self.mode == OSLocationMode::Standard
+    }
+    pub fn infrequent_on(&self) -> bool {
+        self.mode == OSLocationMode::SignificantChanges
+    }
+}
+
 impl Default for AutoConfig {
     fn default() -> Self {
         Self {
@@ -134,7 +160,7 @@ impl Default for AutoConfig {
     }
 }
 
-/// Possible location modes that can actually be set. LocationConfig is
+/// Possible location modes that can actually be set. UserConfig is
 /// user-facing, while this is OS-facing
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub enum OSLocationMode {

@@ -19,7 +19,8 @@ use std::path::PathBuf;
 pub mod app_state; // backend state storage
 pub mod core; // high-level app logic that spans multiple modules
 pub mod database; // manages the SQLite database
-pub mod location_config; // location configuration
+pub mod geojson; // construct the data to display in the frontend
+pub mod location_config; // location logging configuration
 pub mod paths; // stores and retrieve file system paths
 pub mod runtime; // retrieves async runtime for use in the sync C interface
 pub mod server; // server for the UI
@@ -65,12 +66,14 @@ pub async fn init(init_paths: paths::Paths) {
     .await
     .unwrap();
     app_state::AppState::init(init_paths, db);
+    core::debug("===== App Startup =====");
 }
 
 /// Handle shutdown of the app by saving certain persistent state elements to
 /// the filesystem, which will be read-back at startup.
 #[no_mangle]
 pub extern "C" fn handle_shutdown() {
+    core::debug("----- App Shutdown -----");
     app_state::AppState::save_to_file();
 }
 
@@ -79,7 +82,12 @@ pub extern "C" fn handle_shutdown() {
 /// app is brought to the foreground.
 #[no_mangle]
 pub extern "C" fn handle_enter_foreground() -> server::ServerConfig {
-    runtime::get_runtime().block_on(async { server::run(0, true).await })
+    core::debug("App Foregrounded");
+    runtime::get_runtime().block_on(async {
+        // We may have received new data while in the background
+        tokio::spawn(geojson::update_geojson(None, true));
+        server::run(0, true).await
+    })
 }
 
 /// When the app goes the background we stop the server. This way we release
@@ -89,6 +97,7 @@ pub extern "C" fn handle_enter_foreground() -> server::ServerConfig {
 /// helps).
 #[no_mangle]
 pub extern "C" fn handle_enter_background() {
+    core::debug("App Backgrounded");
     runtime::get_runtime().block_on(async {
         server::shutdown().await;
     });
@@ -139,6 +148,51 @@ pub extern "C" fn get_distance_filter() -> f32 {
 #[no_mangle]
 pub extern "C" fn get_location_accuracy_mode() -> common::LocationAccuracyMode {
     location_config::get_location_accuracy_mode()
+}
+
+/// Tell swift to export the SQLite log in a share sheet
+#[no_mangle]
+pub extern "C" fn should_export_sqlite_log() -> bool {
+    let state = app_state::AppState::global();
+    let mut guard = state.swift_messages.lock().unwrap();
+    let should_export = guard.should_export_sqlite_log;
+    // unset the setting if it was true
+    guard.should_export_sqlite_log = false;
+    // Checkpoint the database so all outstanding transactions move from the WAL
+    // file to the database
+    runtime::get_runtime().block_on(async {
+        database::checkpoint_db().await;
+    });
+    should_export
+    // drop the lock guard
+}
+
+/// Tell swift to import a SQLite log with a document picker
+#[no_mangle]
+pub extern "C" fn should_import_sqlite_log() -> bool {
+    let state = app_state::AppState::global();
+    let mut guard = state.swift_messages.lock().unwrap();
+    let should_import = guard.should_import_sqlite_log;
+    guard.should_import_sqlite_log = false;
+    should_import
+}
+
+#[no_mangle]
+pub extern "C" fn import_from_sqlite_log(import_path: *const c_char) {
+    let import_path = PathBuf::from(cstr_to_string(import_path));
+    runtime::get_runtime().block_on(async {
+        database::import_database_records(import_path).await
+    })
+}
+
+/// Tell swift to share the SQLite log in a share sheet
+#[no_mangle]
+pub extern "C" fn should_request_when_in_use_authorization() -> bool {
+    let state = app_state::AppState::global();
+    let mut guard = state.swift_messages.lock().unwrap();
+    let should_request = guard.should_request_when_in_use_authorization;
+    guard.should_request_when_in_use_authorization = false;
+    should_request
 }
 
 /// Unit tests for the top-level library interface.

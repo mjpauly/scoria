@@ -2,44 +2,37 @@
 
 ## To Do
 
-- maplibre
-    - [x] initial investigation
-    - [x] update basemap
-    - [x] re-center button
-    - [x] colorbar
-    - [x] (performance) async map updating on new data
-    - [x] data point popup on click
-    - [ ] more clickable data points
-- [ ] 5m window for going to low accuracy in auto mode
-- bite-sized features
-    - [ ] all time button
-    - [ ] quick time update buttons
-- [ ] lines between points
-- [ ] fully persist ui state, have plot reset button
-- [ ] app intoduction/tutorial on first install
-- map usability / configurability
-    - [ ] persist selection for export + queries
-- [ ] ability to export log
+- [ ] cargo audit in precommit
+- [ ] quick time update buttons
+- [ ] reset to "today" time range and data-centered view if user is away from
+    the app for 1+ hr
+- [ ] action failure alterts (esp for importing)
+- [ ] improved startup error handling
+- [ ] in-app feedback form
+- [ ] prompt for desired units in introduction
+- [ ] export tab on map (csv, maybe image)
+- [ ] nullable speed and course data
+- [ ] notify user when they close the app that keeping it open is best
 - [ ] log required: altitude, isProducedByAccessory, and isSimulatedBySoftware;
     floor, verticalAccuracy, speedAccuracy, courseAccuracy
     :: all required! don't want people to need to opt in -> reduces how much people actually collect
+    - [ ] also whether data was imported
+- [ ] rustsec checks of dependencies
+- website
+    - [ ] landing/marketing page
+    - [ ] privacy policy
+    - [ ] feedback/support
+- [ ] upgrade maptiler account
+- [ ] publish to app store
+
 - [ ] log more metadata
     - [ ] location config metadata (when settings were changed)
     - [ ] app usage metadata (when app launched, quit, foregrounded, backgrounded)
     - [ ] data viewership (what map data viewed and when)
     - [ ] battery charge (to correlate with location mode) [ref](https://stackoverflow.com/questions/27475506/check-battery-level-ios-swift)
-- [ ] ability to set preferred units
-- [ ] more up-to-date satellite imagery
-- website
-    - [ ] landing page
-    - [ ] privacy policy
-- [ ] publish to app store
-
 - [ ] conditionally compile logging code
-- [ ] have maps_ok respond with 204 No Content instead of 404
-- [ ] maybe construct plotly plots with serde_json's Map and Value directly, to
-        avoid limitations of having to define everything up front
-        ([ref](https://stackoverflow.com/questions/59047280/how-to-build-json-arrays-or-objects-dynamically-with-serde-json))
+- [ ] have maps\_ok respond with 204 No Content instead of 404
+- [ ] custom map style that uses more black
 
 - later features
     - sensing: environmental noise
@@ -104,6 +97,31 @@
 - [x] auto location mode (switch between modes based on movement)
 - [x] preserve user zoom/pan/tilt/rotate when restyling plot
 - [x] refactor common code into its own module
+- maplibre
+    - [x] initial investigation
+    - [x] update basemap
+    - [x] re-center button
+    - [x] colorbar
+    - [x] (performance) async map updating on new data
+    - [x] data point popup on click
+    - [x] more clickable data points
+- [x] lines between points
+- [x] fully persist ui state
+- [x] investigate serde default
+- [x] app intoduction/tutorial on first install
+- [x] create geojson in backend, serve via url
+- [x] more persistently cache plotly and maplibre
+- [x] decimate data if more than 50k points
+- [x] ability to export/import log
+- [x] 5m window for going to low accuracy in auto mode
+- [x] all time button
+- [x] persist time delta instead of absolute times
+- [x] time of day colormapping
+- [x] show colormap or not
+- [x] better debug logging
+- [x] Multi-page settings
+- [x] ability to set preferred units
+- [x] prevent horizontal app rotation
 
 ## Structure
 
@@ -150,16 +168,9 @@ src
 
 ### Pre-commit checklist
 
-Test, lint, format.
-
-```
-bazel run :dev
-bazel run //:iosapp
-bazel test //src/app/stem:unit_tests
-bazel test //src/app/stem:int_tests --spawn_strategy=local
-bazel build --aspects=@rules_rust//rust:defs.bzl%rust_clippy_aspect --output_groups=clippy_checks //...
-bazel build --@rules_rust//:rustfmt.toml=//:rustfmt.toml --aspects=@rules_rust//rust:defs.bzl%rustfmt_aspect --output_groups=rustfmt_checks //...
-```
+First, verify desired features work in dev with `bazel run //src/app/stem:dev`,
+then check with the ios app using `bazel run //:iosapp`. Finally, use
+`./precommit.sh` to run tests, lints, and format.
 
 ### Setup
 
@@ -175,6 +186,9 @@ bazel build --@rules_rust//:rustfmt.toml=//:rustfmt.toml --aspects=@rules_rust//
 - geckodriver: webdriver for testing the ui
     - `cargo install geckodriver`
     - Called automatically by `stem:int_tests`
+- cmark: produces html from markdown
+    - `brew install cmark` (v0.30.0 tested)
+    - Called by website
 
 Secrets are placed in a top-level `.env` file. They are not checked into source
 control; ask for them.
@@ -183,12 +197,20 @@ For compile-time checked query macros with `sqlx` we need a development database
 for `sqlx` to connect to and check queries against. Run the following command:
 
 ```
-bazel run src/app/stem:db_gen
+bazel run //src/app/stem:db_gen
 ```
 
 This is slightly suboptimal. Ideally it would integrate into the build system
 automatically, getting generated anytime we compile the app. See `db_gen.rs` for
 notes on this issue.
+
+We also explicitly cache our third party javascript libraries in our source
+tree. If we rely on bazel to cache it, we'll periodically need to redownload it
+when unrelated build config settings change.
+
+```
+bazel run //src/app/stem/front:download_js_libs
+```
 
 ### Running the App in the Simulator
 
@@ -198,10 +220,11 @@ bazel run //:iosapp
 
 ### Interactively Developing the UI
 
-Navigate to `src/app/stem` and run `ibazel run :dev`.
+Run `ibazel run //src/app/stem:dev`.
 
-Then open `localhost:8081` in a browser. In Firefox, the responsive web design
-mode lets you change the page aspect ratio to that of a phone (opt-cmd-M).
+Then open `localhost:8081/123` in a browser. In Firefox, the responsive web
+design mode lets you change the page aspect ratio to that of a phone
+(opt-cmd-M). Developer tools can be opened with opt-cmd-I.
 
 ### Generate the Xcode Project
 
@@ -324,3 +347,10 @@ developer.apple.com.
         `+` -> archive file
     6b. Distribution: Drag the archive into the Transporter app to upload to App
         Store Connect.
+
+## General Troubleshooting
+
+### Onclick Events Don't Fire on Div Padding
+
+For some reason, on iOS onclick events don't fire when the padding of a div is
+clicked, only the content. This can be fixed by changing the div into a button.

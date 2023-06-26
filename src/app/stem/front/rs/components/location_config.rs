@@ -9,8 +9,7 @@ use yewdux::prelude::*;
 
 use crate::components::{SELECT_STYLE, TOGGLE_SWITCH_STYLE};
 use crate::swift_poke;
-use crate::ui_state::UIState;
-use crate::websocket::{ToBack, WebsocketService};
+use crate::ui_state::FrontState;
 use common::{LocationAccuracyMode, LocationMode};
 
 static ACCURACY_MODES: [LocationAccuracyMode; 5] = [
@@ -33,46 +32,43 @@ static LOCATION_MODES: [LocationMode; 3] = [
 /// don't listen to backend messages changing the values.
 #[function_component]
 pub fn LocationConfigurator() -> Html {
-    let wss = use_context::<WebsocketService>().unwrap();
-    let dispatch = Dispatch::<UIState>::new();
-    let config = use_selector(|s: &UIState| s.location_config.clone());
+    let dispatch = Dispatch::<FrontState>::new();
+    let config = use_selector(|s: &FrontState| s.location_config.clone());
 
     // convenient aliases for the modes that are selected
-    let standard_mode = config.standard_on();
+    let standard_mode = config.is_standard();
 
     // enable/disable location
     let enabled_on_click = {
-        let wss = wss.clone();
-        dispatch.reduce_mut_callback(move |s: &mut UIState| {
+        dispatch.reduce_mut_callback(move |s: &mut FrontState| {
             s.location_config.enabled = !s.location_config.enabled;
-            wss.send_msg(ToBack::SetLocationConfig(s.location_config.clone()));
             swift_poke::poke(); // notify swift to get new value from backend
         })
     };
 
     // location mode
     let mode_onchange = {
-        let wss = wss.clone();
-        dispatch.reduce_mut_callback_with(move |s: &mut UIState, e: Event| {
-            let elem: HtmlSelectElement = e.target_dyn_into().unwrap();
-            let val: &str = &elem.value();
-            let new_mode = LocationMode::from_str(val).unwrap();
-            s.location_config.mode = new_mode;
-            wss.send_msg(ToBack::SetLocationConfig(s.location_config.clone()));
-            swift_poke::poke();
-        })
+        dispatch.reduce_mut_callback_with(
+            move |s: &mut FrontState, e: Event| {
+                let elem: HtmlSelectElement = e.target_dyn_into().unwrap();
+                let val: &str = &elem.value();
+                let new_mode = LocationMode::from_str(val).unwrap();
+                s.location_config.mode = new_mode;
+                swift_poke::poke();
+            },
+        )
     };
     // accuracy mode
     let accuracy_mode_onchange = {
-        let wss = wss.clone();
-        dispatch.reduce_mut_callback_with(move |s: &mut UIState, e: Event| {
-            let elem: HtmlSelectElement = e.target_dyn_into().unwrap();
-            let val: &str = &elem.value();
-            let new_mode = LocationAccuracyMode::from_str(val).unwrap();
-            s.location_config.standard_config.accuracy_mode = new_mode;
-            wss.send_msg(ToBack::SetLocationConfig(s.location_config.clone()));
-            swift_poke::poke();
-        })
+        dispatch.reduce_mut_callback_with(
+            move |s: &mut FrontState, e: Event| {
+                let elem: HtmlSelectElement = e.target_dyn_into().unwrap();
+                let val: &str = &elem.value();
+                let new_mode = LocationAccuracyMode::from_str(val).unwrap();
+                s.location_config.standard_config.accuracy_mode = new_mode;
+                swift_poke::poke();
+            },
+        )
     };
     let mode_options = LOCATION_MODES.iter().map(|x| {
         html! { <option> {x.to_string()} </option> }
@@ -104,18 +100,21 @@ pub fn LocationConfigurator() -> Html {
         )
     };
 
-    let dist_filt_onchange =
-        dispatch.reduce_mut_callback_with(move |s: &mut UIState, e: Event| {
+    let unit_pref = use_selector(|s: &FrontState| s.unit_pref.clone());
+    let dist_filt_text = unit_pref.format_small_length(
+        config.standard_config.distance_filter as f64,
+        Some(2),
+    );
+    let dist_filt_onchange = dispatch.reduce_mut_callback_with(
+        move |s: &mut FrontState, e: Event| {
             let elem: HtmlInputElement = e.target_dyn_into().unwrap();
-            if let Ok(val) = elem.value().parse::<f32>() {
-                s.location_config.standard_config.distance_filter = val;
-                wss.send_msg(ToBack::SetLocationConfig(
-                    s.location_config.clone(),
-                ));
+            if let Ok(val) = unit_pref.parse_small_length(&elem.value()) {
+                s.location_config.standard_config.distance_filter = val as f32;
                 swift_poke::poke();
             }
             elem.set_value("");
-        });
+        },
+    );
 
     // State for whether we should show help info
     let show_help = use_state(|| false);
@@ -141,7 +140,7 @@ pub fn LocationConfigurator() -> Html {
         </div>
 
         // settings card
-        <div class="bg-neutral-900 rounded-lg px-4 py-1 mt-2">
+        <div class="bg-neutral-900 rounded-lg px-4 mt-2">
             // settings line
             <div class="flex items-center justify-between py-2 \
                 border-b border-neutral-800">
@@ -180,25 +179,21 @@ pub fn LocationConfigurator() -> Html {
                 </div>
                 <div class="flex items-center justify-between py-2">
                     <label for="distance_filter">{"Distance Filter"}</label>
-                    <div>
-                        <input onchange={dist_filt_onchange}
-                            id="distance_filter"
-                            placeholder={format!("{:.2}",
-                                config.standard_config.distance_filter)}
-                            class="ml-4 w-16 rounded bg-black \
-                            border border-neutral-700 \
-                            placeholder:text-neutral-500" />
-                        <span class="mx-1">{"m"}</span>
-                    </div>
+                    <input onchange={dist_filt_onchange}
+                        id="distance_filter"
+                        placeholder={dist_filt_text}
+                        class="ml-4 w-24 rounded bg-black \
+                        border border-neutral-700 \
+                        placeholder:text-neutral-500" />
                 </div>
             }
         </div>
 
         // help tips
-        if *show_help && config.auto_on() {
+        if *show_help && config.is_auto() {
             <p class="text-neutral-500 text-left px-2 pt-1">
                 {"Automatic mode continuously records location data, balancing
-                battery drain with data accuracy. It logs lower accuracy
+                battery drain with data accuracy. It logs low accuracy
                 location data while stationary, and high accuracy data while
                 moving."}
             </p>
@@ -212,14 +207,13 @@ pub fn LocationConfigurator() -> Html {
             <p class="text-neutral-500 text-left px-2 pt-1">
                 {"The distance filter determines how far you must move from
                 your last recorded location before recording new data. Set
-                it to a larger number to record data less often and save
-                device storage space."}
+                it to a larger number to record data less often."}
             </p>
-        } else if *show_help && config.infrequent_on() {
+        } else if *show_help && config.is_infrequent() {
             <p class="text-neutral-500 text-left px-2 pt-1">
                 {"Infrequent mode records location only when you move a
                 significant distance, like when you visit a new place. It
-                saves more power than the standard location service at the
+                saves more power than standard mode at the
                 cost of a substantially reduced update rate."}
             </p>
         }

@@ -1,5 +1,5 @@
 {
-  "checksum": "871436462e2786bc527cdcf0f58873b38200c2e8d97fb86c9d855e4287b92f4d",
+  "checksum": "4392dd924b59b09707c04b640bad1933699dae30512a64510cd441838372b87c",
   "crates": {
     "actix 0.13.0": {
       "name": "actix",
@@ -53,7 +53,7 @@
               "target": "crossbeam_channel"
             },
             {
-              "id": "futures-core 0.3.27",
+              "id": "futures-core 0.3.28",
               "target": "futures_core"
             },
             {
@@ -149,7 +149,7 @@
               "target": "bytes"
             },
             {
-              "id": "futures-core 0.3.27",
+              "id": "futures-core 0.3.28",
               "target": "futures_core"
             },
             {
@@ -240,7 +240,7 @@
               "target": "bytes"
             },
             {
-              "id": "futures-core 0.3.27",
+              "id": "futures-core 0.3.28",
               "target": "futures_core"
             },
             {
@@ -380,7 +380,7 @@
               "target": "flate2"
             },
             {
-              "id": "futures-core 0.3.27",
+              "id": "futures-core 0.3.28",
               "target": "futures_core"
             },
             {
@@ -601,7 +601,7 @@
         "deps": {
           "common": [
             {
-              "id": "futures-core 0.3.27",
+              "id": "futures-core 0.3.28",
               "target": "futures_core"
             },
             {
@@ -662,7 +662,7 @@
               "target": "actix_utils"
             },
             {
-              "id": "futures-core 0.3.27",
+              "id": "futures-core 0.3.28",
               "target": "futures_core"
             },
             {
@@ -725,7 +725,7 @@
         "deps": {
           "common": [
             {
-              "id": "futures-core 0.3.27",
+              "id": "futures-core 0.3.28",
               "target": "futures_core"
             },
             {
@@ -887,7 +887,7 @@
               "target": "encoding_rs"
             },
             {
-              "id": "futures-core 0.3.27",
+              "id": "futures-core 0.3.28",
               "target": "futures_core"
             },
             {
@@ -1031,7 +1031,7 @@
               "target": "bytestring"
             },
             {
-              "id": "futures-core 0.3.27",
+              "id": "futures-core 0.3.28",
               "target": "futures_core"
             },
             {
@@ -4082,6 +4082,10 @@
               "target": "futures"
             },
             {
+              "id": "futures-core 0.3.28",
+              "target": "futures_core"
+            },
+            {
               "id": "futures-util 0.3.27",
               "target": "futures_util"
             },
@@ -4750,7 +4754,7 @@
               "target": "cookie"
             },
             {
-              "id": "futures-core 0.3.27",
+              "id": "futures-core 0.3.28",
               "target": "futures_core"
             },
             {
@@ -4934,7 +4938,7 @@
         "deps": {
           "common": [
             {
-              "id": "futures-core 0.3.27",
+              "id": "futures-core 0.3.28",
               "target": "futures_core"
             },
             {
@@ -5146,7 +5150,7 @@
               "target": "futures_channel"
             },
             {
-              "id": "futures-core 0.3.27",
+              "id": "futures-core 0.3.28",
               "target": "futures_core"
             },
             {
@@ -5228,7 +5232,7 @@
               "target": "build_script_build"
             },
             {
-              "id": "futures-core 0.3.27",
+              "id": "futures-core 0.3.28",
               "target": "futures_core"
             },
             {
@@ -5248,13 +5252,13 @@
       },
       "license": "MIT OR Apache-2.0"
     },
-    "futures-core 0.3.27": {
+    "futures-core 0.3.28": {
       "name": "futures-core",
-      "version": "0.3.27",
+      "version": "0.3.28",
       "repository": {
         "Http": {
-          "url": "https://crates.io/api/v1/crates/futures-core/0.3.27/download",
-          "sha256": "86d7a0c1aa76363dac491de0ee99faf6941128376f1cf96f07db7603b7de69dd"
+          "url": "https://crates.io/api/v1/crates/futures-core/0.3.28/download",
+          "sha256": "4bca583b7e26f571124fe5b7561d49cb2868d79116cfa0eefce955557c6fee8c"
         }
       },
       "targets": [
@@ -5293,14 +5297,14 @@
         "deps": {
           "common": [
             {
-              "id": "futures-core 0.3.27",
+              "id": "futures-core 0.3.28",
               "target": "build_script_build"
             }
           ],
           "selects": {}
         },
         "edition": "2018",
-        "version": "0.3.27"
+        "version": "0.3.28"
       },
       "build_script_attrs": {
         "data_glob": [
@@ -5344,7 +5348,7 @@
         "deps": {
           "common": [
             {
-              "id": "futures-core 0.3.27",
+              "id": "futures-core 0.3.28",
               "target": "futures_core"
             },
             {
@@ -5400,7 +5404,7 @@
         "deps": {
           "common": [
             {
-              "id": "futures-core 0.3.27",
+              "id": "futures-core 0.3.28",
               "target": "futures_core"
             },
             {
@@ -5660,7 +5664,7 @@
               "target": "futures_channel"
             },
             {
-              "id": "futures-core 0.3.27",
+              "id": "futures-core 0.3.28",
               "target": "futures_core"
             },
             {
@@ -6274,7 +6278,7 @@
               "target": "futures_channel"
             },
             {
-              "id": "futures-core 0.3.27",
+              "id": "futures-core 0.3.28",
               "target": "futures_core"
             },
             {
@@ -6472,7 +6476,7 @@
               "target": "futures_channel"
             },
             {
-              "id": "futures-core 0.3.27",
+              "id": "futures-core 0.3.28",
               "target": "futures_core"
             },
             {
@@ -6666,7 +6670,7 @@
               "target": "fnv"
             },
             {
-              "id": "futures-core 0.3.27",
+              "id": "futures-core 0.3.28",
               "target": "futures_core"
             },
             {
@@ -7402,7 +7406,7 @@
               "target": "futures_channel"
             },
             {
-              "id": "futures-core 0.3.27",
+              "id": "futures-core 0.3.28",
               "target": "futures_core"
             },
             {
@@ -8567,7 +8571,7 @@
         "deps": {
           "common": [
             {
-              "id": "futures-core 0.3.27",
+              "id": "futures-core 0.3.28",
               "target": "futures_core"
             },
             {
@@ -11379,7 +11383,7 @@
               "target": "bytes"
             },
             {
-              "id": "futures-core 0.3.27",
+              "id": "futures-core 0.3.28",
               "target": "futures_core"
             },
             {
@@ -13274,7 +13278,7 @@
               "target": "futures_channel"
             },
             {
-              "id": "futures-core 0.3.27",
+              "id": "futures-core 0.3.28",
               "target": "futures_core"
             },
             {
@@ -14429,7 +14433,7 @@
         "deps": {
           "common": [
             {
-              "id": "futures-core 0.3.27",
+              "id": "futures-core 0.3.28",
               "target": "futures_core"
             },
             {
@@ -14549,7 +14553,7 @@
               "target": "bytes"
             },
             {
-              "id": "futures-core 0.3.27",
+              "id": "futures-core 0.3.28",
               "target": "futures_core"
             },
             {
@@ -17695,21 +17699,20 @@
         ],
         "crate_features": {
           "common": [
-            "BootstrapBoundingBoxCircles",
+            "BootstrapBoxArrowUp",
             "BootstrapBrush",
             "BootstrapCalendarRange",
-            "BootstrapExclamationTriangle",
-            "BootstrapFilter",
+            "BootstrapCheck",
+            "BootstrapChevronLeft",
+            "BootstrapChevronRight",
+            "BootstrapFullscreen",
             "BootstrapFunnel",
             "BootstrapGlobeAmericas",
-            "BootstrapJournal",
             "BootstrapJournalText",
-            "BootstrapMap",
+            "BootstrapList",
             "BootstrapPlusLg",
             "BootstrapQuestionCircle",
-            "BootstrapSave",
-            "BootstrapSoundwave",
-            "BootstrapTools",
+            "BootstrapX",
             "BootstrapXCircle",
             "FontAwesomeSolidLocationArrow",
             "data_uri",

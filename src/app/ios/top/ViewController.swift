@@ -10,7 +10,9 @@ import WebKit
 
 import Sensing
 
-class ViewController: UIViewController {
+// The Sensing framework  is a dependency, and it defines the protocol both frameworks need to
+// agree on for the class's type when passed to the Sensing framwork.
+class ViewController: UIViewController, MyViewControllerProtocol {
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -74,7 +76,7 @@ extension ViewController: WKScriptMessageHandler{
         }
         
         // pass the poke to the sensing module
-        update_sensor_config()
+        handle_poke(viewController: self)
         
         return
         
@@ -90,5 +92,18 @@ extension ViewController: WKScriptMessageHandler{
             }
         }
         */
+    }
+}
+
+extension ViewController: UIDocumentPickerDelegate {
+    func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+        guard let fileURL = urls.first else { return }
+        
+        // Process the imported file
+        handle_import(fileURL: fileURL)
+    }
+    
+    func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
+        // Handle cancellation of the document picker
     }
 }

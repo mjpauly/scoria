@@ -4,7 +4,7 @@
 use yew::prelude::*;
 use yew_router::prelude::*;
 
-use crate::router::{get_scope, Route};
+use crate::router::navigate_to_last_page;
 use crate::websocket::{use_backend_event, ToFront};
 
 /// Splash page when the app is loading. Redirects to the sense page when the
@@ -12,12 +12,10 @@ use crate::websocket::{use_backend_event, ToFront};
 #[function_component]
 pub fn Splash() -> Html {
     let navigator = use_navigator().unwrap();
-    let scope = get_scope();
-    let next = Route::Sense { scope };
     let on_get_state = {
         move |msg: &ToFront| {
-            if let ToFront::LocationsPastHour(_) = msg {
-                navigator.push(&next);
+            if let ToFront::FrontState(s) = msg {
+                navigate_to_last_page(s, &navigator);
             }
         }
     };

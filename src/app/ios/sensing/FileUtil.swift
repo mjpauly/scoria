@@ -1,22 +1,54 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 
-// SHARE SHEET
-func shareFile(file: URL) {
-    var filesToShare = [Any]()  // Create the Array which includes the files to share
-    filesToShare.append(file)
+// Ordinary share sheet that shares the file with its existing name
+func shareFile(file: URL, viewController: UIViewController) {
     // Make the activityViewContoller which shows the share-view
-    let activityViewController = UIActivityViewController(activityItems: filesToShare, applicationActivities: nil)
+    let activityViewController = UIActivityViewController(activityItems: [file], applicationActivities: nil)
+
+    // Present the sharing activity view controller
+    viewController.present(activityViewController, animated: true, completion: nil)
+}
+
+// Share sheet which renames the file (as a temporary file) and shares that.
+// Falls back to the ordinary share sheet if this fails (like if there's no
+// storage space on the device to create a duplicate of the log).
+func shareFileWithDifferentName(originalURL: URL, desiredFilename: String, viewController: UIViewController) {
+    // Create a temporary file URL with the desired filename
+    let temporaryDirectory = FileManager.default.temporaryDirectory
+    let temporaryURL = temporaryDirectory.appendingPathComponent(desiredFilename)
     
-    // Show the share-view
-    // Get the first window from the connectedScenes object
-    if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene {
-        // Get the root view controller of the first window
-        let rootViewController = windowScene.windows.first?.rootViewController
+    do {
+        // Copy the original file to the temporary location with the desired filename
+        try FileManager.default.copyItem(at: originalURL, to: temporaryURL)
         
-        // Present the share sheet to the user
-        rootViewController?.present(activityViewController, animated: true, completion: nil)
+        // Create a sharing activity view controller
+        let activityViewController = UIActivityViewController(activityItems: [temporaryURL], applicationActivities: nil)
+
+        // Present the sharing activity view controller
+        viewController.present(activityViewController, animated: true, completion: nil)
+
+        // Remove the temporary file after sharing is complete
+        activityViewController.completionWithItemsHandler = { _, _, _, _ in
+            do {
+                try FileManager.default.removeItem(at: temporaryURL)
+            } catch {
+                print("Error removing temporary file: \(error)")
+            }
+        }
+    } catch {
+        print_and_log(s: "Error copying export file: \(error)")
+        print_and_log(s: "Falling back to sharing the unrenamed file.")
+        shareFile(file: originalURL, viewController: viewController)
     }
+}
+
+func importFile(viewController: MyViewControllerProtocol) {
+    let supportedTypes: [UTType] = [UTType.data]
+    let documentPicker = UIDocumentPickerViewController(forOpeningContentTypes: supportedTypes)
+    documentPicker.delegate = viewController
+    viewController.present(documentPicker, animated: true, completion: nil)
 }
 
 func getDocumentsDirectory() -> URL {

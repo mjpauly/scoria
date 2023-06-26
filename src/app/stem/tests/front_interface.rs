@@ -65,11 +65,15 @@ async fn simple_navigation(
     base_url: String,
 ) -> Result<(), fantoccini::error::CmdError> {
     sleep(Duration::from_millis(100)).await;
+
+    // Exit the intro
+    c.find(Locator::Css("#exit_intro")).await?.click().await?;
+
     c.find(Locator::Css("#Map")).await?.click().await?;
-    assert_url_eq(c, base_url.clone() + "analyze/").await;
+    assert_url_eq(c, base_url.clone() + "analyze").await;
 
     c.find(Locator::Css("#Log")).await?.click().await?;
-    assert_url_eq(c, base_url + "sense/").await;
+    assert_url_eq(c, base_url + "sense").await;
 
     Ok(())
 }
@@ -103,7 +107,7 @@ async fn location_config_propagates(
         .await?;
 
     let dist_filt_elem = c.find(Locator::Css("#distance_filter")).await?;
-    dist_filt_elem.send_keys("4").await?;
+    dist_filt_elem.send_keys("4 m").await?;
 
     c.find(Locator::Css("#accuracy_mode"))
         .await?

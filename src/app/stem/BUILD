@@ -10,6 +10,8 @@ static_file_targets = [
     "//src/app/stem/front:plotlyjs",
     "//src/app/stem/front:maplibregl",
     "//src/app/stem/front:maplibregl_css",
+    "//src/app/stem/front:when_in_use_auth",
+    "//src/app/stem/front:always_auth",
 ]
 
 # env var definitions to tell rust compiler where to find the files
@@ -21,6 +23,8 @@ static_file_env_defs = {
     "PLOTLY_FILE": "$(location //src/app/stem/front:plotlyjs)",
     "MAPLIBRE_FILE": "$(location //src/app/stem/front:maplibregl)",
     "MAPLIBRE_CSS": "$(location //src/app/stem/front:maplibregl_css)",
+    "WHEN_IN_USE_AUTH_PNG": "$(location //src/app/stem/front:when_in_use_auth)",
+    "ALWAYS_AUTH_PNG": "$(location //src/app/stem/front:always_auth)",
 }
 
 rust_library(
@@ -63,6 +67,7 @@ rust_library(
     deps = [
         "@stem_crate_index//:serde",
         "@stem_crate_index//:time",
+        "@stem_crate_index//:uom",
     ],
     visibility = ["//visibility:public"],
 )
@@ -74,6 +79,7 @@ rust_test(
     size = "small",  # 20 MB RAM, 1 min timeout
     deps = [
         "@stem_crate_index//:reqwest", # for server health check unit test
+        "@stem_crate_index//:futures-core",
     ]
 )
 

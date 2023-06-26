@@ -120,6 +120,7 @@ crates_repository(
     isolated = False,  # cache results of the previous invocation to
                        # ${HOME}/.cargo so using it is fast
     packages = {
+        "futures-core": crate.spec(version = "0.3.28"),
         "rand": crate.spec(version = "0.8.5"),
         "sqlx": crate.spec(
             version = "0.6.2",
@@ -177,7 +178,7 @@ crates_repository(
         "time": crate.spec(
             version = "0.3.20",
             features = ["local-offset", "wasm-bindgen", "formatting", "parsing",
-                        "serde",
+                        "serde", "std",
             ],
         ),
         "futures": crate.spec(version = "0.3.26"),
@@ -210,21 +211,20 @@ crates_repository(
             # git = "https://github.com/mjpauly/yew_icons",
             # branch = "main",
             features = [
-                "BootstrapBoundingBoxCircles",
+                "BootstrapBoxArrowUp",
                 "BootstrapBrush",
                 "BootstrapCalendarRange",
-                "BootstrapExclamationTriangle",
-                "BootstrapFilter",
+                "BootstrapCheck",
+                "BootstrapChevronLeft",
+                "BootstrapChevronRight",
+                "BootstrapFullscreen",
                 "BootstrapFunnel",
                 "BootstrapGlobeAmericas",
-                "BootstrapJournal",
                 "BootstrapJournalText",
-                "BootstrapMap",
+                "BootstrapList",
                 "BootstrapPlusLg",
                 "BootstrapQuestionCircle",
-                "BootstrapSave",
-                "BootstrapSoundwave",
-                "BootstrapTools",
+                "BootstrapX",
                 "BootstrapXCircle",
                 "FontAwesomeSolidLocationArrow",
             ],
@@ -257,6 +257,45 @@ crates_repository(
 )
 
 load("@stem_crate_index//:defs.bzl", "crate_repositories")
+
+crate_repositories()
+
+# crate index for the website, which has different dependency needs
+crates_repository(
+    name = "website_crate_index",
+    cargo_lockfile = "//src/server/website:Cargo.lock",
+    lockfile = "//src/server/website:Cargo.Bazel.lock",
+    isolated = False,
+    packages = {
+        "actix-web": crate.spec( version = "4.3.0", features = ["rustls"]),
+        "anyhow": crate.spec( version = "1.0.68",),
+        "mime": crate.spec(version = "0.3.17"),
+        "openssl": crate.spec( version = "0.10.55",), # fix RUSTSEC-2023-0044
+        "secrecy": crate.spec( version = "0.8.0",),
+        "serde": crate.spec( version = "1.0.152",),
+        "sqlx": crate.spec(
+            version = "0.6.2",
+            features = ["macros", "postgres", "runtime-tokio-native-tls",
+                        "time", "uuid"],
+        ),
+        "time": crate.spec( version = "0.3.20",),
+        "tokio": crate.spec( version = "1.24.2", features = ["full"],),
+        "uuid": crate.spec(
+            version = "1.3.0",
+            features = ["v4", "fast-rng", "macro-diagnostics",]
+        ),
+
+        # dev + testing
+        "reqwest": crate.spec(version = "0.11.15"),
+
+    },
+    splicing_config = splicing_config(resolver_version = "2"),
+    render_config = render_config(
+        default_package_name = ""
+    ),
+)
+
+load("@website_crate_index//:defs.bzl", "crate_repositories")
 
 crate_repositories()
 

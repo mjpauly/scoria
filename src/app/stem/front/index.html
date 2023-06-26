@@ -12,9 +12,13 @@
             // we created. This prompts it to load new configuration settings
             // from the backend.
             function webkit_poke() {
-                window.webkit.messageHandlers.pokeMessageHandler.postMessage({
-                    "message": "poke"
-                });
+                try {
+                    window.webkit.messageHandlers.pokeMessageHandler.postMessage({
+                        "message": "poke"
+                    });
+                } catch (error) {
+                    console.log("Failed to execute swift poke.");
+                }
             }
         </script>
         <script src="./plotly.min.js"></script>
