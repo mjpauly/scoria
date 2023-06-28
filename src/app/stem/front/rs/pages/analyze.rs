@@ -320,7 +320,11 @@ fn PlotComponent() -> Html {
         use_selector(|state: &BackState| state.last_location.clone());
     let flytome_onclick = Callback::from(move |_e: MouseEvent| {
         if let Some(loc) = &*last_loc {
-            maplibre::fly_to((*map).clone().unwrap(), (loc.lon, loc.lat), 16.);
+            maplibre::fly_to(
+                (*map).clone().unwrap(),
+                (loc.longitude, loc.latitude),
+                16.,
+            );
         }
     });
 

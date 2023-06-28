@@ -22,8 +22,34 @@ ServerConfig handle_enter_foreground(void);
 
 // sensor logging
 
-void log_location(double lat, double lon, double accuracy,
-                     double speed, double course, long datetime_epoch);
+typedef struct {
+    // always available fields
+    int64_t timestamp;
+    double latitude;
+    double longitude;
+    double horizontal_accuracy;
+
+    double msl_altitude;
+    double ellipsoid_altitude;
+    double vertical_accuracy;
+
+    // bool indivates if story data is available
+    bool story_available;
+    int64_t story;
+
+    // marked as unavailable with -1
+    double speed;
+    double speed_accuracy;
+    double course;
+    double course_accuracy;
+
+    // indicates if source info is available, or should be NULL
+    bool source_info_available;
+    bool is_simulated_by_software;
+    bool is_produced_by_accessory;
+} OSLocationData;
+
+void log_location(OSLocationData);
 
 // location settings
 

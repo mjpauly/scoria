@@ -42,7 +42,8 @@ server, which serves a web-based frontend for the user to interact with. The
 frontend is loaded by Swift in a `WkWebView`, a framework provided by iOS to
 integrate web content into apps. The backend server listens on `127.0.0.1`, the
 device's loopback address using a random open port. It also generates a 64-bit
-secret with `rand::rngs::ThreadRng`, which uses a cryptographically secure PRNG.
+secret with `rand::rngs::ThreadRng`, which uses a cryptographically secure PRNG
+seeded with system entropy.
 
 All UI resources served from the http server are scoped behind the secret. For 
 example, if the secret is `78161` and the port is `54039`, the index is only

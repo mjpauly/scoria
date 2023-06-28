@@ -108,17 +108,9 @@ pub extern "C" fn handle_enter_background() {
 /// Log a location in the app. This is a thin sync wrapper around the helper
 /// function in `core`.
 #[no_mangle]
-pub extern "C" fn log_location(
-    lat: f64,
-    lon: f64,
-    accuracy: f64,
-    speed: f64,
-    course: f64,
-    datetime_epoch: i64,
-) {
+pub extern "C" fn log_location(loc: database::OSLocationData) {
     runtime::get_runtime().block_on(async {
-        core::log_location(lat, lon, accuracy, speed, course, datetime_epoch)
-            .await;
+        core::log_location(loc).await;
     });
 }
 

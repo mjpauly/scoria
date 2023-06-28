@@ -42,34 +42,50 @@ async fn main() -> Result<(), std::io::Error> {
 }
 
 async fn data_generator() {
-    let mut lat = 37.42984;
-    // let mut lat = 85.;
-    let mut lon = -122.16945;
-    // let ca = lat + 0.001;  // center of circular-ish track
-    // let co = lon + 0.001;
+    let starting_n = 60;
+    let mut data = stem::database::OSLocationData {
+        timestamp: time::OffsetDateTime::now_utc().unix_timestamp()
+            - starting_n,
+        latitude: 37.42984,
+        longitude: -122.16945,
+        horizontal_accuracy: random::<f64>() * 3.0 + 2.0,
+
+        msl_altitude: 0.0,
+        ellipsoid_altitude: 0.0,
+        vertical_accuracy: 0.0,
+
+        story_available: true,
+        story: 0,
+
+        speed: 0.0, // speed
+        speed_accuracy: -1.0,
+        course: -1.0, // course
+        course_accuracy: -1.0,
+
+        source_info_available: false,
+        is_simulated_by_software: false,
+        is_produced_by_accessory: false,
+    };
     let mut vx = 0.;
     let mut vy = 0.;
     let mut i = 0;
-    let starting_n = 60;
-    let mut t = time::OffsetDateTime::now_utc().unix_timestamp() - starting_n;
     loop {
         if i > starting_n {
             sleep(Duration::from_millis(1000)).await;
         }
         i += 1;
-        t += 1;
+        data.timestamp += 1;
         vx += (random::<f64>() - 0.5) / 10000.0;
         vy += (random::<f64>() - 0.5) / 10000.0;
-        lon = ((lon + vx) + 180.0).rem_euclid(360.0) - 180.0;
-        lat = ((lat + vy) + 90.0).rem_euclid(180.0) - 90.0;
-        stem::core::log_location(
-            lat,
-            lon,
-            random::<f64>() * 3.0 + 2.0, // accuracy
-            (vx * vx + vy * vy).sqrt(),  // speed
-            180. - vy.atan2(vx).to_degrees(), // course
-            t,
-        )
-        .await;
+        data.longitude =
+            ((data.longitude + vx) + 180.0).rem_euclid(360.0) - 180.0;
+        data.latitude = ((data.latitude + vy) + 90.0).rem_euclid(180.0) - 90.0;
+        data.horizontal_accuracy = random::<f64>() * 3.0 + 2.0;
+        data.msl_altitude += 1.0;
+        data.vertical_accuracy -= 0.01;
+        data.story += 1;
+        data.speed = (vx * vx + vy * vy).sqrt();
+        data.course = 180. - vy.atan2(vx).to_degrees();
+        stem::core::log_location(data.clone()).await;
     }
 }

@@ -5,6 +5,7 @@
 - pre app store release
     - [ ] cargo audit in precommit
     - [ ] rust build for release
+    - [ ] is\_imported column
     - [ ] action failure alterts (esp for importing)
     - [ ] improved startup error handling
     - [ ] in-app feedback form

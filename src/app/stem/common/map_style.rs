@@ -122,40 +122,61 @@ pub enum ColoredDataStream {
     Lat,
     Lon,
     HorizAccuracy,
+    Altitude,
+    VertAccuracy,
+    Story,
     Speed,
+    SpeedAccuracy,
     Course,
+    CourseAccuracy,
     Time,
     TimeOfDay,
 }
 
-pub static DATASTREAM_STRINGS: [(ColoredDataStream, &str); 8] = [
+pub static DATASTREAM_STRINGS: [(ColoredDataStream, &str); 11] = [
     (ColoredDataStream::None, "None"),
-    (ColoredDataStream::Lat, "Latitude"),
-    (ColoredDataStream::Lon, "Longitude"),
-    (ColoredDataStream::HorizAccuracy, "Horizontal Accuracy"),
+    // (ColoredDataStream::Lat, "Latitude"),
+    // (ColoredDataStream::Lon, "Longitude"),
     (ColoredDataStream::Speed, "Speed"),
     (ColoredDataStream::Course, "Course"),
     (ColoredDataStream::Time, "Time"),
     (ColoredDataStream::TimeOfDay, "Time of Day"),
+    (ColoredDataStream::Altitude, "Altitude"),
+    (ColoredDataStream::Story, "Building Story"),
+    (ColoredDataStream::HorizAccuracy, "Horizontal Error"),
+    (ColoredDataStream::VertAccuracy, "Altitude Error"),
+    (ColoredDataStream::SpeedAccuracy, "Speed Error"),
+    (ColoredDataStream::CourseAccuracy, "Course Error"),
 ];
 
 impl ColoredDataStream {
     /// Selects the right data stream from a common::Location struct
-    pub fn get_stream(&self, loc: &Location, offset: &time::UtcOffset) -> f64 {
+    pub fn get_stream(
+        &self,
+        loc: &Location,
+        offset: &time::UtcOffset,
+    ) -> Option<f64> {
         let time_of_day_to_seconds = |timestamp: &time::OffsetDateTime| {
             let hms = timestamp.to_offset(*offset).time().as_hms();
             (hms.0 as f64) * 60. * 60. + (hms.1 as f64) * 60. + (hms.2 as f64)
         };
         match self {
-            ColoredDataStream::None => 0.,
-            ColoredDataStream::Lat => loc.lat,
-            ColoredDataStream::Lon => loc.lon,
-            ColoredDataStream::HorizAccuracy => loc.accuracy,
+            ColoredDataStream::None => None,
+            ColoredDataStream::Lat => Some(loc.latitude),
+            ColoredDataStream::Lon => Some(loc.longitude),
+            ColoredDataStream::HorizAccuracy => Some(loc.horizontal_accuracy),
+            ColoredDataStream::Altitude => loc.msl_altitude,
+            ColoredDataStream::VertAccuracy => loc.vertical_accuracy,
+            ColoredDataStream::Story => loc.story.map(|s| s as f64),
             ColoredDataStream::Speed => loc.speed,
+            ColoredDataStream::SpeedAccuracy => loc.speed_accuracy,
             ColoredDataStream::Course => loc.course,
-            ColoredDataStream::Time => loc.datetime.unix_timestamp() as f64,
+            ColoredDataStream::CourseAccuracy => loc.course_accuracy,
+            ColoredDataStream::Time => {
+                Some(loc.timestamp.unix_timestamp() as f64)
+            }
             ColoredDataStream::TimeOfDay => {
-                time_of_day_to_seconds(&loc.datetime)
+                Some(time_of_day_to_seconds(&loc.timestamp))
             }
         }
     }
@@ -167,18 +188,28 @@ impl ColoredDataStream {
 
     pub fn name_with_unit(&self, unit_pref: &UnitPreference) -> String {
         match *self {
-            ColoredDataStream::None => format!("{}", self),
-            ColoredDataStream::Time => format!("{}", self),
-            ColoredDataStream::TimeOfDay => format!("{}", self),
-            ColoredDataStream::Lat => format!("{} (º)", self),
-            ColoredDataStream::Lon => format!("{} (º)", self),
-            ColoredDataStream::HorizAccuracy => {
+            // No units, just display name
+            ColoredDataStream::None
+            | ColoredDataStream::Time
+            | ColoredDataStream::TimeOfDay
+            | ColoredDataStream::Story => format!("{}", self),
+            // Degree units
+            ColoredDataStream::Lat
+            | ColoredDataStream::Lon
+            | ColoredDataStream::Course
+            | ColoredDataStream::CourseAccuracy => {
+                format!("{} (º)", self)
+            }
+            // Small lengths
+            ColoredDataStream::HorizAccuracy
+            | ColoredDataStream::Altitude
+            | ColoredDataStream::VertAccuracy => {
                 format!("{} ({})", self, unit_pref.small_length.abbreviation())
             }
-            ColoredDataStream::Speed => {
+            // Speeds
+            ColoredDataStream::Speed | ColoredDataStream::SpeedAccuracy => {
                 format!("{} ({})", self, unit_pref.velocity.abbreviation())
             }
-            ColoredDataStream::Course => format!("{} (º)", self),
         }
     }
 
@@ -205,8 +236,10 @@ impl ColoredDataStream {
             params.cmax = 24. * 60. * 60.;
             params.cmap = Cmap::TwilightShifted;
         } else {
-            let colorvals: Vec<_> =
-                records.iter().map(|x| self.get_stream(x, offset)).collect();
+            let colorvals: Vec<_> = records
+                .iter()
+                .filter_map(|x| self.get_stream(x, offset))
+                .collect();
             params.cmin = float::min(&colorvals);
             params.cmax = float::max(&colorvals);
         }

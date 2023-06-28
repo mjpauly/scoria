@@ -41,15 +41,21 @@ impl Filter {
             // shouldn't remove the location if the filter isn't enabled
             return false;
         }
-        let val = self.datastream.get_stream(loc);
-        let threshold = self.threshold;
-        match self.op {
-            FilterOp::GreaterThan => val > threshold,
-            FilterOp::LessThan => val < threshold,
-            FilterOp::GreatherThanOrEq => val >= threshold,
-            FilterOp::LessThanOrEq => val <= threshold,
-            FilterOp::IsEq => val == threshold,
-            FilterOp::IsNotEq => val != threshold,
+        if let Some(val) = self.datastream.get_stream(loc) {
+            let threshold = self.threshold;
+            match self.op {
+                FilterOp::GreaterThan => val > threshold,
+                FilterOp::LessThan => val < threshold,
+                FilterOp::GreatherThanOrEq => val >= threshold,
+                FilterOp::LessThanOrEq => val <= threshold,
+                FilterOp::IsEq => val == threshold,
+                FilterOp::IsNotEq => val != threshold,
+            }
+        } else {
+            // If we don't know the value, filter it out anyways
+            // This way we keep only the values that are known to be within the
+            // threshold
+            true
         }
     }
 }
@@ -121,29 +127,44 @@ pub enum DataStream {
     Lat,
     Lon,
     HorizAccuracy,
+    Altitude,
+    VertAccuracy,
+    Story,
     Speed,
+    SpeedAccuracy,
     Course,
+    CourseAccuracy,
 }
 
-pub static DATASTREAM_STRINGS: [(DataStream, &str); 5] = [
-    (DataStream::Lat, "Lat"),
-    (DataStream::Lon, "Lon"),
-    (DataStream::HorizAccuracy, "H Accuracy"),
+pub static DATASTREAM_STRINGS: [(DataStream, &str); 10] = [
+    (DataStream::Lat, "Latitude"),
+    (DataStream::Lon, "Longitude"),
     (DataStream::Speed, "Speed"),
     (DataStream::Course, "Course"),
+    (DataStream::Altitude, "Altitude"),
+    (DataStream::Story, "Story"),
+    (DataStream::HorizAccuracy, "Horiz Err"),
+    (DataStream::VertAccuracy, "Alt Err"),
+    (DataStream::SpeedAccuracy, "Speed Err"),
+    (DataStream::CourseAccuracy, "Course Err"),
 ];
 
 // Stream-specific conversions
 
 impl DataStream {
     /// Selects the right data stream from a common::Location struct
-    pub fn get_stream(&self, loc: &Location) -> f64 {
+    pub fn get_stream(&self, loc: &Location) -> Option<f64> {
         match self {
-            DataStream::Lat => loc.lat,
-            DataStream::Lon => loc.lon,
-            DataStream::HorizAccuracy => loc.accuracy,
+            DataStream::Lat => Some(loc.latitude),
+            DataStream::Lon => Some(loc.longitude),
+            DataStream::HorizAccuracy => Some(loc.horizontal_accuracy),
+            DataStream::Altitude => loc.msl_altitude,
+            DataStream::VertAccuracy => loc.vertical_accuracy,
+            DataStream::Story => loc.story.map(|s| s as f64),
             DataStream::Speed => loc.speed,
+            DataStream::SpeedAccuracy => loc.speed_accuracy,
             DataStream::Course => loc.course,
+            DataStream::CourseAccuracy => loc.course_accuracy,
         }
     }
 
@@ -158,28 +179,39 @@ impl DataStream {
             DataStream::Lat => unit_pref.parse_angle(val),
             DataStream::Lon => unit_pref.parse_angle(val),
             DataStream::HorizAccuracy => unit_pref.parse_small_length(val),
+            DataStream::Altitude => unit_pref.parse_small_length(val),
+            DataStream::VertAccuracy => unit_pref.parse_small_length(val),
+            DataStream::Story => val
+                .parse::<f64>()
+                .map_err(|_| ParseQuantityError::ValueParseError),
             DataStream::Speed => unit_pref.parse_velocity(val),
+            DataStream::SpeedAccuracy => unit_pref.parse_velocity(val),
             DataStream::Course => unit_pref.parse_angle(val),
+            DataStream::CourseAccuracy => unit_pref.parse_angle(val),
         }
     }
 
     /// Format a value to a string with units corresponding to the stream type.
     pub fn format_value(&self, unit_pref: &UnitPreference, val: f64) -> String {
+        let format_small_length_capped_prec = |v| {
+            // Troubles with imprecise displaying on feet, e.g. 29.9999999..
+            // so we cap the precision
+            match unit_pref.small_length {
+                LengthUnits::Foot => unit_pref.format_small_length(v, Some(1)),
+                _ => unit_pref.format_small_length(v, None),
+            }
+        };
         match self {
             DataStream::Lat => unit_pref.format_angle(val, None),
             DataStream::Lon => unit_pref.format_angle(val, None),
-            DataStream::HorizAccuracy => {
-                // Troubles with imprecise displaying on feet, e.g. 29.9999999..
-                // so we cap the precision
-                match unit_pref.small_length {
-                    LengthUnits::Foot => {
-                        unit_pref.format_small_length(val, Some(1))
-                    }
-                    _ => unit_pref.format_small_length(val, None),
-                }
-            }
+            DataStream::HorizAccuracy => format_small_length_capped_prec(val),
+            DataStream::Altitude => format_small_length_capped_prec(val),
+            DataStream::VertAccuracy => format_small_length_capped_prec(val),
+            DataStream::Story => format!("{}", val),
             DataStream::Speed => unit_pref.format_velocity(val, None),
+            DataStream::SpeedAccuracy => unit_pref.format_velocity(val, None),
             DataStream::Course => unit_pref.format_angle(val, None),
+            DataStream::CourseAccuracy => unit_pref.format_angle(val, None),
         }
     }
 }

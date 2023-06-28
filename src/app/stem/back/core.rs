@@ -10,23 +10,14 @@ use std::fs::OpenOptions;
 use std::io::prelude::*;
 
 use crate::app_state::AppState;
-use crate::database;
+use crate::database::{self, OSLocationData};
 use crate::geojson::update_geojson;
 use crate::paths::get_documents_dir;
 use crate::ws_session;
 
-pub async fn log_location(
-    lat: f64,
-    lon: f64,
-    accuracy: f64,
-    speed: f64,
-    course: f64,
-    datetime_epoch: i64,
-) {
+pub async fn log_location(loc: OSLocationData) {
     // Log the location in our database
-    database::log_location(lat, lon, accuracy, speed, course, datetime_epoch)
-        .await
-        .unwrap();
+    database::log_location(loc.clone()).await.unwrap();
     // We first want to get the address, NOT in the "if let" scrutinee, since
     // the lock will be held for the whole if-block, and we won't be able to
     // await
@@ -34,17 +25,7 @@ pub async fn log_location(
     // If the UI is active, we'll send it the new location to display
     if let Some(addr) = maybe_addr {
         addr.do_send(ws_session::SendState);
-        let datetime =
-            time::OffsetDateTime::from_unix_timestamp(datetime_epoch).unwrap();
-        let loc = common::Location {
-            lat,
-            lon,
-            accuracy,
-            speed,
-            course,
-            datetime,
-        };
-        tokio::spawn(update_geojson(Some(loc), false));
+        tokio::spawn(update_geojson(Some(loc.into()), false));
     }
 }
 

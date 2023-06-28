@@ -31,13 +31,15 @@ pub fn Colorbar() -> Html {
             let mut cmap_params = (**cmap_params).clone();
             // Convert cmax/cmin to preferred units
             match **colored_datastream {
-                ColoredDataStream::HorizAccuracy => {
+                ColoredDataStream::HorizAccuracy
+                | ColoredDataStream::Altitude
+                | ColoredDataStream::VertAccuracy => {
                     cmap_params.cmin =
                         unit_pref.small_length.from_base_unit(cmap_params.cmin);
                     cmap_params.cmax =
                         unit_pref.small_length.from_base_unit(cmap_params.cmax);
                 }
-                ColoredDataStream::Speed => {
+                ColoredDataStream::Speed | ColoredDataStream::SpeedAccuracy => {
                     cmap_params.cmin =
                         unit_pref.velocity.from_base_unit(cmap_params.cmin);
                     cmap_params.cmax =

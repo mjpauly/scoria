@@ -4,14 +4,28 @@
 //!
 //! Current schema, for quick reference:
 //!
+//! CREATE TABLE tmplocation
 //! (
-//!     id          INTEGER NOT NULL PRIMARY KEY,
-//!     lat         REAL    NOT NULL,
-//!     lon         REAL    NOT NULL,
-//!     accuracy    REAL    NOT NULL,
-//!     speed       REAL    NOT NULL,
-//!     course      REAL    NOT NULL,
-//!     timestamp   INTEGER NOT NULL UNIQUE ON CONFLICT IGNORE
+//!     id                          INTEGER NOT NULL PRIMARY KEY,
+//!     timestamp                   INTEGER NOT NULL UNIQUE ON CONFLICT IGNORE,
+//!
+//!     latitude                    REAL    NOT NULL,
+//!     longitude                   REAL    NOT NULL,
+//!     horizontal_accuracy         REAL    NOT NULL,
+//!
+//!     msl_altitude                REAL,
+//!     ellipsoid_altitude          REAL,
+//!     vertical_accuracy           REAL,
+//!     story                       INTEGER,
+//!
+//!     speed                       REAL,
+//!     speed_accuracy              REAL,
+//!
+//!     course                      REAL,
+//!     course_accuracy             REAL,
+//!
+//!     is_simulated_by_software    INTEGER,
+//!     is_produced_by_accessory    INTEGER
 //! ) STRICT;
 //!
 //! With "STRICT" SQLite will ensure that we only insert the correct type into
@@ -55,11 +69,84 @@ static MIGRATOR: Migrator = sqlx::migrate!();
 pub struct LocationRow {
     pub id: i64,
     pub timestamp: i64,
-    pub lat: f64,
-    pub lon: f64,
-    pub accuracy: f64,
+
+    pub latitude: f64,
+    pub longitude: f64,
+    pub horizontal_accuracy: f64,
+
+    pub msl_altitude: Option<f64>,
+    pub ellipsoid_altitude: Option<f64>,
+    pub vertical_accuracy: Option<f64>,
+    pub story: Option<i64>,
+
+    pub speed: Option<f64>,
+    pub speed_accuracy: Option<f64>,
+
+    pub course: Option<f64>,
+    pub course_accuracy: Option<f64>,
+
+    pub is_simulated_by_software: Option<bool>,
+    pub is_produced_by_accessory: Option<bool>,
+}
+
+/// C FFI struct definition with special ways of encoding unavailable data
+#[repr(C)]
+#[derive(Clone)]
+pub struct OSLocationData {
+    // always available fields
+    pub timestamp: i64,
+
+    pub latitude: f64,
+    pub longitude: f64,
+    pub horizontal_accuracy: f64,
+
+    pub msl_altitude: f64,
+    pub ellipsoid_altitude: f64,
+    pub vertical_accuracy: f64,
+
+    // bool indivates if story data is available
+    pub story_available: bool,
+    pub story: i64,
+
+    // marked as unavailable with -1
     pub speed: f64,
+    pub speed_accuracy: f64,
     pub course: f64,
+    pub course_accuracy: f64,
+
+    // indicates if source info is available, or should be NULL
+    pub source_info_available: bool,
+    pub is_simulated_by_software: bool,
+    pub is_produced_by_accessory: bool,
+}
+
+/// common::Location is about the representation needed for inserting into the
+/// database, so we use this parser for log_location()
+impl std::convert::From<OSLocationData> for common::Location {
+    fn from(loc: OSLocationData) -> Self {
+        let some_if_geq_zero = |val| (val >= 0.0).then_some(val);
+        Self {
+            timestamp: time::OffsetDateTime::from_unix_timestamp(loc.timestamp)
+                .unwrap(),
+            latitude: loc.latitude,
+            longitude: loc.longitude,
+            horizontal_accuracy: loc.horizontal_accuracy,
+            msl_altitude: Some(loc.msl_altitude),
+            ellipsoid_altitude: Some(loc.ellipsoid_altitude),
+            vertical_accuracy: some_if_geq_zero(loc.vertical_accuracy),
+            story: loc.story_available.then_some(loc.story),
+            speed: some_if_geq_zero(loc.speed),
+            speed_accuracy: some_if_geq_zero(loc.speed_accuracy),
+            course: some_if_geq_zero(loc.course),
+            course_accuracy: some_if_geq_zero(loc.course_accuracy),
+            is_simulated_by_software: loc
+                .source_info_available
+                .then_some(loc.is_simulated_by_software),
+            is_produced_by_accessory: loc
+                .source_info_available
+                .then_some(loc.is_produced_by_accessory),
+        }
+    }
 }
 
 /// Initialized the shared database pool given its path.
@@ -89,26 +176,38 @@ pub async fn checkpoint_db() {
 }
 
 /// Log a location event in the database.
-pub async fn log_location(
-    lat: f64,
-    lon: f64,
-    accuracy: f64,
-    speed: f64,
-    course: f64,
-    timestamp: i64,
-) -> Result<()> {
+pub async fn log_location(loc: OSLocationData) -> Result<()> {
+    // Convert to a common::Location, which has the correct fields
+    let parsed: common::Location = loc.into();
     let conn = get_db_pool();
+    let timestamp = parsed.timestamp.unix_timestamp();
     sqlx::query!(
-        "INSERT INTO location
-            (lat, lon, accuracy, speed, course, timestamp)
+        "INSERT INTO location (
+            timestamp,
+            latitude, longitude, horizontal_accuracy,
+            msl_altitude, ellipsoid_altitude,
+            vertical_accuracy,
+            story,
+            speed, speed_accuracy,
+            course, course_accuracy,
+            is_simulated_by_software, is_produced_by_accessory
+        )
         VALUES
-            (?,?,?,?,?,?)",
-        lat,
-        lon,
-        accuracy,
-        speed,
-        course,
-        timestamp
+            (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        timestamp,
+        parsed.latitude,
+        parsed.longitude,
+        parsed.horizontal_accuracy,
+        parsed.msl_altitude,
+        parsed.ellipsoid_altitude,
+        parsed.vertical_accuracy,
+        parsed.story,
+        parsed.speed,
+        parsed.speed_accuracy,
+        parsed.course,
+        parsed.course_accuracy,
+        parsed.is_simulated_by_software,
+        parsed.is_produced_by_accessory,
     )
     .execute(&conn)
     .await?;
@@ -230,10 +329,25 @@ pub async fn import_database_records(import_db_path: PathBuf) {
     let result = sqlx::query(&format!(
         "ATTACH '{}' as toMerge;
         BEGIN;
-        INSERT OR IGNORE INTO location
-            (lat, lon, accuracy, speed, course, timestamp)
+        INSERT OR IGNORE INTO location (
+            timestamp,
+            latitude, longitude, horizontal_accuracy,
+            msl_altitude, ellipsoid_altitude,
+            vertical_accuracy,
+            story,
+            speed, speed_accuracy,
+            course, course_accuracy,
+            is_simulated_by_software, is_produced_by_accessory
+        )
         SELECT
-            lat,lon,accuracy,speed,course,timestamp
+            timestamp,
+            latitude, longitude, horizontal_accuracy,
+            msl_altitude, ellipsoid_altitude,
+            vertical_accuracy,
+            story,
+            speed, speed_accuracy,
+            course, course_accuracy,
+            is_simulated_by_software, is_produced_by_accessory
         FROM toMerge.location;
         COMMIT;
         DETACH toMerge;",
@@ -266,13 +380,21 @@ pub async fn import_database_records(import_db_path: PathBuf) {
 impl std::convert::From<LocationRow> for common::Location {
     fn from(loc: LocationRow) -> Self {
         common::Location {
-            lat: loc.lat,
-            lon: loc.lon,
-            accuracy: loc.accuracy,
-            speed: loc.speed,
-            course: loc.course,
-            datetime: time::OffsetDateTime::from_unix_timestamp(loc.timestamp)
+            timestamp: time::OffsetDateTime::from_unix_timestamp(loc.timestamp)
                 .unwrap(),
+            latitude: loc.latitude,
+            longitude: loc.longitude,
+            horizontal_accuracy: loc.horizontal_accuracy,
+            msl_altitude: loc.msl_altitude,
+            ellipsoid_altitude: loc.ellipsoid_altitude,
+            vertical_accuracy: loc.vertical_accuracy,
+            story: loc.story,
+            speed: loc.speed,
+            speed_accuracy: loc.speed_accuracy,
+            course: loc.course,
+            course_accuracy: loc.course_accuracy,
+            is_simulated_by_software: loc.is_simulated_by_software,
+            is_produced_by_accessory: loc.is_produced_by_accessory,
         }
     }
 }
@@ -289,13 +411,35 @@ mod tests {
         get_db_pool();
     }
 
+    /// Generate location data that is different for each idx
+    fn get_test_data(idx: usize) -> OSLocationData {
+        OSLocationData {
+            timestamp: idx as i64 * 5,
+            latitude: idx as f64,
+            longitude: idx as f64,
+            horizontal_accuracy: idx as f64,
+            msl_altitude: idx as f64,
+            ellipsoid_altitude: idx as f64,
+            vertical_accuracy: idx as f64,
+            story_available: true,
+            story: idx as i64,
+            speed: idx as f64,
+            speed_accuracy: idx as f64,
+            course: idx as f64,
+            course_accuracy: idx as f64,
+            source_info_available: true,
+            is_simulated_by_software: true,
+            is_produced_by_accessory: false,
+        }
+    }
+
     #[tokio::test]
     async fn test_records_time_range() {
         test_setup("test_records_time_range/").await;
 
         // 5 and 10 seconds past the epoch
-        log_location(1.0, 2.0, 3.0, 4.0, 5.0, 5).await.unwrap();
-        log_location(0.0, 0.0, 0.0, 0.0, 0.0, 10).await.unwrap();
+        log_location(get_test_data(1)).await.unwrap(); // timestamp: 5
+        log_location(get_test_data(2)).await.unwrap(); // timestamp: 10
         let start = time::OffsetDateTime::from_unix_timestamp(3).unwrap();
         let end = time::OffsetDateTime::from_unix_timestamp(7).unwrap();
         // get the first
@@ -303,8 +447,8 @@ mod tests {
             get_records_time_range(&common::TimeRange { start, end }).await;
         assert_eq!(records.len(), 1);
         // small integer floats can be exactly compared
-        assert!(records[0].lat == 1.0);
-        assert!(records[0].lon == 2.0);
+        assert!(records[0].latitude == 1.0);
+        assert!(records[0].longitude == 1.0);
     }
 
     /// Test that importing records into the database works as expected.
@@ -312,9 +456,11 @@ mod tests {
     async fn test_db_import() {
         test_setup("test_db_import/").await;
 
-        log_location(1.0, 2.0, 3.0, 4.0, 5.0, 5).await.unwrap();
-        log_location(0.0, 0.0, 0.0, 0.0, 0.0, 10).await.unwrap();
+        // log some data in our main database
+        log_location(get_test_data(1)).await.unwrap(); // timestamp: 5
+        log_location(get_test_data(2)).await.unwrap(); // timestamp: 10
 
+        // create a new database with a new record and a duplicate
         let docdir = get_documents_dir();
         let db_name = "to_import.db";
         let db_path = docdir.join(db_name);
@@ -327,34 +473,34 @@ mod tests {
         MIGRATOR.run(&import_conn).await.unwrap();
 
         sqlx::query(
-            "INSERT INTO location
-            (lat, lon, accuracy, speed, course, timestamp)
+            "INSERT INTO location (
+                timestamp,
+                latitude, longitude, horizontal_accuracy
+            )
             VALUES
-            (?,?,?,?,?,?)",
+                (?,?,?,?)",
         )
-        .bind(1.0)
-        .bind(1.0)
-        .bind(1.0)
-        .bind(1.0)
-        .bind(1.0)
         .bind(5) // duplicate timestamp
+        .bind(-1.0)
+        .bind(-1.0)
+        .bind(1.0)
         .execute(&import_conn)
         .await
         .unwrap();
 
         // new data
         sqlx::query(
-            "INSERT INTO location
-            (lat, lon, accuracy, speed, course, timestamp)
+            "INSERT INTO location (
+                timestamp,
+                latitude, longitude, horizontal_accuracy
+            )
             VALUES
-            (?,?,?,?,?,?)",
+                (?,?,?,?)",
         )
-        .bind(2.0)
-        .bind(2.0)
-        .bind(2.0)
-        .bind(2.0)
-        .bind(2.0)
         .bind(15) // unique timestamp
+        .bind(4.0)
+        .bind(4.0)
+        .bind(4.0)
         .execute(&import_conn)
         .await
         .unwrap();
@@ -372,32 +518,24 @@ mod tests {
         assert_eq!(
             records,
             vec![
+                get_test_data(1).into(),
+                get_test_data(2).into(),
                 common::Location {
-                    lat: 1.0,
-                    lon: 2.0,
-                    accuracy: 3.0,
-                    speed: 4.0,
-                    course: 5.0,
-                    datetime: time::OffsetDateTime::from_unix_timestamp(5)
+                    timestamp: time::OffsetDateTime::from_unix_timestamp(15)
                         .unwrap(),
-                },
-                common::Location {
-                    lat: 0.0,
-                    lon: 0.0,
-                    accuracy: 0.0,
-                    speed: 0.0,
-                    course: 0.0,
-                    datetime: time::OffsetDateTime::from_unix_timestamp(10)
-                        .unwrap(),
-                },
-                common::Location {
-                    lat: 2.0,
-                    lon: 2.0,
-                    accuracy: 2.0,
-                    speed: 2.0,
-                    course: 2.0,
-                    datetime: time::OffsetDateTime::from_unix_timestamp(15)
-                        .unwrap(),
+                    latitude: 4.0,
+                    longitude: 4.0,
+                    horizontal_accuracy: 4.0,
+                    msl_altitude: None,
+                    ellipsoid_altitude: None,
+                    vertical_accuracy: None,
+                    story: None,
+                    speed: None,
+                    speed_accuracy: None,
+                    course: None,
+                    course_accuracy: None,
+                    is_simulated_by_software: None,
+                    is_produced_by_accessory: None,
                 },
             ]
         );
@@ -431,11 +569,19 @@ mod tests {
         let data = LocationRow {
             id: 0,
             timestamp: 10,
-            lat: 37.,
-            lon: -122.,
-            accuracy: 5.2,
-            speed: 4.,
-            course: 180.,
+            latitude: 37.,
+            longitude: -122.,
+            horizontal_accuracy: 5.2,
+            msl_altitude: None,
+            ellipsoid_altitude: None,
+            vertical_accuracy: None,
+            story: None,
+            speed: Some(4.),
+            speed_accuracy: None,
+            course: Some(180.),
+            course_accuracy: None,
+            is_simulated_by_software: None,
+            is_produced_by_accessory: None,
         };
         sqlx::query(
             "INSERT INTO location
@@ -443,11 +589,11 @@ mod tests {
         VALUES
         (?,?,?,?,?,?)",
         )
-        .bind(data.lat)
-        .bind(data.lon)
-        .bind(data.accuracy)
-        .bind(data.speed)
-        .bind(data.course)
+        .bind(data.latitude)
+        .bind(data.longitude)
+        .bind(data.horizontal_accuracy)
+        .bind(data.speed.unwrap())
+        .bind(data.course.unwrap())
         .bind(data.timestamp)
         .execute(&conn)
         .await
