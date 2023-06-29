@@ -3,11 +3,10 @@
 ## To Do
 
 - pre app store release
-    - [ ] is\_imported column
     - [ ] action failure alterts (esp for importing)
     - [ ] improved startup error handling
     - [ ] in-app feedback form
-    - [ ] prompt for desired units in introduction
+    - [ ] prompt for desired units in introduction (and update introduction)
     - [ ] upgrade maptiler account
 - [ ] publish to app store
 - [ ] quick time update buttons
@@ -123,6 +122,7 @@
 - [x] nullable speed and course data
 - [x] rust build for release (use `-c opt`)
 - [x] cargo audit dependencies
+- [x] was\_imported column
 
 ## Structure
 
@@ -325,7 +325,7 @@ Prereq: install graphviz (includes `dot`) with `brew install graphviz`.
 
 ### Rust Debug Output
 
-- Use the `dbg!(var_name)` macro for quicker debugging than with printing!
+- Use `let foo = dbg!(bar)` for quicker debugging than with printing!
 - `.unwrap_or_else(|err| { println("got error {}", err); return; })`
     - if return type is `()` on success: `if let Err(e) = run(config) {`
 - `eprintln` for stderr

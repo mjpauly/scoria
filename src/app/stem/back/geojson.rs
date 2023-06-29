@@ -381,7 +381,7 @@ pub fn location_popup_text(
     }
     let alt = alt
         .map(|alt| format!("{alt}<br>"))
-        .unwrap_or_else(|| String::new());
+        .unwrap_or_else(String::new);
     format!(
         "{}<br>\
         {}<br>\

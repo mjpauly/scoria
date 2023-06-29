@@ -66,6 +66,8 @@ pub async fn init(init_paths: paths::Paths) {
     .await
     .unwrap();
     app_state::AppState::init(init_paths, db);
+    // vacuum and checkpoint the database at startup, so it shrinks to size
+    database::checkpoint_db().await;
     core::debug("===== App Startup =====");
 }
 

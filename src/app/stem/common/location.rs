@@ -22,4 +22,7 @@ pub struct Location {
 
     pub is_simulated_by_software: Option<bool>,
     pub is_produced_by_accessory: Option<bool>,
+
+    // whether this row was imported into the app
+    pub was_imported: bool,
 }
