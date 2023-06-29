@@ -3,18 +3,11 @@
 ## To Do
 
 - pre app store release
-    - [ ] cargo audit in precommit
-    - [ ] rust build for release
     - [ ] is\_imported column
     - [ ] action failure alterts (esp for importing)
     - [ ] improved startup error handling
     - [ ] in-app feedback form
     - [ ] prompt for desired units in introduction
-    - [ ] nullable speed and course data
-    - [ ] log required: altitude, isProducedByAccessory, and isSimulatedBySoftware;
-        floor, verticalAccuracy, speedAccuracy, courseAccuracy
-        :: all required! don't want people to need to opt in -> reduces how much people actually collect
-        - [ ] also whether data was imported
     - [ ] upgrade maptiler account
 - [ ] publish to app store
 - [ ] quick time update buttons
@@ -125,6 +118,11 @@
     - [x] landing/marketing page
     - [x] privacy policy
     - [x] feedback/support
+- [x] log: altitude, isProducedByAccessory, and isSimulatedBySoftware;
+    floor, verticalAccuracy, speedAccuracy, courseAccuracy
+- [x] nullable speed and course data
+- [x] rust build for release (use `-c opt`)
+- [x] cargo audit dependencies
 
 ## Structure
 
@@ -290,6 +288,21 @@ dependencies, it's convenient to combine both into one command:
 CARGO_BAZEL_REPIN=true bazel run //:rustanalyzer
 ```
 
+### Checking for Security Advisories
+
+Advisories that have been checked and which have low likelihood of severe impact
+are ignored. To fix a warning, temporarily add an updated version of the
+dependency to the crates\_repository declaration in the WORKSPACE, then repin,
+and remove it. It will stay at the new version since it's pinned.
+
+Navigate to `src/app/stem` and run:
+
+```
+cargo audit --ignore RUSTSEC-2022-0090 --ignore RUSTSEC-2021-0065
+```
+
+Navigate to `src/server/website` and run: `cargo audit`
+
 ### Profiling Slow Bazel Builds, Tests, and Runs
 
 - `time bazel build ...`: View how long you're actually waiting.
@@ -337,13 +350,15 @@ something like an option behind the Mutex.
 
 ## Distribution
 
+Note: use `-c opt` to use optimizations. [More info](https://bazel.build/docs/user-manual#compilation-mode).
+
 1. Create the necessary certificates and provisioning profiles on
 developer.apple.com.
 2. Place the downloaded profile in `src/app/ios/top/`.
 3. Reference the profile in the `ios_application` target in the BUILD file.
 4. Build the app
-    4a. Developemnt: `bazel build //:iosapp --ios_multi_cpus=arm64 --define profile=development`
-    4b. Distribution: `bazel build //:iosapp --ios_multi_cpus=arm64 --device_debug_entitlements=false --define profile=distribution`
+    4a. Developemnt: `bazel build //:iosapp --ios_multi_cpus=arm64 -c opt`
+    4b. Distribution: `bazel build //:iosapp --ios_multi_cpus=arm64 --device_debug_entitlements=false --define profile=distribution -c opt`
 5. Locate the `.ipa` archive in `bazel-bin/src/app/ios/top/Epsilon.ipa`.
 6. Install/upload the app
     6a. Developemnt: Go to Xcode -> devices and simulators -> [your device] ->

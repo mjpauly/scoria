@@ -499,7 +499,6 @@ dependencies = [
  "actix-web",
  "anyhow",
  "mime",
- "openssl",
  "reqwest",
  "secrecy",
  "serde",
