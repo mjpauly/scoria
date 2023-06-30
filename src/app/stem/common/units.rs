@@ -31,7 +31,7 @@ pub struct UnitPreference {
 
 impl Default for UnitPreference {
     fn default() -> Self {
-        Self::imperial_default()
+        Self::metric_default()
     }
 }
 

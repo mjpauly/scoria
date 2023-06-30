@@ -5,9 +5,9 @@
 - pre app store release
     - [ ] action failure alterts (esp for importing)
     - [ ] improved startup error handling
-    - [ ] prompt for desired units in introduction (and update introduction)
     - [ ] upgrade maptiler account
 - [ ] publish to app store
+- [ ] ability to export stemlog for debugging
 - [ ] quick time update buttons
 - [ ] reset to "today" time range and data-centered view if user is away from
     the app for 1+ hr
@@ -123,6 +123,7 @@
 - [x] was\_imported column
 - [x] conditionally compile logging code
 - [x] link to privacy policy and feedback form in app
+- [x] prompt for desired units in introduction (and update introduction)
 
 ## Structure
 

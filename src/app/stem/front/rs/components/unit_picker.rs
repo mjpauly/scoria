@@ -66,7 +66,7 @@ pub fn UnitPicker() -> Html {
             // settings line
             <button class="py-2 border-b border-neutral-800 w-full \
                 flex items-center justify-between" onclick={metric_onclick}>
-                <label>{"Metric"}</label>
+                <label>{"Metric (meters, kilometers)"}</label>
                 if *preset == UnitPreset::Metric {
                     <Icon icon_id={IconId::BootstrapCheck}
                         class="h-6 w-6 text-primary" />
@@ -74,7 +74,7 @@ pub fn UnitPicker() -> Html {
             </button>
             <button class="py-2 border-b border-neutral-800 w-full \
                 flex items-center justify-between" onclick={imperial_onclick}>
-                <label>{"Imperial"}</label>
+                <label>{"Imperial (feet, miles)"}</label>
                 if *preset == UnitPreset::Imperial {
                     <Icon icon_id={IconId::BootstrapCheck}
                         class="h-6 w-6 text-primary" />
