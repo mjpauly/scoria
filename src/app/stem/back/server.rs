@@ -20,7 +20,6 @@ use rand::RngCore;
 
 use crate::app_state::AppState;
 use crate::geojson::{lines_geojson_route, points_geojson_route};
-// use crate::core::print_and_log;
 use crate::ws_session::ws_route;
 
 // static files to serve (env vars are set by bazel and poin to file path)
@@ -72,14 +71,12 @@ pub async fn run(port: u16, secure: bool) -> ServerConfig {
     // If we bind to port 0, the OS assigns us an available port
     let listener = TcpListener::bind(format!("127.0.0.1:{}", port)).unwrap();
     let port = listener.local_addr().unwrap().port();
-    // print_and_log(&format!("listening on port {}", port));
 
     let frontend_key = if secure {
         FrontendKey::new()
     } else {
         FrontendKey::new_insecure()
     };
-    // print_and_log(&format!("frontend key is {}", frontend_key.expose()));
 
     let server = build(listener, frontend_key.clone());
     let server_handle = server.handle();
@@ -92,7 +89,6 @@ pub async fn run(port: u16, secure: bool) -> ServerConfig {
 
 /// Shut down the server (called when the app goes to the background)
 pub async fn shutdown() {
-    // print_and_log("Shutting down server");
     AppState::global()
         .server_handle
         .lock()

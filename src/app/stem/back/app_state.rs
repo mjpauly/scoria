@@ -133,20 +133,23 @@ impl AppState {
         let persistent = match fs::read_to_string(state_file) {
             Ok(input) => match serde_json::from_str(&input) {
                 Ok(parsed) => {
-                    let msg = &format!(
-                        "DEBUG {} Successfully loaded app state:\n {:?}\n
-                         File contents were \"{}\"",
-                        timestamp(),
-                        parsed,
-                        input
-                    );
-                    println!("{}", msg);
-                    log_with_dir(msg, &paths.documents_dir);
+                    #[cfg(extra_debug_logging)]
+                    {
+                        let msg = &format!(
+                            "DEBUG {} Successfully loaded app state:\n {:?}\n
+                             File contents were \"{}\"",
+                            timestamp(),
+                            parsed,
+                            input
+                        );
+                        println!("{}", msg);
+                        log_with_dir(msg, &paths.documents_dir);
+                    }
                     parsed
                 }
                 Err(e) => {
                     let msg = &format!(
-                        "DEBUG {} Failed to parse state due to error: {}\
+                        "ERROR {} Failed to parse state due to error: {}\
                         File contents were \"{}\"",
                         timestamp(),
                         e,
@@ -159,7 +162,7 @@ impl AppState {
             },
             Err(e) => {
                 let msg = &format!(
-                    "DEBUG {} Failed to read state file due to error: {}",
+                    "ERROR {} Failed to read state file due to error: {}",
                     timestamp(),
                     e
                 );

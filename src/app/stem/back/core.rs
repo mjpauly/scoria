@@ -57,6 +57,15 @@ pub fn timestamp() -> String {
         .unwrap()
 }
 
+/// Debug messages are only outputted to the log if the feature
+/// extra_debug_logging is turned on, which only happens during dev.
+#[allow(unused_variables)]
 pub fn debug(msg: &str) {
+    #[cfg(extra_debug_logging)]
     print_and_log(&format!("DEBUG {} {}", timestamp(), msg))
+}
+
+/// Print an error message to the log file
+pub fn error(msg: &str) {
+    print_and_log(&format!("ERROR {} {msg}", timestamp()))
 }

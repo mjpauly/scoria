@@ -36,6 +36,10 @@ rust_library(
         + [".env", "//:secrets"]
         + static_file_targets,
     rustc_env = static_file_env_defs,
+    crate_features = select({
+        "//:release": [],
+        "//conditions:default": ["extra_debug_logging"],
+    }),
     proc_macro_deps = [
         "@stem_crate_index//:dotenvy_macro",
     ],

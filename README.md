@@ -20,7 +20,6 @@
     - [ ] app usage metadata (when app launched, quit, foregrounded, backgrounded)
     - [ ] data viewership (what map data viewed and when)
     - [ ] battery charge (to correlate with location mode) [ref](https://stackoverflow.com/questions/27475506/check-battery-level-ios-swift)
-- [ ] conditionally compile logging code
 - [ ] have maps\_ok respond with 204 No Content instead of 404
 - [ ] custom map style that uses more black
 - [ ] arcgis HD satellite maps
@@ -123,6 +122,7 @@
 - [x] rust build for release (use `-c opt`)
 - [x] cargo audit dependencies
 - [x] was\_imported column
+- [x] conditionally compile logging code
 
 ## Structure
 

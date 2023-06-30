@@ -60,7 +60,10 @@ use sqlx::{
     FromRow, SqlitePool,
 };
 
-use crate::{app_state::AppState, core::debug};
+use crate::{
+    app_state::AppState,
+    core::{debug, error},
+};
 
 // Embed our migrations from "migrations/" into our binary at compile time
 static MIGRATOR: Migrator = sqlx::migrate!();
@@ -185,7 +188,7 @@ pub async fn checkpoint_db() {
         .execute(&conn)
         .await
     {
-        debug(&format!("Failed to checkpoint/vacuum db. Err: {e}"));
+        error(&format!("Failed to checkpoint/vacuum db. Err: {e}"));
         // not a fatal error, continue onwards
     }
 }
@@ -324,14 +327,14 @@ pub async fn import_database_records(import_db_path: PathBuf) {
     let import_conn = match SqlitePool::connect(&import_db_url).await {
         Ok(c) => c,
         Err(e) => {
-            debug(&format!("Failed to open connection to import db. Err: {e}"));
+            error(&format!("Failed to open connection to import db. Err: {e}"));
             // TODO: send failure feedback to user
             return;
         }
     };
     // Migrate the databse, mark all rows with was_imported=true, and close it.
     if let Err(e) = MIGRATOR.run(&import_conn).await {
-        debug(&format!("Failed to migrate import db. Err: {e}"));
+        error(&format!("Failed to migrate import db. Err: {e}"));
         import_conn.close().await;
         return;
     }
@@ -339,7 +342,7 @@ pub async fn import_database_records(import_db_path: PathBuf) {
         .execute(&import_conn)
         .await
     {
-        debug(&format!("Failed to mark records as imported, Err: {e}"));
+        error(&format!("Failed to mark records as imported, Err: {e}"));
         import_conn.close().await;
         return;
     }
@@ -381,7 +384,7 @@ pub async fn import_database_records(import_db_path: PathBuf) {
     .execute(&conn)
     .await;
     if let Err(e) = result {
-        debug(&format!("Failed to import records. Err: {e}"));
+        error(&format!("Failed to import records. Err: {e}"));
         return;
     }
 
