@@ -5,7 +5,6 @@
 - pre app store release
     - [ ] action failure alterts (esp for importing)
     - [ ] improved startup error handling
-    - [ ] in-app feedback form
     - [ ] prompt for desired units in introduction (and update introduction)
     - [ ] upgrade maptiler account
 - [ ] publish to app store
@@ -123,6 +122,7 @@
 - [x] cargo audit dependencies
 - [x] was\_imported column
 - [x] conditionally compile logging code
+- [x] link to privacy policy and feedback form in app
 
 ## Structure
 

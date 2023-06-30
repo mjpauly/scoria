@@ -12,11 +12,13 @@ import Sensing
 
 // The Sensing framework  is a dependency, and it defines the protocol both frameworks need to
 // agree on for the class's type when passed to the Sensing framwork.
-class ViewController: UIViewController, MyViewControllerProtocol {
+class ViewController: UIViewController, MyViewControllerProtocol, WKNavigationDelegate {
 
     override func viewDidLoad() {
         super.viewDidLoad()
         // Do any additional setup after loading the view.
+        
+        webView.navigationDelegate = self
         
         view.addSubview(webView)
         NSLayoutConstraint.activate([
@@ -58,6 +60,33 @@ class ViewController: UIViewController, MyViewControllerProtocol {
         additionalSafeAreaInsets.top -= view.safeAreaInsets.top
         additionalSafeAreaInsets.left -= view.safeAreaInsets.left
         additionalSafeAreaInsets.right -= view.safeAreaInsets.right
+    }
+
+    // Determine which navigation actions should result in opening in the browser
+    func webView(
+        _ webView: WKWebView,
+        decidePolicyFor navigationAction: WKNavigationAction,
+        decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
+    ) {
+        if navigationAction.navigationType == .linkActivated  {
+            if let url = navigationAction.request.url,
+               let host = url.host, !host.hasPrefix("127.0.0.1"),
+               UIApplication.shared.canOpenURL(url) {
+                // was a link to a url that's not on localhost -> open in browser
+                UIApplication.shared.open(url)
+                //print("Redirected to browser.")
+                decisionHandler(.cancel)
+                return
+            } else {
+                //print("Open it locally")
+                decisionHandler(.allow)
+                return
+            }
+        } else {
+            //print("not a user click")
+            decisionHandler(.allow)
+            return
+        }
     }
 }
 
