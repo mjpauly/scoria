@@ -17,7 +17,9 @@ use crate::ws_session;
 
 pub async fn log_location(loc: OSLocationData) {
     // Log the location in our database
-    database::log_location(loc.clone()).await.unwrap();
+    if let Err(e) = database::log_location(loc.clone()).await {
+        error("Failed to log location.", e);
+    }
     // We first want to get the address, NOT in the "if let" scrutinee, since
     // the lock will be held for the whole if-block, and we won't be able to
     // await
@@ -33,12 +35,15 @@ pub async fn log_location(loc: OSLocationData) {
 /// directory provided. Used during startup before AppState is initialized.
 pub fn log_with_dir(line: &str, docdir: &std::path::Path) {
     let fname = docdir.join("stemlog.txt");
-    let mut file = OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(fname)
-        .unwrap();
-    writeln!(file, "{}", line).unwrap();
+    match OpenOptions::new().create(true).append(true).open(fname) {
+        Ok(mut file) => {
+            if let Err(e) = writeln!(file, "{}", line) {
+                println!("Failed to write error to file. Err: {e}");
+            }
+        }
+        // not great if we can't log our errors, but we settle for printing
+        Err(e) => println!("Failed open log file. Err: {e}"),
+    }
 }
 
 /// Print a line of log output and log it to stemlog.txt. Can only be called
@@ -50,11 +55,16 @@ pub fn print_and_log(line: &str) {
 }
 
 // TODO: get log crate working
+/// Timestamp for debug and error logging
 pub fn timestamp() -> String {
-    let now = time::OffsetDateTime::now_utc()
-        .to_offset(time::UtcOffset::from_hms(-7, 0, 0).unwrap());
-    now.format(&time::format_description::well_known::Rfc2822)
-        .unwrap()
+    let offset =
+        time::UtcOffset::from_hms(-7, 0, 0).unwrap_or(time::UtcOffset::UTC);
+    let now = time::OffsetDateTime::now_utc().to_offset(offset);
+    match now.format(&time::format_description::well_known::Rfc2822) {
+        Ok(formatted) => formatted,
+        // don't call error() here because it might recurse!
+        Err(e) => format!("[Unformattable timestamp, Err: {e}]"),
+    }
 }
 
 /// Debug messages are only outputted to the log if the feature
@@ -62,10 +72,14 @@ pub fn timestamp() -> String {
 #[allow(unused_variables)]
 pub fn debug(msg: &str) {
     #[cfg(extra_debug_logging)]
-    print_and_log(&format!("DEBUG {} {}", timestamp(), msg))
+    print_and_log(&format!("DEBUG {} {msg}", timestamp()))
 }
 
-/// Print an error message to the log file
-pub fn error(msg: &str) {
-    print_and_log(&format!("ERROR {} {msg}", timestamp()))
+/// Print and log an error message, and pass it through.
+/// The returned error can be ignored or unwrapped if it is significant to the
+/// function of the program, and should cause a visible crash.
+pub fn error(msg: &str, err: impl Into<anyhow::Error>) -> anyhow::Error {
+    let err = err.into();
+    print_and_log(&format!("ERROR {} {msg} Err: {err}", timestamp()));
+    err
 }

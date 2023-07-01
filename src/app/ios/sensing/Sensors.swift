@@ -106,7 +106,7 @@ public func handle_import(fileURL: URL) {
         return
     }
     fileURL.stopAccessingSecurityScopedResource()
-    print_and_log(s: "copied import file to \(temporaryURL)")
+    //print_and_log(s: "copied import file to \(temporaryURL)")
     import_from_sqlite_log(temporaryURL.path);
 
     // delete the temporary database file

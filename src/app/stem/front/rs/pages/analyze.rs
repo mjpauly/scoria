@@ -179,12 +179,11 @@ fn PlotComponent() -> Html {
                 bg_color,
             } = msg
             {
-                maplibre::add_popup(
-                    (*map).clone().unwrap(),
-                    location,
-                    text,
-                    bg_color,
-                );
+                // destructure Option just in case message is delivered at a
+                // strange time
+                if let Some(map) = (*map).clone() {
+                    maplibre::add_popup(map, location, text, bg_color);
+                }
             }
         }
     };
@@ -246,6 +245,8 @@ fn PlotComponent() -> Html {
         let map_initialized = map_initialized.clone();
         move |msg: &ToFront| {
             if *msg == ToFront::GeojsonUpdated && *map_initialized {
+                // OK to unwrap map when guarded by if *map_initialized, since
+                // this is a contract we uphold
                 maplibre::update_data((*map).clone().unwrap());
             }
         }

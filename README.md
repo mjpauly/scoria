@@ -4,7 +4,6 @@
 
 - pre app store release
     - [ ] action failure alterts (esp for importing)
-    - [ ] improved startup error handling
     - [ ] upgrade maptiler account
 - [ ] publish to app store
 - [ ] ability to export stemlog for debugging
@@ -124,6 +123,7 @@
 - [x] conditionally compile logging code
 - [x] link to privacy policy and feedback form in app
 - [x] prompt for desired units in introduction (and update introduction)
+- [x] improved startup error handling
 
 ## Structure
 

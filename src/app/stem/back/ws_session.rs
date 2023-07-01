@@ -9,7 +9,7 @@ use actix_web::{web, Error, HttpRequest, HttpResponse};
 use actix_web_actors::ws;
 use std::time::{Duration, Instant};
 
-use crate::core::debug;
+use crate::core::{debug, error};
 use crate::database;
 use crate::geojson::update_geojson;
 use crate::{app_state::AppState, geojson::get_popup_text};
@@ -122,7 +122,11 @@ impl WsSession {
     /// Encodes a ToFront and sends it over the websocket
     fn send_msg(&self, msg: ToFront, ctx: &mut ws::WebsocketContext<Self>) {
         // dbg!(msg.clone());
-        let encoded: Vec<u8> = bincode::serialize(&msg).unwrap();
+        // unwrap here since something this core to the app's function should
+        // just crash it
+        let encoded: Vec<u8> = bincode::serialize(&msg)
+            .map_err(|e| error("Failed to serialize message.", e))
+            .unwrap();
         ctx.binary(encoded);
     }
 
@@ -240,7 +244,9 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsSession {
             }
             ws::Message::Binary(bytes) => {
                 // deserialize ToBack
-                let decoded: ToBack = bincode::deserialize(&bytes[..]).unwrap();
+                let decoded: ToBack = bincode::deserialize(&bytes[..])
+                    .map_err(|e| error("Failed to deserialize message.", e))
+                    .unwrap();
                 self.handle_msg(decoded, ctx);
             }
             ws::Message::Text(text) => println!("got text {}", text),

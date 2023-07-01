@@ -188,7 +188,7 @@ pub async fn checkpoint_db() {
         .execute(&conn)
         .await
     {
-        error(&format!("Failed to checkpoint/vacuum db. Err: {e}"));
+        error("Failed to checkpoint/vacuum db.", e);
         // not a fatal error, continue onwards
     }
 }
@@ -255,30 +255,42 @@ pub async fn get_last_record() -> Option<common::Location> {
     )
     */
 
-    let mut result = sqlx::query_as::<_, LocationRow>(
+    match sqlx::query_as::<_, LocationRow>(
         "SELECT * FROM location ORDER BY timestamp DESC LIMIT 1",
     )
     .fetch_all(&conn)
     .await
-    .unwrap();
-    result.pop().map(|l| l.into())
+    {
+        Ok(mut result) => result.pop().map(|l| l.into()),
+        Err(e) => {
+            error("Failed to get last record.", e);
+            None
+        }
+    }
 }
 
 pub async fn get_records_time_range(
     time_range: &common::TimeRange,
 ) -> Vec<common::Location> {
     let conn = get_db_pool();
-    let result = sqlx::query_as::<_, LocationRow>(
+    match sqlx::query_as::<_, LocationRow>(
         "SELECT * FROM location WHERE timestamp >= (?) AND timestamp <= (?)",
     )
     .bind(time_range.start.unix_timestamp())
     .bind(time_range.end.unix_timestamp())
     .fetch_all(&conn)
     .await
-    .unwrap();
-    // .into_iter() goes over the items, transferring ownership (.iter() would
-    // give references)
-    result.into_iter().map(|l| l.into()).collect()
+    {
+        Ok(result) => {
+            // .into_iter() goes over the items, transferring ownership
+            // (.iter() would give references)
+            result.into_iter().map(|l| l.into()).collect()
+        }
+        Err(e) => {
+            error("Failed to get records in time range.", e);
+            vec![]
+        }
+    }
 }
 
 /// Count the number of locations logged in the past hour.
@@ -293,7 +305,7 @@ pub async fn count_records_past_hour() -> i32 {
 pub async fn count_records_since(thresh: time::OffsetDateTime) -> i32 {
     let conn = get_db_pool();
     let timestamp = thresh.unix_timestamp();
-    let result = sqlx::query!(
+    match sqlx::query!(
         "SELECT
             count(*) as count
         FROM location
@@ -302,20 +314,30 @@ pub async fn count_records_since(thresh: time::OffsetDateTime) -> i32 {
     )
     .fetch_one(&conn)
     .await
-    .unwrap();
-    result.count
+    {
+        Ok(result) => result.count,
+        Err(e) => {
+            error("Failed to count records since.", e);
+            0
+        }
+    }
 }
 
 async fn count_all_records(conn: &SqlitePool) -> i32 {
-    let result = sqlx::query!(
+    match sqlx::query!(
         "SELECT
             count(*) as count
         FROM location",
     )
     .fetch_one(conn)
     .await
-    .unwrap();
-    result.count
+    {
+        Ok(result) => result.count,
+        Err(e) => {
+            error("Failed to count all records.", e);
+            0
+        }
+    }
 }
 
 /// Import records from a database. The database must be writable so we can
@@ -327,14 +349,14 @@ pub async fn import_database_records(import_db_path: PathBuf) {
     let import_conn = match SqlitePool::connect(&import_db_url).await {
         Ok(c) => c,
         Err(e) => {
-            error(&format!("Failed to open connection to import db. Err: {e}"));
+            error("Failed to open connection to import db.", e);
             // TODO: send failure feedback to user
             return;
         }
     };
     // Migrate the databse, mark all rows with was_imported=true, and close it.
     if let Err(e) = MIGRATOR.run(&import_conn).await {
-        error(&format!("Failed to migrate import db. Err: {e}"));
+        error("Failed to migrate import db.", e);
         import_conn.close().await;
         return;
     }
@@ -342,7 +364,7 @@ pub async fn import_database_records(import_db_path: PathBuf) {
         .execute(&import_conn)
         .await
     {
-        error(&format!("Failed to mark records as imported, Err: {e}"));
+        error("Failed to mark records as imported.", e);
         import_conn.close().await;
         return;
     }
@@ -384,7 +406,7 @@ pub async fn import_database_records(import_db_path: PathBuf) {
     .execute(&conn)
     .await;
     if let Err(e) = result {
-        error(&format!("Failed to import records. Err: {e}"));
+        error("Failed to import records.", e);
         return;
     }
 

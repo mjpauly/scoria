@@ -70,7 +70,11 @@ impl Geojson {
 
 impl fmt::Display for Geojson {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", serde_json::to_string(self).unwrap())
+        write!(
+            f,
+            "{}",
+            serde_json::to_string(self).map_err(|_| fmt::Error)?
+        )
     }
 }
 
@@ -132,9 +136,13 @@ fn should_update_geojson(
     // since it's costly.
     // 'if' blocks test if we should NOT update (passed by returning None)
     if !foregrounded {
-        let route = &persistent_guard.front.as_ref().unwrap().route;
-        if route != &PersistedRoute::Analyze {
-            // not looking at the map, don't update data
+        if let Some(p) = persistent_guard.front.as_ref() {
+            if p.route != PersistedRoute::Analyze {
+                // not looking at the map, don't update data
+                return None;
+            }
+        } else {
+            // No frontend, shouldn't happen if foregrounded
             return None;
         }
         if let Some(prev_map_state) = &map_data_guard.prev_map_state {
@@ -393,6 +401,6 @@ pub fn location_popup_text(
         loc.timestamp
             .to_offset(local_offset)
             .format(&time::format_description::well_known::Rfc2822)
-            .unwrap()
+            .unwrap_or_else(|_| "Timestamp unavailable".to_string())
     )
 }

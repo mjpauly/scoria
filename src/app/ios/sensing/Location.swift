@@ -15,7 +15,7 @@ class MyLocationManager: NSObject, CLLocationManagerDelegate, ObservableObject {
     // If myLocationManager is stored as a global variable, it is lazily initialized.
     // `touch` does an access so that it becomes initialized.
     func touch() {
-        print_and_log(s: "Initializing location manager")
+        print("Initializing location manager")
     }
     
     func updateConfig() {
