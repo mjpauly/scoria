@@ -1,19 +1,44 @@
 use actix_web::http::header::ContentType;
-use actix_web::{get, HttpResponse, Responder};
+use actix_web::{get, web, HttpResponse, Responder};
 
 static INDEX_FILE: &str = include_str!(env!("INDEX_FILE"));
 static PRIVACY_POLICY_FILE: &str = include_str!(env!("PRIVACY_POLICY_FILE"));
 static CONTACT_FILE: &str = include_str!(env!("CONTACT_FILE"));
+static TERMS_FILE: &str = include_str!(env!("TERMS_FILE"));
 static TAILWIND_FILE: &str = include_str!(env!("TAILWIND_FILE"));
 static LOGO_FILE: &[u8] = include_bytes!(env!("LOGO_FILE"));
 static FAVICON_FILE: &[u8] = include_bytes!(env!("FAVICON_FILE"));
 pub static TEMPLATE_TOP_FILE: &str = include_str!(env!("TEMPLATE_TOP_FILE"));
 pub static TEMPLATE_BOTTOM_FILE: &str =
     include_str!(env!("TEMPLATE_BOTTOM_FILE"));
+static SCREENSHOT1: &[u8] = include_bytes!(env!("SCREENSHOT1"));
+static SCREENSHOT2: &[u8] = include_bytes!(env!("SCREENSHOT2"));
+static SCREENSHOT3: &[u8] = include_bytes!(env!("SCREENSHOT3"));
+static SCREENSHOT4: &[u8] = include_bytes!(env!("SCREENSHOT4"));
+static APP_STORE_BADGE: &[u8] = include_bytes!(env!("APP_STORE_BADGE"));
 
-pub fn get_static_file_services(
-) -> (index, privacy_policy, contact, tailwind, logo, favicon) {
-    (index, privacy_policy, contact, tailwind, logo, favicon)
+pub fn get_static_file_services() -> (
+    index,
+    privacy_policy,
+    contact,
+    terms,
+    tailwind,
+    logo,
+    favicon,
+    screenshots,
+    app_store_badge,
+) {
+    (
+        index,
+        privacy_policy,
+        contact,
+        terms,
+        tailwind,
+        logo,
+        favicon,
+        screenshots,
+        app_store_badge,
+    )
 }
 
 #[get("/")]
@@ -37,6 +62,13 @@ async fn contact() -> impl Responder {
         .body(CONTACT_FILE)
 }
 
+#[get("/terms")]
+async fn terms() -> impl Responder {
+    HttpResponse::Ok()
+        .content_type(ContentType::html())
+        .body(TERMS_FILE)
+}
+
 #[get("/tailwind.css")]
 async fn tailwind() -> impl Responder {
     HttpResponse::Ok()
@@ -56,4 +88,25 @@ async fn favicon() -> impl Responder {
     HttpResponse::Ok()
         .content_type(ContentType(mime::IMAGE_PNG))
         .body(FAVICON_FILE)
+}
+
+#[get("/screenshots/{num}.jpeg")]
+async fn screenshots(path: web::Path<usize>) -> impl Responder {
+    let bytes = match path.into_inner() {
+        1 => SCREENSHOT1,
+        2 => SCREENSHOT2,
+        3 => SCREENSHOT3,
+        4 => SCREENSHOT4,
+        _ => return HttpResponse::NotFound().finish(),
+    };
+    HttpResponse::Ok()
+        .content_type(ContentType(mime::IMAGE_JPEG))
+        .body(bytes)
+}
+
+#[get("/app_store_badge.svg")]
+async fn app_store_badge() -> impl Responder {
+    HttpResponse::Ok()
+        .content_type(ContentType(mime::IMAGE_SVG))
+        .body(APP_STORE_BADGE)
 }

@@ -63,13 +63,27 @@ pub fn Settings() -> Html {
                         <Icon icon_id={IconId::BootstrapChevronRight}
                             class="h-4 w-4 text-neutral-500" />
                     </button>
-                    <button class="py-2 w-full \
+                    <button class="py-2 border-b border-neutral-800 w-full \
                         flex items-center justify-between"
                         onclick={datalog_onclick}>
                         <label>{"Data"}</label>
                         <Icon icon_id={IconId::BootstrapChevronRight}
                             class="h-4 w-4 text-neutral-500" />
                     </button>
+                    <a class="py-2 border-b border-neutral-800 w-full \
+                        flex items-center justify-between"
+                        href="https://epsln.com/contact">
+                        <label>{"Feedback"}</label>
+                        <Icon icon_id={IconId::BootstrapChevronRight}
+                            class="h-4 w-4 text-neutral-500" />
+                    </a>
+                    <a class="py-2 w-full \
+                        flex items-center justify-between"
+                        href="https://epsln.com/privacy">
+                        <label>{"Privacy"}</label>
+                        <Icon icon_id={IconId::BootstrapChevronRight}
+                            class="h-4 w-4 text-neutral-500" />
+                    </a>
                 </div>
 
             </div>
@@ -92,7 +106,7 @@ pub fn General() -> Html {
     };
     let exit_settings_onclick =
         Callback::from(move |_e: MouseEvent| navigator.push(&Route::Sense));
-    let _big_list = (1..41).map(|i| html! { <div>{format!("{}", i)}</div> });
+    // let _big_list = (1..41).map(|i| html! { <div>{format!("{}", i)}</div> });
     html! {
         <div class="min-h-screen">
             <nav class="sticky top-0 h-24 relative backdrop-blur-xl \

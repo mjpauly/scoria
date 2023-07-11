@@ -5,11 +5,17 @@ static_file_targets = [
     ":index",
     ":privacy_policy",
     ":contact",
+    ":terms",
     ":tailwind",
     ":logo",
     ":favicon",
     ":template_top",
     ":template_bottom",
+    ":screenshot1",
+    ":screenshot2",
+    ":screenshot3",
+    ":screenshot4",
+    ":app_store_badge",
 ]
 
 # env var definitions to tell rust compiler where to find the files
@@ -17,11 +23,17 @@ static_file_env_defs = {
     "INDEX_FILE": "$(location :index)",
     "PRIVACY_POLICY_FILE": "$(location :privacy_policy)",
     "CONTACT_FILE": "$(location :contact)",
+    "TERMS_FILE": "$(location :terms)",
     "TAILWIND_FILE": "$(location :tailwind)",
     "LOGO_FILE": "$(location :logo)",
     "FAVICON_FILE": "$(location :favicon)",
     "TEMPLATE_TOP_FILE": "$(location :template_top)",
     "TEMPLATE_BOTTOM_FILE": "$(location :template_bottom)",
+    "SCREENSHOT1": "$(location :screenshot1)",
+    "SCREENSHOT2": "$(location :screenshot2)",
+    "SCREENSHOT3": "$(location :screenshot3)",
+    "SCREENSHOT4": "$(location :screenshot4)",
+    "APP_STORE_BADGE": "$(location :app_store_badge)",
 }
 
 rust_binary(
@@ -103,6 +115,19 @@ cat $(location :template_bottom) >> $@
 """,
 )
 
+genrule(
+    name = "terms",
+    srcs = ["static/terms.md", ":template_top", "template_bottom"],
+    outs = ["terms.html"],
+    cmd = """
+cmark $(location static/terms.md) -t html > content.html
+
+cat $(location :template_top) >> $@
+cat content.html >> $@
+cat $(location :template_bottom) >> $@
+""",
+)
+
 filegroup(
     name = "template_top",
     srcs = ["static/template_top.html"],
@@ -121,4 +146,26 @@ filegroup(
 filegroup(
     name = "favicon",
     srcs = ["static/favicon.png"],
+)
+
+filegroup(
+    name = "screenshot1",
+    srcs = ["static/screenshots/1.jpeg"],
+)
+filegroup(
+    name = "screenshot2",
+    srcs = ["static/screenshots/2.jpeg"],
+)
+filegroup(
+    name = "screenshot3",
+    srcs = ["static/screenshots/3.jpeg"],
+)
+filegroup(
+    name = "screenshot4",
+    srcs = ["static/screenshots/4.jpeg"],
+)
+
+filegroup(
+    name = "app_store_badge",
+    srcs = ["static/Download_on_the_App_Store_Badge_US-UK_RGB_blk_092917.svg"],
 )

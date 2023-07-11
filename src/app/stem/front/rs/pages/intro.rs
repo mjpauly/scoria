@@ -7,12 +7,15 @@ use yew_router::prelude::*;
 use yewdux::prelude::*;
 
 use crate::{
-    components::TOGGLE_SWITCH_STYLE, router::Route, swift_poke,
-    ui_state::FrontState, websocket::WebsocketService,
+    components::{unit_picker::UnitPicker, TOGGLE_SWITCH_STYLE},
+    router::Route,
+    swift_poke,
+    ui_state::FrontState,
+    websocket::WebsocketService,
 };
 
 // Bump to indicate the intro should be shown again to users on install
-pub static INTRO_VERSION: usize = 1;
+pub static INTRO_VERSION: usize = 2;
 
 #[function_component]
 pub fn Intro() -> Html {
@@ -64,16 +67,20 @@ pub fn Intro() -> Html {
                         class="h-6 w-6" />
                 </button>
             }
+            // if *subpage == 1 {
+                // <TesterNotice />
+            // } else if *subpage == 2 {
+                // <BackupNotice />
             if *subpage == 1 {
-                <TesterNotice />
-            } else if *subpage == 2 {
-                <BackupNotice />
-            } else if *subpage == 3 {
                 <IntroStart />
-            } else if *subpage == 4 {
+            } else if *subpage == 2 {
+                <HowItWorks />
+            } else if *subpage == 3 {
                 <EnableLocation />
-            } else if *subpage == 5 {
+            } else if *subpage == 4 {
                 <EnableLocationPartTwo />
+            } else if *subpage == 5 {
+                <PickUnits />
             } else if *subpage == 6 {
                 <IntroFinish />
             }
@@ -145,7 +152,7 @@ fn BackupNotice() -> Html {
 fn IntroStart() -> Html {
     html! {
         <div class="my-auto p-5">
-            <p class="text-primary text-2xl mb-3">
+            <p class="text-primary text-2xl mb-6">
                 {"Introduction"}
             </p>
             <p class="mb-3">
@@ -155,6 +162,41 @@ fn IntroStart() -> Html {
             <p class="mb-3">
                 {"🔒 Data is stored only on your phone and is not accessible to
                 anyone except you."}
+            </p>
+            <p class="mt-12">
+                {"For more about how Epsilon protects your privacy, see the "}
+                <a href="https://epsln.com/privacy" class="underline text-blue-500">
+                    {"privacy policy"}
+                </a>
+                {"."}
+            </p>
+        </div>
+    }
+}
+
+#[function_component]
+fn HowItWorks() -> Html {
+    html! {
+        <div class="my-auto p-5">
+            <p class="text-primary text-2xl mb-6">
+                {"How it Works"}
+            </p>
+            <p class="mb-3">
+                {"🗺️ Epsilon lets you record and analyze your movement
+                history. You can see where you've been, the routes you've taken,
+                the time spent for each section of travel, and more."}
+            </p>
+            <p class="mb-3">
+                {"📱 Epsilon collects your movement history by logging your
+                location while the app is open in the background. It's designed
+                so that you can leave it on all the time."}
+            </p>
+            <p class="mb-3">
+                {"🔋 Battery drain is minimized by lowering data
+                accuracy when the app detects that you are stationary.
+                If you want to further conserve battery charge, you
+                can switch to a lower accuracy mode that consumes less power
+                but still logs what destinations you visited."} 
             </p>
         </div>
     }
@@ -217,8 +259,8 @@ fn EnableLocationPartTwo() -> Html {
             <p class="mb-3">
                 {"To log location data in the background when
                 the app is closed, you also need to grant permission to always
-                access your location. You will still be able to pause logging at
-                any time from within Epsilon."}
+                access your location. You will be able to pause logging at
+                any time in the app."}
             </p>
             <p class="mb-3">
                 {"When prompted, tap \"Change to Always Allow\"."}
@@ -250,18 +292,30 @@ fn EnableLocationPartTwo() -> Html {
 }
 
 #[function_component]
+fn PickUnits() -> Html {
+    html! {
+        <div class="p-5 my-auto">
+            <p class="mb-3">
+                {"Finally, select your preferred system of units:"}
+            </p>
+            <UnitPicker />
+        </div>
+    }
+}
+
+#[function_component]
 fn IntroFinish() -> Html {
     html! {
         <div class="my-auto p-5">
             <p class="mb-3">
-                {"You can also configure alternate location logging modes
-                in the \"Log\" tab."}
-            </p>
-            <p class="mb-3">
-                {"The \"Map\" tab is where you visualize your data."}
-            </p>
-            <p class="mb-3">
                 {"That's it! You're all set up. ✅"}
+            </p>
+            <p class="mb-3">
+                {"Once you've collected some movement data, you can visualize it
+                in the \"Map\" tab."}
+            </p>
+            <p class="mb-3">
+                {"Close this page to finish the introduction."}
             </p>
         </div>
     }

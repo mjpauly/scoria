@@ -15,7 +15,7 @@ class MyLocationManager: NSObject, CLLocationManagerDelegate, ObservableObject {
     // If myLocationManager is stored as a global variable, it is lazily initialized.
     // `touch` does an access so that it becomes initialized.
     func touch() {
-        print_and_log(s: "Initializing location manager")
+        print("Initializing location manager")
     }
     
     func updateConfig() {
@@ -86,15 +86,47 @@ class MyLocationManager: NSObject, CLLocationManagerDelegate, ObservableObject {
         // Perform operations on the updated location data
         guard let newLocation = locations.last else { return }
         
-        // Log the location in StemLib
-        log_location(
-            newLocation.coordinate.latitude,
-            newLocation.coordinate.longitude,
-            newLocation.horizontalAccuracy,
-            newLocation.speed,
-            newLocation.course,
-            Int(round(newLocation.timestamp.timeIntervalSince1970))
+        var story_available = false // default case
+        var story = -1
+        if let floor = newLocation.floor {
+            story_available = true
+            story = floor.level
+        }
+        var source_info_available = false; // default case
+        var is_simulated_by_software = false;
+        var is_produced_by_accessory = false;
+        if let source_info = newLocation.sourceInformation {
+            source_info_available = true;
+            is_simulated_by_software = source_info.isSimulatedBySoftware
+            is_produced_by_accessory = source_info.isProducedByAccessory
+        }
+        
+        let data = OSLocationData.init(
+            timestamp: Int64(round(newLocation.timestamp.timeIntervalSince1970)),
+            
+            latitude: newLocation.coordinate.latitude,
+            longitude: newLocation.coordinate.longitude,
+            horizontal_accuracy: newLocation.horizontalAccuracy,
+            
+            msl_altitude: newLocation.altitude,
+            ellipsoid_altitude: newLocation.ellipsoidalAltitude,
+            vertical_accuracy: newLocation.verticalAccuracy,
+            
+            story_available: story_available,
+            story: Int64(story),
+            
+            speed: newLocation.speed,
+            speed_accuracy: newLocation.speedAccuracy,
+            course: newLocation.course,
+            course_accuracy: newLocation.courseAccuracy,
+            
+            source_info_available: source_info_available,
+            is_simulated_by_software: is_simulated_by_software,
+            is_produced_by_accessory: is_produced_by_accessory
         )
+        
+        // Log the location in StemLib
+        log_location(data)
         updateConfig()
         // Spawn an async task which will check if we should change auto modes after a minute
         // This is important in case the device suddenly stops, and we want to lower the

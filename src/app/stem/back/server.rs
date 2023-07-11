@@ -19,8 +19,8 @@ use actix_web::{HttpResponse, Responder};
 use rand::RngCore;
 
 use crate::app_state::AppState;
+use crate::core::error;
 use crate::geojson::{lines_geojson_route, points_geojson_route};
-// use crate::core::print_and_log;
 use crate::ws_session::ws_route;
 
 // static files to serve (env vars are set by bazel and poin to file path)
@@ -70,16 +70,20 @@ impl FrontendKey {
 /// known value (123) for local testing.
 pub async fn run(port: u16, secure: bool) -> ServerConfig {
     // If we bind to port 0, the OS assigns us an available port
-    let listener = TcpListener::bind(format!("127.0.0.1:{}", port)).unwrap();
-    let port = listener.local_addr().unwrap().port();
-    // print_and_log(&format!("listening on port {}", port));
+    let listener = TcpListener::bind(format!("127.0.0.1:{}", port))
+        .map_err(|e| error("Failed to bind tcp listener.", e))
+        .unwrap();
+    let port = listener
+        .local_addr()
+        .map_err(|e| error("Failed to get tcp listener local_addr.", e))
+        .unwrap()
+        .port();
 
     let frontend_key = if secure {
         FrontendKey::new()
     } else {
         FrontendKey::new_insecure()
     };
-    // print_and_log(&format!("frontend key is {}", frontend_key.expose()));
 
     let server = build(listener, frontend_key.clone());
     let server_handle = server.handle();
@@ -92,15 +96,11 @@ pub async fn run(port: u16, secure: bool) -> ServerConfig {
 
 /// Shut down the server (called when the app goes to the background)
 pub async fn shutdown() {
-    // print_and_log("Shutting down server");
-    AppState::global()
-        .server_handle
-        .lock()
-        .await
-        .as_mut()
-        .unwrap()
-        .stop(false) // false: not graceful
-        .await;
+    if let Some(handle) = AppState::global().server_handle.lock().await.as_mut()
+    {
+        // false: not graceful
+        handle.stop(false).await;
+    }
     // Drop the server handle
     *AppState::global().server_handle.lock().await = None;
 }
@@ -140,6 +140,7 @@ fn build(listener: TcpListener, frontend_key: FrontendKey) -> Server {
     })
     .workers(1)
     .listen(listener)
+    .map_err(|e| error("Failed to start server.", e))
     .unwrap()
     .run()
 }

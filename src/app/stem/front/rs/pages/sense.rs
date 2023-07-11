@@ -87,7 +87,7 @@ fn LocationDetails() -> Html {
         );
     }
     let prev_loc_html = if let Some(loc) = &*last_loc {
-        let dur = *now - loc.datetime;
+        let dur = *now - loc.timestamp;
         // Time since last location data in human readable form
         let time_since = if dur > time::Duration::seconds(2) {
             format!(
@@ -99,24 +99,36 @@ fn LocationDetails() -> Html {
         } else {
             String::from("<2s ago")
         };
-        let latlon_text = format!(
+        let latlon = format!(
             "{}, {}",
-            unit_pref.format_angle(loc.lat, Some(5)),
-            unit_pref.format_angle(loc.lon, Some(5))
+            unit_pref.format_angle(loc.latitude, Some(5)),
+            unit_pref.format_angle(loc.longitude, Some(5))
         );
-        let accuracy_speed_course = format!(
-            "+/-{}, {}, {}",
-            unit_pref.format_small_length(loc.accuracy, Some(2)),
-            unit_pref.format_velocity(loc.speed, Some(2)),
-            unit_pref.format_angle(loc.course, Some(2))
+        let mut accuracy_speed_course = format!(
+            "±{}",
+            unit_pref.format_small_length(loc.horizontal_accuracy, Some(2)),
         );
+        if let Some(speed) = loc.speed {
+            accuracy_speed_course +=
+                &format!(", {}", unit_pref.format_velocity(speed, Some(2)));
+        }
+        if let Some(course) = loc.course {
+            accuracy_speed_course +=
+                &format!(", {}", unit_pref.format_angle(course, Some(2)));
+        }
+        let alt = loc.msl_altitude.map(|alt| {
+            format!("{} altitude", unit_pref.format_small_length(alt, Some(2)))
+        });
         html! {
             // allow selection of the current location details
             <div class="select-text">
 
             <p class="font-bold mb-2"> {"Last Location"} </p>
-            <p> {latlon_text} </p>
+            <p> {latlon} </p>
             <p> {accuracy_speed_course} </p>
+            if let Some(a) = alt {
+                <p> {a} </p>
+            }
             <p class="mb-4"> {time_since} </p>
             if let Some(n_locs) = *locs_per_hour {
                 <p class="whitespace-nowrap">

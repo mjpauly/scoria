@@ -19,8 +19,8 @@ use common::{
 };
 
 // The maximum number of data points to put into the geojson. If greater, we
-// decimate (select every nth) by a factor large enough to get under 50k points.
-static DECIMATION_THRESHOLD: usize = 50_000;
+// decimate (select every nth) by a factor large enough to get under 40k points.
+static DECIMATION_THRESHOLD: usize = 40_000;
 
 #[routes]
 #[get("/points.geojson")]
@@ -70,7 +70,11 @@ impl Geojson {
 
 impl fmt::Display for Geojson {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", serde_json::to_string(self).unwrap())
+        write!(
+            f,
+            "{}",
+            serde_json::to_string(self).map_err(|_| fmt::Error)?
+        )
     }
 }
 
@@ -132,14 +136,18 @@ fn should_update_geojson(
     // since it's costly.
     // 'if' blocks test if we should NOT update (passed by returning None)
     if !foregrounded {
-        let route = &persistent_guard.front.as_ref().unwrap().route;
-        if route != &PersistedRoute::Analyze {
-            // not looking at the map, don't update data
+        if let Some(p) = persistent_guard.front.as_ref() {
+            if p.route != PersistedRoute::Analyze {
+                // not looking at the map, don't update data
+                return None;
+            }
+        } else {
+            // No frontend, shouldn't happen if foregrounded
             return None;
         }
         if let Some(prev_map_state) = &map_data_guard.prev_map_state {
             let new_data_in_time_range = new_data
-                .map(|l| map_state.time_range.contains(&l.datetime))
+                .map(|l| map_state.time_range.contains(&l.timestamp))
                 .unwrap_or(false);
             if !new_data_in_time_range
                 && !map_state_is_different(prev_map_state, map_state)
@@ -220,7 +228,12 @@ pub async fn update_geojson(new_data: Option<Location>, foregrounded: bool) {
 
         let properties = if colored_datastream.is_some() {
             let val = colored_datastream.get_stream(records[i], &offset);
-            let color = cmaps::get_data_color(val, &cmap_params);
+            let color = if let Some(known_val) = val {
+                cmaps::get_data_color(known_val, &cmap_params)
+            } else {
+                // if data in this dimension not known, use a neutral gray color
+                "#808080"
+            };
             Some(GeojsonProperties {
                 color: Some(color.to_string()),
             })
@@ -228,7 +241,7 @@ pub async fn update_geojson(new_data: Option<Location>, foregrounded: bool) {
             None
         };
 
-        let coords = (records[i].lon, records[i].lat);
+        let coords = (records[i].longitude, records[i].latitude);
 
         if make_points {
             points.push(GeojsonFeature::Feature {
@@ -239,7 +252,8 @@ pub async fn update_geojson(new_data: Option<Location>, foregrounded: bool) {
             })
         }
         if make_line {
-            let end_coords = (records[i + 1].lon, records[i + 1].lat);
+            let end_coords =
+                (records[i + 1].longitude, records[i + 1].latitude);
             lines.push(GeojsonFeature::Feature {
                 geometry: GeojsonGeometry::LineString {
                     coordinates: vec![coords, end_coords],
@@ -266,8 +280,8 @@ fn get_view_params(records: &[&common::Location]) -> (LngLat, f64) {
     if records.is_empty() {
         return Default::default();
     }
-    let lats: Vec<_> = records.iter().map(|x| x.lat).collect();
-    let lons: Vec<_> = records.iter().map(|x| x.lon).collect();
+    let lats: Vec<_> = records.iter().map(|x| x.latitude).collect();
+    let lons: Vec<_> = records.iter().map(|x| x.longitude).collect();
     let lat_center = (float::max(&lats) + float::min(&lats)) / 2.;
     let lon_center = (float::max(&lons) + float::min(&lons)) / 2.;
     let lat_range = float::max(&lats) - float::min(&lats);
@@ -310,7 +324,10 @@ pub async fn get_popup_text(
     let local_offset = map_state.time_range.start.offset();
     let distances: Vec<_> = records
         .iter()
-        .map(|loc| (loc.lat - lnglat.lat).abs() + (loc.lon - lnglat.lng).abs())
+        .map(|loc| {
+            (loc.latitude - lnglat.lat).abs()
+                + (loc.longitude - lnglat.lng).abs()
+        })
         .collect();
     let mut argmin = 0;
     // assume the records being plotted have at least one element
@@ -327,8 +344,8 @@ pub async fn get_popup_text(
         data_color.unwrap_or_else(|| map_state.style.solid_color.rgb.clone());
     ToFront::PopupText {
         location: LngLat {
-            lng: loc.lon,
-            lat: loc.lat,
+            lng: loc.longitude,
+            lat: loc.latitude,
         },
         text,
         bg_color,
@@ -340,18 +357,50 @@ pub fn location_popup_text(
     unit_pref: &UnitPreference,
     loc: &common::Location,
 ) -> String {
+    let latlon = format!(
+        "{}, {}",
+        unit_pref.format_angle(loc.latitude, Some(6)),
+        unit_pref.format_angle(loc.longitude, Some(6))
+    );
+    let mut accuracy_speed_course = format!(
+        "±{}",
+        unit_pref.format_small_length(loc.horizontal_accuracy, Some(2)),
+    );
+
+    if let Some(speed) = loc.speed {
+        accuracy_speed_course +=
+            &format!(", {}", unit_pref.format_velocity(speed, Some(2)));
+    }
+    if let Some(course) = loc.course {
+        accuracy_speed_course +=
+            &format!(", {}", unit_pref.format_angle(course, Some(2)));
+    }
+
+    let mut alt = loc.msl_altitude.map(|alt| {
+        format!("{} altitude", unit_pref.format_small_length(alt, Some(2)))
+    });
+    if let Some(v_acc) = loc.vertical_accuracy {
+        alt = alt.map(|alt| {
+            format!("{alt} ±{}", unit_pref.format_small_length(v_acc, Some(2)))
+        });
+    }
+    if let Some(story) = loc.story {
+        alt = alt.map(|alt| format!("{alt}, story {story}"));
+    }
+    let alt = alt
+        .map(|alt| format!("{alt}<br>"))
+        .unwrap_or_else(String::new);
     format!(
-        "{}, {}<br>\
-        +/-{}, {}, {}<br>\
+        "{}<br>\
+        {}<br>\
+        {}\
         {}",
-        unit_pref.format_angle(loc.lat, Some(6)),
-        unit_pref.format_angle(loc.lon, Some(6)),
-        unit_pref.format_small_length(loc.accuracy, Some(2)),
-        unit_pref.format_velocity(loc.speed, Some(2)),
-        unit_pref.format_angle(loc.course, Some(2)),
-        loc.datetime
+        latlon,
+        accuracy_speed_course,
+        alt,
+        loc.timestamp
             .to_offset(local_offset)
             .format(&time::format_description::well_known::Rfc2822)
-            .unwrap()
+            .unwrap_or_else(|_| "Timestamp unavailable".to_string())
     )
 }

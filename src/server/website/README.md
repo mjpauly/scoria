@@ -26,6 +26,19 @@ Debug with a shell:
 docker run -it --entrypoint=/bin/bash website
 ```
 
+Debug a failed Docker build:
+```
+DOCKER_BUILDKIT=0 docker build -t website --build-arg TARGETARCH="arm64" -f src/server/website/Dockerfile .
+```
+(TARGETARCH is only set by buildkit, but we need to disable buildkit to see
+the intermediate layer ids.)
+
+Then get the hash for a prior layer that comes after `--->` (and not after
+`---> Running in ...`) and do:
+```
+docker run --rm -it <hash> bash
+```
+
 # Pushing
 
 From repo root:

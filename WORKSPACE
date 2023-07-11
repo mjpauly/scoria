@@ -270,7 +270,6 @@ crates_repository(
         "actix-web": crate.spec( version = "4.3.0", features = ["rustls"]),
         "anyhow": crate.spec( version = "1.0.68",),
         "mime": crate.spec(version = "0.3.17"),
-        "openssl": crate.spec( version = "0.10.55",), # fix RUSTSEC-2023-0044
         "secrecy": crate.spec( version = "0.8.0",),
         "serde": crate.spec( version = "1.0.152",),
         "sqlx": crate.spec(

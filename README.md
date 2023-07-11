@@ -2,37 +2,24 @@
 
 ## To Do
 
-- [ ] cargo audit in precommit
+- [ ] accessible front sizing
+    - [ ] accessible font sizing for colorbar, attribution
+- [ ] action failure alterts (esp for importing)
+- [ ] ability to export stemlog for debugging
 - [ ] quick time update buttons
 - [ ] reset to "today" time range and data-centered view if user is away from
     the app for 1+ hr
-- [ ] action failure alterts (esp for importing)
-- [ ] improved startup error handling
-- [ ] in-app feedback form
-- [ ] prompt for desired units in introduction
 - [ ] export tab on map (csv, maybe image)
-- [ ] nullable speed and course data
 - [ ] notify user when they close the app that keeping it open is best
-- [ ] log required: altitude, isProducedByAccessory, and isSimulatedBySoftware;
-    floor, verticalAccuracy, speedAccuracy, courseAccuracy
-    :: all required! don't want people to need to opt in -> reduces how much people actually collect
-    - [ ] also whether data was imported
-- [ ] rustsec checks of dependencies
-- website
-    - [ ] landing/marketing page
-    - [ ] privacy policy
-    - [ ] feedback/support
-- [ ] upgrade maptiler account
-- [ ] publish to app store
 
 - [ ] log more metadata
     - [ ] location config metadata (when settings were changed)
     - [ ] app usage metadata (when app launched, quit, foregrounded, backgrounded)
     - [ ] data viewership (what map data viewed and when)
     - [ ] battery charge (to correlate with location mode) [ref](https://stackoverflow.com/questions/27475506/check-battery-level-ios-swift)
-- [ ] conditionally compile logging code
 - [ ] have maps\_ok respond with 204 No Content instead of 404
 - [ ] custom map style that uses more black
+- [ ] arcgis HD satellite maps
 
 - later features
     - sensing: environmental noise
@@ -40,7 +27,7 @@
          - lookup marker from public DB (apple maps?, openstreetmap?)
     - perform queries
          - visits (last time, first time, total, time spent, when visits happen)
-         - traveling (different modes, time spent, num trips, when it happens)
+         - traveling (different modes, time spent, num trips, when it happens, distance)
          - trends
 
 ## Completed
@@ -122,6 +109,23 @@
 - [x] Multi-page settings
 - [x] ability to set preferred units
 - [x] prevent horizontal app rotation
+- website
+    - [x] landing/marketing page
+    - [x] privacy policy
+    - [x] feedback/support
+- [x] log: altitude, isProducedByAccessory, and isSimulatedBySoftware;
+    floor, verticalAccuracy, speedAccuracy, courseAccuracy
+- [x] nullable speed and course data
+- [x] rust build for release (use `-c opt`)
+- [x] cargo audit dependencies
+- [x] was\_imported column
+- [x] conditionally compile logging code
+- [x] link to privacy policy and feedback form in app
+- [x] prompt for desired units in introduction (and update introduction)
+- [x] improved startup error handling
+- [x] upgrade maptiler account
+- [x] submit to app store
+- [x] website terms (copyright, liability, App Store trademark notice), link to App Store
 
 ## Structure
 
@@ -287,6 +291,21 @@ dependencies, it's convenient to combine both into one command:
 CARGO_BAZEL_REPIN=true bazel run //:rustanalyzer
 ```
 
+### Checking for Security Advisories
+
+Advisories that have been checked and which have low likelihood of severe impact
+are ignored. To fix a warning, temporarily add an updated version of the
+dependency to the crates\_repository declaration in the WORKSPACE, then repin,
+and remove it. It will stay at the new version since it's pinned.
+
+Navigate to `src/app/stem` and run:
+
+```
+cargo audit --ignore RUSTSEC-2022-0090 --ignore RUSTSEC-2021-0065
+```
+
+Navigate to `src/server/website` and run: `cargo audit`
+
 ### Profiling Slow Bazel Builds, Tests, and Runs
 
 - `time bazel build ...`: View how long you're actually waiting.
@@ -309,7 +328,7 @@ Prereq: install graphviz (includes `dot`) with `brew install graphviz`.
 
 ### Rust Debug Output
 
-- Use the `dbg!(var_name)` macro for quicker debugging than with printing!
+- Use `let foo = dbg!(bar)` for quicker debugging than with printing!
 - `.unwrap_or_else(|err| { println("got error {}", err); return; })`
     - if return type is `()` on success: `if let Err(e) = run(config) {`
 - `eprintln` for stderr
@@ -334,13 +353,15 @@ something like an option behind the Mutex.
 
 ## Distribution
 
+Note: use `-c opt` to use optimizations. [More info](https://bazel.build/docs/user-manual#compilation-mode).
+
 1. Create the necessary certificates and provisioning profiles on
 developer.apple.com.
 2. Place the downloaded profile in `src/app/ios/top/`.
 3. Reference the profile in the `ios_application` target in the BUILD file.
 4. Build the app
-    4a. Developemnt: `bazel build //:iosapp --ios_multi_cpus=arm64 --define profile=development`
-    4b. Distribution: `bazel build //:iosapp --ios_multi_cpus=arm64 --device_debug_entitlements=false --define profile=distribution`
+    4a. Developemnt: `bazel build //:iosapp --ios_multi_cpus=arm64 -c opt`
+    4b. Distribution: `bazel build //:iosapp --ios_multi_cpus=arm64 --device_debug_entitlements=false --define profile=distribution -c opt`
 5. Locate the `.ipa` archive in `bazel-bin/src/app/ios/top/Epsilon.ipa`.
 6. Install/upload the app
     6a. Developemnt: Go to Xcode -> devices and simulators -> [your device] ->

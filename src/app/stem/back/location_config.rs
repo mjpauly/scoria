@@ -23,7 +23,6 @@
 //! hysteresis to 1 record count
 
 use crate::app_state::AppState;
-use crate::core::debug;
 use crate::database;
 use crate::ws_session;
 use common::UserConfig;
@@ -85,21 +84,12 @@ async fn update_auto_location_config() {
         && five_minute_count < FIVE_MINUTE_THRESHOLD
     {
         // TODO: if battery < 20% -> go to significant changes mode
-        debug(&format!(
-            "switching to low accuracy, count past minute = {}, count past 5 \
-            minutes = {}",
-            minute_count, five_minute_count
-        ));
         set_auto_accuracy(LocationAccuracyMode::HundredMeters);
     } else if config.auto_standard_on()
         && config.auto.standard_config.accuracy_mode
             == LocationAccuracyMode::HundredMeters
         && minute_count >= MINUTE_THRESHOLD + HYSTERESIS
     {
-        debug(&format!(
-            "switching to high accuracy, count past minute = {}",
-            minute_count
-        ));
         set_auto_accuracy(LocationAccuracyMode::Best);
     }
     // do nothing otherwise

@@ -1,5 +1,5 @@
 {
-  "checksum": "a8a2aed9a2aed20a38ee92570d4c1bedd811549d8e074b2c87be0148e433b9b9",
+  "checksum": "8671e2b880772fda45e1f62e0ec211b394f9867cb3db581710cbb32f23e146d1",
   "crates": {
     "actix-codec 0.5.1": {
       "name": "actix-codec",
@@ -2592,10 +2592,6 @@
             {
               "id": "mime 0.3.17",
               "target": "mime"
-            },
-            {
-              "id": "openssl 0.10.55",
-              "target": "openssl"
             },
             {
               "id": "reqwest 0.11.18",
