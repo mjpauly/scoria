@@ -41,7 +41,8 @@ RUN apt update && DEBIAN_FRONTEND=noninteractive apt install -y \
 # bazelisk binary. More info:
 # https://www.docker.com/blog/faster-multi-platform-builds-dockerfile-cross-compilation-guide/
 ARG TARGETARCH
-# digitalocean might not set TARGETARCH, so we pick amd64 as the default value
+# digitalocean doesn't seem to use BUILDKIT, which sets TARGETARCH, so we pick
+# amd64 as the default value
 ENV ARCH=${TARGETARCH:-amd64}
 RUN wget https://github.com/bazelbuild/bazelisk/releases/download/v1.17.0/bazelisk-linux-$ARCH && \
     chmod 755 bazelisk-linux-$ARCH && \
@@ -49,6 +50,7 @@ RUN wget https://github.com/bazelbuild/bazelisk/releases/download/v1.17.0/bazeli
 
 # prompt bazelisk to download bazel
 COPY --from=copier epsilon/.bazelversion .
+RUN touch WORKSPACE
 RUN bazel version
 
 
@@ -58,9 +60,9 @@ FROM deps as builder
 COPY --from=copier epsilon epsilon
 WORKDIR epsilon
 
-RUN bazel build //src/server/website:website_bin
+RUN bazel build //src/server/website:website_bin -c opt
 
-RUN cp $(bazel cquery --output=starlark --starlark:expr=target.files_to_run.executable.path //src/server/website:website_bin) website_bin
+RUN cp $(bazel cquery --output=starlark --starlark:expr=target.files_to_run.executable.path //src/server/website:website_bin -c opt) website_bin
 
 
 
