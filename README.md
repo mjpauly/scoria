@@ -2,10 +2,9 @@
 
 ## To Do
 
-- pre app store release
-    - [ ] action failure alterts (esp for importing)
-    - [ ] upgrade maptiler account
-- [ ] publish to app store
+- [ ] accessible front sizing
+    - [ ] accessible font sizing for colorbar, attribution
+- [ ] action failure alterts (esp for importing)
 - [ ] ability to export stemlog for debugging
 - [ ] quick time update buttons
 - [ ] reset to "today" time range and data-centered view if user is away from
@@ -124,6 +123,9 @@
 - [x] link to privacy policy and feedback form in app
 - [x] prompt for desired units in introduction (and update introduction)
 - [x] improved startup error handling
+- [x] upgrade maptiler account
+- [x] submit to app store
+- [x] website terms (copyright, liability, App Store trademark notice), link to App Store
 
 ## Structure
 
