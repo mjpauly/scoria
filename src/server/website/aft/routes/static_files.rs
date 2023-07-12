@@ -2,6 +2,7 @@ use actix_web::http::header::ContentType;
 use actix_web::{get, web, HttpResponse, Responder};
 
 static INDEX_FILE: &str = include_str!(env!("INDEX_FILE"));
+static FIRST_RELEASE_BLOG: &str = include_str!(env!("FIRST_RELEASE_BLOG"));
 static PRIVACY_POLICY_FILE: &str = include_str!(env!("PRIVACY_POLICY_FILE"));
 static CONTACT_FILE: &str = include_str!(env!("CONTACT_FILE"));
 static TERMS_FILE: &str = include_str!(env!("TERMS_FILE"));
@@ -19,6 +20,7 @@ static APP_STORE_BADGE: &[u8] = include_bytes!(env!("APP_STORE_BADGE"));
 
 pub fn get_static_file_services() -> (
     index,
+    first_release_blog,
     privacy_policy,
     contact,
     terms,
@@ -30,6 +32,7 @@ pub fn get_static_file_services() -> (
 ) {
     (
         index,
+        first_release_blog,
         privacy_policy,
         contact,
         terms,
@@ -46,6 +49,13 @@ async fn index() -> impl Responder {
     HttpResponse::Ok()
         .content_type(ContentType::html())
         .body(INDEX_FILE)
+}
+
+#[get("/blog")]
+async fn first_release_blog() -> impl Responder {
+    HttpResponse::Ok()
+        .content_type(ContentType::html())
+        .body(FIRST_RELEASE_BLOG)
 }
 
 #[get("/privacy")]

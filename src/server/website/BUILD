@@ -1,40 +1,34 @@
 load("@rules_rust//rust:defs.bzl", "rust_library", "rust_binary", "rust_test")
+load(":templates.bzl", "html_template", "md_template", "files")
 
-# static files to bundle into the binary
-static_file_targets = [
-    ":index",
-    ":privacy_policy",
-    ":contact",
-    ":terms",
-    ":tailwind",
-    ":logo",
-    ":favicon",
-    ":template_top",
-    ":template_bottom",
-    ":screenshot1",
-    ":screenshot2",
-    ":screenshot3",
-    ":screenshot4",
-    ":app_store_badge",
-]
 
-# env var definitions to tell rust compiler where to find the files
-static_file_env_defs = {
-    "INDEX_FILE": "$(location :index)",
-    "PRIVACY_POLICY_FILE": "$(location :privacy_policy)",
-    "CONTACT_FILE": "$(location :contact)",
-    "TERMS_FILE": "$(location :terms)",
-    "TAILWIND_FILE": "$(location :tailwind)",
-    "LOGO_FILE": "$(location :logo)",
-    "FAVICON_FILE": "$(location :favicon)",
-    "TEMPLATE_TOP_FILE": "$(location :template_top)",
-    "TEMPLATE_BOTTOM_FILE": "$(location :template_bottom)",
-    "SCREENSHOT1": "$(location :screenshot1)",
-    "SCREENSHOT2": "$(location :screenshot2)",
-    "SCREENSHOT3": "$(location :screenshot3)",
-    "SCREENSHOT4": "$(location :screenshot4)",
-    "APP_STORE_BADGE": "$(location :app_store_badge)",
+# Static file targets to bundle into the binary, paired with the environment
+# variable names that are passed to the compiler.
+static_files = {
+    ":index": "INDEX_FILE",
+    ":privacy_policy": "PRIVACY_POLICY_FILE",
+    ":first_release_blog": "FIRST_RELEASE_BLOG",
+    ":contact": "CONTACT_FILE",
+    ":terms": "TERMS_FILE",
+    ":tailwind": "TAILWIND_FILE",
+    ":logo": "LOGO_FILE",
+    ":favicon": "FAVICON_FILE",
+    ":template_top": "TEMPLATE_TOP_FILE",
+    ":template_bottom": "TEMPLATE_BOTTOM_FILE",
+    ":screenshot1": "SCREENSHOT1",
+    ":screenshot2": "SCREENSHOT2",
+    ":screenshot3": "SCREENSHOT3",
+    ":screenshot4": "SCREENSHOT4",
+    ":app_store_badge": "APP_STORE_BADGE",
 }
+
+# List of the static file target names
+static_file_targets = static_files.keys()
+
+# Dict of the environment variable names paired with the target location.
+# The location expresison is evaluated by Bazel before passing to the compiler.
+static_file_env_defs = {envar: "$(location %s)" % target for target, envar in static_files.items()}
+
 
 rust_binary(
     name = "website_bin",
@@ -64,11 +58,11 @@ rust_library(
     ],
 )
 
-# static files
+# static file target definitions
 
 genrule(
     name = "tailwind",
-    srcs = glob(["static/*.html"])
+    srcs = glob(["static/*.html", "static/*.md"])
         + ["tailwind/tailwind.config.js", "tailwind/styles.css"],
     outs = ["tailwind.css"],
     cmd = """
@@ -80,92 +74,42 @@ $(execpath @front_npm//tailwindcss/bin:tailwindcss) \
     tools = ["@front_npm//tailwindcss/bin:tailwindcss"],
 )
 
-genrule(
-    name = "privacy_policy",
-    srcs = [ "static/privacy_policy.md", ":template_top", ":template_bottom" ],
-    outs = ["privacy_policy.html"],
-    cmd = """
-cmark $(location static/privacy_policy.md) -t html > content.html
-
-cat $(location :template_top) >> $@
-cat content.html >> $@
-cat $(location :template_bottom) >> $@
-""",
-)
-
-genrule(
-    name = "contact",
-    srcs = ["static/contact.html", ":template_top", ":template_bottom"],
-    outs = ["contact.html"],
-    cmd = """
-cat $(location :template_top) >> $@
-cat $(location static/contact.html) >> $@
-cat $(location :template_bottom) >> $@
-""",
-)
-
-genrule(
+html_template(
     name = "index",
-    srcs = ["static/index.html", ":template_top", ":template_bottom"],
-    outs = ["index.html"],
-    cmd = """
-cat $(location :template_top) >> $@
-cat $(location static/index.html) >> $@
-cat $(location :template_bottom) >> $@
-""",
+    src = "static/index.html",
 )
 
-genrule(
+md_template(
+    name = "privacy_policy",
+    src = "static/privacy_policy.md",
+)
+
+md_template(
+    name = "first_release_blog",
+    src = "static/first_release.md",
+    include_html = True,
+)
+
+html_template(
+    name = "contact",
+    src = "static/contact.html",
+)
+
+md_template(
     name = "terms",
-    srcs = ["static/terms.md", ":template_top", "template_bottom"],
-    outs = ["terms.html"],
-    cmd = """
-cmark $(location static/terms.md) -t html > content.html
-
-cat $(location :template_top) >> $@
-cat content.html >> $@
-cat $(location :template_bottom) >> $@
-""",
+    src = "static/terms.md",
 )
 
-filegroup(
-    name = "template_top",
-    srcs = ["static/template_top.html"],
-)
-
-filegroup(
-    name = "template_bottom",
-    srcs = ["static/template_bottom.html"],
-)
-
-filegroup(
-    name = "logo",
-    srcs = ["static/epsilon.png"],
-)
-
-filegroup(
-    name = "favicon",
-    srcs = ["static/favicon.png"],
-)
-
-filegroup(
-    name = "screenshot1",
-    srcs = ["static/screenshots/1.jpeg"],
-)
-filegroup(
-    name = "screenshot2",
-    srcs = ["static/screenshots/2.jpeg"],
-)
-filegroup(
-    name = "screenshot3",
-    srcs = ["static/screenshots/3.jpeg"],
-)
-filegroup(
-    name = "screenshot4",
-    srcs = ["static/screenshots/4.jpeg"],
-)
-
-filegroup(
-    name = "app_store_badge",
-    srcs = ["static/Download_on_the_App_Store_Badge_US-UK_RGB_blk_092917.svg"],
+files(
+    names_srcs = {
+        "template_top": "static/template_top.html",
+        "template_bottom": "static/template_bottom.html",
+        "logo": "static/epsilon.png",
+        "favicon": "static/favicon.png",
+        "screenshot1": "static/screenshots/1.jpeg",
+        "screenshot2": "static/screenshots/2.jpeg",
+        "screenshot3": "static/screenshots/3.jpeg",
+        "screenshot4": "static/screenshots/4.jpeg",
+        "app_store_badge": "static/Download_on_the_App_Store_Badge_US-UK_RGB_blk_092917.svg",
+    },
 )

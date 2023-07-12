@@ -13,6 +13,7 @@ COPY BUILD .
 COPY WORKSPACE .
 COPY .bazelversion .
 COPY src/server/website/BUILD src/server/website/BUILD
+COPY src/server/website/templates.bzl src/server/website/templates.bzl
 COPY src/server/website/.env src/server/website/.env
 COPY src/server/website/Cargo.lock src/server/website/Cargo.lock
 COPY src/server/website/Cargo.Bazel.lock src/server/website/Cargo.Bazel.lock
