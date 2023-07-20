@@ -4,13 +4,22 @@
 
 - [ ] accessible front sizing
     - [ ] accessible font sizing for colorbar, attribution
+- website
+    - [ ] cross compile website binary
+    - [ ] try kube for scoria.app
+- [ ] custom user agent to restrict api access
+    https://stackoverflow.com/questions/26994491/set-useragent-in-wkwebview/50910170#50910170
+    - [ ] allow only `127.0.0.1` origins
+    - [ ] generate keys for each new device
+    - [ ] or: custom tile server
 - [ ] action failure alterts (esp for importing)
 - [ ] ability to export stemlog for debugging
 - [ ] quick time update buttons
 - [ ] reset to "today" time range and data-centered view if user is away from
     the app for 1+ hr
 - [ ] export tab on map (csv, maybe image)
-- [ ] notify user when they close the app that keeping it open is best
+- [ ] notify user when they close the app that keeping it open is required for
+    data to be logged
 
 - [ ] log more metadata
     - [ ] location config metadata (when settings were changed)
@@ -126,6 +135,7 @@
 - [x] upgrade maptiler account
 - [x] submit to app store
 - [x] website terms (copyright, liability, App Store trademark notice), link to App Store
+- [x] fix color slider bug by refactoring map code to have everything in the style
 
 ## Structure
 

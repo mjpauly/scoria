@@ -110,9 +110,11 @@ impl WsSession {
             ToBack::GetPopupText((location, data_color)) => {
                 let recipient = ctx.address().recipient();
                 let fut = async move {
-                    recipient.do_send(MsgToFront(
-                        get_popup_text(location, data_color).await,
-                    ))
+                    if let Some(msg) =
+                        get_popup_text(location, data_color).await
+                    {
+                        recipient.do_send(MsgToFront(msg))
+                    }
                 };
                 fut.into_actor(self).spawn(ctx);
             }

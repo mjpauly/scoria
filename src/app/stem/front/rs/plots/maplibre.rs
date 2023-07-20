@@ -9,7 +9,7 @@ use serde_json::{json, Value};
 use wasm_bindgen::{prelude::*, JsCast};
 
 use common::cmaps;
-use common::map_style::{ColoredDataStream, Rgba};
+use common::map_style::{ColoredDataStream, MapStyle, Rgba};
 use common::view_position::ViewPosition;
 
 #[wasm_bindgen]
@@ -26,21 +26,18 @@ extern "C" {
     pub fn on_layer(this: &Map, event: &str, layer: &str, listener: &JsValue);
     #[wasm_bindgen(method)]
     pub fn once(this: &Map, event: &str, listener: &JsValue);
+    #[wasm_bindgen(method, js_name = once)]
+    pub fn once_layer(this: &Map, event: &str, layer: &str, listener: &JsValue);
+    #[wasm_bindgen(method)]
+    pub fn off(this: &Map, event: &str);
+    #[wasm_bindgen(method, js_name = isSourceLoaded)]
+    pub fn is_source_loaded(this: &Map, source: &str) -> bool;
 
-    #[wasm_bindgen(method, js_name = addSource)]
-    pub fn add_source(this: &Map, id: &str, data: &JsValue);
     #[wasm_bindgen(method, js_name = getSource)]
     pub fn get_source(this: &Map, id: &str) -> Source;
 
-    #[wasm_bindgen(method, js_name = addLayer)]
-    pub fn add_layer(this: &Map, data: &JsValue);
-    #[wasm_bindgen(method, js_name = addLayer)]
-    pub fn add_layer_below(this: &Map, data: &JsValue, below_id: &JsValue);
-    #[wasm_bindgen(method, js_name = removeLayer)]
-    pub fn remove_layer(this: &Map, id: &str);
-
     #[wasm_bindgen(method, js_name = setStyle)]
-    pub fn set_style(this: &Map, style: &str);
+    pub fn set_style(this: &Map, style: &JsValue);
 
     #[wasm_bindgen(method, js_name = addControl)]
     pub fn add_navigation_control(
@@ -109,14 +106,9 @@ pub fn view_pos_from_map(map: &Map) -> ViewPosition {
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn new_map(
     plot_id: &str,
-    basemap: &str,
-    marker_size: usize,
-    line_size: usize,
-    marker_color: &Rgba,
-    colored_datastream: &ColoredDataStream,
+    style: &Value,
     view_position: &ViewPosition,
     on_load_callback: Box<dyn Fn()>, // closure to run when the plot loads
     // closure to run with pan/zoom data
@@ -128,7 +120,7 @@ pub fn new_map(
     // Create the map and start it loading
     let opts = json!({
         "container": plot_id,
-        "style": basemap,
+        "style": style,
         "center": [view_position.lng, view_position.lat],
         "zoom": view_position.zoom,
         "bearing": view_position.bearing,
@@ -146,46 +138,21 @@ pub fn new_map(
         "bottom-left",
     );
 
-    // === Add data source and visible layer ===
-
-    // create a geojson source without features
-    let source = empty_source();
-    let points_layer =
-        make_points_layer(marker_size, marker_color, colored_datastream);
-    let lines_layer =
-        make_lines_layer(line_size, marker_color, colored_datastream);
-
     // Wrap the map in a Rc so we can clone references to it and pass those into
     // closures and share the map reference.
     let map = Rc::new(map);
 
-    let popup_callback = get_popup_callback(request_popup);
+    // register our on-load callback
+    map.on("load", &Closure::wrap(on_load_callback).into_js_value());
 
-    // Add the data source and layer and notify the yew component when loading
-    // of the map has finished.
-    let on_load: Box<dyn Fn()> = {
-        let map = map.clone();
-        Box::new(move || {
-            map.add_source(POINTS_SOURCE_ID, &source);
-            map.add_source(LINES_SOURCE_ID, &source);
-            map.add_layer(&val_to_jsval(&points_layer));
-            map.add_layer_below(
-                &val_to_jsval(&lines_layer),
-                &POINTS_LAYER_ID.into(),
-            );
-            let popup_callback = popup_callback.clone();
-            map.on_layer(
-                "click",
-                POINTS_LAYER_ID,
-                &Closure::wrap(
-                    Box::new(popup_callback) as Box<dyn Fn(&JsValue)>
-                )
-                .into_js_value(),
-            );
-            on_load_callback();
-        })
-    };
-    map.on("load", &Closure::wrap(on_load).into_js_value());
+    // register our callback for showing a popup on click
+    let popup_callback = get_popup_callback(request_popup);
+    map.on_layer(
+        "click",
+        POINTS_LAYER_ID,
+        &Closure::wrap(Box::new(popup_callback) as Box<dyn Fn(&JsValue)>)
+            .into_js_value(),
+    );
 
     // Notify the yew component of the new view position whenever it changes.
     let on_view_change: Box<dyn Fn()> = {
@@ -312,7 +279,8 @@ pub fn add_css_rule(class_name: &str, rule: &str) {
     }
 }
 
-/// Update the map's data source
+/// Update the map's data source. Forces the map to update, which is useful if
+/// the data has changed.
 pub fn update_data(map: Rc<Map>) {
     map.get_source(POINTS_SOURCE_ID)
         .set_data(&"./points.geojson".into());
@@ -320,74 +288,45 @@ pub fn update_data(map: Rc<Map>) {
         .set_data(&"./lines.geojson".into());
 }
 
-/// Restyle the layer by removing the old layer and adding it back
-#[allow(dead_code)]
-pub fn restyle_layer(
-    map: Rc<Map>,
-    marker_size: usize,
-    line_size: usize,
-    marker_color: &Rgba,
-    colored_datastream: &ColoredDataStream,
-) {
-    let points_layer =
-        make_points_layer(marker_size, marker_color, colored_datastream);
-    let lines_layer =
-        make_lines_layer(line_size, marker_color, colored_datastream);
-    map.remove_layer(POINTS_LAYER_ID);
-    map.remove_layer(LINES_LAYER_ID);
-    map.add_layer(&val_to_jsval(&points_layer));
-    map.add_layer_below(&val_to_jsval(&lines_layer), &POINTS_LAYER_ID.into());
-}
-
 /// Restyles the whole plot. Necessary if changing the basemap layer since
 /// sources and layers are removed.
-pub fn restyle(
-    map: Rc<Map>,
-    basemap: &str,
-    marker_size: usize,
-    line_size: usize,
-    marker_color: &Rgba,
-    colored_datastream: &ColoredDataStream,
-    callback: Box<dyn Fn()>, // closure to run when restyling is complete
-) {
-    let source = empty_source();
-    let points_layer =
-        make_points_layer(marker_size, marker_color, colored_datastream);
-    let lines_layer =
-        make_lines_layer(line_size, marker_color, colored_datastream);
-
-    // restyling the basemap also removes our sources and layers, so we need to
-    // add them back when the "styledata" event is emitted.
-    let on_load: Box<dyn FnMut()> = {
-        let map = map.clone();
-        Box::new(move || {
-            // for some reason setting the geojson directly doesn't work, so we
-            // first add the empty source, then update the data later
-            map.add_source(POINTS_SOURCE_ID, &source);
-            map.add_source(LINES_SOURCE_ID, &source);
-            map.add_layer(&val_to_jsval(&points_layer));
-            map.add_layer_below(
-                &val_to_jsval(&lines_layer),
-                &POINTS_LAYER_ID.into(),
-            );
-            callback();
-        })
-    };
-
-    map.once("styledata", &Closure::wrap(on_load).into_js_value());
-    map.set_style(basemap);
+pub fn restyle(map: Rc<Map>, style: &Value) {
+    map.set_style(&val_to_jsval(style));
 }
 
-fn empty_source() -> JsValue {
-    let data = json!({
-        "type": "FeatureCollection",
-        "features": [],
-    });
-    let source = json!({
+/// Modify a serde_json::Value object containing the basemap style to add on
+/// the user data sources and layers.
+pub fn add_source_and_layers_to_style(style: &mut Value, map_style: &MapStyle) {
+    let sources_mut = style["sources"].as_object_mut().unwrap();
+    sources_mut.insert(POINTS_SOURCE_ID.to_string(), points_source());
+    sources_mut.insert(LINES_SOURCE_ID.to_string(), lines_source());
+    let points_layer = make_points_layer(
+        map_style.marker_size,
+        &map_style.solid_color,
+        &map_style.colored_datastream,
+    );
+    let lines_layer = make_lines_layer(
+        map_style.line_size,
+        &map_style.solid_color,
+        &map_style.colored_datastream,
+    );
+    // lines first, so they go under points
+    style["layers"].as_array_mut().unwrap().push(lines_layer);
+    style["layers"].as_array_mut().unwrap().push(points_layer);
+}
+
+fn points_source() -> Value {
+    json!({
         "type": "geojson",
-        "data": data,
-    });
-    val_to_jsval(&source)
+        "data": "./points.geojson",
+    })
+}
+
+fn lines_source() -> Value {
+    json!({
+        "type": "geojson",
+        "data": "./lines.geojson",
+    })
 }
 
 /// Convert from a serde_json::Value (loosely-typed object) to a json JsValue
@@ -424,7 +363,7 @@ fn make_points_layer(
             "circle-opacity": marker_color.a,
             // An invisible stroke of 5px to makes the data points easier to
             // click.
-            "circle-stroke-width": 5,
+            "circle-stroke-width": 10,
             "circle-stroke-color": "#ffffff",
             "circle-stroke-opacity": 0.,
         }

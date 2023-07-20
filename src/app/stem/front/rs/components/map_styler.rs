@@ -101,7 +101,7 @@ pub fn MapStyler() -> Html {
         },
     );
     let opacity_onchange = dispatch.reduce_mut_callback_with(
-        move |s: &mut FrontState, e: Event| {
+        move |s: &mut FrontState, e: InputEvent| {
             let elem: HtmlInputElement = e.target_dyn_into().unwrap();
             let val: &str = &elem.value();
             let new_opacity = val.to_string().parse::<f64>().unwrap();
@@ -109,14 +109,14 @@ pub fn MapStyler() -> Html {
         },
     );
     let marker_size_onchange = dispatch.reduce_mut_callback_with(
-        move |s: &mut FrontState, e: Event| {
+        move |s: &mut FrontState, e: InputEvent| {
             let elem: HtmlInputElement = e.target_dyn_into().unwrap();
             let val: &str = &elem.value();
             s.map.style.marker_size = val.to_string().parse().unwrap();
         },
     );
     let line_size_onchange = dispatch.reduce_mut_callback_with(
-        move |s: &mut FrontState, e: Event| {
+        move |s: &mut FrontState, e: InputEvent| {
             let elem: HtmlInputElement = e.target_dyn_into().unwrap();
             let val: &str = &elem.value();
             s.map.style.line_size = val.to_string().parse().unwrap();
@@ -167,7 +167,7 @@ pub fn MapStyler() -> Html {
                     value={format!("{}", style.solid_color.a)}
                     min="0.0" max="1.0" step="0.01"
                     class={format!("m-1 ml-6 {}", RANGE_INPUT_STYLE)}
-                    onchange={opacity_onchange} />
+                    oninput={opacity_onchange} />
             </div>
             <div class="flex items-center justify-between h-8">
                 <label for="marker_size">{"Circle Radius"}</label>
@@ -175,7 +175,7 @@ pub fn MapStyler() -> Html {
                     value={format!("{}", style.marker_size)}
                     min="0" max="10"
                     class={format!("m-1 ml-6 {}", RANGE_INPUT_STYLE)}
-                    onchange={marker_size_onchange} />
+                    oninput={marker_size_onchange} />
             </div>
             <div class="flex items-center justify-between h-8">
                 <label for="line_size">{"Line Width"}</label>
@@ -183,7 +183,7 @@ pub fn MapStyler() -> Html {
                     value={format!("{}", style.line_size)}
                     min="0" max="10"
                     class={format!("m-1 ml-6 {}", RANGE_INPUT_STYLE)}
-                    onchange={line_size_onchange} />
+                    oninput={line_size_onchange} />
             </div>
             <div class="flex items-center justify-between">
                 <label for="basemap">{"Basemap Style"}</label>

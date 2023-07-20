@@ -61,3 +61,11 @@ pub fn App() -> Html {
         </div>
     }
 }
+
+pub fn now() -> i64 {
+    web_sys::window().unwrap().performance().unwrap().now() as i64 % 1000
+}
+
+pub fn debug_with_time(s: &str) {
+    log::debug!("{} ms, {}", now(), s);
+}
