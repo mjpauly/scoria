@@ -197,7 +197,7 @@ crates_repository(
             features = [
                 "Performance", "Window", "HtmlInputElement", "Location",
                 "HtmlSelectElement", "Document", "Element", "CssStyleSheet",
-                "StyleSheetList", "CssRuleList",
+                "StyleSheetList", "CssRuleList", "CssStyleDeclaration",
             ],
         ),
         "log": crate.spec(
@@ -219,6 +219,7 @@ crates_repository(
                 "BootstrapChevronRight",
                 "BootstrapFullscreen",
                 "BootstrapFunnel",
+                "BootstrapGear",
                 "BootstrapGlobeAmericas",
                 "BootstrapJournalText",
                 "BootstrapList",

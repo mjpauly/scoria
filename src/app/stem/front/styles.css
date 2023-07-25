@@ -5,8 +5,37 @@
 @tailwind utilities;
 
 @layer base {
+    /* Support accessible sizing on iOS
+     * https://dev.to/colingourlay/how-to-support-apple-s-dynamic-text-in-your-web-content-with-css-40c0
+     *
+     * This will set the value of one rem for the whole document to be more or
+     * less pixels than the 16px default. As long as the layout is specified in
+     * rem, it will scale according to the system font size.
+     */
+    @supports (font: -apple-system-body) {
+        html {
+            font: -apple-system-body;
+        }
+    }
+
+    html {
+        @apply h-full;
+    }
+
     body {
-        @apply bg-neutral-900;
+        @apply bg-neutral-900 min-w-min min-h-full flex flex-col;
+    }
+}
+
+/* Maplibre */
+
+/* When editing, remember that the more specific selector will win. If a change
+ * isn't taking effect, check to see if there are more specific selectors
+ * that are overriding it from the maplibre css */
+
+@supports (font: -apple-system-body) {
+    .mapboxgl-map, .maplibregl-map {
+        font: -apple-system-body;
     }
 }
 
@@ -16,6 +45,8 @@
 .mapboxgl-ctrl-attrib.mapboxgl-compact,
 .maplibregl-ctrl-attrib.maplibregl-compact {
     background-color: rgba(0,0,0,.5);
+    /* Rem scaling for attrib button background */
+    @apply rounded-xl min-h-[1.25rem] py-0.5 pr-6
 }
 
 /* Even on non-compact attrib */
@@ -28,6 +59,7 @@
 .mapboxgl-ctrl-attrib a,
 .maplibregl-ctrl-attrib a {
     color: rgba(255,255,255,.5);
+    font-size: 0.75rem;
 }
 
 /* Dark show/hide button using invert(1) */
@@ -39,6 +71,11 @@
     background-color: rgba(0,0,0,0);
 }
 
+/* Adaptive show/hide button size, default is 24px, which is 1.5rem. */
+.mapboxgl-ctrl-attrib-button, .maplibregl-ctrl-attrib-button {
+    @apply w-[1.5rem] h-[1.5rem] bg-contain;
+}
+
 /* Compass control */
 
 /* Make the compass dark-mode friendly */
@@ -48,12 +85,18 @@
     @apply rounded-lg;
 }
 
-/* Remove the box shadow */
+/* Remove the box shadow and do rem scaling */
 .mapboxgl-ctrl-group:not(:empty), .maplibregl-ctrl-group:not(:empty) {
     box-shadow: none;
+    @apply ml-2.5 mb-2.5;
 }
 
 /* Make the compass a little bigger */
 .mapboxgl-ctrl-group button, .maplibregl-ctrl-group button {
     @apply h-10 w-10;
+}
+
+/* Make compass icon itself scale up */
+.mapboxgl-ctrl-group button span, .maplibregl-ctrl-group button span {
+    @apply bg-contain
 }

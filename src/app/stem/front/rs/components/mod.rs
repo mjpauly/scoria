@@ -1,5 +1,6 @@
 //! Module for components that are to be reused throughout the design.
 
+pub mod buttons;
 pub mod colorbar;
 pub mod location_config;
 pub mod location_filter_list;
@@ -12,7 +13,7 @@ pub use colorbar::Colorbar;
 pub use location_config::LocationConfigurator;
 pub use location_filter_list::LocationFilterList;
 pub use map_styler::MapStyler;
-pub use navbar::{Navbar, NavbarWrapper};
+pub use navbar::{BottomNav, HomeBarSpacer, TabBar, TopNav};
 pub use time_range_picker::TimeRangePicker;
 
 // For text contents, py-1.5 px-3 is good.
@@ -28,7 +29,7 @@ pub static SELECT_STYLE: &str =
     "rounded-lg whitespace-nowrap py-1.5 px-3 text-neutral-200 bg-neutral-800 \
         appearance-none";
 pub static RANGE_INPUT_STYLE: &str =
-    "appearance-none bg-neutral-800 h-1 rounded-lg w-40";
+    "appearance-none bg-neutral-800 h-1 rounded-lg w-40 max-w-[75vw]";
 
 // The `after:` pseudo-element is the dot on the switch that moves back and
 // forth.

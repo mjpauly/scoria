@@ -3,12 +3,13 @@
 use common::ToBack;
 use yew::prelude::*;
 use yew_icons::{Icon, IconId};
-use yew_router::prelude::*;
 use yewdux::prelude::*;
 
 use crate::{
-    components::{unit_picker::UnitPicker, TOGGLE_SWITCH_STYLE},
-    router::Route,
+    components::{
+        buttons::DoneButton, unit_picker::UnitPicker, BottomNav, TopNav,
+        TOGGLE_SWITCH_STYLE,
+    },
     swift_poke,
     ui_state::FrontState,
     websocket::WebsocketService,
@@ -22,10 +23,6 @@ pub fn Intro() -> Html {
     // record that the intro was viewed
     let dispatch = Dispatch::<FrontState>::new();
     dispatch.reduce_mut(|s| s.last_viewed_intro_version = INTRO_VERSION);
-
-    let navigator = use_navigator().unwrap();
-    let exit_intro_onclick =
-        Callback::from(move |_e: MouseEvent| navigator.push(&Route::Sense));
 
     // subpage that is being viewed
     let subpage = use_state(|| 1);
@@ -45,46 +42,54 @@ pub fn Intro() -> Html {
 
     const LAST_PAGE: usize = 6;
     html! {
-        <div class="flex flex-col h-screen">
-            <button onclick={exit_intro_onclick} id="exit_intro"
-                class="absolute right-6 top-14 p-2 \
-                rounded-lg bg-neutral-800 text-neutral-200">
-                <Icon icon_id={IconId::BootstrapX} class="h-6 w-6" />
-            </button>
-            if *subpage > 1 {
-                <button onclick={prev_page_onclick}
-                    class="absolute left-6 bottom-14 p-2 \
-                    rounded-lg bg-neutral-800 text-neutral-200">
-                    <Icon icon_id={IconId::BootstrapChevronLeft}
-                        class="h-6 w-6" />
-                </button>
-            }
-            if *subpage < LAST_PAGE {
-                <button onclick={next_page_onclick}
-                    class="absolute right-6 bottom-14 p-2 \
-                    rounded-lg bg-neutral-800 text-neutral-200">
-                    <Icon icon_id={IconId::BootstrapChevronRight}
-                        class="h-6 w-6" />
-                </button>
-            }
-            // if *subpage == 1 {
-                // <TesterNotice />
-            // } else if *subpage == 2 {
-                // <BackupNotice />
-            if *subpage == 1 {
-                <IntroStart />
-            } else if *subpage == 2 {
-                <HowItWorks />
-            } else if *subpage == 3 {
-                <EnableLocation />
-            } else if *subpage == 4 {
-                <EnableLocationPartTwo />
-            } else if *subpage == 5 {
-                <PickUnits />
-            } else if *subpage == 6 {
-                <IntroFinish />
-            }
-        </div>
+        <>
+            <TopNav>
+                <div></div>
+                <DoneButton />
+            </TopNav>
+            <div class="grow overflow-scroll h-0 w-full \
+                flex flex-col">
+                // if *subpage == 1 {
+                    // <TesterNotice />
+                // } else if *subpage == 2 {
+                    // <BackupNotice />
+                if *subpage == 1 {
+                    <IntroStart />
+                } else if *subpage == 2 {
+                    <HowItWorks />
+                } else if *subpage == 3 {
+                    <EnableLocation />
+                } else if *subpage == 4 {
+                    <EnableLocationPartTwo />
+                } else if *subpage == 5 {
+                    <PickUnits />
+                } else if *subpage == 6 {
+                    <IntroFinish />
+                }
+            </div>
+            <BottomNav>
+                if *subpage > 1 {
+                    <button onclick={prev_page_onclick}
+                        class="text-primary flex items-center p-2 px-4">
+                        <Icon icon_id={IconId::BootstrapChevronLeft}
+                            class="h-6 w-6" />
+                        <label>{"Previous"}</label>
+                    </button>
+                } else {
+                    <div></div>
+                }
+                if *subpage < LAST_PAGE {
+                    <button onclick={next_page_onclick}
+                        class="text-primary flex items-center p-2 px-4">
+                        <label>{"Next"}</label>
+                        <Icon icon_id={IconId::BootstrapChevronRight}
+                            class="h-6 w-6" />
+                    </button>
+                } else {
+                    <div></div>
+                }
+            </BottomNav>
+        </>
     }
 }
 

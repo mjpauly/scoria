@@ -11,7 +11,7 @@ use yewdux::prelude::*;
 use crate::components::{
     location_filter_list::LocationFilterList,
     map_styler::{get_basemap_url, use_check_epsln_tile_server, MapStyler},
-    Colorbar, NavbarWrapper, TimeRangePicker, PRIMARY_BUTTON_STYLE,
+    Colorbar, TabBar, TimeRangePicker, PRIMARY_BUTTON_STYLE,
     SECONDARY_BUTTON_STYLE,
 };
 use crate::plots::maplibre::{self, add_source_and_layers_to_style};
@@ -28,9 +28,10 @@ pub fn Analyze() -> Html {
     use_check_epsln_tile_server();
 
     html! {
-        <NavbarWrapper>
+        <>
             <AnalyzeLocation />
-        </NavbarWrapper>
+            <TabBar />
+        </>
     }
 }
 
@@ -64,7 +65,7 @@ fn AnalyzeLocation() -> Html {
     );
 
     html! {
-        <div class="flex flex-col h-full">
+        <div class="flex-1 flex flex-col">
             <PlotComponent />
             if *settings_tab == SettingsTab::MapStyle {
                 <MapStyler />

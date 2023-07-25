@@ -131,7 +131,7 @@ pub fn LocationConfigurator() -> Html {
 
         // title
         <div class="relative">
-            <p class="font-bold"> {"Settings"} </p>
+            <p class="font-bold"> {"Config"} </p>
             <button onclick={show_help_onclick} id="loc_conf_help_btn"
                 class={"absolute right-2 bottom-0"}>
                     <Icon icon_id={IconId::BootstrapQuestionCircle}
@@ -197,23 +197,28 @@ pub fn LocationConfigurator() -> Html {
                 location data while stationary, and high accuracy data while
                 moving."}
             </p>
+            <p class="text-neutral-500 text-left px-2 pt-1">
+                {"If you wish to lower power use, switch to Custom mode with an
+                accuracy level of 100m."}
+            </p>
         } else if *show_help && standard_mode {
             <p class="text-neutral-500 text-left px-2 pt-1">
-                {"Standard mode continuously records location data. It gives you
-                more control over the location configuration than auto mode.
+                {"Custom mode continuously records location data. It gives you
+                more control over the location configuration than Auto mode.
                 Setting a worse accuracy level (larger distance) sacrifices
-                accuracy for more efficient power drain."}
+                accuracy in exchange for more efficient power use."}
             </p>
             <p class="text-neutral-500 text-left px-2 pt-1">
                 {"The distance filter determines how far you must move from
                 your last recorded location before recording new data. Set
-                it to a larger number to record data less often."}
+                it to a larger number to record data less often. 5 meters or
+                16 feet is the default."}
             </p>
         } else if *show_help && config.is_infrequent() {
             <p class="text-neutral-500 text-left px-2 pt-1">
                 {"Infrequent mode records location only when you move a
                 significant distance, like when you visit a new place. It
-                saves more power than standard mode at the
+                saves more power than Custom mode at the
                 cost of a substantially reduced update rate."}
             </p>
         }

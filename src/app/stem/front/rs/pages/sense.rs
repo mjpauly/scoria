@@ -12,8 +12,8 @@ use yew_router::prelude::*;
 use yewdux::prelude::*;
 
 use crate::components::{
-    map_styler::use_check_epsln_tile_server, LocationConfigurator,
-    NavbarWrapper,
+    map_styler::use_check_epsln_tile_server, LocationConfigurator, TabBar,
+    TopNav,
 };
 use crate::router::SettingsRoute;
 use crate::ui_state::{BackState, FrontState};
@@ -30,21 +30,26 @@ pub fn Sense() -> Html {
         navigator.push(&SettingsRoute::from_persisted_route(&settings_route))
     });
     html! {
-        <NavbarWrapper>
-            <button onclick={settings_onclick}
-                class="absolute left-6 top-14 p-2 \
-                rounded-lg bg-neutral-800 text-neutral-200">
-                <Icon icon_id={IconId::BootstrapList} class="h-6 w-6" />
-            </button>
+        <>
+            <TopNav>
+                <button class="text-primary flex items-center p-2 px-6"
+                    onclick={settings_onclick}>
+                    <Icon icon_id={IconId::BootstrapGear}
+                        class="h-5 w-5 mr-2" />
+                    <label>{"Settings"}</label>
+                </button>
+            </TopNav>
             <Location />
-        </NavbarWrapper>
+            <TabBar />
+        </>
     }
 }
 
 #[function_component]
 fn Location() -> Html {
     html! {
-        <div class="flex flex-col h-full pt-16">
+        <div class="grow overflow-scroll h-0 w-screen \
+            flex flex-col">
             // my-auto: center vertically in the flex (better than
             //      justify-center, which ALWAYS centers and thus cuts off
             //      content if it's too big for the container)
@@ -131,7 +136,7 @@ fn LocationDetails() -> Html {
             }
             <p class="mb-4"> {time_since} </p>
             if let Some(n_locs) = *locs_per_hour {
-                <p class="whitespace-nowrap">
+                <p>
                     {format!("Num data points in past hour: {}", n_locs)}
                 </p>
                 <p class="mb-4">

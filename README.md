@@ -2,8 +2,7 @@
 
 ## To Do
 
-- [ ] accessible front sizing
-    - [ ] accessible font sizing for colorbar, attribution
+- [ ] accessible map size scaling
 - website
     - [ ] cross compile website binary
     - [ ] try kube for scoria.app
@@ -136,6 +135,7 @@
 - [x] submit to app store
 - [x] website terms (copyright, liability, App Store trademark notice), link to App Store
 - [x] fix color slider bug by refactoring map code to have everything in the style
+- [x] accessible font sizing for colorbar, attribution
 
 ## Structure
 

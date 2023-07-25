@@ -159,40 +159,40 @@ pub fn MapStyler() -> Html {
     });
 
     html! {
-        <div class="mt-2 mb-1 flex">
+        <div class="flex">
         <div class="max-w-fit mx-auto">
-            <div class="flex items-center justify-between h-8">
-                <label for="opacity">{"Marker Opacity"}</label>
+            <div class="flex items-center justify-between h-8 flex-wrap">
+                <label for="opacity">{"Opacity"}</label>
                 <input type="range" id="opacity"
                     value={format!("{}", style.solid_color.a)}
                     min="0.0" max="1.0" step="0.01"
                     class={format!("m-1 ml-6 {}", RANGE_INPUT_STYLE)}
                     oninput={opacity_onchange} />
             </div>
-            <div class="flex items-center justify-between h-8">
-                <label for="marker_size">{"Circle Radius"}</label>
+            <div class="flex items-center justify-between h-8 flex-wrap">
+                <label for="marker_size">{"Point Size"}</label>
                 <input type="range" id="marker_size"
                     value={format!("{}", style.marker_size)}
                     min="0" max="10"
                     class={format!("m-1 ml-6 {}", RANGE_INPUT_STYLE)}
                     oninput={marker_size_onchange} />
             </div>
-            <div class="flex items-center justify-between h-8">
-                <label for="line_size">{"Line Width"}</label>
+            <div class="flex items-center justify-between h-8 flex-wrap">
+                <label for="line_size">{"Line Size"}</label>
                 <input type="range" id="line_size"
                     value={format!("{}", style.line_size)}
                     min="0" max="10"
                     class={format!("m-1 ml-6 {}", RANGE_INPUT_STYLE)}
                     oninput={line_size_onchange} />
             </div>
-            <div class="flex items-center justify-between">
+            <div class="flex items-center justify-between flex-wrap">
                 <label for="basemap">{"Basemap Style"}</label>
                 <select onchange={basemap_onchange} id="basemap"
                     class={format!("m-1 ml-6 {}", SELECT_STYLE)}>
                     {for basemap_options}
                 </select>
             </div>
-            <div class="flex items-center justify-between">
+            <div class="flex items-center justify-between flex-wrap">
                 <label for="datastream">{"Data Coloring"}</label>
                 <select onchange={datastream_onchange} id="datastream"
                     class={format!("m-1 ml-6 {}", SELECT_STYLE)}>
@@ -200,7 +200,7 @@ pub fn MapStyler() -> Html {
                 </select>
             </div>
             if style.colored_datastream == ColoredDataStream::None {
-                <div class="flex items-center justify-between">
+                <div class="flex items-center justify-between flex-wrap">
                     <label for="marker_color">{"Marker Color"}</label>
                     <input type="color" id="marker_color"
                         value={style.solid_color.rgb.clone()}
@@ -209,7 +209,7 @@ pub fn MapStyler() -> Html {
                 </div>
             } else if style.colored_datastream != ColoredDataStream::Time {
                 // since no colorbar for time, colorbar option is hidden
-                <div class="flex items-center justify-between">
+                <div class="flex items-center justify-between flex-wrap">
                     <label for="colorbar">{"Colorbar"}</label>
                     <div class="relative ml-4 mr-1 h-6">
                         <input type="checkbox" id="colorbar"

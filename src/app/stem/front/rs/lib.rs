@@ -49,10 +49,8 @@ pub fn App() -> Html {
 
     html! {
         // default parent style for the UI which pages inherit
-        <div class="text-center bg-black \
+        <div class="text-center bg-black flex-1 flex flex-col \
                     font-light text-neutral-200 select-none">
-                    // background gradients should work behind navbar!
-                    // bg-gradient-to-b from-purple-900 to-pink-900">
             <ContextProvider<WebsocketService> context={wss}>
                 <BrowserRouter basename={basename}>
                     <Switch<router::Route> render={router::switch} />

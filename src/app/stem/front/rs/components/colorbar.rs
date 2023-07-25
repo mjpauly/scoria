@@ -57,18 +57,43 @@ pub fn Colorbar() -> Html {
                 cmap_params.cmax += 1.;
             }
 
+            // calculate font sizes for responsive sizing
+            let system_default_size = 16.;
+            let title_default_size = 14;
+            let tick_default_size = 12;
+            let font_size =
+                get_system_font_size().unwrap_or(system_default_size);
+            let title_font_size = (font_size * title_default_size as f64
+                / system_default_size) as i64;
+            let tick_font_size = (font_size * tick_default_size as f64
+                / system_default_size) as i64;
+            let height_diff = (title_font_size - title_default_size)
+                + (tick_font_size - tick_default_size);
+
+            let txt_color = plotly::color::Rgba::new(163, 163, 163, 1.);
             let mut colorbar = plotly::common::ColorBar::new()
                 .orientation(plotly::common::Orientation::Horizontal)
                 .thickness(15)
                 .ticks(plotly::common::Ticks::Outside)
                 .tick_angle(0.)
+                .tick_color(txt_color)
+                .tick_font(
+                    plotly::common::Font::new()
+                        .color(txt_color)
+                        .size(tick_font_size as usize),
+                )
                 .x_pad(50.)
                 .y(0.)
                 .title(
                     plotly::common::Title::new(
                         &colored_datastream.name_with_unit(&unit_pref),
                     )
-                    .side(plotly::common::Side::Top),
+                    .side(plotly::common::Side::Top)
+                    .font(
+                        plotly::common::Font::new()
+                            .color(txt_color)
+                            .size(title_font_size as usize),
+                    ),
                 );
             if **colored_datastream == ColoredDataStream::Course {
                 colorbar = colorbar
@@ -95,7 +120,7 @@ pub fn Colorbar() -> Html {
             let trace = plotly::Scatter::new(vec![1.], vec![1.]).marker(marker);
             let bg_color = plotly::color::Rgba::new(0, 0, 0, 0.);
             let layout = plotly::Layout::new()
-                .height(80)
+                .height((80 + height_diff) as usize)
                 .paper_background_color(bg_color)
                 .plot_background_color(bg_color)
                 .margin(
@@ -122,6 +147,21 @@ pub fn Colorbar() -> Html {
     html! {
         <div id={colorbar_id}> </div>
     }
+}
+
+fn get_system_font_size() -> Option<f64> {
+    let window = web_sys::window()?;
+    let body_el = window.document()?.body()?;
+    let font_size_str = window
+        .get_computed_style(&body_el)
+        .ok()??
+        .get_property_value("font-size")
+        .ok()?;
+    // remove trailing "px"
+    let trimmed = font_size_str.trim_matches(char::is_alphabetic);
+    let font_size = trimmed.parse::<f64>().ok()?;
+    log::debug!("{}", font_size);
+    Some(font_size)
 }
 
 use js_sys::Object;

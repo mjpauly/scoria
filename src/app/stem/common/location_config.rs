@@ -2,8 +2,10 @@
 //!
 //! User-facing state differs from the state that is told to the OS. Auto mode
 //! is an option presented to the user, but under the hood the app just switches
-//! between different accuracy levels of standard mode depending on detected
+//! between different accuracy levels of Standard mode depending on detected
 //! movement (or infrequent mode if battery is low).
+//!
+//! Custom mode is our user-facing name for Standard mode.
 //!
 //! Infrequent mode is our name for the Significant Changes Service. Standard
 //! mode is the shortened name of the Standard Location Service. Both of these
@@ -203,7 +205,7 @@ impl std::str::FromStr for LocationAccuracyMode {
 
 static MODE_STRINGS: [(LocationMode, &str); 3] = [
     (LocationMode::Auto, "Automatic"),
-    (LocationMode::Standard, "Standard"),
+    (LocationMode::Standard, "Custom"),
     (LocationMode::SignificantChanges, "Infrequent"),
 ];
 

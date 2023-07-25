@@ -67,7 +67,7 @@ async fn simple_navigation(
     sleep(Duration::from_millis(100)).await;
 
     // Exit the intro
-    c.find(Locator::Css("#exit_intro")).await?.click().await?;
+    c.find(Locator::Css("#done")).await?.click().await?;
 
     c.find(Locator::Css("#Map")).await?.click().await?;
     assert_url_eq(c, base_url.clone() + "analyze").await;
