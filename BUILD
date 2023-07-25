@@ -60,8 +60,23 @@ platform(
     ],
 )
 
-# config when we build for app release
+# Config for optimized builds. Sometimes useful during development, so use
+# //:distribution_profile for settings that need to be set only for public
+# release.
 config_setting(
-    name = "release",
+    name = "optimized_build",
     values = {"compilation_mode": "opt"}
+)
+
+# Command line flag for setting the provisioning profile to build the bundle:
+#   `--define profile=distribution`
+# Omitting the flag causes the build to use the development profile.
+#
+# Also used to turn off debug logging and use the production maptiler key.
+config_setting(
+    name = "distribution_profile",
+    values = {
+        "define": "profile=distribution",
+    },
+    visibility = ["//visibility:public"],
 )

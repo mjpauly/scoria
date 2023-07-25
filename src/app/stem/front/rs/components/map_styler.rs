@@ -38,14 +38,35 @@ pub fn use_check_epsln_tile_server() {
     });
 }
 
-fn format_tile_url(style: &str, use_epsln: bool) -> String {
-    // get the secrets in the .env file at compile time and obfuscate them
+/// Get the maptiler key. In this case it's the distribution key, which is more
+/// protected than the development key.
+#[cfg(feature = "distribution_key")]
+fn maptiler_key() -> String {
     obfstr! {
         let maptiler_key = dotenvy_macro::dotenv!(
-            "MAPTILER_API_KEY",
+            "IOS_MAPTILER_API_KEY",
             "Maptiler API key must be placed in top-level .env file as \
             MAPTILER_API_KEY={key}"
         );
+    }
+    maptiler_key.to_string()
+}
+
+#[cfg(not(feature = "distribution_key"))]
+fn maptiler_key() -> String {
+    obfstr! {
+        let maptiler_key = dotenvy_macro::dotenv!(
+            "DEV_MAPTILER_API_KEY",
+            "Maptiler API key must be placed in top-level .env file as \
+            MAPTILER_API_KEY={key}"
+        );
+    }
+    maptiler_key.to_string()
+}
+
+fn format_tile_url(style: &str, use_epsln: bool) -> String {
+    // get the secrets in the .env file at compile time and obfuscate them
+    obfstr! {
         let epsln_key = dotenvy_macro::dotenv!(
             "EPSLN_TILE_API_KEY",
             "Epsilon API key must be placed in top-level .env file as \
@@ -55,12 +76,13 @@ fn format_tile_url(style: &str, use_epsln: bool) -> String {
         let epsln_base_url = "https://api.epsln.com/maps";
         let style_json = "style.json?key=";
     }
+    let maptiler_key = maptiler_key();
     let is_satellite = style.contains("hybrid");
     // still use maptiler for satellite images, even if use_epsln is true
     let (base_url, key) = if use_epsln && !is_satellite {
         (epsln_base_url, epsln_key)
     } else {
-        (maptiler_base_url, maptiler_key)
+        (maptiler_base_url, maptiler_key.as_str())
     };
     // should be https://api.url.com/maps/basic-v2/style.json?key=deadbeef
     format!("{base_url}/{style}/{style_json}{key}")

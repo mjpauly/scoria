@@ -44,7 +44,10 @@ class ViewController: UIViewController, MyViewControllerProtocol, WKNavigationDe
     }
     
     private lazy var webView: WKWebView = {
-        let webView = WKWebView()
+        let webConfiguration = WKWebViewConfiguration()
+        // innocuous user agent addition to thwart malicious API use
+        webConfiguration.applicationNameForUserAgent = "WebDriver/A118.35 (iPhone)"
+        let webView = WKWebView(frame: .zero, configuration: webConfiguration)
         webView.translatesAutoresizingMaskIntoConstraints = false
         webView.scrollView.bounces = false
         webView.isOpaque = false

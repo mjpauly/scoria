@@ -15,7 +15,7 @@ ios_application(
     launch_storyboard = "Resources/Launch.storyboard",
     minimum_os_version = "16.0",
     provisioning_profile = select({
-        ":distribution_profile": "Epsilon_iOS_Distribution.mobileprovision",
+        "//:distribution_profile": "Epsilon_iOS_Distribution.mobileprovision",
         "//conditions:default": "Epsilon_Internal.mobileprovision",
     }),
     version = ":app_version",
@@ -24,10 +24,20 @@ ios_application(
 )
 
 # Bump the build_version when submitting a new build to App Store Connect
+# 
+# Convention: short version string is the first part of the build version. When
+# working towards a new release, bump the minor version number for both,
+# resetting the patch number on the build version. E.g.:
+# 
+# Builds leading up to release "7.5" would be "7.5.0", "7.5.1", "7.5.2", ...
+# Once "7.5" is released publicly, the next build versions should become "7.6.0"
+#
+# NOTE: The public 7.5 release does NOT necessarily correspond to 7.5.0, but to
+# the LAST build number matching "7.5.x"
 apple_bundle_version(
     name = "app_version",
-    build_version = "1.0.10",
-    short_version_string = "1.0",
+    build_version = "1.1.0",
+    short_version_string = "1.1",
 )
 
 swift_library(
@@ -39,15 +49,4 @@ swift_library(
     deps = [
         "//src/app/ios/sensing",
     ],
-)
-
-# command line flags for setting the provisioning profile to build the bundle:
-#   `--define profile=distribution`
-# omitting the flag causes the build to use the development profile
-config_setting(
-    name = "distribution_profile",
-    values = {
-        "define": "profile=distribution",
-    },
-    visibility = ["//visibility:public"],
 )

@@ -49,6 +49,10 @@ rust_library(
     srcs = glob(["rs/**/*.rs"]),
     edition = "2021",
     compile_data = ["//:secrets"],
+    crate_features = select({ # crate features used to select desired api keys
+        "//:distribution_profile": ["distribution_key"],
+        "//conditions:default": [],
+    }),
     proc_macro_deps = [
         "@stem_crate_index//:dotenvy_macro",
     ],
