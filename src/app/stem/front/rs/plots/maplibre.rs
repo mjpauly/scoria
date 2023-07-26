@@ -343,6 +343,19 @@ fn jsval_to_val(v: JsValue) -> Value {
     s.into()
 }
 
+/// Rescales a value in the range 0-1 as if the slider is logarithmically
+/// spaced. This is done by taking the linear 0-1 range, exponentating it with
+/// the base, then linearly dividing out the base.
+///
+/// 10.0 is chosen as the base value, which is a close to a typical linear scale
+/// but gives more control over small opacity values. A higher value is not
+/// desirable, since opacity values below 0.003 are not rendered, and would
+/// leave a larger dead zone at the bottom end.
+fn log_rescale_opacity(val: f64) -> f64 {
+    let base: f64 = 10.0;
+    (base.powf(val) - 1.0) / (base - 1.0)
+}
+
 fn make_points_layer(
     marker_size: usize,
     marker_color: &Rgba,
@@ -360,7 +373,7 @@ fn make_points_layer(
                 } else {
                     json!(marker_color.rgb)
                 },
-            "circle-opacity": marker_color.a,
+            "circle-opacity": log_rescale_opacity(marker_color.a),
             // An invisible stroke of 5px to makes the data points easier to
             // click.
             "circle-stroke-width": 10,
@@ -387,7 +400,7 @@ fn make_lines_layer(
                 } else {
                     json!(marker_color.rgb)
                 },
-            "line-opacity": marker_color.a,
+            "line-opacity": log_rescale_opacity(marker_color.a),
         }
     })
 }
