@@ -2,18 +2,18 @@
 
 ## To Do
 
-- [ ] accessible map size scaling
 - website
     - [ ] cross compile website binary
     - [ ] try kube for scoria.app
-- [ ] custom user agent to restrict api access
-    https://stackoverflow.com/questions/26994491/set-useragent-in-wkwebview/50910170#50910170
-    - [ ] allow only `127.0.0.1` origins
-    - [ ] generate keys for each new device
-    - [ ] or: custom tile server
-- [ ] action failure alterts (esp for importing)
-- [ ] ability to export stemlog for debugging
-- [ ] quick time update buttons
+- accessibility
+    - [ ] accessible map size scaling
+- debug-ability
+    - [ ] action failure alterts (esp for importing)
+    - [ ] ability to export stemlog for debugging
+- features
+    - [ ] automap to occlude unexplored areas (100m radius? diameter?)
+    - [ ] zoom to current location on first install
+    - [ ] quick time update buttons
 - [ ] reset to "today" time range and data-centered view if user is away from
     the app for 1+ hr
 - [ ] export tab on map (csv, maybe image)
@@ -37,6 +37,9 @@
          - visits (last time, first time, total, time spent, when visits happen)
          - traveling (different modes, time spent, num trips, when it happens, distance)
          - trends
+    - improved map tile api security
+        - [ ] generate keys for each new device
+        - [ ] or: custom tile server
 
 ## Completed
 
@@ -136,6 +139,8 @@
 - [x] website terms (copyright, liability, App Store trademark notice), link to App Store
 - [x] fix color slider bug by refactoring map code to have everything in the style
 - [x] accessible font sizing for colorbar, attribution
+- [x] custom user agent to restrict api access
+    - [x] also allow only `127.0.0.1` origins
 
 ## Structure
 

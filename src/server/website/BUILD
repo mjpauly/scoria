@@ -1,6 +1,48 @@
 load("@rules_rust//rust:defs.bzl", "rust_library", "rust_binary", "rust_test")
 load(":templates.bzl", "html_template", "md_template", "files")
+load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
+load(
+    "@io_bazel_rules_docker//container:container.bzl",
+    "container_image",
+    "container_push",
+)
 
+# See the README in this directory for more docs
+
+# Push the container to our digitalocean registry
+container_push(
+    name = "push_amd64",
+    image = ":image_amd64",
+    format = "Docker",
+    registry = "registry.digitalocean.com/epsln",
+    repository = "site", # name of the image
+    # tag = "latest", # latest is the default
+)
+
+container_image(
+    name = "image_amd64",
+    architecture = "amd64",
+    # References container_pull from WORKSPACE (above)
+    base = "@busybox_base//image",
+    cmd = ["/app/website_bin"],
+    enable_mtime_preservation = True,
+    env = {
+        "INSIDE_DOCKER": "true",
+    },
+    ports = ["8000"],
+    tars = [":website_tar"],
+    workdir = "/app",
+)
+
+pkg_tar(
+    name = "website_tar",
+    srcs = [":website_bin"],
+    include_runfiles = True, # allows us to not compile static files into
+                             # the binary (not used yet), see rules_docker
+                             # README for more info.
+    package_dir = "/app",
+    stamp = 1,
+)
 
 # Static file targets to bundle into the binary, paired with the environment
 # variable names that are passed to the compiler.
@@ -38,6 +80,12 @@ rust_binary(
         ":website",
         "@website_crate_index//:tokio",
     ],
+    # Strip debug symbols (-s) on optimized builds when linking.
+    # doc: https://www.mankier.com/1/ld.lld
+    rustc_flags = select({
+        "//:optimized_build": ["-C", "link-args=-s"],
+        "//conditions:default": [],
+    }),
 )
 
 rust_library(

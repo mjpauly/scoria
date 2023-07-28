@@ -89,6 +89,7 @@ rust_register_toolchains(
         "aarch64-apple-ios",
         "x86_64-apple-ios",
         "wasm32-unknown-unknown",
+        "x86_64-unknown-linux-gnu",
     ],
 )
 
@@ -268,6 +269,8 @@ crates_repository(
     lockfile = "//src/server/website:Cargo.Bazel.lock",
     isolated = False,
     packages = {
+        # Cross-compiling for OpenSSL is difficult without sysroot. Rustls is
+        # stable so we use it instead.
         "actix-web": crate.spec( version = "4.3.0", features = ["rustls"]),
         "anyhow": crate.spec( version = "1.0.68",),
         "mime": crate.spec(version = "0.3.17"),
@@ -275,7 +278,7 @@ crates_repository(
         "serde": crate.spec( version = "1.0.152",),
         "sqlx": crate.spec(
             version = "0.6.2",
-            features = ["macros", "postgres", "runtime-tokio-native-tls",
+            features = ["macros", "postgres", "runtime-tokio-rustls",
                         "time", "uuid"],
         ),
         "time": crate.spec( version = "0.3.20",),
@@ -343,7 +346,6 @@ http_archive(
     name = "bazel_skylib",
     sha256 = "b8a1527901774180afc798aeb28c4634bdccf19c4d98e7bdd1ce79d1fe9aaad7",
     urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/releases/download/1.4.1/bazel-skylib-1.4.1.tar.gz",
         "https://github.com/bazelbuild/bazel-skylib/releases/download/1.4.1/bazel-skylib-1.4.1.tar.gz",
     ],
 )
@@ -351,3 +353,100 @@ http_archive(
 load("@bazel_skylib//:workspace.bzl", "bazel_skylib_workspace")
 
 bazel_skylib_workspace()
+
+
+
+# === Zig C Compiler === #
+
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+HERMETIC_CC_TOOLCHAIN_VERSION = "v2.0.0"
+
+http_archive(
+    name = "hermetic_cc_toolchain",
+    sha256 = "57f03a6c29793e8add7bd64186fc8066d23b5ffd06fe9cc6b0b8c499914d3a65",
+    urls = [
+        "https://github.com/uber/hermetic_cc_toolchain/releases/download/{0}/hermetic_cc_toolchain-{0}.tar.gz".format(HERMETIC_CC_TOOLCHAIN_VERSION),
+    ],
+)
+
+load("@hermetic_cc_toolchain//toolchain:defs.bzl", zig_toolchains = "toolchains")
+
+# Plain zig_toolchains() will pick reasonable defaults. See
+# toolchain/defs.bzl:toolchains on how to change the Zig SDK version and
+# download URL.
+zig_toolchains()
+
+
+# === Rules Pkg === #
+
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+    name = "rules_pkg",
+    urls = [
+        "https://github.com/bazelbuild/rules_pkg/releases/download/0.9.1/rules_pkg-0.9.1.tar.gz",
+    ],
+    sha256 = "8f9ee2dc10c1ae514ee599a8b42ed99fa262b757058f65ad3c384289ff70c4b8",
+)
+load("@rules_pkg//:deps.bzl", "rules_pkg_dependencies")
+rules_pkg_dependencies()
+
+
+# === Docker Containers === #
+
+# Go required for docker-less container operations
+http_archive(
+    name = "io_bazel_rules_go",
+    sha256 = "6dc2da7ab4cf5d7bfc7c949776b1b7c733f05e56edc4bcd9022bb249d2e2a996",
+    urls = [
+        "https://github.com/bazelbuild/rules_go/releases/download/v0.39.1/rules_go-v0.39.1.zip",
+    ],
+)
+
+# Gazelle required for container_push
+http_archive(
+    name = "bazel_gazelle",
+    sha256 = "727f3e4edd96ea20c29e8c2ca9e8d2af724d8c7778e7923a854b2c80952bc405",
+    urls = [
+        "https://github.com/bazelbuild/bazel-gazelle/releases/download/v0.30.0/bazel-gazelle-v0.30.0.tar.gz",
+    ],
+)
+
+
+load("@io_bazel_rules_go//go:deps.bzl", "go_register_toolchains", "go_rules_dependencies")
+load("@bazel_gazelle//:deps.bzl", "gazelle_dependencies", "go_repository")
+
+go_rules_dependencies()
+
+go_register_toolchains(version = "1.20.5")
+
+gazelle_dependencies()
+
+
+# docker
+http_archive(
+    name = "io_bazel_rules_docker",
+    sha256 = "b1e80761a8a8243d03ebca8845e9cc1ba6c82ce7c5179ce2b295cd36f7e394bf",
+    urls = ["https://github.com/bazelbuild/rules_docker/releases/download/v0.25.0/rules_docker-v0.25.0.tar.gz"],
+)
+
+load(
+    "@io_bazel_rules_docker//repositories:repositories.bzl",
+    container_repositories = "repositories",
+)
+
+container_repositories()
+
+load("@io_bazel_rules_docker//repositories:deps.bzl", container_deps = "deps")
+
+container_deps()
+
+load("@io_bazel_rules_docker//container:container.bzl", "container_pull")
+
+container_pull(
+    name = "busybox_base",
+    architecture = "amd64",
+    registry = "registry.hub.docker.com/library",
+    repository = "busybox",
+    tag = "1.36.1-glibc",
+)
