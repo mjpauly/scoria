@@ -1,10 +1,13 @@
-//! Introduction to Epsilon at startup.
+//! Introduction to Scoria at startup.
 
-use common::ToBack;
+use std::str::FromStr;
+
+use web_sys::HtmlSelectElement;
 use yew::prelude::*;
 use yew_icons::{Icon, IconId};
 use yewdux::prelude::*;
 
+use crate::components::SELECT_STYLE;
 use crate::{
     components::{
         buttons::DoneButton, unit_picker::UnitPicker, BottomNav, TopNav,
@@ -14,9 +17,11 @@ use crate::{
     ui_state::FrontState,
     websocket::WebsocketService,
 };
+use common::LocationMode;
+use common::ToBack;
 
 // Bump to indicate the intro should be shown again to users on install
-pub static INTRO_VERSION: usize = 2;
+pub static INTRO_VERSION: usize = 3;
 
 #[function_component]
 pub fn Intro() -> Html {
@@ -40,7 +45,7 @@ pub fn Intro() -> Html {
         })
     };
 
-    const LAST_PAGE: usize = 6;
+    const LAST_PAGE: usize = 9;
     html! {
         <>
             <TopNav>
@@ -49,21 +54,23 @@ pub fn Intro() -> Html {
             </TopNav>
             <div class="grow overflow-scroll h-0 w-full \
                 flex flex-col">
-                // if *subpage == 1 {
-                    // <TesterNotice />
-                // } else if *subpage == 2 {
-                    // <BackupNotice />
                 if *subpage == 1 {
                     <IntroStart />
                 } else if *subpage == 2 {
                     <HowItWorks />
                 } else if *subpage == 3 {
-                    <EnableLocation />
+                    <HoldUp />
                 } else if *subpage == 4 {
-                    <EnableLocationPartTwo />
+                    <SeePrivacyPolicy />
                 } else if *subpage == 5 {
-                    <PickUnits />
+                    <LoggingMode />
                 } else if *subpage == 6 {
+                    <EnableLocation />
+                } else if *subpage == 7 {
+                    <EnableLocationPartTwo />
+                } else if *subpage == 8 {
+                    <PickUnits />
+                } else if *subpage == 9 {
                     <IntroFinish />
                 }
             </div>
@@ -90,24 +97,6 @@ pub fn Intro() -> Html {
                 }
             </BottomNav>
         </>
-    }
-}
-
-#[function_component]
-fn TesterNotice() -> Html {
-    html! {
-        <div class="my-auto p-5">
-            <p class="text-primary text-2xl mb-3">
-                {"Thank you for testing Epsilon."}
-            </p>
-            <p class="mb-3">
-                {"Your support and feedback is greatly appreciated. 🙏"}
-            </p>
-            <p class="mb-3">
-                {"The best ways to get in touch are by text or by sending a
-                message through the TestFlight app. 🕊️"}
-            </p>
-        </div>
     }
 }
 
@@ -160,20 +149,16 @@ fn IntroStart() -> Html {
             <p class="text-primary text-2xl mb-6">
                 {"Introduction"}
             </p>
+            <p class="mb-6 italic">
+                {"Updated Aug 1, 2023"}
+            </p>
             <p class="mb-3">
-                {"🧰 Epsilon is your toolkit for privately logging and analyzing
+                {"🗺️ Scoria is your toolkit for privately logging and analyzing
                 your location history."}
             </p>
             <p class="mb-3">
-                {"🔒 Data is stored only on your phone and is not accessible to
+                {"🔒 Data is stored only on your device and is not accessible to
                 anyone except you."}
-            </p>
-            <p class="mt-12">
-                {"For more about how Epsilon protects your privacy, see the "}
-                <a href="https://epsln.com/privacy" class="underline text-blue-500">
-                    {"privacy policy"}
-                </a>
-                {"."}
             </p>
         </div>
     }
@@ -187,22 +172,133 @@ fn HowItWorks() -> Html {
                 {"How it Works"}
             </p>
             <p class="mb-3">
-                {"🗺️ Epsilon lets you record and analyze your movement
-                history. You can see where you've been, the routes you've taken,
-                the time spent for each section of travel, and more."}
+                {"📱 Scoria collects your movement history by logging your location while it's open in the background. It's designed so that you can leave it on all the time."}
             </p>
             <p class="mb-3">
-                {"📱 Epsilon collects your movement history by logging your
-                location while the app is open in the background. It's designed
-                so that you can leave it on all the time."}
+                {"🔋 By default, battery drain is minimized by lowering data accuracy when the app detects that you are stationary."}
             </p>
             <p class="mb-3">
-                {"🔋 Battery drain is minimized by lowering data
-                accuracy when the app detects that you are stationary.
-                If you want to further conserve battery charge, you
-                can switch to a lower accuracy mode that consumes less power
-                but still logs what destinations you visited."} 
+                {"🛤️ You can see where you've been, the routes you've taken, time spent at destinations and during travel, and much more. Scoria is an automatic spatial activity journal."}
             </p>
+        </div>
+    }
+}
+
+#[function_component]
+fn HoldUp() -> Html {
+    html! {
+        <div class="my-auto p-5">
+            <p class="text-primary text-2xl mb-6">
+                {"✋ Hold Up"}
+            </p>
+            <p class="mb-3">
+                {"Let's take a moment to appreciate what we're talking about here. Scoria is designed to help you record detailed location data about your life, "} <span class="italic">{"continuously."}</span>
+            </p>
+            <p class="mb-3">
+                {"This information is deeply personal, private, and sensitive. It reveals a tremendous amount about who you are. We, the developers, do not take this lightly. We created Scoria because we believe everyone deserves privacy, and because we felt there were gaps in the space of personal data tools."}
+            </p>
+            <p class="mb-3">
+                {"We don't automatically collect any information from you. \"Anonymized\" statistics and metadata can still reveal a lot about who you are. We don't make any assumptions about what data is sensitive and what data isn't. We do not know if you use the app or not, how much you use the app, or if the app crashes while you're using it. (If it crashes, please let us know via the feedback form so we can fix it.)"}
+            </p>
+
+        </div>
+    }
+}
+
+#[function_component]
+fn SeePrivacyPolicy() -> Html {
+    html! {
+        <div class="my-auto p-5">
+            <p class="text-primary text-2xl mb-6">
+                {"The Privacy Policy"}
+            </p>
+            <p class="mb-3">
+                {"Our privacy policy is meant to be short and easy to read, and goes into a little more detail than we're dedicating space for in this introduction."}
+            </p>
+            <p class="mb-3">
+                {"Check it out "}
+                <a href="https://scoria.info/privacy" class="underline text-blue-500">
+                    {"here"}
+                </a>
+                {"."}
+            </p>
+            <p class="mb-3">
+                {"You can find it anytime from the Settings menu."}
+            </p>
+
+        </div>
+    }
+}
+
+static LOCATION_MODES: [LocationMode; 3] = [
+    LocationMode::Auto,
+    LocationMode::Reduced,
+    LocationMode::SignificantChanges,
+];
+
+#[function_component]
+fn LoggingMode() -> Html {
+    let dispatch = Dispatch::<FrontState>::new();
+    let config = use_selector(|s: &FrontState| s.location_config.clone());
+
+    // location mode
+    let mode_onchange = {
+        dispatch.reduce_mut_callback_with(
+            move |s: &mut FrontState, e: Event| {
+                let elem: HtmlSelectElement = e.target_dyn_into().unwrap();
+                let val: &str = &elem.value();
+                let new_mode = LocationMode::from_str(val).unwrap();
+                s.location_config.mode = new_mode;
+                swift_poke::poke();
+            },
+        )
+    };
+
+    let mode_options = LOCATION_MODES.iter().map(|x| {
+        html! { <option> {x.to_string()} </option> }
+    });
+
+    // Need to manually set which option is selected in select element in order
+    // to do so programmatically (e.g. when we get an updated state)
+    let mode_select_node_ref = use_node_ref();
+    {
+        let mode_select_node_ref = mode_select_node_ref.clone();
+        use_effect_with_deps(
+            move |mode| {
+                let elem =
+                    mode_select_node_ref.cast::<HtmlSelectElement>().unwrap();
+                elem.set_value(&(mode.to_string()));
+            },
+            // update when these change
+            config.mode.clone(),
+        )
+    };
+    html! {
+        <div class="my-auto p-5">
+            <p class="text-primary text-2xl mb-6">
+                {"Location Logging Mode"}
+            </p>
+            <p class="mb-3">
+                {"⚡️ Your device's location sensors take power to operate. This power use depends on the accuracy of the data you want to acquire, your device model, and how much time you spend in motion."}
+            </p>
+            <p class="mb-3">
+                {"☀️ \"Automatic\" mode is the default choice for collecting high accuracy data and making detailed visualizations of your movement. Power is conserved when you're stationary."}
+            </p>
+            <p class="mb-3">
+                {"⛅️ \"Reduced\" mode is a good choice if you want a lower level of power draw and don't mind lower accuracy data, have a device model that's a few years old, or spend most of the day in motion without the ability to recharge your device."}
+            </p>
+            <p class="mb-3">
+                {"🌧️ Choose \"Infrequent\" mode if battery life is critical. Data is logged very rarely with this mode, and is the least detailed. Battery drain is negligible."}
+            </p>
+
+            <div class={"bg-neutral-900 rounded-lg px-4 mt-2 flex items-center justify-between py-2"}>
+                <label for="location_mode">{"Mode"}</label>
+                <select onchange={mode_onchange} id="location_mode"
+                    ref={mode_select_node_ref}
+                    class={format!("ml-4 {}", SELECT_STYLE)}>
+                    {for mode_options}
+                </select>
+            </div>
         </div>
     }
 }
@@ -220,7 +316,7 @@ fn EnableLocation() -> Html {
                 {"📍 Enabling Location"}
             </p>
             <p class="mb-3">
-                {"Before Epsilon can log your location, you must give it
+                {"Before Scoria can log your location, you must give it
                 permission."}
             </p>
             <p class="mb-3">

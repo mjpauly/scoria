@@ -103,7 +103,7 @@ async fn location_config_propagates(
     // switch to standard location mode
     c.find(Locator::Css("#location_mode"))
         .await?
-        .select_by_index(1)
+        .select_by_index(3)
         .await?;
 
     let dist_filt_elem = c.find(Locator::Css("#distance_filter")).await?;

@@ -2,7 +2,7 @@ use actix_web::http::header::ContentType;
 use actix_web::{get, web, HttpResponse, Responder};
 
 static INDEX_FILE: &str = include_str!(env!("INDEX_FILE"));
-static FIRST_RELEASE_BLOG: &str = include_str!(env!("FIRST_RELEASE_BLOG"));
+static FIRST_RELEASE_POST: &str = include_str!(env!("FIRST_RELEASE_POST"));
 static PRIVACY_POLICY_FILE: &str = include_str!(env!("PRIVACY_POLICY_FILE"));
 static CONTACT_FILE: &str = include_str!(env!("CONTACT_FILE"));
 static TERMS_FILE: &str = include_str!(env!("TERMS_FILE"));
@@ -20,7 +20,7 @@ static APP_STORE_BADGE: &[u8] = include_bytes!(env!("APP_STORE_BADGE"));
 
 pub fn get_static_file_services() -> (
     index,
-    first_release_blog,
+    first_release_post,
     privacy_policy,
     contact,
     terms,
@@ -32,7 +32,7 @@ pub fn get_static_file_services() -> (
 ) {
     (
         index,
-        first_release_blog,
+        first_release_post,
         privacy_policy,
         contact,
         terms,
@@ -51,11 +51,11 @@ async fn index() -> impl Responder {
         .body(INDEX_FILE)
 }
 
-#[get("/blog")]
-async fn first_release_blog() -> impl Responder {
+#[get("/posts")]
+async fn first_release_post() -> impl Responder {
     HttpResponse::Ok()
         .content_type(ContentType::html())
-        .body(FIRST_RELEASE_BLOG)
+        .body(FIRST_RELEASE_POST)
 }
 
 #[get("/privacy")]
@@ -86,7 +86,7 @@ async fn tailwind() -> impl Responder {
         .body(TAILWIND_FILE)
 }
 
-#[get("/epsilon.png")]
+#[get("/scoria.png")]
 async fn logo() -> impl Responder {
     HttpResponse::Ok()
         .content_type(ContentType(mime::IMAGE_PNG))

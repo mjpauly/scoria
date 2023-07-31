@@ -1,4 +1,4 @@
-//! Core Epsilon library interface.
+//! Core Scoria library interface.
 //!
 //! Responsible for database interactions, visualizations, and server
 //! communication.

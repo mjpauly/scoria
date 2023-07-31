@@ -7,7 +7,7 @@ load(
 
 _TOP_LEVEL_TARGETS = [
     top_level_target(
-        "//src/app/ios/top:Epsilon",
+        "//src/app/ios/top:Scoria",
         target_environments = [
             "device",
             "simulator",
@@ -21,10 +21,10 @@ _SCHEMES = [
     xcode_schemes.scheme(
         name = "App",
         build_action = xcode_schemes.build_action(
-            targets = ["//src/app/ios/top:Epsilon"],
+            targets = ["//src/app/ios/top:Scoria"],
         ),
         launch_action = xcode_schemes.launch_action(
-            "//src/app/ios/top:Epsilon",
+            "//src/app/ios/top:Scoria",
         ),
         test_action = xcode_schemes.test_action(
             [
@@ -41,7 +41,7 @@ _SCHEMES = [
 
 xcodeproj(
     name = "xcodeproj",
-    project_name = "Epsilon",
+    project_name = "Scoria",
     schemes = _SCHEMES,
     top_level_targets = _TOP_LEVEL_TARGETS,
     visibility = ["//visibility:public"],
@@ -50,9 +50,9 @@ xcodeproj(
 xcodeproj(
     name = "xcodeproj-focused",
     focused_targets = [
-        "//src/app/ios/top:Epsilon",
+        "//src/app/ios/top:Scoria",
     ],
-    project_name = "Epsilon-Focused",
+    project_name = "Scoria-Focused",
     schemes = _SCHEMES,
     top_level_targets = _TOP_LEVEL_TARGETS,
 )

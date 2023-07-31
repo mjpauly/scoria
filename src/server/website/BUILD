@@ -49,7 +49,7 @@ pkg_tar(
 static_files = {
     ":index": "INDEX_FILE",
     ":privacy_policy": "PRIVACY_POLICY_FILE",
-    ":first_release_blog": "FIRST_RELEASE_BLOG",
+    ":first_release_post": "FIRST_RELEASE_POST",
     ":contact": "CONTACT_FILE",
     ":terms": "TERMS_FILE",
     ":tailwind": "TAILWIND_FILE",
@@ -133,7 +133,7 @@ md_template(
 )
 
 md_template(
-    name = "first_release_blog",
+    name = "first_release_post",
     src = "static/first_release.md",
     include_html = True,
 )
@@ -152,7 +152,7 @@ files(
     names_srcs = {
         "template_top": "static/template_top.html",
         "template_bottom": "static/template_bottom.html",
-        "logo": "static/epsilon.png",
+        "logo": "static/scoria.png",
         "favicon": "static/favicon.png",
         "screenshot1": "static/screenshots/1.jpeg",
         "screenshot2": "static/screenshots/2.jpeg",

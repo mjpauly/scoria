@@ -66,14 +66,14 @@ pub fn Settings() -> Html {
                     </button>
                     <a class="py-2 border-b border-neutral-800 w-full \
                         flex items-center justify-between"
-                        href="https://epsln.com/contact">
+                        href="https://scoria.info/contact">
                         <label>{"Feedback"}</label>
                         <Icon icon_id={IconId::BootstrapChevronRight}
                             class="h-4 w-4 text-neutral-500" />
                     </a>
                     <a class="py-2 w-full \
                         flex items-center justify-between"
-                        href="https://epsln.com/privacy">
+                        href="https://scoria.info/privacy">
                         <label>{"Privacy"}</label>
                         <Icon icon_id={IconId::BootstrapChevronRight}
                             class="h-4 w-4 text-neutral-500" />
@@ -180,7 +180,7 @@ pub fn DataSettings() -> Html {
                     </button>
                 </div>
                 <p class="text-neutral-500 text-left px-2 pt-1">
-                    {"Exported logs can be imported back into Epsilon. You can
+                    {"Exported logs can be imported back into Scoria. You can
                     use this to backup your data or migrate between devices."}
                 </p>
 
@@ -195,7 +195,7 @@ pub fn DataSettings() -> Html {
                     </button>
                 </div>
                 <p class="text-neutral-500 text-left px-2 pt-1">
-                    {"Import an Epsilon log that was previously exported.
+                    {"Import a Scoria log that was previously exported.
                     The data will be added to your current log. Duplicate data
                     points are determined by timestamp, and are not imported."}
                 </p>

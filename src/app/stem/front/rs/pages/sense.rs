@@ -12,7 +12,7 @@ use yew_router::prelude::*;
 use yewdux::prelude::*;
 
 use crate::components::{
-    map_styler::use_check_epsln_tile_server, LocationConfigurator, TabBar,
+    map_styler::use_check_scoria_tile_server, LocationConfigurator, TabBar,
     TopNav,
 };
 use crate::router::SettingsRoute;
@@ -21,7 +21,7 @@ use common::{LocationAccuracyMode, LocationMode};
 
 #[function_component]
 pub fn Sense() -> Html {
-    use_check_epsln_tile_server();
+    use_check_scoria_tile_server();
     let navigator = use_navigator().unwrap();
     // retrieve the previous settings page
     let settings_route =

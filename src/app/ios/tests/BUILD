@@ -5,7 +5,7 @@ ios_unit_test(
     name = "AppTests",
     bundle_id = "com.matthewpauly.epsilon.AppTests",
     minimum_os_version = "16.0",
-    test_host = "//src/app/ios/top:Epsilon",
+    test_host = "//src/app/ios/top:Scoria",
     visibility = ["//visibility:public"],
     deps = [":AppTests.library"],
 )

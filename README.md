@@ -1,4 +1,4 @@
-# Epsilon App
+# Scoria App
 
 ## To Do
 
@@ -157,7 +157,7 @@ src
     │   ├── tests                       App integration tests
     │   ├── top                         Top-level app source
     │   └── xcodeproj                   Xcode project generator
-    │       └── Epsilon.xcodeproj       The generated Xcode project
+    │       └── Scoria.xcodeproj        The generated Xcode project
     │
     └── stem                            Rust sources for the core app functions
         ├── back                        App backend logic (database, server, ..)
@@ -357,6 +357,8 @@ Prereq: install graphviz (includes `dot`) with `brew install graphviz`.
 the entire arm, even if the data is cloned within the scrutinee. Get the data
 in a separate variable first before putting it into the scrutinee if it's
 something like an option behind the Mutex.
+- To format text to a certain width with hard linebreaks, set textwidth=80,
+  highlight the text, then do `gq`
 
 ## Style Notes
 
@@ -377,7 +379,7 @@ developer.apple.com.
 4. Build the app
     4a. Developemnt: `bazel build //:iosapp --ios_multi_cpus=arm64 -c opt`
     4b. Distribution: `bazel build //:iosapp --ios_multi_cpus=arm64 --device_debug_entitlements=false --define profile=distribution -c opt`
-5. Locate the `.ipa` archive in `bazel-bin/src/app/ios/top/Epsilon.ipa`.
+5. Locate the `.ipa` archive in `bazel-bin/src/app/ios/top/Scoria.ipa`.
 6. Install/upload the app
     6a. Developemnt: Go to Xcode -> devices and simulators -> [your device] ->
         `+` -> archive file

@@ -293,7 +293,7 @@ mod tests {
         let paths = local_fs_setup(dir);
         let state_file = paths.library_dir.clone().join(STATE_FNAME);
 
-        let contents = r##"{"front":{"last_viewed_intro_version":0,"route":"DefinitelyNotARoute","settings_route":"Root","use_epsln_tile_server":true},"back":{"locations_past_hour":2,"cmap_params":{"cmap":"NotARealCmap"}}}"##;
+        let contents = r##"{"front":{"last_viewed_intro_version":0,"route":"DefinitelyNotARoute","settings_route":"Root","use_scoria_tile_server":true},"back":{"locations_past_hour":2,"cmap_params":{"cmap":"NotARealCmap"}}}"##;
         let mut file = OpenOptions::new()
             .create(true)
             .write(true)
@@ -315,7 +315,7 @@ mod tests {
             parsed.front.as_ref().unwrap().settings_route,
             common::state::PersistedSettingsRoute::Root
         );
-        assert!(parsed.front.as_ref().unwrap().use_epsln_tile_server);
+        assert!(parsed.front.as_ref().unwrap().use_scoria_tile_server);
         assert_eq!(parsed.back.locations_past_hour, Some(2));
 
         // values that should be the default

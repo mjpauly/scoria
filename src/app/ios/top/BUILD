@@ -3,10 +3,10 @@ load("@build_bazel_rules_apple//apple:versioning.bzl", "apple_bundle_version")
 load("@build_bazel_rules_swift//swift:swift.bzl", "swift_library")
 
 ios_application(
-    name = "Epsilon",
+    name = "Scoria",
     app_icons = glob(["Resources/Assets.xcassets/AppIcon.appiconset/**"]),
     bundle_id = "com.aperturebeam.epsilon",
-    bundle_name = "Epsilon",
+    bundle_name = "Scoria",
     families = ["iphone"],
     frameworks = [
         "//src/app/ios/sensing:sensing_framework",
@@ -36,14 +36,14 @@ ios_application(
 # the LAST build number matching "7.5.x"
 apple_bundle_version(
     name = "app_version",
-    build_version = "1.1.0",
+    build_version = "1.1.1",
     short_version_string = "1.1",
 )
 
 swift_library(
     name = "App.library",
     srcs = glob(["*.swift"]),
-    module_name = "Epsilon",
+    module_name = "Scoria",
     tags = ["manual"],
     visibility = ["//src/app/ios/tests:__subpackages__"],
     deps = [

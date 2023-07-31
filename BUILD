@@ -9,7 +9,7 @@ alias(
 # Builds/runs the ios app in the simulator
 alias(
     name = "iosapp",
-    actual = "//src/app/ios/top:Epsilon",
+    actual = "//src/app/ios/top:Scoria",
 )
 
 # Generates a `rust_project.json` which makes Rust Analyzer work in our

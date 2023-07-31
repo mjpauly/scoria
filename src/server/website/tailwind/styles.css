@@ -21,7 +21,7 @@
     .prose-container > ul {
         @apply list-disc pl-4;
     }
-    .prose-container > p > a {
+    .prose-container > p > a, .prose-container > p > em > a {
         @apply text-blue-500 underline
     }
 }

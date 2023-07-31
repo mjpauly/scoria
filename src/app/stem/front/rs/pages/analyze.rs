@@ -10,7 +10,7 @@ use yewdux::prelude::*;
 
 use crate::components::{
     location_filter_list::LocationFilterList,
-    map_styler::{get_basemap_url, use_check_epsln_tile_server, MapStyler},
+    map_styler::{get_basemap_url, use_check_scoria_tile_server, MapStyler},
     Colorbar, TabBar, TimeRangePicker, PRIMARY_BUTTON_STYLE,
     SECONDARY_BUTTON_STYLE,
 };
@@ -24,8 +24,8 @@ use common::LngLat;
 
 #[function_component]
 pub fn Analyze() -> Html {
-    // Check if the epsln tile server is up, and update the app state
-    use_check_epsln_tile_server();
+    // Check if the scoria tile server is up, and update the app state
+    use_check_scoria_tile_server();
 
     html! {
         <>
@@ -198,8 +198,8 @@ fn PlotComponent() -> Html {
     let map_initialized = use_state(|| false);
 
     let map_style = use_selector(|s: &FrontState| s.map.style.clone());
-    let use_epsln_tile_server =
-        use_selector(|s: &FrontState| s.use_epsln_tile_server);
+    let use_scoria_tile_server =
+        use_selector(|s: &FrontState| s.use_scoria_tile_server);
 
     // The style json string for the basemap without user data on top
     let basemap = use_state(|| Option::<String>::None);
@@ -212,8 +212,10 @@ fn PlotComponent() -> Html {
                     let blank_map = String::from(
                         r#"{"version":8,"name":"Blank","sources":{},"layers":[],"center":[0,0],"zoom":1}"#,
                     );
-                    let url =
-                        get_basemap_url(&basemap_style, *use_epsln_tile_server);
+                    let url = get_basemap_url(
+                        &basemap_style,
+                        *use_scoria_tile_server,
+                    );
                     let basemap_str = match Request::get(&url).send().await {
                         Ok(req) => req.text().await.unwrap_or(blank_map),
                         Err(_) => blank_map,
