@@ -25,6 +25,15 @@
     body {
         @apply bg-neutral-900 min-w-min min-h-full flex flex-col;
     }
+
+    /* If the font size is something like 13px (which is possible when using
+     * the system font size) then h-6 or 1.5rem is a a fractional px value of
+     * 19.5. This causes SVGs to be cut off on the bottom and the right sides
+     * by a little bit unless we allow them to overflow.
+     */
+    svg {
+        @apply overflow-visible
+    }
 }
 
 /* Maplibre */

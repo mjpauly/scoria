@@ -132,7 +132,7 @@ pub fn LocationConfigurator() -> Html {
 
         // title
         <div class="relative">
-            <p class="font-bold"> {"Config"} </p>
+            <p class="font-bold"> {"Settings"} </p>
             <button onclick={show_help_onclick} id="loc_conf_help_btn"
                 class={"absolute right-2 bottom-0"}>
                     <Icon icon_id={IconId::BootstrapQuestionCircle}
@@ -210,7 +210,7 @@ pub fn LocationConfigurator() -> Html {
             </p>
             <p class="text-neutral-500 text-left px-2 pt-1">
                 {"If you wish to lower power use, switch to Infrequent mode or
-                Custom mode with an accuracy level of 1km."}
+                Custom mode with an accuracy level of 1 km."}
             </p>
         } else if *show_help && standard_mode {
             <p class="text-neutral-500 text-left px-2 pt-1">
