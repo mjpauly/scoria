@@ -2,8 +2,10 @@
 //!
 //! User-facing state differs from the state that is told to the OS. Auto mode
 //! is an option presented to the user, but under the hood the app just switches
-//! between different accuracy levels of standard mode depending on detected
+//! between different accuracy levels of Standard mode depending on detected
 //! movement (or infrequent mode if battery is low).
+//!
+//! Custom mode is our user-facing name for Standard mode.
 //!
 //! Infrequent mode is our name for the Significant Changes Service. Standard
 //! mode is the shortened name of the Standard Location Service. Both of these
@@ -37,7 +39,9 @@ impl AllLocationConfig {
     }
     /// Returns whether the OS mode is set to Standard
     pub fn os_standard_on(&self) -> bool {
-        self.user.standard_on() || self.auto_standard_on()
+        self.user.standard_on()
+            || self.auto_standard_on()
+            || self.user.reduced_on()
     }
     /// Returns whether the OS mode is set to Infrequent
     pub fn os_infrequent_on(&self) -> bool {
@@ -47,6 +51,8 @@ impl AllLocationConfig {
     pub fn os_distance_filter(&self) -> f32 {
         if self.user.auto_on() {
             self.auto.standard_config.distance_filter
+        } else if self.user.reduced_on() {
+            5.0
         } else {
             self.user.standard_config.distance_filter
         }
@@ -55,6 +61,8 @@ impl AllLocationConfig {
     pub fn os_accuracy_mode(&self) -> LocationAccuracyMode {
         if self.user.auto_on() {
             self.auto.standard_config.accuracy_mode
+        } else if self.user.reduced_on() {
+            LocationAccuracyMode::HundredMeters
         } else {
             self.user.standard_config.accuracy_mode
         }
@@ -74,6 +82,9 @@ impl UserConfig {
     pub fn is_auto(&self) -> bool {
         self.mode == LocationMode::Auto
     }
+    pub fn is_reduced(&self) -> bool {
+        self.mode == LocationMode::Reduced
+    }
     pub fn is_standard(&self) -> bool {
         self.mode == LocationMode::Standard
     }
@@ -82,6 +93,9 @@ impl UserConfig {
     }
     pub fn auto_on(&self) -> bool {
         self.enabled && self.is_auto()
+    }
+    pub fn reduced_on(&self) -> bool {
+        self.enabled && self.is_reduced()
     }
     pub fn standard_on(&self) -> bool {
         self.enabled && self.is_standard()
@@ -109,9 +123,10 @@ impl Default for UserConfig {
 /// User-settable location modes. Differs from OSLocationMode
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub enum LocationMode {
-    Auto,
-    Standard,
+    Auto,    // Switches between Best and 100m accuracy
+    Reduced, // Standard service at 100m accuracy always
     SignificantChanges,
+    Standard,
 }
 
 /// Configuration of the Standard Mode (either user settings or auto mode)
@@ -201,10 +216,11 @@ impl std::str::FromStr for LocationAccuracyMode {
     }
 }
 
-static MODE_STRINGS: [(LocationMode, &str); 3] = [
+static MODE_STRINGS: [(LocationMode, &str); 4] = [
     (LocationMode::Auto, "Automatic"),
-    (LocationMode::Standard, "Standard"),
+    (LocationMode::Reduced, "Reduced"),
     (LocationMode::SignificantChanges, "Infrequent"),
+    (LocationMode::Standard, "Custom"),
 ];
 
 impl fmt::Display for LocationMode {

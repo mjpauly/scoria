@@ -1,18 +1,18 @@
-# Epsilon Security
+# Scoria Security
 
 ## Scope
 
-Epsilon is software the runs locally on the user's device. It aims to be prevent
+Scoria is software the runs locally on the user's device. It aims to be prevent
 other low-privilege apps running on the user's device from gaining access to
-sensitive data in Epsilon.
+sensitive data in Scoria.
 
-The OS's app sandboxing plays a significant role in Epsilon's security. The
+The OS's app sandboxing plays a significant role in Scoria's security. The
 app's filesystem, where the user's data is stored, is isolated from other apps
 installed on the device.
 
 ## Tooling
 
-Epsilon's plans involve distributing apps on multiple different platforms and
+Scoria's plans involve distributing apps on multiple different platforms and
 having substantial serverside and web components. In order to minimize
 complexity, a set of tools which are maximally reusable across all software
 components is desired. Ideally, the same set of tools can be used for
@@ -28,7 +28,7 @@ pitfalls common in other languages, further speeding up development.
 
 ## App Architecture
 
-Epsilon is designed such that nearly all core functionality is implemented in
+Scoria is designed such that nearly all core functionality is implemented in
 Rust, including the app's user interface. System calls made to the OS and its
 frameworks are mainly written in Swift on iOS (and likely Java for Android, when
 that dev happens). We'll detail the iOS architecture from here on.
@@ -76,7 +76,7 @@ guesses) the probability of a correct guess is less than one ten-billionth of
 one percent.
 
 Since the WkWebView is sandboxed from other apps, it's not possible for other
-apps to see what paths (and hence the secret) Epsilon's frontend is loading
+apps to see what paths (and hence the secret) Scoria's frontend is loading
 resources from.
 
 We believe this provides sufficient security to protect the one part of the app

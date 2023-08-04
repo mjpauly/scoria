@@ -75,22 +75,22 @@ pub fn TimeRangePicker() -> Html {
             s.map.time_range = (&s.map.time_delta_range).into();
         });
     html! {
-        <div class="my-1">
+        <div class="my-1 overflow-scroll w-screen">
             // containing div for both datetime pickers to align to
             <div class="flex">
             <div class="max-w-fit mx-auto">
                 // items-center: align items to be centered vertically
                 // justify-between: push elements away from each other so they
                 //      align with the edges of the div containing both flexes
-                <div class="flex items-center justify-between">
-                    <label for="start">{"Start Time"}</label>
+                <div class="flex items-center justify-between flex-wrap">
+                    <label for="start">{"Start"}</label>
                     <input type="datetime-local" id="start"
                         value={time_range.start.format(&format).unwrap()}
                         class={format!("m-1 ml-4 {}", DATETIME_INPUT_STYLE)}
                         onchange={start_onchange} />
                 </div>
-                <div class="flex items-center justify-between">
-                    <label for="end">{"End Time"}</label>
+                <div class="flex items-center justify-between flex-wrap">
+                    <label for="end">{"End"}</label>
                     <input type="datetime-local" id="end"
                         value={time_range.end.format(&format).unwrap()}
                         class={format!("m-1 ml-4 {}", DATETIME_INPUT_STYLE)}

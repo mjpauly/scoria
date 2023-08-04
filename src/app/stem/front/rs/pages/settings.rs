@@ -4,7 +4,9 @@ use yew::prelude::*;
 use yew_icons::{Icon, IconId};
 use yew_router::prelude::*;
 
+use crate::components::buttons::DoneButton;
 use crate::components::unit_picker::UnitPicker;
+use crate::components::{HomeBarSpacer, TopNav};
 use crate::router::{Route, SettingsRoute};
 use crate::swift_poke;
 use crate::websocket::{ToBack, WebsocketService};
@@ -12,10 +14,6 @@ use crate::websocket::{ToBack, WebsocketService};
 #[function_component]
 pub fn Settings() -> Html {
     let navigator = use_navigator().unwrap();
-    let exit_settings_onclick = {
-        let navigator = navigator.clone();
-        Callback::from(move |_e: MouseEvent| navigator.push(&Route::Sense))
-    };
     let intro_onclick = {
         let navigator = navigator.clone();
         Callback::from(move |_e: MouseEvent| navigator.push(&Route::Intro))
@@ -30,18 +28,14 @@ pub fn Settings() -> Html {
         navigator.push(&SettingsRoute::Data)
     });
     html! {
-        <div class="min-h-screen">
-            <nav class="sticky top-0 h-24 relative backdrop-blur-xl \
-                bg-black/20">
-                <div class="flex justify-between bottom-0 absolute pb-1 w-full">
-                    <div></div>
-                    <button class="text-primary p-2 pr-4"
-                        onclick={exit_settings_onclick}>
-                        <label>{"Done"}</label>
-                    </button>
-                </div>
-            </nav>
-            <div class="px-4 max-w-prose mx-auto">
+        <>
+            <TopNav>
+                <div></div>
+                <DoneButton />
+            </TopNav>
+
+            <div class="grow overflow-scroll h-0 \
+                px-4 w-full max-w-prose mx-auto">
                 <h1 class="font-bold text-3xl text-left py-4 px-2">
                     {"Settings"}
                 </h1>
@@ -72,14 +66,14 @@ pub fn Settings() -> Html {
                     </button>
                     <a class="py-2 border-b border-neutral-800 w-full \
                         flex items-center justify-between"
-                        href="https://epsln.com/contact">
+                        href="https://scoria.info/contact">
                         <label>{"Feedback"}</label>
                         <Icon icon_id={IconId::BootstrapChevronRight}
                             class="h-4 w-4 text-neutral-500" />
                     </a>
                     <a class="py-2 w-full \
                         flex items-center justify-between"
-                        href="https://epsln.com/privacy">
+                        href="https://scoria.info/privacy">
                         <label>{"Privacy"}</label>
                         <Icon icon_id={IconId::BootstrapChevronRight}
                             class="h-4 w-4 text-neutral-500" />
@@ -88,44 +82,33 @@ pub fn Settings() -> Html {
 
             </div>
 
-            // <div class="my-auto">
-                // <DataLogSettings />
-            // </div>
-        </div>
+            <HomeBarSpacer />
+        </>
     }
 }
 
 #[function_component]
 pub fn General() -> Html {
-    let navigator = use_navigator().unwrap();
-    let main_settings_onclick = {
-        let navigator = navigator.clone();
-        Callback::from(move |_e: MouseEvent| {
-            navigator.push(&SettingsRoute::Root)
-        })
-    };
-    let exit_settings_onclick =
-        Callback::from(move |_e: MouseEvent| navigator.push(&Route::Sense));
     // let _big_list = (1..41).map(|i| html! { <div>{format!("{}", i)}</div> });
     html! {
-        <div class="min-h-screen">
-            <nav class="sticky top-0 h-24 relative backdrop-blur-xl \
-                bg-black/20">
-                <div class="flex justify-between bottom-0 absolute pb-1 w-full">
-                    <button class="text-primary flex items-center p-2"
-                        onclick={main_settings_onclick}>
-                        <Icon icon_id={IconId::BootstrapChevronLeft}
-                            class="h-6 w-6" />
-                        <label>{"Settings"}</label>
-                    </button>
-                    <button class="text-primary p-2 pr-4"
-                        onclick={exit_settings_onclick}>
-                        <label>{"Done"}</label>
-                    </button>
-                </div>
-            </nav>
-            // centered, width-limited container
-            <div class="px-4 max-w-prose mx-auto">
+        <>
+            <TopNav>
+                <MainSettingsButton />
+                <DoneButton />
+            </TopNav>
+
+            // Centered, width-limited content container.
+            //
+            // "grow overflow-scroll h-0" allow this element to elastically
+            // scroll if it's too long to fully show.
+            //
+            // If we just do "flex-1" instead, we'll get the transparency effect
+            // on sticky elements, but the scrolling won't be elastic. We could
+            // have bouncy scrolling everywhere, but then that's unnatural for
+            // elements that are supposed to by fixed/sticky (though it is the
+            // norm for all mobile websites).
+            <div class="grow overflow-scroll h-0 \
+                px-4 w-full max-w-prose mx-auto">
                 <h1 class="font-bold text-3xl text-left py-4 px-2">
                     {"General"}
                 </h1>
@@ -135,22 +118,32 @@ pub fn General() -> Html {
                 <UnitPicker />
                 // {for _big_list}
             </div>
-        </div>
+
+            <HomeBarSpacer />
+        </>
+    }
+}
+
+/// Button to place in a TopNav (on the left) which will go to the main settings
+/// page.
+#[function_component]
+pub fn MainSettingsButton() -> Html {
+    let navigator = use_navigator().unwrap();
+    let main_settings_onclick = Callback::from(move |_e: MouseEvent| {
+        navigator.push(&SettingsRoute::Root)
+    });
+    html! {
+        <button class="text-primary flex items-center p-2 px-4"
+            onclick={main_settings_onclick}>
+            <Icon icon_id={IconId::BootstrapChevronLeft}
+                class="h-5 w-5" />
+            <label>{"All Settings"}</label>
+        </button>
     }
 }
 
 #[function_component]
 pub fn DataSettings() -> Html {
-    let navigator = use_navigator().unwrap();
-    let main_settings_onclick = {
-        let navigator = navigator.clone();
-        Callback::from(move |_e: MouseEvent| {
-            navigator.push(&SettingsRoute::Root)
-        })
-    };
-    let exit_settings_onclick =
-        Callback::from(move |_e: MouseEvent| navigator.push(&Route::Sense));
-
     let wss = use_context::<WebsocketService>().unwrap();
     let export_onclick = {
         let wss = wss.clone();
@@ -164,24 +157,14 @@ pub fn DataSettings() -> Html {
         swift_poke::poke();
     });
     html! {
-        <div class="min-h-screen">
-            <nav class="sticky top-0 h-24 relative backdrop-blur-xl \
-                bg-black/20">
-                <div class="flex justify-between bottom-0 absolute pb-1 w-full">
-                    <button class="text-primary flex items-center p-2"
-                        onclick={main_settings_onclick}>
-                        <Icon icon_id={IconId::BootstrapChevronLeft}
-                            class="h-6 w-6" />
-                        <label>{"Settings"}</label>
-                    </button>
-                    <button class="text-primary p-2 pr-4"
-                        onclick={exit_settings_onclick}>
-                        <label>{"Done"}</label>
-                    </button>
-                </div>
-            </nav>
+        <>
+            <TopNav>
+                <MainSettingsButton />
+                <DoneButton />
+            </TopNav>
 
-            <div class="px-4 max-w-prose mx-auto">
+            <div class="grow overflow-scroll h-0 \
+                px-4 w-full max-w-prose mx-auto">
                 <h1 class="font-bold text-3xl text-left px-2 py-4">
                     {"Data"}
                 </h1>
@@ -197,7 +180,7 @@ pub fn DataSettings() -> Html {
                     </button>
                 </div>
                 <p class="text-neutral-500 text-left px-2 pt-1">
-                    {"Exported logs can be imported back into Epsilon. You can
+                    {"Exported logs can be imported back into Scoria. You can
                     use this to backup your data or migrate between devices."}
                 </p>
 
@@ -212,7 +195,7 @@ pub fn DataSettings() -> Html {
                     </button>
                 </div>
                 <p class="text-neutral-500 text-left px-2 pt-1">
-                    {"Import an Epsilon log that was previously exported.
+                    {"Import a Scoria log that was previously exported.
                     The data will be added to your current log. Duplicate data
                     points are determined by timestamp, and are not imported."}
                 </p>
@@ -223,6 +206,8 @@ pub fn DataSettings() -> Html {
                     feature."} </p>
 
             </div>
-        </div>
+
+            <HomeBarSpacer />
+        </>
     }
 }

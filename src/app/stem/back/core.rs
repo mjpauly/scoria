@@ -71,7 +71,7 @@ pub fn timestamp() -> String {
 /// extra_debug_logging is turned on, which only happens during dev.
 #[allow(unused_variables)]
 pub fn debug(msg: &str) {
-    #[cfg(extra_debug_logging)]
+    #[cfg(feature = "extra_debug_logging")]
     print_and_log(&format!("DEBUG {} {msg}", timestamp()))
 }
 

@@ -112,6 +112,12 @@ fn map_state_is_different(prev: &MapState, curr: &MapState) -> bool {
     prev.time_range != curr.time_range
         || prev.filters != curr.filters
         || prev.style.colored_datastream != curr.style.colored_datastream
+        // If marker of line size were zero previously, the old geojson may not
+        // have the data, so we should update. Going from visibile to not
+        // visible doesn't require an update and looks smoother if updating the
+        // size sliders rapidly, so we'll save compute when next updating
+        || ((prev.style.marker_size == 0) && (curr.style.marker_size != 0))
+        || ((prev.style.line_size == 0) && (curr.style.line_size != 0))
 }
 
 /// Determine if we should update the geojson data
@@ -307,10 +313,11 @@ fn get_view_params(records: &[&common::Location]) -> (LngLat, f64) {
 /// Get the popup text for a click at a given location. Also takes the point's
 /// color if it exists. Returns the location to put the popup, the text,
 /// and the desired color of the popup's background
+// TODO: ignore data points not in view
 pub async fn get_popup_text(
     lnglat: LngLat,
     data_color: Option<String>,
-) -> ToFront {
+) -> Option<ToFront> {
     let (map_state, unit_pref) = {
         let state = AppState::global();
         let persistent = state.persistent.lock().unwrap();
@@ -322,34 +329,33 @@ pub async fn get_popup_text(
     let records = apply_filters(&map_state.filters, &raw_records);
 
     let local_offset = map_state.time_range.start.offset();
-    let distances: Vec<_> = records
-        .iter()
-        .map(|loc| {
-            (loc.latitude - lnglat.lat).abs()
-                + (loc.longitude - lnglat.lng).abs()
-        })
-        .collect();
+
+    let calc_dist = |loc: &common::Location| {
+        (loc.latitude - lnglat.lat).abs() + (loc.longitude - lnglat.lng).abs()
+    };
+    let mut min_distance = f64::INFINITY;
     let mut argmin = 0;
-    // assume the records being plotted have at least one element
-    let mut min_distance = distances[0];
-    for (i, d) in distances.iter().enumerate() {
-        if *d < min_distance {
-            min_distance = *d;
+    for (i, loc) in records.iter().enumerate() {
+        let dist = calc_dist(loc);
+        if dist < min_distance {
+            min_distance = dist;
             argmin = i;
         }
     }
-    let loc = &records[argmin];
-    let text = location_popup_text(local_offset, &unit_pref, loc);
-    let bg_color =
-        data_color.unwrap_or_else(|| map_state.style.solid_color.rgb.clone());
-    ToFront::PopupText {
-        location: LngLat {
-            lng: loc.longitude,
-            lat: loc.latitude,
-        },
-        text,
-        bg_color,
-    }
+    // get() safely indexes into records so we return None if no data
+    records.get(argmin).map(|loc| {
+        let text = location_popup_text(local_offset, &unit_pref, loc);
+        let bg_color = data_color
+            .unwrap_or_else(|| map_state.style.solid_color.rgb.clone());
+        ToFront::PopupText {
+            location: LngLat {
+                lng: loc.longitude,
+                lat: loc.latitude,
+            },
+            text,
+            bg_color,
+        }
+    })
 }
 
 pub fn location_popup_text(

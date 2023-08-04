@@ -1,4 +1,5 @@
-//! Bottom navbar component for switching between the main pages.
+//! Navigation components for switching between pages. px are used where buffer
+//! is created for the device's home bar and top notch.
 
 use yew::prelude::*;
 use yew::MouseEvent;
@@ -7,37 +8,51 @@ use yew_router::prelude::*;
 
 use crate::router::Route;
 
-/// Convenience wrapper for views that want to include a Navbar.
-///
-/// It ensures long contents are visible from behind the navbar after scrolling.
-/// We add the margin symmetrically to the top so the content remains centered
-/// in the screen.
+/// Top navigation bar, with room for the device's top notch. Buttons are passed
+/// in as props.
 #[function_component]
-pub fn NavbarWrapper(props: &NavbarWrapperProps) -> Html {
+pub fn TopNav(props: &NavProps) -> Html {
     html! {
-        <div class="flex flex-col h-screen">
-            // flex-1: take full height, pushing navbar to the bottom
-            // overflow-y-auto: overflow this div's content (would otherwise
-            //          overflow the navbar too)
-            <div class="flex-1 overflow-y-auto">
-                    { for props.children.iter() }
+        <nav class="sticky top-0 backdrop-blur-xl bg-black/20 z-20 \
+            flex flex-col">
+            // px don't scale with dynamic font size, which is good since
+            // this div is just there to ensure the menu items are below
+            // the device's top notch
+            //
+            // 20px is the buffer for square screen sizes, like the iPhone SE,
+            // and 48 for rounded screens like the other iPhone models. See
+            // the tailwind config for the definition.
+            <div class="h-[20px] tall:h-[48px]"></div>
+            <div class="flex justify-between w-full">
+                { for props.children.iter() }
             </div>
-            <Navbar />
-        </div>
+        </nav>
+    }
+}
+
+/// Bottom navigation bar, with room for the device's home bar. Buttons are
+/// passed in as props.
+#[function_component]
+pub fn BottomNav(props: &NavProps) -> Html {
+    html! {
+        <nav class="sticky bottom-0 backdrop-blur-xl bg-black/20 z-20 \
+            flex flex-col">
+            <div class="flex justify-between w-full">
+                { for props.children.iter() }
+            </div>
+            <div class="tall:h-[24px]"></div>
+        </nav>
     }
 }
 
 #[derive(Properties, PartialEq)]
-pub struct NavbarWrapperProps {
+pub struct NavProps {
     pub children: Children, // the field name `children` is important!
 }
 
-/// The Navbar component itself.
-///
-/// It is available for views that want to customize their top and bottom
-/// margins.
+/// The main tab navigation bar at the bottom of the screen.
 #[function_component]
-pub fn Navbar() -> Html {
+pub fn TabBar() -> Html {
     let navigator = use_navigator().unwrap();
     let curr_route: Option<Route> = use_route();
 
@@ -64,7 +79,9 @@ pub fn Navbar() -> Html {
             Callback::from(move |_e: MouseEvent| navigator.push(&route))
         };
         // Extra padding on the bottom to give more room for the home bar
-        let mut style = vec!["pt-2 pb-6"];
+        // bottom padding is not scaled with rem since we don't need it to
+        // change with font size
+        let mut style = vec!["pt-2 tall:pb-[24px]"];
         if let Some(r) = &curr_route {
             // Style the current button blue if we are on it
             if *route == *r {
@@ -82,8 +99,19 @@ pub fn Navbar() -> Html {
         }
     });
     html! {
-        <div class="flex-none grid grid-cols-2 justify-items-stretch">
+        <nav class="sticky bottom-0 backdrop-blur-xl bg-black/20 z-20 \
+            grid grid-cols-2 justify-items-stretch">
             {for items}
+        </nav>
+    }
+}
+
+/// Spacer for room for the homebar to add to a flex-col layout. Ensures there's
+/// enough space at the bottom of a page for the homebar to not cover elements.
+#[function_component]
+pub fn HomeBarSpacer() -> Html {
+    html! {
+        <div class="tall:h-[30px]">
         </div>
     }
 }

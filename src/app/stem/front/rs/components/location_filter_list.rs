@@ -129,7 +129,7 @@ pub fn LocationFilterList() -> Html {
                     }
                 )}
                 <div class="flex items-center justify-between pl-4 pr-2
-                    h-16 m-1">
+                    h-16 min-h-fit m-1">
                     <p class="text-neutral-500 text-left mr-4">
                         {"Filters hide data where the condition is true. Tap
                             the plus to add another."}
@@ -228,21 +228,21 @@ fn FilterEntry(props: &FilterEntryProps) -> Html {
     };
     html! {
         // horizontal flex
-        <div class="flex items-center justify-between py-2 \
-            h-16 bg-neutral-900 rounded-lg px-4 m-1">
+        <div class="flex flex-wrap items-center justify-between py-1 \
+            h-16 min-h-fit bg-neutral-900 rounded-lg px-4 m-1">
             <button onclick={onremove} id={format!("filt_{}_remove", filt.id)}>
                 <Icon icon_id={IconId::BootstrapXCircle}
-                    class="h-5 w-5 text-neutral-500" />
+                    class="h-5 w-5 my-1 text-neutral-500" />
             </button>
 
-            <select class={format!("ml-2 {}", SELECT_STYLE)}
+            <select class={format!("my-1 ml-2 flex-grow {}", SELECT_STYLE)}
                 ref={stream_node_ref}
                 id={format!("filt_{}_datastream", filt.id)}
                 onchange={onchange_stream}>
                 {for stream_options.clone()}
             </select>
 
-            <select class={format!("ml-2 {}", SELECT_STYLE)} ref={op_node_ref}
+            <select class={format!("my-1 ml-2 {}", SELECT_STYLE)} ref={op_node_ref}
                 id={format!("filt_{}_op", filt.id)}
                 onchange={onchange_op}>
                 {for op_options.clone()}
@@ -252,12 +252,12 @@ fn FilterEntry(props: &FilterEntryProps) -> Html {
                 id={format!("filt_{}_threshold", filt.id)}
                 placeholder={filt.datastream.format_value(
                                 &unit_pref, filt.threshold)}
-                class="w-16 flex-grow ml-2 rounded bg-black \
+                class="w-16 flex-grow ml-2 my-1 rounded bg-black \
                 border border-neutral-700 \
                 placeholder:text-neutral-500"
             />
 
-            <div class="relative h-6 ml-2">
+            <div class="relative h-6 ml-2 my-1">
                 <input type="checkbox" checked={filt.enabled} onclick={ontoggle}
                     id={format!("filt_{}_toggle", filt.id)}
                     class={TOGGLE_SWITCH_STYLE} />

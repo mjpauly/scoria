@@ -20,10 +20,11 @@ static ACCURACY_MODES: [LocationAccuracyMode; 5] = [
     LocationAccuracyMode::ThreeKilometers,
 ];
 
-static LOCATION_MODES: [LocationMode; 3] = [
+static LOCATION_MODES: [LocationMode; 4] = [
     LocationMode::Auto,
-    LocationMode::Standard,
+    LocationMode::Reduced,
     LocationMode::SignificantChanges,
+    LocationMode::Standard,
 ];
 
 /// Configure location manager settings
@@ -193,27 +194,42 @@ pub fn LocationConfigurator() -> Html {
         if *show_help && config.is_auto() {
             <p class="text-neutral-500 text-left px-2 pt-1">
                 {"Automatic mode continuously records location data, balancing
-                battery drain with data accuracy. It logs low accuracy
-                location data while stationary, and high accuracy data while
-                moving."}
+                battery drain with data accuracy. It logs lower accuracy
+                location data while stationary (100 m), and high accuracy data
+                while moving (Best)."}
+            </p>
+            <p class="text-neutral-500 text-left px-2 pt-1">
+                {"If you want to lower power use, switch to Reduced mode."}
+            </p>
+        } else if *show_help && config.is_reduced() {
+            <p class="text-neutral-500 text-left px-2 pt-1">
+                {"Reduced mode continuously records location data at a lower
+                accuracy level (100 m). It does not switch to a higher accuracy
+                mode when moving, so power consumption depends less on how much
+                you move."}
+            </p>
+            <p class="text-neutral-500 text-left px-2 pt-1">
+                {"If you wish to lower power use, switch to Infrequent mode or
+                Custom mode with an accuracy level of 1 km."}
             </p>
         } else if *show_help && standard_mode {
             <p class="text-neutral-500 text-left px-2 pt-1">
-                {"Standard mode continuously records location data. It gives you
-                more control over the location configuration than auto mode.
+                {"Custom mode continuously records location data. It gives you
+                more control over the location configuration.
                 Setting a worse accuracy level (larger distance) sacrifices
-                accuracy for more efficient power drain."}
+                accuracy in exchange for more efficient power use."}
             </p>
             <p class="text-neutral-500 text-left px-2 pt-1">
                 {"The distance filter determines how far you must move from
                 your last recorded location before recording new data. Set
-                it to a larger number to record data less often."}
+                it to a larger number to record data less often. 5 meters or
+                16 feet is the default."}
             </p>
         } else if *show_help && config.is_infrequent() {
             <p class="text-neutral-500 text-left px-2 pt-1">
                 {"Infrequent mode records location only when you move a
                 significant distance, like when you visit a new place. It
-                saves more power than standard mode at the
+                saves more power than any of the other modes at the
                 cost of a substantially reduced update rate."}
             </p>
         }

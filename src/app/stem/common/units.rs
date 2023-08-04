@@ -1,4 +1,4 @@
-//! Units module, defining the units used internally within Epsilon and
+//! Units module, defining the units used internally within Scoria and
 //! methods for parsing and formatting the user's preferred units.
 
 use std::fmt;
@@ -14,7 +14,7 @@ use uom::si::velocity;
 use uom::si::Unit;
 use uom::str::ParseQuantityError;
 
-// Epsilon's internal unit representation
+// Scoria's internal unit representation
 pub type BaseLength = length::meter;
 pub type BaseVelocity = velocity::meter_per_second;
 pub type BaseAngle = angle::degree;
@@ -91,7 +91,7 @@ impl UnitPreference {
     }
 
     /// Pase a length as user preference units (or specified units) and
-    /// convert to Epsilon's internal representation
+    /// convert to Scoria's internal representation
     fn parse_length(
         preferred_length_unit: &LengthUnits,
         val: &str,
@@ -168,7 +168,7 @@ where
 }
 
 impl LengthUnits {
-    /// Turn a value in the preferred unit into Epsilon's base unit
+    /// Turn a value in the preferred unit into Scoria's base unit
     pub fn to_base_unit(&self, val: f64) -> f64 {
         // Haven't figured out how to generically pass uom dimensions and units
         // as values since they're all different types. So everything is
@@ -183,7 +183,7 @@ impl LengthUnits {
         quantity.get::<BaseLength>()
     }
 
-    /// Turn a value in Epsilon's base unit to the preferred unit
+    /// Turn a value in Scoria's base unit to the preferred unit
     pub fn from_base_unit(&self, val: f64) -> f64 {
         let quantity = Length::new::<BaseLength>(val);
         match self {

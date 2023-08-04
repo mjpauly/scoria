@@ -67,7 +67,7 @@ public func check_export_sqlite_log(viewController: UIViewController) {
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd_HH-mm-ss"
         let formattedDateTime = dateFormatter.string(from: Date())
-        let desired_fname = "Epsilon_Export_\(formattedDateTime).sqlite"
+        let desired_fname = "Scoria_Export_\(formattedDateTime).sqlite"
         
         shareFileWithDifferentName(originalURL: db_url, desiredFilename: desired_fname, viewController: viewController)
     }

@@ -2,12 +2,12 @@
 
 use yew::prelude::*;
 
-use crate::components::NavbarWrapper;
+use crate::components::TabBar;
 
 #[function_component]
 pub fn TestPage() -> Html {
     html! {
-        <NavbarWrapper>
+        <>
             <div class="h-16"></div>
             <h1 class="text-primary text-3xl mb-6">
                 {"UI Test Page"}
@@ -52,6 +52,7 @@ pub fn TestPage() -> Html {
             <div>{"38"}</div>
             <div>{"39"}</div>
             <div>{"40"}</div>
-        </NavbarWrapper>
+            <TabBar />
+        </>
     }
 }

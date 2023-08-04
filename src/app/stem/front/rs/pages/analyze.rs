@@ -2,17 +2,19 @@
 
 use std::rc::Rc;
 
+use gloo_net::http::Request;
+use serde_json::Value;
 use yew::prelude::*;
 use yew_icons::{Icon, IconId};
 use yewdux::prelude::*;
 
 use crate::components::{
     location_filter_list::LocationFilterList,
-    map_styler::{get_basemap_url, use_check_epsln_tile_server, MapStyler},
-    Colorbar, NavbarWrapper, TimeRangePicker, PRIMARY_BUTTON_STYLE,
+    map_styler::{get_basemap_url, use_check_scoria_tile_server, MapStyler},
+    Colorbar, TabBar, TimeRangePicker, PRIMARY_BUTTON_STYLE,
     SECONDARY_BUTTON_STYLE,
 };
-use crate::plots::maplibre;
+use crate::plots::maplibre::{self, add_source_and_layers_to_style};
 use crate::ui_state::{BackState, FrontState};
 use crate::websocket::{
     use_backend_event_with_deps, ToBack, ToFront, WebsocketService,
@@ -22,13 +24,14 @@ use common::LngLat;
 
 #[function_component]
 pub fn Analyze() -> Html {
-    // Check if the epsln tile server is up, and update the app state
-    use_check_epsln_tile_server();
+    // Check if the scoria tile server is up, and update the app state
+    use_check_scoria_tile_server();
 
     html! {
-        <NavbarWrapper>
+        <>
             <AnalyzeLocation />
-        </NavbarWrapper>
+            <TabBar />
+        </>
     }
 }
 
@@ -62,7 +65,7 @@ fn AnalyzeLocation() -> Html {
     );
 
     html! {
-        <div class="flex flex-col h-full">
+        <div class="flex-1 flex flex-col">
             <PlotComponent />
             if *settings_tab == SettingsTab::MapStyle {
                 <MapStyler />
@@ -195,45 +198,88 @@ fn PlotComponent() -> Html {
     let map_initialized = use_state(|| false);
 
     let map_style = use_selector(|s: &FrontState| s.map.style.clone());
-    let use_epsln_tile_server =
-        use_selector(|s: &FrontState| s.use_epsln_tile_server);
-    let basemap =
-        get_basemap_url(&map_style.basemap_style, *use_epsln_tile_server);
+    let use_scoria_tile_server =
+        use_selector(|s: &FrontState| s.use_scoria_tile_server);
+
+    // The style json string for the basemap without user data on top
+    let basemap = use_state(|| Option::<String>::None);
+    {
+        let basemap = basemap.clone();
+        use_effect_with_deps(
+            move |basemap_style| {
+                let basemap_style = basemap_style.clone();
+                wasm_bindgen_futures::spawn_local(async move {
+                    let blank_map = String::from(
+                        r#"{"version":8,"name":"Blank","sources":{},"layers":[],"center":[0,0],"zoom":1}"#,
+                    );
+                    let url = get_basemap_url(
+                        &basemap_style,
+                        *use_scoria_tile_server,
+                    );
+                    let basemap_str = match Request::get(&url).send().await {
+                        Ok(req) => req.text().await.unwrap_or(blank_map),
+                        Err(_) => blank_map,
+                    };
+                    basemap.set(Some(basemap_str));
+                });
+                || ()
+            },
+            map_style.basemap_style.clone(),
+        );
+    }
+
+    // The style object with user data
+    let style = use_state(|| Option::<Value>::None);
+    {
+        let style = style.clone();
+        use_effect_with_deps(
+            move |(basemap, map_style)| {
+                // if we've loaded the basemap json from the http request
+                if let Some(basemap_str) = &**basemap {
+                    let mut style_obj: Value =
+                        serde_json::from_str(basemap_str).unwrap();
+                    add_source_and_layers_to_style(&mut style_obj, map_style);
+                    style.set(Some(style_obj));
+                }
+                || ()
+            },
+            (basemap, map_style.clone()),
+        );
+    }
 
     // Build the blank map on first render. We don't populate the map with any
     // data, but we do set up the source and layer needed to update the map.
     {
         let map = map.clone();
         let map_initialized = map_initialized.clone();
-        let map_style = map_style.clone();
-        let basemap = basemap.clone();
         let view_position =
             use_selector(|s: &FrontState| s.map.view_pos.clone());
         let front_dispatch = Dispatch::<FrontState>::new();
         use_effect_with_deps(
-            move |_| {
-                let on_load = {
-                    let map_initialized = map_initialized.clone();
-                    Box::new(move || map_initialized.set(true))
-                };
-                let on_view_change = Box::new(move |data| {
-                    front_dispatch.reduce_mut(|s| s.map.view_pos = data)
-                });
-                let newmap = maplibre::new_map(
-                    plot_id,
-                    &basemap,
-                    map_style.marker_size,
-                    map_style.line_size,
-                    &map_style.solid_color,
-                    &map_style.colored_datastream,
-                    &view_position,
-                    on_load,
-                    on_view_change,
-                    request_popup,
-                );
-                map.set(Some(newmap));
+            move |style| {
+                // only create the map when it's not created yet
+                if !(*map_initialized) {
+                    if let Some(style) = &**style {
+                        let on_load = {
+                            let map_initialized = map_initialized.clone();
+                            Box::new(move || map_initialized.set(true))
+                        };
+                        let on_view_change = Box::new(move |data| {
+                            front_dispatch.reduce_mut(|s| s.map.view_pos = data)
+                        });
+                        let newmap = maplibre::new_map(
+                            plot_id,
+                            style,
+                            &view_position,
+                            on_load,
+                            on_view_change,
+                            request_popup,
+                        );
+                        map.set(Some(newmap));
+                    }
+                }
             },
-            (),
+            style.clone(),
         )
     };
 
@@ -253,50 +299,18 @@ fn PlotComponent() -> Html {
     };
     use_backend_event_with_deps(on_geojson_update, map_initialized.clone());
 
-    // Also update when map_initialized becomes true, which may happen after
-    // the backend updates the geojson. If this happens before the geojson
-    // update, then we'll just get the previous geojson data momentarily.
-    {
-        let map = map.clone();
-        use_effect_with_deps(
-            move |map_initialized| {
-                if **map_initialized {
-                    maplibre::update_data((*map).clone().unwrap());
-                }
-            },
-            map_initialized.clone(),
-        )
-    }
-
     // === Restyle map === //
-
-    // We do a full map restyling since any change to the base layer will cause
-    // our source and layer to be removed. If only updating other map style
-    // components, update_data and restyle_layer are sufficient. But a full
-    // restyle is not too costly and handles all cases, so this is what we do.
     {
         let map = map.clone();
         use_effect_with_deps(
-            move |map_style| {
+            move |style| {
                 if *map_initialized {
-                    // full map restyle to change the base layer
-                    map_initialized.set(false);
-                    let on_style = {
-                        let map_initialized = map_initialized.clone();
-                        Box::new(move || map_initialized.set(true))
-                    };
-                    maplibre::restyle(
-                        (*map).clone().unwrap(),
-                        &basemap,
-                        map_style.marker_size,
-                        map_style.line_size,
-                        &map_style.solid_color,
-                        &map_style.colored_datastream,
-                        on_style,
-                    )
+                    if let Some(style) = &**style {
+                        maplibre::restyle((*map).clone().unwrap(), style)
+                    }
                 }
             },
-            map_style.clone(),
+            style,
         )
     };
 

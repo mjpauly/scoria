@@ -37,7 +37,7 @@ rust_library(
         + static_file_targets,
     rustc_env = static_file_env_defs,
     crate_features = select({
-        "//:release": [],
+        "//:distribution_profile": [],
         "//conditions:default": ["extra_debug_logging"],
     }),
     proc_macro_deps = [

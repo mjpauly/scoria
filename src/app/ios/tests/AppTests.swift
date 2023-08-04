@@ -1,6 +1,6 @@
 import XCTest
 
-@testable import Epsilon
+@testable import Scoria
 
 class AppTests: XCTestCase {
     func testApp() throws {

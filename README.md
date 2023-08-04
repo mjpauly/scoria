@@ -1,16 +1,24 @@
-# Epsilon App
+# Scoria App
 
 ## To Do
 
-- [ ] accessible front sizing
-    - [ ] accessible font sizing for colorbar, attribution
-- [ ] action failure alterts (esp for importing)
-- [ ] ability to export stemlog for debugging
-- [ ] quick time update buttons
+- website
+    - [ ] cross compile website binary
+    - [ ] try kube for scoria.app
+- accessibility
+    - [ ] accessible map size scaling
+- debug-ability
+    - [ ] action failure alterts (esp for importing)
+    - [ ] ability to export stemlog for debugging
+- features
+    - [ ] automap to occlude unexplored areas (100m radius? diameter?)
+    - [ ] zoom to current location on first install
+    - [ ] quick time update buttons
 - [ ] reset to "today" time range and data-centered view if user is away from
     the app for 1+ hr
 - [ ] export tab on map (csv, maybe image)
-- [ ] notify user when they close the app that keeping it open is best
+- [ ] notify user when they close the app that keeping it open is required for
+    data to be logged
 
 - [ ] log more metadata
     - [ ] location config metadata (when settings were changed)
@@ -29,6 +37,9 @@
          - visits (last time, first time, total, time spent, when visits happen)
          - traveling (different modes, time spent, num trips, when it happens, distance)
          - trends
+    - improved map tile api security
+        - [ ] generate keys for each new device
+        - [ ] or: custom tile server
 
 ## Completed
 
@@ -126,6 +137,10 @@
 - [x] upgrade maptiler account
 - [x] submit to app store
 - [x] website terms (copyright, liability, App Store trademark notice), link to App Store
+- [x] fix color slider bug by refactoring map code to have everything in the style
+- [x] accessible font sizing for colorbar, attribution
+- [x] custom user agent to restrict api access
+    - [x] also allow only `127.0.0.1` origins
 
 ## Structure
 
@@ -142,7 +157,7 @@ src
     │   ├── tests                       App integration tests
     │   ├── top                         Top-level app source
     │   └── xcodeproj                   Xcode project generator
-    │       └── Epsilon.xcodeproj       The generated Xcode project
+    │       └── Scoria.xcodeproj        The generated Xcode project
     │
     └── stem                            Rust sources for the core app functions
         ├── back                        App backend logic (database, server, ..)
@@ -342,6 +357,8 @@ Prereq: install graphviz (includes `dot`) with `brew install graphviz`.
 the entire arm, even if the data is cloned within the scrutinee. Get the data
 in a separate variable first before putting it into the scrutinee if it's
 something like an option behind the Mutex.
+- To format text to a certain width with hard linebreaks, set textwidth=80,
+  highlight the text, then do `gq`
 
 ## Style Notes
 
@@ -362,7 +379,7 @@ developer.apple.com.
 4. Build the app
     4a. Developemnt: `bazel build //:iosapp --ios_multi_cpus=arm64 -c opt`
     4b. Distribution: `bazel build //:iosapp --ios_multi_cpus=arm64 --device_debug_entitlements=false --define profile=distribution -c opt`
-5. Locate the `.ipa` archive in `bazel-bin/src/app/ios/top/Epsilon.ipa`.
+5. Locate the `.ipa` archive in `bazel-bin/src/app/ios/top/Scoria.ipa`.
 6. Install/upload the app
     6a. Developemnt: Go to Xcode -> devices and simulators -> [your device] ->
         `+` -> archive file

@@ -1,5 +1,5 @@
 {
-  "checksum": "2c9c153746c062ad1ced4a5d474544b53899092c9c6fa34bdd6367a173b12f3d",
+  "checksum": "d9eecab14ae638defeda55f2e4e5d6efe7e576a486c96c913a2980b77e4cb431",
   "crates": {
     "actix 0.13.0": {
       "name": "actix",
@@ -16131,6 +16131,7 @@
             "CloseEventInit",
             "Coordinates",
             "CssRuleList",
+            "CssStyleDeclaration",
             "CssStyleSheet",
             "DataTransfer",
             "DataTransferItem",
@@ -17703,6 +17704,7 @@
             "BootstrapChevronRight",
             "BootstrapFullscreen",
             "BootstrapFunnel",
+            "BootstrapGear",
             "BootstrapGlobeAmericas",
             "BootstrapJournalText",
             "BootstrapList",

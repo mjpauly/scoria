@@ -6,7 +6,7 @@ view in the map tab.
 ## (Warmup) Button for All Data
 
 Implement a button to select a time range that includes all data a user has
-logged. Do this by setting the start time to a value that is before Epsilon
+logged. Do this by setting the start time to a value that is before Scoria
 exists, such as Jan 01, 2022. We will not worry about setting it to the actual
 time of the first logged datapoint for now.
 

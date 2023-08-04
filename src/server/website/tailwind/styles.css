@@ -9,7 +9,7 @@
         @apply text-left max-w-prose;
     }
     .prose-container > h1 {
-        @apply text-4xl mt-16 mb-8;
+        @apply text-4xl mt-20 mb-8;
     }
     .prose-container > h2 {
         @apply text-2xl mt-8 font-medium;
@@ -21,7 +21,7 @@
     .prose-container > ul {
         @apply list-disc pl-4;
     }
-    .prose-container > p > a {
-        @apply text-neutral-400 underline
+    .prose-container > p > a, .prose-container > p > em > a {
+        @apply text-blue-500 underline
     }
 }
