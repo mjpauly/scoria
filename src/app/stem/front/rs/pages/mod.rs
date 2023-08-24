@@ -8,6 +8,6 @@ pub mod test_page;
 pub use analyze::Analyze;
 pub use intro::Intro;
 pub use sense::Sense;
-pub use settings::{DataSettings, General, Settings};
+pub use settings::{DataSettings, General, MapSettings, Settings};
 pub use splash::Splash;
 pub use test_page::TestPage;

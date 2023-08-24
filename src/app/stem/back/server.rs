@@ -21,6 +21,7 @@ use rand::RngCore;
 use crate::app_state::AppState;
 use crate::core::error;
 use crate::geojson::{lines_geojson_route, points_geojson_route};
+use crate::map::{automap::screen, basemap::map_data_route};
 use crate::ws_session::ws_route;
 
 // static files to serve (env vars are set by bazel and poin to file path)
@@ -128,6 +129,8 @@ fn build(listener: TcpListener, frontend_key: FrontendKey) -> Server {
                     .service(health_check)
                     .service(points_geojson_route)
                     .service(lines_geojson_route)
+                    .service(map_data_route)
+                    .service(screen)
                     .route("/ws", web::get().to(ws_route))
                     // yew-router adds trailing slashes that change the relative
                     // scope that static files are loaded from on reload, so we

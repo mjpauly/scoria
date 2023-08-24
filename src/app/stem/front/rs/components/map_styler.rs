@@ -3,13 +3,13 @@
 use std::str::FromStr;
 use std::u8;
 
-use gloo_net::http::Request;
 use obfstr::obfstr;
 use web_sys::{HtmlInputElement, HtmlSelectElement};
 use yew::prelude::*;
 use yewdux::prelude::*;
 
 use crate::components::{RANGE_INPUT_STYLE, SELECT_STYLE, TOGGLE_SWITCH_STYLE};
+use crate::router::get_host;
 use crate::ui_state::FrontState;
 use common::map_style::{
     BasemapStyle, ColoredDataStream, BASEMAP_STRINGS, DATASTREAM_STRINGS,
@@ -21,6 +21,7 @@ use common::map_style::{
 /// frontend state to get tiles from it.
 #[hook]
 pub fn use_check_scoria_tile_server() {
+    /*
     let dispatch = Dispatch::<FrontState>::new();
     yew::platform::spawn_local(async move {
         let result = Request::get(obfstr!("https://api.epsln.com/maps_ok"))
@@ -36,6 +37,7 @@ pub fn use_check_scoria_tile_server() {
             });
         }
     });
+    */
 }
 
 /// Get the maptiler key. In this case it's the distribution key, which is more
@@ -72,17 +74,19 @@ fn format_tile_url(style: &str, use_scoria: bool) -> String {
             "Scoria API key must be placed in top-level .env file as \
             SCORIA_TILE_API_KEY={key}"
         );
-        let maptiler_base_url = "https://api.maptiler.com/maps";
+        // let basemap_url = "https://api.maptiler.com/maps";
+        let basemap_path = "mapdata/maps";
         let scoria_base_url = "https://api.epsln.com/maps";
         let style_json = "style.json?key=";
     }
+    let basemap_url = format!("{}/{basemap_path}", get_host());
     let maptiler_key = maptiler_key();
     let is_satellite = style.contains("hybrid");
     // still use maptiler for satellite images, even if use_scoria is true
     let (base_url, key) = if use_scoria && !is_satellite {
         (scoria_base_url, scoria_key)
     } else {
-        (maptiler_base_url, maptiler_key.as_str())
+        (basemap_url.as_str(), maptiler_key.as_str())
     };
     // should be https://api.url.com/maps/basic-v2/style.json?key=deadbeef
     format!("{base_url}/{style}/{style_json}{key}")

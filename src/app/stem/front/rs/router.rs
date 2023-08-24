@@ -43,6 +43,8 @@ pub enum SettingsRoute {
     General,
     #[at("/settings/data")]
     Data,
+    #[at("/settings/mapsettings")]
+    MapSettings,
     #[not_found]
     #[at("/settings/404")]
     NotFound,
@@ -94,6 +96,7 @@ fn switch_settings(route: SettingsRoute) -> Html {
         SettingsRoute::Root => html! { <pages::Settings /> },
         SettingsRoute::General => html! { <pages::General /> },
         SettingsRoute::Data => html! { <pages::DataSettings /> },
+        SettingsRoute::MapSettings => html! { <pages::MapSettings /> },
         SettingsRoute::NotFound => html! {
             <Redirect<Route> to={Route::NotFound}/>
         },
@@ -132,6 +135,7 @@ impl SettingsRoute {
             PersistedSettingsRoute::Root => Self::Root,
             PersistedSettingsRoute::General => Self::General,
             PersistedSettingsRoute::Data => Self::Data,
+            PersistedSettingsRoute::MapSettings => Self::MapSettings,
         }
     }
 
@@ -140,6 +144,7 @@ impl SettingsRoute {
             Self::Root => PersistedSettingsRoute::Root,
             Self::General => PersistedSettingsRoute::General,
             Self::Data => PersistedSettingsRoute::Data,
+            Self::MapSettings => PersistedSettingsRoute::MapSettings,
             _ => PersistedSettingsRoute::Root,
         }
     }
@@ -181,4 +186,16 @@ pub fn get_scope() -> String {
         .next()
         .unwrap()
         .to_string()
+}
+
+/// Retrieve the port from the current url
+pub fn get_port() -> u16 {
+    let location = web_sys::window().unwrap().location();
+    location.port().unwrap().parse::<u16>().unwrap()
+}
+
+pub fn get_host() -> String {
+    let port = get_port();
+    let scope = get_scope();
+    format!("http://127.0.0.1:{port}/{scope}")
 }

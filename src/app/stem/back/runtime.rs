@@ -1,21 +1,15 @@
 //! Shared Tokio async runtime.
 //!
-//! This can be a thread_local since calls to the Swift-facing C API always
-//! occur on the same thread.
+//! Lazily initialized and guarded with an Arc.
 
-use std::rc::Rc;
+use std::sync::Arc;
 
+use once_cell::sync::Lazy;
 use tokio::runtime::{Builder, Runtime};
 
-// Shared runtime
-// Rc provides a reference counted pointer without mutability.
-thread_local!(static RT: Rc<Runtime> = Rc::new(
-    Builder::new_multi_thread()
-        .enable_all()
-        .worker_threads(1)
-        .build()
-        .unwrap()
-));
+static RT: Lazy<Arc<Runtime>> = Lazy::new(|| {
+    Arc::new(Builder::new_multi_thread().enable_all().build().unwrap())
+});
 
 /// Get a reference to the runtime.
 ///
@@ -23,8 +17,8 @@ thread_local!(static RT: Rc<Runtime> = Rc::new(
 ///     get_runtime().block_on(async {
 ///         func().await;
 ///     });
-pub fn get_runtime() -> Rc<Runtime> {
-    RT.with(|rt| Rc::clone(rt))
+pub fn get_runtime() -> Arc<Runtime> {
+    RT.clone()
 }
 
 #[cfg(test)]

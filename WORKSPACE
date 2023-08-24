@@ -122,7 +122,15 @@ crates_repository(
                        # ${HOME}/.cargo so using it is fast
     packages = {
         "futures-core": crate.spec(version = "0.3.28"),
+        "geo": crate.spec(version = "0.26.0"),
+        "geojson": crate.spec(version = "0.24.1", features = ["geo-types"]),
+        "mvt": crate.spec(version = "0.8.1"),
+        "pointy": crate.spec(version = "0.4.0"),
         "rand": crate.spec(version = "0.8.5"),
+        "reqwest": crate.spec(
+            version = "0.11.15",
+            features = ["gzip", "deflate", "brotli"]
+        ),
         "sqlx": crate.spec(
             version = "0.6.2",
             features = ["runtime-tokio-native-tls", "sqlite", "time", "macros"],
@@ -131,6 +139,7 @@ crates_repository(
             version = "1.24.2",
             features = ["full"],
         ),
+        "walkdir": crate.spec(version = "2.3.3"),
         "anyhow": crate.spec(
             version = "1.0.68",
         ),
@@ -166,7 +175,10 @@ crates_repository(
         ),
         "serde_json": crate.spec(version = "1.0.94",),
         "serde-wasm-bindgen": crate.spec(version = "0.5.0",),
-        "uom": crate.spec(version = "0.34.0"),
+        "uom": crate.spec(
+            version = "0.34.0",
+            features = ["u64"],
+        ),
         "yew": crate.spec(
             version = "0.20.0",
             features = ["csr"],
@@ -242,7 +254,6 @@ crates_repository(
 
         # dev + testing
         "env_logger": crate.spec(version = "0.10.0",),
-        "reqwest": crate.spec(version = "0.11.15",),
         "tokio-tungstenite": crate.spec(version = "0.18.0",),
         "futures-util": crate.spec(version = "0.3.27",),
         "rusty-fork": crate.spec(version = "0.3.0",),

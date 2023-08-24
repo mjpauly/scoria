@@ -7,6 +7,11 @@ use crate::app_state::AppState;
 const DB_PREFIX: &str = "sqlite://";
 const DB_FNAME: &str = "data.db";
 
+// name of the directory which contains cached map data
+static MAP_CACHE_DIR: &str = "map_cache";
+// name of the directory which contains the automap screen / unexplored area
+static UNEXPLORED_AREA_DIR: &str = "unexplored_area";
+
 // Struct that contains the app directory paths.
 // Lets us keep the paths without having to pass it from Swift every function
 // call.
@@ -30,6 +35,20 @@ pub fn get_library_dir() -> PathBuf {
 
 pub fn get_bundle_dir() -> PathBuf {
     AppState::global().paths.bundle_dir.clone()
+}
+
+pub fn get_tmp_dir() -> PathBuf {
+    AppState::global().paths.temp_dir.clone()
+}
+
+/// Resilient to being cleared out, so ok to use tmp directory
+pub fn get_map_cache_dir() -> PathBuf {
+    get_tmp_dir().join(MAP_CACHE_DIR)
+}
+
+/// Needs to be persistent, so we used the Library dir.
+pub fn get_unexplored_data_dir() -> PathBuf {
+    get_library_dir().join(UNEXPLORED_AREA_DIR)
 }
 
 /// Get the database path as a string.

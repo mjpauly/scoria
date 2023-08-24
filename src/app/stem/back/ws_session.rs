@@ -7,11 +7,15 @@
 use actix::prelude::*;
 use actix_web::{web, Error, HttpRequest, HttpResponse};
 use actix_web_actors::ws;
+use common::state::{PersistedRoute, PersistedSettingsRoute};
 use std::time::{Duration, Instant};
 
 use crate::core::{debug, error};
 use crate::database;
 use crate::geojson::update_geojson;
+use crate::map::automap::update_automap;
+use crate::map::basemap::evict_old_map_data;
+use crate::runtime::get_runtime;
 use crate::{app_state::AppState, geojson::get_popup_text};
 use common::{ToBack, ToFront};
 
@@ -79,12 +83,21 @@ impl WsSession {
                 self.send_back_state(ctx);
             }
             ToBack::SetFrontState(val) => {
+                let main_route = val.route.clone();
+                let settings_route = val.settings_route.clone();
                 AppState::global().persistent.lock().unwrap().front = Some(val);
                 AppState::save_to_file();
-                let fut = async move {
-                    update_geojson(None, false).await;
-                };
-                fut.into_actor(self).spawn(ctx);
+                get_runtime().spawn(update_geojson(None, false));
+                if main_route == PersistedRoute::SettingsSubpage
+                    && settings_route == PersistedSettingsRoute::MapSettings
+                {
+                    // Received state while ui is on the map settings, try
+                    // updating the automap in case it was just turned on.
+                    get_runtime().spawn(update_automap());
+                    // Same goes for evicting data from the map cache (if the
+                    // user reduced the cache size).
+                    get_runtime().spawn(evict_old_map_data());
+                }
             }
             ToBack::ExportSqliteLog => {
                 AppState::global()
@@ -109,14 +122,13 @@ impl WsSession {
             }
             ToBack::GetPopupText((location, data_color)) => {
                 let recipient = ctx.address().recipient();
-                let fut = async move {
+                get_runtime().spawn(async move {
                     if let Some(msg) =
                         get_popup_text(location, data_color).await
                     {
                         recipient.do_send(MsgToFront(msg))
                     }
-                };
-                fut.into_actor(self).spawn(ctx);
+                });
             }
         }
     }
@@ -139,7 +151,7 @@ impl WsSession {
         // message to send to the frontend (or something like that, see
         // the SO thread linked in the docstring for more)
         let recipient = ctx.address().recipient();
-        let fut = async move {
+        get_runtime().spawn(async move {
             // update the last location and number of records in the past hour
             let rec = database::get_last_record().await;
             AppState::global()
@@ -159,20 +171,18 @@ impl WsSession {
             let back =
                 AppState::global().persistent.lock().unwrap().back.clone();
             recipient.do_send(MsgToFront(ToFront::BackState(back)));
-        };
-        fut.into_actor(self).spawn(ctx);
+        });
     }
 
     /// Sends all UI state values, used at startup.
     fn send_front_state(&self, ctx: &mut ws::WebsocketContext<Self>) {
         let recipient = ctx.address().recipient();
-        let fut = async move {
+        get_runtime().spawn(async move {
             // clone the state and send it
             let front =
                 AppState::global().persistent.lock().unwrap().front.clone();
             recipient.do_send(MsgToFront(ToFront::FrontState(front)));
-        };
-        fut.into_actor(self).spawn(ctx);
+        });
     }
 }
 

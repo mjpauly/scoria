@@ -12,6 +12,7 @@ static_file_targets = [
     "//src/app/stem/front:maplibregl_css",
     "//src/app/stem/front:when_in_use_auth",
     "//src/app/stem/front:always_auth",
+    "//src/app/stem/front:blank_png",
 ]
 
 # env var definitions to tell rust compiler where to find the files
@@ -25,11 +26,12 @@ static_file_env_defs = {
     "MAPLIBRE_CSS": "$(location //src/app/stem/front:maplibregl_css)",
     "WHEN_IN_USE_AUTH_PNG": "$(location //src/app/stem/front:when_in_use_auth)",
     "ALWAYS_AUTH_PNG": "$(location //src/app/stem/front:always_auth)",
+    "BLANK_PNG": "$(location //src/app/stem/front:blank_png)",
 }
 
 rust_library(
     name = "stem",
-    srcs = glob(["back/*.rs"]),
+    srcs = glob(["back/**/*.rs"]),
     edition = "2021",
     compile_data =
         glob(["migrations/*.sql"])
@@ -46,9 +48,16 @@ rust_library(
     deps = [
         ":common",
         ":alloc",
+        "@stem_crate_index//:geo",
+        "@stem_crate_index//:geojson",
+        "@stem_crate_index//:mvt",
+        "@stem_crate_index//:obfstr",
+        "@stem_crate_index//:pointy",
         "@stem_crate_index//:rand",
+        "@stem_crate_index//:reqwest",
         "@stem_crate_index//:sqlx",
         "@stem_crate_index//:tokio",
+        "@stem_crate_index//:walkdir",
         "@stem_crate_index//:anyhow",
         "@stem_crate_index//:actix-web",
         "@stem_crate_index//:actix",
@@ -81,6 +90,7 @@ rust_test(
     name = "unit_tests",
     crate = ":stem",
     size = "small",  # 20 MB RAM, 1 min timeout
+    crate_features = ["extra_debug_logging"],
     deps = [
         "@stem_crate_index//:reqwest", # for server health check unit test
         "@stem_crate_index//:futures-core",

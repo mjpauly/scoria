@@ -18,12 +18,13 @@ use std::sync::{Arc, Mutex};
 
 use actix_web::dev::ServerHandle;
 use common::state::{ok_or_default, MapState};
+use geojson::GeoJson;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 
 use crate::core::{error, log_with_dir, timestamp};
-use crate::geojson::Geojson;
+use crate::geojson::empty_geojson;
 use crate::paths::{get_library_dir, Paths};
 use crate::ws_session;
 use common::{BackState, FrontState};
@@ -60,13 +61,23 @@ pub struct AppState {
 
 /// Data to to shown on the map in the analyze tab, and helpers for calculating
 /// it.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct MapData {
     // data to plot (gets stringified in the actix route)
-    pub points_geojson: Geojson,
-    pub lines_geojson: Geojson,
+    pub points_geojson: GeoJson,
+    pub lines_geojson: GeoJson,
     // previous map state to determine if an update is needed
     pub prev_map_state: Option<MapState>,
+}
+
+impl Default for MapData {
+    fn default() -> Self {
+        Self {
+            points_geojson: empty_geojson(),
+            lines_geojson: empty_geojson(),
+            prev_map_state: None,
+        }
+    }
 }
 
 /// State that is persisted across app launches. Consists of two components that

@@ -1,12 +1,10 @@
 //! Builds the geojson data to plot in maplibre.
 
-use std::fmt;
-
 use actix_web::{
     http::header::{CacheControl, CacheDirective, ContentType},
     routes, HttpResponse, Responder,
 };
-use serde::Serialize;
+use geojson::{Feature, FeatureCollection, GeoJson, JsonObject, Value};
 
 use crate::{app_state::AppState, database, ws_session};
 use common::{
@@ -20,7 +18,7 @@ use common::{
 
 // The maximum number of data points to put into the geojson. If greater, we
 // decimate (select every nth) by a factor large enough to get under 40k points.
-static DECIMATION_THRESHOLD: usize = 40_000;
+static DECIMATION_THRESHOLD: usize = 30_000;
 
 #[routes]
 #[get("/points.geojson")]
@@ -56,54 +54,16 @@ pub async fn lines_geojson_route() -> impl Responder {
         )
 }
 
-#[derive(Debug, Serialize)]
-#[serde(tag = "type")]
-pub enum Geojson {
-    FeatureCollection { features: Vec<GeojsonFeature> },
+pub fn empty_geojson() -> GeoJson {
+    GeoJson::from(std::iter::empty::<Feature>().collect::<FeatureCollection>())
 }
 
-impl Geojson {
-    pub fn new_empty() -> Self {
-        Self::FeatureCollection { features: vec![] }
+fn feature_collection_from_vec(v: Vec<Feature>) -> FeatureCollection {
+    FeatureCollection {
+        features: v,
+        bbox: None,
+        foreign_members: None,
     }
-}
-
-impl fmt::Display for Geojson {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            serde_json::to_string(self).map_err(|_| fmt::Error)?
-        )
-    }
-}
-
-impl Default for Geojson {
-    fn default() -> Self {
-        Self::new_empty()
-    }
-}
-
-#[derive(Debug, Serialize)]
-#[serde(tag = "type")]
-pub enum GeojsonFeature {
-    Feature {
-        geometry: GeojsonGeometry,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        properties: Option<GeojsonProperties>,
-    },
-}
-
-#[derive(Debug, Serialize)]
-#[serde(tag = "type")]
-pub enum GeojsonGeometry {
-    Point { coordinates: (f64, f64) }, // (lng, lat)
-    LineString { coordinates: Vec<(f64, f64)> },
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct GeojsonProperties {
-    color: Option<String>, // color of the data point and popup background
 }
 
 /// Determine if the map state/style is different in a way that means we should
@@ -240,36 +200,33 @@ pub async fn update_geojson(new_data: Option<Location>, foregrounded: bool) {
                 // if data in this dimension not known, use a neutral gray color
                 "#808080"
             };
-            Some(GeojsonProperties {
-                color: Some(color.to_string()),
-            })
+            let mut props = JsonObject::new();
+            props.insert("color".to_string(), color.into());
+            Some(props)
         } else {
             None
         };
 
-        let coords = (records[i].longitude, records[i].latitude);
+        let coords = [records[i].longitude, records[i].latitude];
 
         if make_points {
-            points.push(GeojsonFeature::Feature {
-                geometry: GeojsonGeometry::Point {
-                    coordinates: coords,
-                },
-                properties: properties.clone(),
-            })
+            let mut feat = Feature::from(Value::Point(coords.into()));
+            feat.properties = properties.clone();
+            points.push(feat);
         }
         if make_line {
             let end_coords =
-                (records[i + 1].longitude, records[i + 1].latitude);
-            lines.push(GeojsonFeature::Feature {
-                geometry: GeojsonGeometry::LineString {
-                    coordinates: vec![coords, end_coords],
-                },
-                properties,
-            })
+                [records[i + 1].longitude, records[i + 1].latitude];
+            let mut feat = Feature::from(Value::LineString(vec![
+                coords.into(),
+                end_coords.into(),
+            ]));
+            feat.properties = properties.clone();
+            lines.push(feat);
         }
     }
-    let points_geojson = Geojson::FeatureCollection { features: points };
-    let lines_geojson = Geojson::FeatureCollection { features: lines };
+    let points_geojson = GeoJson::from(feature_collection_from_vec(points));
+    let lines_geojson = GeoJson::from(feature_collection_from_vec(lines));
     let mut map_data_guard = app_state.map_data.lock().unwrap();
     map_data_guard.points_geojson = points_geojson;
     map_data_guard.lines_geojson = lines_geojson;

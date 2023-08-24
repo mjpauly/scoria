@@ -141,3 +141,8 @@ filegroup(
     srcs = ["static/always_auth.png"],
     visibility = ["//visibility:public"],
 )
+filegroup(
+    name = "blank_png",
+    srcs = ["static/blank.png"],
+    visibility = ["//visibility:public"],
+)

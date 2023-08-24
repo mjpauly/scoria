@@ -54,6 +54,7 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 use anyhow::Result;
+use common::state::LastAutomapUpdate;
 use sqlx::{
     migrate::Migrator,
     sqlite::{SqliteConnectOptions, SqliteJournalMode},
@@ -293,6 +294,31 @@ pub async fn get_records_time_range(
     }
 }
 
+/// Get records that have happened after a timestamp, subject to a max limit on
+/// the number to of records to retrieve.
+pub async fn get_records_after_with_limit(
+    start_time: &time::OffsetDateTime,
+    max_records: u32,
+) -> Vec<common::Location> {
+    let conn = get_db_pool();
+    match sqlx::query_as::<_, LocationRow>(
+        "SELECT * FROM location WHERE timestamp > (?)
+        ORDER BY timestamp ASC
+        LIMIT (?)",
+    )
+    .bind(start_time.unix_timestamp())
+    .bind(max_records)
+    .fetch_all(&conn)
+    .await
+    {
+        Ok(result) => result.into_iter().map(|l| l.into()).collect(),
+        Err(e) => {
+            error("Failed to get records in time range.", e);
+            vec![]
+        }
+    }
+}
+
 /// Count the number of locations logged in the past hour.
 ///
 /// in SQLite, can also do time operations like so:
@@ -340,6 +366,23 @@ async fn count_all_records(conn: &SqlitePool) -> i32 {
     }
 }
 
+/// Get the timestamp of the first record in a database. Used to reset the
+/// automap last updated time so imported data can be processed.
+async fn get_first_timestamp(conn: &SqlitePool) -> time::OffsetDateTime {
+    match sqlx::query_as::<_, LocationRow>(
+        "SELECT * FROM location ORDER BY timestamp DESC LIMIT 1",
+    )
+    .fetch_one(conn)
+    .await
+    {
+        Ok(result) => common::Location::from(result).timestamp,
+        Err(e) => {
+            error("Failed to get first record.", e);
+            LastAutomapUpdate::default().0
+        }
+    }
+}
+
 /// Import records from a database. The database must be writable so we can
 /// migrate it to the current schema, if it's out of date.
 pub async fn import_database_records(import_db_path: PathBuf) {
@@ -369,6 +412,7 @@ pub async fn import_database_records(import_db_path: PathBuf) {
         return;
     }
     let n_to_import = count_all_records(&import_conn).await;
+    let first_import_timestamp = get_first_timestamp(&import_conn).await;
     import_conn.close().await;
 
     let conn = get_db_pool();
@@ -413,6 +457,8 @@ pub async fn import_database_records(import_db_path: PathBuf) {
     let n_final = count_all_records(&conn).await;
     let n_imported = n_final - n_initial;
 
+    reset_last_automap_update(&first_import_timestamp);
+
     debug(&format!(
         "Successfully imported {} records. ({} duplicates ignored.)",
         n_imported,
@@ -420,6 +466,22 @@ pub async fn import_database_records(import_db_path: PathBuf) {
     ));
 
     // TODO: send success to UI
+}
+
+/// reset the automap latest update time (if necessary), so it can regenerate
+/// for the newly imported records
+fn reset_last_automap_update(first_import_timestamp: &time::OffsetDateTime) {
+    let app_state = AppState::global();
+    let last_automap_update = &mut app_state
+        .persistent
+        .lock()
+        .unwrap()
+        .back
+        .last_automap_update
+        .0;
+    if *last_automap_update > *first_import_timestamp {
+        *last_automap_update = *first_import_timestamp
+    }
 }
 
 /// Convert between the Location we have for talking to the database and the
@@ -452,6 +514,7 @@ impl std::convert::From<LocationRow> for common::Location {
 
 #[cfg(test)]
 mod tests {
+    use crate::map::automap::{get_last_automap_update, update_automap};
     use crate::{local::test_setup, paths::get_documents_dir};
 
     use super::*;
@@ -511,6 +574,24 @@ mod tests {
         log_location(get_test_data(1)).await.unwrap(); // timestamp: 5
         log_location(get_test_data(2)).await.unwrap(); // timestamp: 10
 
+        // turn on automap to test that the last_updated time gets reset
+        // appropriately if data is added which is earlier
+        AppState::global().persistent.lock().unwrap().front =
+            Some(Default::default());
+        AppState::global()
+            .persistent
+            .lock()
+            .unwrap()
+            .front
+            .as_mut()
+            .unwrap()
+            .map
+            .style
+            .automap = true;
+        assert_eq!(get_last_automap_update().unix_timestamp(), 0);
+        update_automap().await;
+        assert_eq!(get_last_automap_update().unix_timestamp(), 10);
+
         // create a new database with a new record and a duplicate
         let docdir = get_documents_dir();
         let db_name = "to_import.db";
@@ -548,7 +629,7 @@ mod tests {
             VALUES
                 (?,?,?,?)",
         )
-        .bind(15) // unique timestamp
+        .bind(8) // unique timestamp
         .bind(4.0)
         .bind(4.0)
         .bind(4.0)
@@ -570,9 +651,8 @@ mod tests {
             records,
             vec![
                 get_test_data(1).into(),
-                get_test_data(2).into(),
                 common::Location {
-                    timestamp: time::OffsetDateTime::from_unix_timestamp(15)
+                    timestamp: time::OffsetDateTime::from_unix_timestamp(8)
                         .unwrap(),
                     latitude: 4.0,
                     longitude: 4.0,
@@ -589,8 +669,13 @@ mod tests {
                     is_produced_by_accessory: None,
                     was_imported: true,
                 },
+                get_test_data(2).into(),
             ]
         );
+        // automap time should have gone back from 10 to 8
+        assert_eq!(get_last_automap_update().unix_timestamp(), 8);
+        update_automap().await;
+        assert_eq!(get_last_automap_update().unix_timestamp(), 10);
     }
 
     /// Test that migrating the database works, and that the data persists.

@@ -52,6 +52,12 @@ class ViewController: UIViewController, MyViewControllerProtocol, WKNavigationDe
         webView.scrollView.bounces = false
         webView.isOpaque = false
         webView.backgroundColor = UIColor.clear
+#if DEBUG_WEBVIEW
+        if #available(macOS 13.3, iOS 16.4, tvOS 16.4, *) {
+            webView.isInspectable = true
+            print("Debugable webView")
+        }
+#endif
         return webView
     }()
     

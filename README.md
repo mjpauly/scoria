@@ -2,18 +2,20 @@
 
 ## To Do
 
-- website
-    - [ ] cross compile website binary
-    - [ ] try kube for scoria.app
 - accessibility
     - [ ] accessible map size scaling
 - debug-ability
     - [ ] action failure alterts (esp for importing)
-    - [ ] ability to export stemlog for debugging
+    - [ ] ability to submit bug report and export stemlog
 - features
-    - [ ] automap to occlude unexplored areas (100m radius? diameter?)
+    - [ ] remove scoria server option code
+    - [ ] only allow webView to make network requests to backend
+    - [ ] fix dateline bug
+    - [ ] blank map option
+    - [ ] show latest location
     - [ ] zoom to current location on first install
     - [ ] quick time update buttons
+    - [ ] better obfuscating, include\_crypt, etc
 - [ ] reset to "today" time range and data-centered view if user is away from
     the app for 1+ hr
 - [ ] export tab on map (csv, maybe image)
@@ -28,6 +30,7 @@
 - [ ] have maps\_ok respond with 204 No Content instead of 404
 - [ ] custom map style that uses more black
 - [ ] arcgis HD satellite maps
+- [ ] follow current location mode on map
 
 - later features
     - sensing: environmental noise
@@ -141,6 +144,9 @@
 - [x] accessible font sizing for colorbar, attribution
 - [x] custom user agent to restrict api access
     - [x] also allow only `127.0.0.1` origins
+- website
+    - [x] cross compile website binary
+- [x] automap to occlude unexplored areas
 
 ## Structure
 
@@ -392,3 +398,9 @@ developer.apple.com.
 
 For some reason, on iOS onclick events don't fire when the padding of a div is
 clicked, only the content. This can be fixed by changing the div into a button.
+
+### Default Action Won't Run in Xcode
+
+Usually a "PhaseScriptExecution failed with nonzero .." error. Try cleaning the
+Derived Data from xcode (File -> Project Settings -> gray arrow -> delete
+corresponding directory).

@@ -21,6 +21,7 @@ pub mod core; // high-level app logic that spans multiple modules
 pub mod database; // manages the SQLite database
 pub mod geojson; // construct the data to display in the frontend
 pub mod location_config; // location logging configuration
+pub mod map;
 pub mod paths; // stores and retrieve file system paths
 pub mod runtime; // retrieves async runtime for use in the sync C interface
 pub mod server; // server for the UI
@@ -88,6 +89,7 @@ pub extern "C" fn handle_enter_foreground() -> server::ServerConfig {
     runtime::get_runtime().block_on(async {
         // We may have received new data while in the background
         tokio::spawn(geojson::update_geojson(None, true));
+        tokio::spawn(map::automap::update_automap());
         server::run(0, true).await
     })
 }

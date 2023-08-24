@@ -12,8 +12,20 @@ use std::io::prelude::*;
 use crate::app_state::AppState;
 use crate::database::{self, OSLocationData};
 use crate::geojson::update_geojson;
+use crate::map::automap::update_automap;
 use crate::paths::get_documents_dir;
 use crate::ws_session;
+
+pub fn send_state_to_front() {
+    // We first want to get the address, NOT in the "if let" scrutinee, since
+    // the lock will be held for the whole if-block, and we won't be able to
+    // await
+    let maybe_addr = AppState::global().ws_addr.lock().unwrap().clone();
+    // If the UI is active, we'll send it the new location to display
+    if let Some(addr) = maybe_addr {
+        addr.do_send(ws_session::SendState);
+    }
+}
 
 pub async fn log_location(loc: OSLocationData) {
     // Log the location in our database
@@ -28,6 +40,7 @@ pub async fn log_location(loc: OSLocationData) {
     if let Some(addr) = maybe_addr {
         addr.do_send(ws_session::SendState);
         tokio::spawn(update_geojson(Some(loc.into()), false));
+        tokio::spawn(update_automap());
     }
 }
 

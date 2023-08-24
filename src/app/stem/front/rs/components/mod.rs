@@ -4,6 +4,7 @@ pub mod buttons;
 pub mod colorbar;
 pub mod location_config;
 pub mod location_filter_list;
+pub mod map_settings;
 pub mod map_styler;
 pub mod navbar;
 pub mod time_range_picker;

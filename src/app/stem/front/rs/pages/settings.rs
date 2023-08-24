@@ -5,6 +5,7 @@ use yew_icons::{Icon, IconId};
 use yew_router::prelude::*;
 
 use crate::components::buttons::DoneButton;
+use crate::components::map_settings::{AutomapSetting, CacheSetting};
 use crate::components::unit_picker::UnitPicker;
 use crate::components::{HomeBarSpacer, TopNav};
 use crate::router::{Route, SettingsRoute};
@@ -22,6 +23,12 @@ pub fn Settings() -> Html {
         let navigator = navigator.clone();
         Callback::from(move |_e: MouseEvent| {
             navigator.push(&SettingsRoute::General)
+        })
+    };
+    let mapsettings_onclick = {
+        let navigator = navigator.clone();
+        Callback::from(move |_e: MouseEvent| {
+            navigator.push(&SettingsRoute::MapSettings)
         })
     };
     let datalog_onclick = Callback::from(move |_e: MouseEvent| {
@@ -54,6 +61,13 @@ pub fn Settings() -> Html {
                         flex items-center justify-between"
                         onclick={general_onclick}>
                         <label>{"General"}</label>
+                        <Icon icon_id={IconId::BootstrapChevronRight}
+                            class="h-4 w-4 text-neutral-500" />
+                    </button>
+                    <button class="py-2 border-b border-neutral-800 w-full \
+                        flex items-center justify-between"
+                        onclick={mapsettings_onclick}>
+                        <label>{"Map"}</label>
                         <Icon icon_id={IconId::BootstrapChevronRight}
                             class="h-4 w-4 text-neutral-500" />
                     </button>
@@ -109,14 +123,44 @@ pub fn General() -> Html {
             // norm for all mobile websites).
             <div class="grow overflow-scroll h-0 \
                 px-4 w-full max-w-prose mx-auto">
-                <h1 class="font-bold text-3xl text-left py-4 px-2">
+                <h1 class="font-bold text-3xl text-left my-4 px-2">
                     {"General"}
                 </h1>
-                <p class="font-bold pb-2 text-left px-4">
+                <p class="font-bold text-xl pb-2 text-left px-4 mt-6">
                     {"Units"}
                 </p>
                 <UnitPicker />
                 // {for _big_list}
+            </div>
+
+            <HomeBarSpacer />
+        </>
+    }
+}
+
+#[function_component]
+pub fn MapSettings() -> Html {
+    html! {
+        <>
+            <TopNav>
+                <MainSettingsButton />
+                <DoneButton />
+            </TopNav>
+            <div class="grow overflow-scroll h-0 \
+                px-4 w-full max-w-prose mx-auto">
+                <h1 class="font-bold text-3xl text-left my-4 px-2">
+                    {"Map"}
+                </h1>
+
+                <p class="font-bold text-xl pb-2 text-left px-4 mt-6">
+                    {"Automap"}
+                </p>
+                <AutomapSetting />
+
+                <p class="font-bold text-xl pb-2 text-left px-4 mt-6">
+                    {"Cache"}
+                </p>
+                <CacheSetting />
             </div>
 
             <HomeBarSpacer />
@@ -174,7 +218,7 @@ pub fn DataSettings() -> Html {
                     // settings line
                     <button onclick={export_onclick}
                         class="flex items-center justify-between py-2 w-full">
-                        <span class="text-primary">
+                        <span class="text-red-600">
                             {"Export Log"}
                         </span>
                     </button>

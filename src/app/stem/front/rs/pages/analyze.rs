@@ -202,7 +202,7 @@ fn PlotComponent() -> Html {
         use_selector(|s: &FrontState| s.use_scoria_tile_server);
 
     // The style json string for the basemap without user data on top
-    let basemap = use_state(|| Option::<String>::None);
+    let basemap = use_state(|| Option::<Value>::None);
     {
         let basemap = basemap.clone();
         use_effect_with_deps(
@@ -217,10 +217,18 @@ fn PlotComponent() -> Html {
                         *use_scoria_tile_server,
                     );
                     let basemap_str = match Request::get(&url).send().await {
-                        Ok(req) => req.text().await.unwrap_or(blank_map),
-                        Err(_) => blank_map,
+                        Ok(req) => req
+                            .text()
+                            .await
+                            .unwrap_or_else(|_| blank_map.clone()),
+                        Err(_) => blank_map.clone(),
                     };
-                    basemap.set(Some(basemap_str));
+                    // if we can't parse the json, just make it a blank map
+                    let basemap_obj: Value = serde_json::from_str(&basemap_str)
+                        .unwrap_or_else(|_| {
+                            serde_json::from_str(&blank_map).unwrap()
+                        });
+                    basemap.set(Some(basemap_obj));
                 });
                 || ()
             },
@@ -235,9 +243,8 @@ fn PlotComponent() -> Html {
         use_effect_with_deps(
             move |(basemap, map_style)| {
                 // if we've loaded the basemap json from the http request
-                if let Some(basemap_str) = &**basemap {
-                    let mut style_obj: Value =
-                        serde_json::from_str(basemap_str).unwrap();
+                if let Some(basemap_obj) = &**basemap {
+                    let mut style_obj = basemap_obj.clone();
                     add_source_and_layers_to_style(&mut style_obj, map_style);
                     style.set(Some(style_obj));
                 }

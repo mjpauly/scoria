@@ -36,8 +36,8 @@ ios_application(
 # the LAST build number matching "7.5.x"
 apple_bundle_version(
     name = "app_version",
-    build_version = "1.1.2",
-    short_version_string = "1.1",
+    build_version = "1.2.0",
+    short_version_string = "1.2",
 )
 
 swift_library(
@@ -49,4 +49,9 @@ swift_library(
     deps = [
         "//src/app/ios/sensing",
     ],
+    defines = select({
+        # disallow debugging the webview in app distribution
+        "//:distribution_profile": [],
+        "//conditions:default": ["DEBUG_WEBVIEW"],
+    }),
 )

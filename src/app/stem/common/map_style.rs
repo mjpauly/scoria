@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     cmaps::{Cmap, CmapParams},
     float,
+    state::ok_or_default,
     units::UnitPreference,
     Location,
 };
@@ -20,6 +21,8 @@ pub struct MapStyle {
     pub basemap_style: BasemapStyle,
     pub colored_datastream: ColoredDataStream,
     pub show_colorbar: bool,
+    #[serde(deserialize_with = "ok_or_default")]
+    pub automap: bool, // hide unexplored map regions
 }
 
 impl MapStyle {
@@ -42,6 +45,7 @@ impl Default for MapStyle {
             basemap_style: Default::default(),
             colored_datastream: Default::default(),
             show_colorbar: true,
+            automap: false,
         }
     }
 }
