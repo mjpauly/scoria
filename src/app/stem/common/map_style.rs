@@ -77,6 +77,26 @@ pub enum BasemapStyle {
     Satellite,
 }
 
+impl BasemapStyle {
+    /// Returns true if the style is a dark theme
+    /// We consider sattelite to be a dark theme since its background is black
+    pub fn is_dark(&self) -> bool {
+        match self {
+            Self::BasicDark
+            | Self::DatavizDark
+            | Self::StreetsDark
+            | Self::TopoDark
+            | Self::OutdoorDark
+            | Self::Satellite => true,
+            Self::Basic
+            | Self::Dataviz
+            | Self::Streets
+            | Self::Topo
+            | Self::Outdoor => false,
+        }
+    }
+}
+
 // Displays according to order of this array
 pub static BASEMAP_STRINGS: [(BasemapStyle, &str); 11] = [
     (BasemapStyle::Basic, "Basic"),

@@ -169,7 +169,7 @@ pub async fn update_automap() {
         // Prevent concurrent updating:
         let Ok(_update_guard) = UPDATE_LOCK.try_lock() else { return };
 
-        debug("Updating automap");
+        // debug("Updating automap");
         let mut last_automap_update = get_last_automap_update();
         update_num_automap_records_remaining(&last_automap_update).await;
         // get a batch of records to update the automap with
@@ -190,7 +190,7 @@ pub async fn update_automap() {
             records_batch = get_records_batch(&last_automap_update).await;
         }
         send_state_to_front();
-        debug("Done updating automap");
+        // debug("Done updating automap");
     }
 }
 

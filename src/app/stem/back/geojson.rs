@@ -18,7 +18,7 @@ use common::{
 
 // The maximum number of data points to put into the geojson. If greater, we
 // decimate (select every nth) by a factor large enough to get under 40k points.
-static DECIMATION_THRESHOLD: usize = 30_000;
+static DECIMATION_THRESHOLD: usize = 20_000;
 
 #[routes]
 #[get("/points.geojson")]

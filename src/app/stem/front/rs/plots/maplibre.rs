@@ -327,7 +327,7 @@ pub fn add_source_and_layers_to_style(style: &mut Value, map_style: &MapStyle) {
     // Earlier layers are lower in the map view.
     // Unexplored area first, then lines, then points which go on top
     if map_style.automap {
-        let screen = make_screen_layer(style);
+        let screen = make_screen_layer(style, map_style);
         style["layers"].as_array_mut().unwrap().push(screen);
     }
     let layers_mut = style["layers"].as_array_mut().unwrap();
@@ -362,7 +362,12 @@ fn screen_source() -> Value {
     })
 }
 
-fn make_screen_layer(style: &Value) -> Value {
+fn make_screen_layer(style: &Value, map_style: &MapStyle) -> Value {
+    let outline_color = if map_style.basemap_style.is_dark() {
+        "hsl(240, 60%, 80%)" // light, low-saturation blue/purple
+    } else {
+        "hsl(240, 60%, 40%)" // dark, low-saturation blue/purple
+    };
     json!({
         "id": UNEXPLORED_LAYER_ID,
         "type": "fill",
@@ -371,9 +376,8 @@ fn make_screen_layer(style: &Value) -> Value {
         // Do not want "minzoom" and "maxzoom" here since they define the range
         // where the tiles are shown
         "paint": {
-            // "fill-color": "hsl(0, 0%, 17%)",
             "fill-color": get_background_color(style),
-            "fill-outline-color": "#ff0", // yellow for visibility
+            "fill-outline-color": outline_color,
         },
     })
 }

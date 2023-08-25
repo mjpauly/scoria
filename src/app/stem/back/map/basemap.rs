@@ -223,7 +223,7 @@ fn build_response(
 ) -> HttpResponse {
     substitute_urls(&mut bytes, req, path);
     let content_type = match path.extension().and_then(OsStr::to_str) {
-        Some("json") => "application/x-protobuf",
+        Some("json") => "application/json",
         Some("pbf") => "application/x-protobuf",
         Some("png") => "image/png",
         Some("jpg") => "image/jpg",
