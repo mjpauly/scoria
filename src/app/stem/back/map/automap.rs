@@ -165,20 +165,28 @@ const BATCH_SIZE: u32 = 100;
 static UPDATE_LOCK: Mutex<()> = Mutex::const_new(());
 
 pub async fn update_automap() {
+    /*
+     * HOTFIX: disabling automap update since geo difference seems to
+     * occasionally get stuck in an infinite loop, causing 100% CPU usage, iOS
+     * to shutdown the app, and location to not get logged.
+     * TODO: switch to a different difference operation like in geo_clipper
     if automap_is_on() {
         // Prevent concurrent updating:
         let Ok(_update_guard) = UPDATE_LOCK.try_lock() else { return };
 
-        // debug("Updating automap");
+        debug("Updating automap");
         let mut last_automap_update = get_last_automap_update();
         update_num_automap_records_remaining(&last_automap_update).await;
         // get a batch of records to update the automap with
         let mut records_batch = get_records_batch(&last_automap_update).await;
         // while the retrieval gives us a non-empty vector of records
         while let Some(last_record) = records_batch.last() {
+            debug(&format!("recs in batch: {}", records_batch.len()));
+            debug(&format!("last update: {:?}", last_automap_update));
             // get the explored area for the batch and update the tiles
             let explored = get_explored_area(&records_batch).await;
             update_tiles(explored);
+            debug("after update tiles");
 
             // set the last update time to the last record's timestamp
             last_automap_update = last_record.timestamp;
@@ -190,8 +198,9 @@ pub async fn update_automap() {
             records_batch = get_records_batch(&last_automap_update).await;
         }
         send_state_to_front();
-        // debug("Done updating automap");
+        debug("Done updating automap");
     }
+    */
 }
 
 async fn get_records_batch(
@@ -250,14 +259,20 @@ const MIN_KEEP_AREA: f64 = 0.001 * 0.001;
 async fn get_explored_area(
     unfiltered_records: &[common::Location],
 ) -> MultiPolygon {
+    // debug("explored area");
     // filter out data points with accuracy worse than 100m (our view radius)
     let filtered_records =
         apply_filters(&default_accuracy_filter(), unfiltered_records);
+    // debug("applied filters");
     let mut explored = MultiPolygon::new(vec![]);
-    for rec in filtered_records {
+    for (i, rec) in filtered_records.iter().enumerate() {
+        // debug(&format!("rec {}", i));
         let new = MultiPolygon::new(vec![calc_explored_polygon(rec)]);
+        // debug("calc'd explored");
         explored = improved_union(&explored, &new).unwrap_or(explored);
+        // debug("unioned");
         explored = explored.simplify_vw_preserve(&MIN_KEEP_AREA);
+        // debug("simplified");
         // println!("pts: {}", explored.coords_count());
     }
     explored
@@ -299,14 +314,20 @@ fn calc_explored_polygon(rec: &Location) -> Polygon {
 /// Updates tiles at each zoom level. When moving to the next zoom level, all
 /// coordinates are halved and the explored area is simplified again.
 fn update_tiles(mut explored: MultiPolygon) {
+    // debug("update_tiles");
+    // debug(&format!("explored: {:?}", explored));
     // divide all coordinates by two when going to next zoom level
     let halve_coords = AffineTransform::scale(0.5, 0.5, coord! {x: 0., y: 0. });
     for z in (0..=MAXZOOM).rev() {
+        // println!("zoom: {z}");
         // println!("z {}, pts: {}", z, explored.coords_count());
         explored = explored.simplify_vw_preserve(&MIN_KEEP_AREA);
+        // println!("simplified");
         // println!("pts after tile simplify: {}", explored.coords_count());
         update_tiles_at_zoom(&explored, z);
+        // println!("updated tiles");
         explored.affine_transform_mut(&halve_coords);
+        // println!("halved coords");
     }
 }
 
@@ -331,6 +352,7 @@ fn update_tiles_at_zoom(explored: &MultiPolygon, z: i32) {
     }
     // for each tile, difference with explored and save back to file
     for (x, y) in tiles_to_update {
+        // println!("xy: {x}, {y}");
         let x = x as f64;
         let y = y as f64;
         let tilepos = TileXYZ { x, y, z };
@@ -339,13 +361,17 @@ fn update_tiles_at_zoom(explored: &MultiPolygon, z: i32) {
             SavedScreen::PartiallyExplored(saved) => saved,
             SavedScreen::FullyExplored => continue,
         };
+        // println!("got saved");
         // translate the explored region into the normalized tile coordinates
         let shifted_explored =
             explored.affine_transform(&AffineTransform::translate(-x, -y));
+        // println!("translated");
         if let Ok(new_unexplored) =
             improved_difference(&saved, &shifted_explored)
         {
+            // println!("diff'ed");
             write_saved_screen(&tilepos, &new_unexplored);
+            // println!("wrote");
         }
     }
 }
@@ -388,12 +414,19 @@ fn improved_difference(
 ) -> anyhow::Result<MultiPolygon> {
     let left = left.map_coords(scale_up_and_round);
     let right = right.map_coords(scale_up_and_round);
+    // println!("about to diff");
+    // println!("left: {:?}", left);
+    // println!("right: {:?}", right);
+    // std::fs::write("left.bin", bincode::serialize(&left).unwrap()).unwrap();
+    // std::fs::write("right.bin", bincode::serialize(&right).unwrap()).unwrap();
+    // println!("{:?}", std::env::current_dir().unwrap());
     let mut diff = std::panic::catch_unwind(|| left.difference(&right))
         .map_err(|_| {
             println!("right: {:?}", right);
             debug("Failed to compute polygon difference despite truncating.");
             anyhow!("Failed to compute difference")
         })?;
+    // println!("diffed");
     diff.map_coords_in_place(scale_down);
     Ok(diff)
 }

@@ -27,7 +27,8 @@ pub fn AutomapSetting() -> Html {
     let num_remaining =
         use_selector(|state: &BackState| state.num_automap_records_remaining);
     let status_text = if *num_remaining < 5 {
-        "Status: up-to-date".into()
+        // "Status: up-to-date".into()
+        "Status: Updating disabled until bug fix in next release".into()
     } else {
         format!("Status: {num_remaining} records remaining.")
     };
