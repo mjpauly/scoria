@@ -7,9 +7,13 @@
 - debug-ability
     - [ ] action failure alterts (esp for importing)
     - [ ] ability to submit bug report and export stemlog
+- security
+    - [ ] wasm opt, stripping
+    - [ ] native binary stripping
+    - [ ] investigate rcgen certificates, extra query parameter frontend key
+    - [ ] only allow webView to make network requests to backend
 - features
     - [ ] remove scoria server option code
-    - [ ] only allow webView to make network requests to backend
     - [ ] fix dateline bug
     - [ ] blank map option
     - [ ] show latest location
@@ -385,6 +389,7 @@ developer.apple.com.
 4. Build the app
     4a. Developemnt: `bazel build //:iosapp --ios_multi_cpus=arm64 -c opt`
     4b. Distribution: `bazel build //:iosapp --ios_multi_cpus=arm64 --device_debug_entitlements=false --define profile=distribution -c opt`
+     - or: `bazel bulid //:iosapp --config=app_release`
 5. Locate the `.ipa` archive in `bazel-bin/src/app/ios/top/Scoria.ipa`.
 6. Install/upload the app
     6a. Developemnt: Go to Xcode -> devices and simulators -> [your device] ->

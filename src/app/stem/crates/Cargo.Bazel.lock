@@ -1,5 +1,5 @@
 {
-  "checksum": "13a34d5cbcc0b8f9d732ec363b4f09729e16aca0b5318ab7a5fbc9e5b9732ffc",
+  "checksum": "52a2a77f8cbe3844bd0f7201771fde5eb124a871bad32349229887766634536b",
   "crates": {
     "actix 0.13.0": {
       "name": "actix",
@@ -2796,6 +2796,74 @@
       },
       "license": "MIT/Apache-2.0"
     },
+    "clipper-sys 0.7.2": {
+      "name": "clipper-sys",
+      "version": "0.7.2",
+      "repository": {
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/clipper-sys/0.7.2/download",
+          "sha256": "dc6bccb550d47c390af7a601bee66a74fd3a01163feb85442021096f5533d2e5",
+          "patch_args": [
+            "-p1"
+          ],
+          "patches": [
+            "@//src/app/stem/crates:clipper_sys_ios.patch"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "clipper_sys",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        },
+        {
+          "BuildScript": {
+            "crate_name": "build_script_build",
+            "crate_root": "build.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "clipper_sys",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "deps": {
+          "common": [
+            {
+              "id": "clipper-sys 0.7.2",
+              "target": "build_script_build"
+            }
+          ],
+          "selects": {}
+        },
+        "edition": "2018",
+        "version": "0.7.2"
+      },
+      "build_script_attrs": {
+        "data_glob": [
+          "**"
+        ],
+        "deps": {
+          "common": [
+            {
+              "id": "cc 1.0.79",
+              "target": "cc"
+            }
+          ],
+          "selects": {}
+        }
+      },
+      "license": "ISC"
+    },
     "codespan-reporting 0.11.1": {
       "name": "codespan-reporting",
       "version": "0.11.1",
@@ -4293,6 +4361,10 @@
             {
               "id": "geo 0.26.0",
               "target": "geo"
+            },
+            {
+              "id": "geo-clipper 0.7.3",
+              "target": "geo_clipper"
             },
             {
               "id": "geojson 0.24.1",
@@ -6160,6 +6232,49 @@
         "version": "0.26.0"
       },
       "license": "MIT OR Apache-2.0"
+    },
+    "geo-clipper 0.7.3": {
+      "name": "geo-clipper",
+      "version": "0.7.3",
+      "repository": {
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/geo-clipper/0.7.3/download",
+          "sha256": "7aaaa528780ab908be7d51317f9e06147c6b562b8133bc952f09508e101c085c"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "geo_clipper",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "geo_clipper",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "deps": {
+          "common": [
+            {
+              "id": "clipper-sys 0.7.2",
+              "target": "clipper_sys"
+            },
+            {
+              "id": "geo-types 0.7.11",
+              "target": "geo_types"
+            }
+          ],
+          "selects": {}
+        },
+        "edition": "2018",
+        "version": "0.7.3"
+      },
+      "license": "ISC"
     },
     "geo-types 0.7.11": {
       "name": "geo-types",

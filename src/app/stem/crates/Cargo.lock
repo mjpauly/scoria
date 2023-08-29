@@ -565,6 +565,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "clipper-sys"
+version = "0.7.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dc6bccb550d47c390af7a601bee66a74fd3a01163feb85442021096f5533d2e5"
+dependencies = [
+ "cc",
+]
+
+[[package]]
 name = "codespan-reporting"
 version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -849,6 +858,7 @@ dependencies = [
  "futures-core",
  "futures-util",
  "geo",
+ "geo-clipper",
  "geojson",
  "getrandom",
  "gloo-net",
@@ -1196,6 +1206,16 @@ dependencies = [
  "num-traits",
  "robust",
  "rstar",
+]
+
+[[package]]
+name = "geo-clipper"
+version = "0.7.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7aaaa528780ab908be7d51317f9e06147c6b562b8133bc952f09508e101c085c"
+dependencies = [
+ "clipper-sys",
+ "geo-types",
 ]
 
 [[package]]

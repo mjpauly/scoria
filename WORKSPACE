@@ -116,13 +116,26 @@ load("@rules_rust//crate_universe:defs.bzl", "crate", "crates_repository", "rend
 # e.g. deps = [ ... , "@stem_crate_index//:tokio", ]
 crates_repository(
     name = "stem_crate_index",
-    cargo_lockfile = "//src/app/stem:Cargo.lock",
-    lockfile = "//src/app/stem:Cargo.Bazel.lock",
+    cargo_lockfile = "//src/app/stem/crates:Cargo.lock",
+    lockfile = "//src/app/stem/crates:Cargo.Bazel.lock",
     isolated = False,  # cache results of the previous invocation to
                        # ${HOME}/.cargo so using it is fast
+    # Patches:
+    # If changes in fork have been committed, generate the patch with
+    # $ git format-patch --keep-subject --no-stat --zero-commit origin/main
+    # more info: https://brentley.dev/patching-bazel-external-dependencies/
+    annotations = {
+        # Patch-in iOS support in the clipper-sys build script (dep of
+        # geo-clipper)
+        "clipper-sys": [crate.annotation(
+            patches = ["@//src/app/stem/crates:clipper_sys_ios.patch"],
+            patch_args = ["-p1"],
+        )],
+    },
     packages = {
         "futures-core": crate.spec(version = "0.3.28"),
         "geo": crate.spec(version = "0.26.0"),
+        "geo-clipper": crate.spec(version = "0.7.3"),
         "geojson": crate.spec(version = "0.24.1", features = ["geo-types"]),
         "mvt": crate.spec(version = "0.8.1"),
         "pointy": crate.spec(version = "0.4.0"),

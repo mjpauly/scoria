@@ -15,19 +15,18 @@ use std::path::PathBuf;
 
 use actix_web::http::header::{ACCESS_CONTROL_ALLOW_ORIGIN, CACHE_CONTROL};
 use actix_web::{routes, web, HttpResponse, Responder};
-use anyhow::anyhow;
 use geo::{
-    coord, line_string, AffineOps, AffineTransform, BooleanOps, Coord,
-    CoordsIter, LineString, MapCoords, MapCoordsInPlace, MultiPolygon, Polygon,
-    SimplifyVwPreserve, Winding,
+    coord, line_string, AffineOps, AffineTransform, Coord, CoordsIter,
+    LineString, MultiPolygon, Polygon, SimplifyVwPreserve, Winding,
 };
+use geo_clipper::Clipper;
 use mvt::{Error, GeomEncoder, GeomType, Tile};
 use pointy::Transform;
 use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
 
 use crate::app_state::AppState;
-use crate::core::{debug, send_state_to_front};
+use crate::core::send_state_to_front;
 use crate::database;
 use crate::paths::get_unexplored_data_dir;
 use common::filters::apply_filters;
@@ -95,8 +94,8 @@ fn get_screen_tile(path: &web::Path<String>) -> Option<Vec<u8>> {
     }
 }
 
-static TILE_EXTENT_INT: u32 = 4096; // 4096 extent is standard
-static TILE_EXTENT: f64 = TILE_EXTENT_INT as f64;
+const TILE_EXTENT_INT: u32 = 4096; // 4096 extent is standard
+const TILE_EXTENT: f64 = TILE_EXTENT_INT as f64;
 
 /// Convert the area polygons in tile coordinates (0–1) into the tile bytes.
 ///
@@ -165,28 +164,20 @@ const BATCH_SIZE: u32 = 100;
 static UPDATE_LOCK: Mutex<()> = Mutex::const_new(());
 
 pub async fn update_automap() {
-    /*
-     * HOTFIX: disabling automap update since geo difference seems to
-     * occasionally get stuck in an infinite loop, causing 100% CPU usage, iOS
-     * to shutdown the app, and location to not get logged.
-     * TODO: switch to a different difference operation like in geo_clipper
     if automap_is_on() {
         // Prevent concurrent updating:
         let Ok(_update_guard) = UPDATE_LOCK.try_lock() else { return };
 
-        debug("Updating automap");
+        // debug("Updating automap");
         let mut last_automap_update = get_last_automap_update();
         update_num_automap_records_remaining(&last_automap_update).await;
         // get a batch of records to update the automap with
         let mut records_batch = get_records_batch(&last_automap_update).await;
         // while the retrieval gives us a non-empty vector of records
         while let Some(last_record) = records_batch.last() {
-            debug(&format!("recs in batch: {}", records_batch.len()));
-            debug(&format!("last update: {:?}", last_automap_update));
             // get the explored area for the batch and update the tiles
             let explored = get_explored_area(&records_batch).await;
             update_tiles(explored);
-            debug("after update tiles");
 
             // set the last update time to the last record's timestamp
             last_automap_update = last_record.timestamp;
@@ -198,9 +189,8 @@ pub async fn update_automap() {
             records_batch = get_records_batch(&last_automap_update).await;
         }
         send_state_to_front();
-        debug("Done updating automap");
+        // debug("Done updating automap");
     }
-    */
 }
 
 async fn get_records_batch(
@@ -254,6 +244,11 @@ const VIEW_RADIUS_DEG: f64 = (VIEW_RADIUS_METERS / EARTH_RADIUS) * 360.0 / TAU;
 // axis, which is greater than the 1/4096 fractional truncation grid size.
 const MIN_KEEP_AREA: f64 = 0.001 * 0.001;
 
+// BoolOp precision (scale factor to increase before casting as integer)
+// We keep at the tile size, since it's a good default given how large tiles
+// are when displayed on the screen.
+const BOOL_OP_SCALE_FACTOR: f64 = TILE_EXTENT;
+
 /// Get the area explored by a set of records (union of their view ellipses)
 /// and return it in tile coordinates at the maximum zoom level.
 async fn get_explored_area(
@@ -265,14 +260,10 @@ async fn get_explored_area(
         apply_filters(&default_accuracy_filter(), unfiltered_records);
     // debug("applied filters");
     let mut explored = MultiPolygon::new(vec![]);
-    for (i, rec) in filtered_records.iter().enumerate() {
-        // debug(&format!("rec {}", i));
+    for rec in filtered_records {
         let new = MultiPolygon::new(vec![calc_explored_polygon(rec)]);
-        // debug("calc'd explored");
-        explored = improved_union(&explored, &new).unwrap_or(explored);
-        // debug("unioned");
+        explored = explored.union(&new, BOOL_OP_SCALE_FACTOR);
         explored = explored.simplify_vw_preserve(&MIN_KEEP_AREA);
-        // debug("simplified");
         // println!("pts: {}", explored.coords_count());
     }
     explored
@@ -314,20 +305,14 @@ fn calc_explored_polygon(rec: &Location) -> Polygon {
 /// Updates tiles at each zoom level. When moving to the next zoom level, all
 /// coordinates are halved and the explored area is simplified again.
 fn update_tiles(mut explored: MultiPolygon) {
-    // debug("update_tiles");
-    // debug(&format!("explored: {:?}", explored));
     // divide all coordinates by two when going to next zoom level
     let halve_coords = AffineTransform::scale(0.5, 0.5, coord! {x: 0., y: 0. });
     for z in (0..=MAXZOOM).rev() {
-        // println!("zoom: {z}");
         // println!("z {}, pts: {}", z, explored.coords_count());
         explored = explored.simplify_vw_preserve(&MIN_KEEP_AREA);
-        // println!("simplified");
         // println!("pts after tile simplify: {}", explored.coords_count());
         update_tiles_at_zoom(&explored, z);
-        // println!("updated tiles");
         explored.affine_transform_mut(&halve_coords);
-        // println!("halved coords");
     }
 }
 
@@ -352,7 +337,6 @@ fn update_tiles_at_zoom(explored: &MultiPolygon, z: i32) {
     }
     // for each tile, difference with explored and save back to file
     for (x, y) in tiles_to_update {
-        // println!("xy: {x}, {y}");
         let x = x as f64;
         let y = y as f64;
         let tilepos = TileXYZ { x, y, z };
@@ -361,90 +345,13 @@ fn update_tiles_at_zoom(explored: &MultiPolygon, z: i32) {
             SavedScreen::PartiallyExplored(saved) => saved,
             SavedScreen::FullyExplored => continue,
         };
-        // println!("got saved");
         // translate the explored region into the normalized tile coordinates
         let shifted_explored =
             explored.affine_transform(&AffineTransform::translate(-x, -y));
-        // println!("translated");
-        if let Ok(new_unexplored) =
-            improved_difference(&saved, &shifted_explored)
-        {
-            // println!("diff'ed");
-            write_saved_screen(&tilepos, &new_unexplored);
-            // println!("wrote");
-        }
+        let new_explored =
+            saved.difference(&shifted_explored, BOOL_OP_SCALE_FACTOR);
+        write_saved_screen(&tilepos, &new_explored);
     }
-}
-
-// factor to scale up by, round, and scale back down
-const TRUNCATE_RESOLUTION: f64 = 4096.0;
-
-fn scale_up_and_round(point: Coord) -> Coord {
-    Coord {
-        x: (point.x * TRUNCATE_RESOLUTION).round(),
-        y: (point.y * TRUNCATE_RESOLUTION).round(),
-    }
-}
-
-fn scale_down(point: Coord) -> Coord {
-    Coord {
-        x: point.x / TRUNCATE_RESOLUTION,
-        y: point.y / TRUNCATE_RESOLUTION,
-    }
-}
-
-/// Somewhat reliably difference two MultiPolygons by scaling them up by some
-/// resolution, and rounding all fractional values to integers, which are
-/// precisely representable (within the range −2^53 to 2^53 for f64). The
-/// difference operation is then much better behaved and encounters fewer
-/// arthmetic errors, and we can scale the result back down to the original
-/// size.
-///
-/// Occasionally, the operation still fails, in which case we catch the panic
-/// emitted with std::panic::catch_unwind, and return an error.
-///
-/// Inputs should have feature sizes that are larger than the resolution,
-/// othersize the truncation may produce invalid geometry. This is done by
-/// removing any points that form triangles with area smaller than 1e-6 in area
-/// with simplify_vw_preserve. With a resolution of 4096, only triangles with
-/// area smaller than 6e-8 might have vertices that fall on the same point.
-fn improved_difference(
-    left: &MultiPolygon,
-    right: &MultiPolygon,
-) -> anyhow::Result<MultiPolygon> {
-    let left = left.map_coords(scale_up_and_round);
-    let right = right.map_coords(scale_up_and_round);
-    // println!("about to diff");
-    // println!("left: {:?}", left);
-    // println!("right: {:?}", right);
-    // std::fs::write("left.bin", bincode::serialize(&left).unwrap()).unwrap();
-    // std::fs::write("right.bin", bincode::serialize(&right).unwrap()).unwrap();
-    // println!("{:?}", std::env::current_dir().unwrap());
-    let mut diff = std::panic::catch_unwind(|| left.difference(&right))
-        .map_err(|_| {
-            println!("right: {:?}", right);
-            debug("Failed to compute polygon difference despite truncating.");
-            anyhow!("Failed to compute difference")
-        })?;
-    // println!("diffed");
-    diff.map_coords_in_place(scale_down);
-    Ok(diff)
-}
-
-/// Same as improved_difference but for union.
-fn improved_union(
-    left: &MultiPolygon,
-    right: &MultiPolygon,
-) -> anyhow::Result<MultiPolygon> {
-    let left = left.map_coords(scale_up_and_round);
-    let right = right.map_coords(scale_up_and_round);
-    let mut union =
-        std::panic::catch_unwind(|| left.union(&right)).map_err(|_| {
-            debug("Failed to compute polygon union despite truncating.");
-            anyhow!("Failed to compute union")
-        })?;
-    union.map_coords_in_place(scale_down);
-    Ok(union)
 }
 
 /// Generate a tile MultiPolygon which is fully unexplored. Coordinates are in

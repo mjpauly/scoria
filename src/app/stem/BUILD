@@ -49,6 +49,7 @@ rust_library(
         ":common",
         ":alloc",
         "@stem_crate_index//:geo",
+        "@stem_crate_index//:geo-clipper",
         "@stem_crate_index//:geojson",
         "@stem_crate_index//:mvt",
         "@stem_crate_index//:obfstr",
