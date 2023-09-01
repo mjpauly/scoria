@@ -31,3 +31,9 @@ pub struct LngLat {
     pub lng: f64,
     pub lat: f64,
 }
+
+impl From<&LngLat> for Vec<f64> {
+    fn from(lnglat: &LngLat) -> Self {
+        vec![lnglat.lng, lnglat.lat]
+    }
+}

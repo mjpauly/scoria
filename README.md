@@ -2,20 +2,16 @@
 
 ## To Do
 
-- accessibility
-    - [ ] accessible map size scaling
 - debug-ability
     - [ ] action failure alterts (esp for importing)
-    - [ ] ability to submit bug report and export stemlog
+    - [ ] ability to submit bug report and export stemlog (log\_panics too)
 - security
-    - [ ] wasm opt, stripping
-    - [ ] native binary stripping
     - [ ] investigate rcgen certificates, extra query parameter frontend key
     - [ ] only allow webView to make network requests to backend
 - features
+    - [ ] what's new section
+    - [ ] release notes
     - [ ] remove scoria server option code
-    - [ ] fix dateline bug
-    - [ ] blank map option
     - [ ] show latest location
     - [ ] zoom to current location on first install
     - [ ] quick time update buttons
@@ -151,6 +147,8 @@
 - website
     - [x] cross compile website binary
 - [x] automap to occlude unexplored areas
+- [x] fix lines across antimeridian bug
+- [x] native binary stripping
 
 ## Structure
 
@@ -369,6 +367,10 @@ in a separate variable first before putting it into the scrutinee if it's
 something like an option behind the Mutex.
 - To format text to a certain width with hard linebreaks, set textwidth=80,
   highlight the text, then do `gq`
+
+### Security / Obfuscation
+
+Inspect the symbols in a binary with `nm [file] | nvim -R -`.
 
 ## Style Notes
 

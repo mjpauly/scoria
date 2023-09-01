@@ -8,9 +8,6 @@ ios_application(
     bundle_id = "com.aperturebeam.epsilon",
     bundle_name = "Scoria",
     families = ["iphone"],
-    frameworks = [
-        "//src/app/ios/sensing:sensing_framework",
-    ],
     infoplists = [":Info.plist"],
     launch_storyboard = "Resources/Launch.storyboard",
     minimum_os_version = "16.0",
@@ -44,7 +41,6 @@ swift_library(
     name = "App.library",
     srcs = glob(["*.swift"]),
     module_name = "Scoria",
-    tags = ["manual"],
     visibility = ["//src/app/ios/tests:__subpackages__"],
     deps = [
         "//src/app/ios/sensing",

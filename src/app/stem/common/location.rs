@@ -1,3 +1,4 @@
+use crate::LngLat;
 use serde::{Deserialize, Serialize};
 
 /// Struct representation of a Location data point
@@ -25,4 +26,13 @@ pub struct Location {
 
     // whether this row was imported into the app
     pub was_imported: bool,
+}
+
+impl Location {
+    pub fn lnglat(&self) -> LngLat {
+        LngLat {
+            lng: self.longitude,
+            lat: self.latitude,
+        }
+    }
 }

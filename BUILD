@@ -68,11 +68,18 @@ config_setting(
     values = {"compilation_mode": "opt"}
 )
 
-# Command line flag for setting the provisioning profile to build the bundle:
+
+# Command line flag for enabling settings which are used when compiling the app
+# for distribution. Use like so:
 #   `--define profile=distribution`
-# Omitting the flag causes the build to use the development profile.
 #
-# Also used to turn off debug logging and use the production maptiler key.
+# Effects:
+# - enables the distribution provisioning profile to build/sign the app bundle
+# (omitting the flag causes the build to use the development profile)
+# - disables debug logging
+# - enables the production maptiler key
+# - enables link-time optimizations (LTO)
+# - enables symbol stripping
 config_setting(
     name = "distribution_profile",
     values = {

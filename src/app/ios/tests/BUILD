@@ -15,7 +15,6 @@ swift_library(
     testonly = True,
     srcs = glob(["**/*.swift"]),
     module_name = "AppTests",
-    tags = ["manual"],
     deps = [
         "//src/app/ios/top:App.library",
     ],

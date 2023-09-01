@@ -1,5 +1,6 @@
 load("@rules_rust//rust:defs.bzl", "rust_library", "rust_binary", "rust_test")
 load(":templates.bzl", "html_template", "md_template", "files")
+load("//src/bzl:files.bzl", "files_and_envs")
 load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
 load(
     "@io_bazel_rules_docker//container:container.bzl",
@@ -46,31 +47,24 @@ pkg_tar(
 
 # Static file targets to bundle into the binary, paired with the environment
 # variable names that are passed to the compiler.
-static_files = {
+static_file_targets, static_file_envs = files_and_envs({
     ":index": "INDEX_FILE",
     ":privacy_policy": "PRIVACY_POLICY_FILE",
     ":first_release_post": "FIRST_RELEASE_POST",
     ":contact": "CONTACT_FILE",
     ":terms": "TERMS_FILE",
     ":tailwind": "TAILWIND_FILE",
-    ":logo": "LOGO_FILE",
-    ":favicon": "FAVICON_FILE",
+    "static/scoria.png": "LOGO_FILE",
+    "static/favicon.png": "FAVICON_FILE",
     ":template_top": "TEMPLATE_TOP_FILE",
     ":template_bottom": "TEMPLATE_BOTTOM_FILE",
-    ":screenshot1": "SCREENSHOT1",
-    ":screenshot2": "SCREENSHOT2",
-    ":screenshot3": "SCREENSHOT3",
-    ":screenshot4": "SCREENSHOT4",
-    ":app_store_badge": "APP_STORE_BADGE",
-}
-
-# List of the static file target names
-static_file_targets = static_files.keys()
-
-# Dict of the environment variable names paired with the target location.
-# The location expresison is evaluated by Bazel before passing to the compiler.
-static_file_env_defs = {envar: "$(location %s)" % target for target, envar in static_files.items()}
-
+    "static/screenshots/1.jpeg": "SCREENSHOT1",
+    "static/screenshots/2.jpeg": "SCREENSHOT2",
+    "static/screenshots/3.jpeg": "SCREENSHOT3",
+    "static/screenshots/4.jpeg": "SCREENSHOT4",
+    "static/Download_on_the_App_Store_Badge_US-UK_RGB_blk_092917.svg":
+        "APP_STORE_BADGE",
+})
 
 rust_binary(
     name = "website_bin",
@@ -80,10 +74,13 @@ rust_binary(
         ":website",
         "@website_crate_index//:tokio",
     ],
-    # Strip debug symbols (-s) on optimized builds when linking.
-    # doc: https://www.mankier.com/1/ld.lld
+    # Extra optimizations on optimized builds
+    # doc: https://doc.rust-lang.org/rustc/codegen-options/index.html
     rustc_flags = select({
-        "//:optimized_build": ["-C", "link-args=-s"],
+        "//:optimized_build": [
+            "-C", "strip=symbols", # strip symbols
+            "-C", "lto=y", # link-time optimization
+        ],
         "//conditions:default": [],
     }),
 )
@@ -92,7 +89,7 @@ rust_library(
     name = "website",
     srcs = glob(["aft/**/*.rs"]),
     compile_data = static_file_targets + [".env"],
-    rustc_env = static_file_env_defs,
+    rustc_env = static_file_envs,
     deps = [
         "@website_crate_index//:actix-web",
         "@website_crate_index//:anyhow",
@@ -148,16 +145,10 @@ md_template(
     src = "static/terms.md",
 )
 
+# provides a convenient shorthand target name for the template files
 files(
     names_srcs = {
         "template_top": "static/template_top.html",
         "template_bottom": "static/template_bottom.html",
-        "logo": "static/scoria.png",
-        "favicon": "static/favicon.png",
-        "screenshot1": "static/screenshots/1.jpeg",
-        "screenshot2": "static/screenshots/2.jpeg",
-        "screenshot3": "static/screenshots/3.jpeg",
-        "screenshot4": "static/screenshots/4.jpeg",
-        "app_store_badge": "static/Download_on_the_App_Store_Badge_US-UK_RGB_blk_092917.svg",
     },
 )

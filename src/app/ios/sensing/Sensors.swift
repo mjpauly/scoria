@@ -1,7 +1,7 @@
 import StemLib
 import UIKit
 
-// Shared type understanding by the Sensing and Top frameworks of what the ViewController can do.
+// Shared type understanding by the Sensing and Top code regarding what the ViewController can do.
 public protocol MyViewControllerProtocol: UIViewController, UIDocumentPickerDelegate {}
 
 var myLocationManager = MyLocationManager()

@@ -6,6 +6,7 @@ use actix_web::{
 };
 use geojson::{Feature, FeatureCollection, GeoJson, JsonObject, Value};
 
+use crate::map::coords::TileXYZ;
 use crate::{app_state::AppState, database, ws_session};
 use common::{
     cmaps,
@@ -207,22 +208,17 @@ pub async fn update_geojson(new_data: Option<Location>, foregrounded: bool) {
             None
         };
 
-        let coords = [records[i].longitude, records[i].latitude];
-
+        let coord1 = records[i].lnglat();
         if make_points {
-            let mut feat = Feature::from(Value::Point(coords.into()));
-            feat.properties = properties.clone();
-            points.push(feat);
+            add_point(&coord1, &properties, &mut points);
         }
         if make_line {
-            let end_coords =
-                [records[i + 1].longitude, records[i + 1].latitude];
-            let mut feat = Feature::from(Value::LineString(vec![
-                coords.into(),
-                end_coords.into(),
-            ]));
-            feat.properties = properties.clone();
-            lines.push(feat);
+            let coord2 = records[i + 1].lnglat();
+            if crosses_antimeridian(&coord1, &coord2) {
+                cut_and_add_lines(&coord1, &coord2, &properties, &mut lines);
+            } else {
+                add_line(&coord1, &coord2, &properties, &mut lines);
+            }
         }
     }
     let points_geojson = GeoJson::from(feature_collection_from_vec(points));
@@ -235,6 +231,93 @@ pub async fn update_geojson(new_data: Option<Location>, foregrounded: bool) {
     if let Some(addr) = maybe_addr {
         addr.do_send(ws_session::MsgToFront(ToFront::GeojsonUpdated));
     }
+}
+
+fn add_point(
+    coord: &LngLat,
+    properties: &Option<JsonObject>,
+    points: &mut Vec<Feature>,
+) {
+    let mut feat = Feature::from(Value::Point(coord.into()));
+    feat.properties = properties.clone();
+    points.push(feat);
+}
+
+fn add_line(
+    coord1: &LngLat,
+    coord2: &LngLat,
+    properties: &Option<JsonObject>,
+    lines: &mut Vec<Feature>,
+) {
+    let mut feat =
+        Feature::from(Value::LineString(vec![coord1.into(), coord2.into()]));
+    feat.properties = properties.clone();
+    lines.push(feat);
+}
+
+/// Returns true if the line between two coordinates crosses the antimeridian.
+fn crosses_antimeridian(coord1: &LngLat, coord2: &LngLat) -> bool {
+    (coord1.lng - coord2.lng).abs() > 180.0
+}
+
+/// Calculates the coordinate on the antimeridian (A.M.) between the endpoints
+/// of a line which crosses it, then pushes the new multilinestring onto the
+/// vector of features.
+///
+/// Calculation is done in tile coordinates so that the midpoint calculated
+/// results in a line that appears straight on the web mercator projection. Just
+/// using lnglat coords would yield a bent line if away from the equator.
+///
+/// Method is a simple linear proportionality, going from coord1 to coord2,
+/// where the change in y (latitude) at the antimeridian, dy, is:
+///
+///     dy = dx * delta_y / delta_x
+///
+/// - dx is the unsigned distance from coord1 to the antimeridian
+/// - delta_y is the signed y distance between the coordinates
+/// - delta_x is the unsigned distance between the coordinates across the A.M.
+fn cut_and_add_lines(
+    coord1: &LngLat,
+    coord2: &LngLat,
+    properties: &Option<JsonObject>,
+    lines: &mut Vec<Feature>,
+) {
+    // operate on zoom level 0 (single tile), where the lnglat bounds are 0-1.
+    let z = 0;
+    let t1 = TileXYZ::from_lnglat(coord1, z);
+    let t2 = TileXYZ::from_lnglat(coord2, z);
+    let x1 = t1.x;
+    let x2 = t2.x;
+    let y1 = t1.y;
+    let y2 = t2.y;
+    let delta_y = y2 - y1; // signed y distance
+    let delta_x = 1. - (x1 - x2).abs(); // unsigned x distance
+    let x1_sym = x1 - 0.5; // x1 symmetric around 0 (west is negative)
+    let dx = 0.5 - x1_sym.abs(); // unsigned distance to the antimeridian (A.M.)
+    let dy = dx * delta_y / delta_x; // signed y distance from coord1 on A.M.
+    let new_y = y1 + dy;
+    let signum01 = |val: f64| {
+        // signum, scaled to the range 0-1 (0 for neg, 1 for pos)
+        0.5 * (val.signum() + 1.)
+    };
+    let t1a = TileXYZ {
+        x: signum01(x1_sym), // 0 if x1 is in the west, 1 if in east
+        y: new_y,
+        z,
+    };
+    let t2a = TileXYZ {
+        x: signum01(-x1_sym), // 1 if x1 is in the west (x2 in east)
+        y: new_y,
+        z,
+    };
+    let coord1a = t1a.to_lnglat();
+    let coord2a = t2a.to_lnglat();
+    let mut feat = Feature::from(Value::MultiLineString(vec![
+        vec![coord1.into(), (&coord1a).into()],
+        vec![(&coord2a).into(), coord2.into()],
+    ]));
+    feat.properties = properties.clone();
+    lines.push(feat);
 }
 
 /// Calculate the center of a map. Does not take the map size into account, so

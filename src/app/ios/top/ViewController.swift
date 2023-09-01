@@ -10,7 +10,7 @@ import WebKit
 
 import Sensing
 
-// The Sensing framework  is a dependency, and it defines the protocol both frameworks need to
+// The Sensing library is a dependency, and it defines the protocol both pieces need to
 // agree on for the class's type when passed to the Sensing framwork.
 class ViewController: UIViewController, MyViewControllerProtocol, WKNavigationDelegate {
 
