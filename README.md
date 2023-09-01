@@ -11,7 +11,6 @@
 - features
     - [ ] what's new section
     - [ ] release notes
-    - [ ] remove scoria server option code
     - [ ] show latest location
     - [ ] zoom to current location on first install
     - [ ] quick time update buttons

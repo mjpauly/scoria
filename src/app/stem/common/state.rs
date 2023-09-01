@@ -83,10 +83,6 @@ pub struct FrontState {
     #[serde(deserialize_with = "ok_or_default")]
     pub location_config: UserConfig,
 
-    // Whether to use scoria tile server
-    #[serde(deserialize_with = "ok_or_default")]
-    pub use_scoria_tile_server: bool,
-
     // State of the plot view
     #[serde(deserialize_with = "ok_or_default")]
     pub map: MapState,

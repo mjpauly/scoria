@@ -10,7 +10,7 @@ use yewdux::prelude::*;
 
 use crate::components::{
     location_filter_list::LocationFilterList,
-    map_styler::{get_basemap_url, use_check_scoria_tile_server, MapStyler},
+    map_styler::{get_basemap_url, MapStyler},
     Colorbar, TabBar, TimeRangePicker, PRIMARY_BUTTON_STYLE,
     SECONDARY_BUTTON_STYLE,
 };
@@ -22,11 +22,10 @@ use crate::websocket::{
 use common::map_style::ColoredDataStream;
 use common::LngLat;
 
+const BLANK_MAP_STYLE: &str = r#"{"version":8,"name":"Blank","sources":{},"layers":[],"center":[0,0],"zoom":1}"#;
+
 #[function_component]
 pub fn Analyze() -> Html {
-    // Check if the scoria tile server is up, and update the app state
-    use_check_scoria_tile_server();
-
     html! {
         <>
             <AnalyzeLocation />
@@ -198,8 +197,6 @@ fn PlotComponent() -> Html {
     let map_initialized = use_state(|| false);
 
     let map_style = use_selector(|s: &FrontState| s.map.style.clone());
-    let use_scoria_tile_server =
-        use_selector(|s: &FrontState| s.use_scoria_tile_server);
 
     // The style json string for the basemap without user data on top
     let basemap = use_state(|| Option::<Value>::None);
@@ -209,13 +206,8 @@ fn PlotComponent() -> Html {
             move |basemap_style| {
                 let basemap_style = basemap_style.clone();
                 wasm_bindgen_futures::spawn_local(async move {
-                    let blank_map = String::from(
-                        r#"{"version":8,"name":"Blank","sources":{},"layers":[],"center":[0,0],"zoom":1}"#,
-                    );
-                    let url = get_basemap_url(
-                        &basemap_style,
-                        *use_scoria_tile_server,
-                    );
+                    let blank_map = String::from(BLANK_MAP_STYLE);
+                    let url = get_basemap_url(&basemap_style);
                     let basemap_str = match Request::get(&url).send().await {
                         Ok(req) => req
                             .text()

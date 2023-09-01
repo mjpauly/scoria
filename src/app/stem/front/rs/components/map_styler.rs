@@ -17,29 +17,6 @@ use common::map_style::{
 
 // BASEMAP STYLES
 
-/// Hook for checking if the scoria tile server is up. If it is, we update the
-/// frontend state to get tiles from it.
-#[hook]
-pub fn use_check_scoria_tile_server() {
-    /*
-    let dispatch = Dispatch::<FrontState>::new();
-    yew::platform::spawn_local(async move {
-        let result = Request::get(obfstr!("https://api.epsln.com/maps_ok"))
-            .send()
-            .await;
-        if let Ok(resp) = result {
-            dispatch.reduce_mut(|s: &mut FrontState| {
-                s.use_scoria_tile_server = resp.status() == 200
-            });
-        } else {
-            dispatch.reduce_mut(|s: &mut FrontState| {
-                s.use_scoria_tile_server = false
-            });
-        }
-    });
-    */
-}
-
 /// Get the maptiler key. In this case it's the distribution key, which is more
 /// protected than the development key.
 #[cfg(feature = "distribution_key")]
@@ -66,51 +43,31 @@ fn maptiler_key() -> String {
     maptiler_key.to_string()
 }
 
-fn format_tile_url(style: &str, use_scoria: bool) -> String {
+fn format_tile_url(style: &str) -> String {
     // get the secrets in the .env file at compile time and obfuscate them
     obfstr! {
-        let scoria_key = dotenvy_macro::dotenv!(
-            "SCORIA_TILE_API_KEY",
-            "Scoria API key must be placed in top-level .env file as \
-            SCORIA_TILE_API_KEY={key}"
-        );
-        // let basemap_url = "https://api.maptiler.com/maps";
         let basemap_path = "mapdata/maps";
-        let scoria_base_url = "https://api.epsln.com/maps";
         let style_json = "style.json?key=";
     }
     let basemap_url = format!("{}/{basemap_path}", get_host());
     let maptiler_key = maptiler_key();
-    let is_satellite = style.contains("hybrid");
-    // still use maptiler for satellite images, even if use_scoria is true
-    let (base_url, key) = if use_scoria && !is_satellite {
-        (scoria_base_url, scoria_key)
-    } else {
-        (basemap_url.as_str(), maptiler_key.as_str())
-    };
-    // should be https://api.url.com/maps/basic-v2/style.json?key=deadbeef
-    format!("{base_url}/{style}/{style_json}{key}")
+    // should be https://api.url.com/maps/basic-v2/style.json?key=decafbad
+    format!("{basemap_url}/{style}/{style_json}{maptiler_key}")
 }
 
-pub fn get_basemap_url(style: &BasemapStyle, use_scoria: bool) -> String {
+pub fn get_basemap_url(style: &BasemapStyle) -> String {
     match style {
-        BasemapStyle::Basic => format_tile_url("basic-v2", use_scoria),
-        BasemapStyle::Dataviz => format_tile_url("dataviz", use_scoria),
-        BasemapStyle::Streets => format_tile_url("streets-v2", use_scoria),
-        BasemapStyle::Topo => format_tile_url("topo-v2", use_scoria),
-        BasemapStyle::Outdoor => format_tile_url("outdoor-v2", use_scoria),
-        BasemapStyle::BasicDark => format_tile_url("basic-v2-dark", use_scoria),
-        BasemapStyle::DatavizDark => {
-            format_tile_url("dataviz-dark", use_scoria)
-        }
-        BasemapStyle::StreetsDark => {
-            format_tile_url("streets-v2-dark", use_scoria)
-        }
-        BasemapStyle::TopoDark => format_tile_url("topo-v2-dark", use_scoria),
-        BasemapStyle::OutdoorDark => {
-            format_tile_url("outdoor-v2-dark", use_scoria)
-        }
-        BasemapStyle::Satellite => format_tile_url("hybrid", use_scoria),
+        BasemapStyle::Basic => format_tile_url("basic-v2"),
+        BasemapStyle::Dataviz => format_tile_url("dataviz"),
+        BasemapStyle::Streets => format_tile_url("streets-v2"),
+        BasemapStyle::Topo => format_tile_url("topo-v2"),
+        BasemapStyle::Outdoor => format_tile_url("outdoor-v2"),
+        BasemapStyle::BasicDark => format_tile_url("basic-v2-dark"),
+        BasemapStyle::DatavizDark => format_tile_url("dataviz-dark"),
+        BasemapStyle::StreetsDark => format_tile_url("streets-v2-dark"),
+        BasemapStyle::TopoDark => format_tile_url("topo-v2-dark"),
+        BasemapStyle::OutdoorDark => format_tile_url("outdoor-v2-dark"),
+        BasemapStyle::Satellite => format_tile_url("hybrid"),
     }
 }
 

@@ -326,7 +326,6 @@ mod tests {
             parsed.front.as_ref().unwrap().settings_route,
             common::state::PersistedSettingsRoute::Root
         );
-        assert!(parsed.front.as_ref().unwrap().use_scoria_tile_server);
         assert_eq!(parsed.back.locations_past_hour, Some(2));
 
         // values that should be the default
