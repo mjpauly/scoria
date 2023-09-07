@@ -22,8 +22,8 @@ use geojson::GeoJson;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
+use tracing::error;
 
-use crate::core::{error, log_with_dir, timestamp};
 use crate::geojson::empty_geojson;
 use crate::paths::{get_library_dir, Paths};
 use crate::ws_session;
@@ -146,26 +146,18 @@ impl AppState {
                 Ok(parsed) => {
                     #[cfg(extra_debug_logging)]
                     {
-                        let msg = &format!(
-                            "DEBUG {} Successfully loaded app state:\n {:?}\n
-                             File contents were \"{}\"",
-                            timestamp(),
-                            parsed,
-                            input
+                        tracing::debug!(
+                            "Successfully loaded app state:\n {parsed:?}\n
+                             File contents were \"{input}\"",
                         );
-                        println!("{}", msg);
-                        log_with_dir(msg, &paths.documents_dir);
                     }
                     parsed
                 }
                 Err(e) => {
-                    let msg = &format!(
-                        "ERROR {} Failed to parse state. Err: {e}\n
+                    error!(
+                        "Failed to parse state: {e}.\n
                         File contents were \"{input}\"",
-                        timestamp(),
                     );
-                    println!("{}", msg);
-                    log_with_dir(msg, &paths.documents_dir);
                     PersistentState::default()
                 }
             },
@@ -175,12 +167,7 @@ impl AppState {
                     // don't log the error
                     std::io::ErrorKind::NotFound => {}
                     _ => {
-                        let msg = &format!(
-                            "ERROR {} Failed to read state file. Err: {e}",
-                            timestamp(),
-                        );
-                        println!("{}", msg);
-                        log_with_dir(msg, &paths.documents_dir);
+                        error!("Failed to read state file. Err: {e}",);
                     }
                 }
                 PersistentState::default()
@@ -212,7 +199,7 @@ impl AppState {
         {
             Ok(file) => file,
             Err(e) => {
-                error("Failed to open state file for writing.", e);
+                error!("Failed to open state file for writing: {e}.");
                 return;
             }
         };
@@ -221,12 +208,12 @@ impl AppState {
         ) {
             Ok(state_str) => state_str,
             Err(e) => {
-                error("Failed to create persistent state string.", e);
+                error!("Failed to create persistent state string: {e}.");
                 return;
             }
         };
         if let Err(e) = file.write_all(state_str.as_bytes()) {
-            error("Failed to write persistent state to file.", e);
+            error!("Failed to write persistent state to file: {e}.");
         }
     }
 }

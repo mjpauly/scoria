@@ -168,7 +168,6 @@ pub async fn update_automap() {
         // Prevent concurrent updating:
         let Ok(_update_guard) = UPDATE_LOCK.try_lock() else { return };
 
-        // debug("Updating automap");
         let mut last_automap_update = get_last_automap_update();
         update_num_automap_records_remaining(&last_automap_update).await;
         // get a batch of records to update the automap with
@@ -183,13 +182,11 @@ pub async fn update_automap() {
             last_automap_update = last_record.timestamp;
             set_last_automap_update(&last_automap_update);
             update_num_automap_records_remaining(&last_automap_update).await;
-            // debug(&format!("Updated to {:?}", last_automap_update));
 
             // get the next batch of records
             records_batch = get_records_batch(&last_automap_update).await;
         }
         send_state_to_front();
-        // debug("Done updating automap");
     }
 }
 
@@ -254,11 +251,9 @@ const BOOL_OP_SCALE_FACTOR: f64 = TILE_EXTENT;
 async fn get_explored_area(
     unfiltered_records: &[common::Location],
 ) -> MultiPolygon {
-    // debug("explored area");
     // filter out data points with accuracy worse than 100m (our view radius)
     let filtered_records =
         apply_filters(&default_accuracy_filter(), unfiltered_records);
-    // debug("applied filters");
     let mut explored = MultiPolygon::new(vec![]);
     for rec in filtered_records {
         let new = MultiPolygon::new(vec![calc_explored_polygon(rec)]);

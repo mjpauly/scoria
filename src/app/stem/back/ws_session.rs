@@ -4,13 +4,14 @@
 ///
 /// Ridiculously helpful SO thread about using async functions with actors:
 /// https://stackoverflow.com/questions/64434912/how-to-correctly-call-async-functions-in-a-websocket-handler-in-actix-web
+use std::time::{Duration, Instant};
+
 use actix::prelude::*;
 use actix_web::{web, Error, HttpRequest, HttpResponse};
 use actix_web_actors::ws;
 use common::state::{PersistedRoute, PersistedSettingsRoute};
-use std::time::{Duration, Instant};
+use tracing::{info, warn};
 
-use crate::core::{debug, error};
 use crate::database;
 use crate::geojson::update_geojson;
 use crate::map::automap::update_automap;
@@ -34,11 +35,11 @@ pub async fn ws_route(
 ) -> Result<HttpResponse, Error> {
     // Disallow another websocket connection if one is already active
     if AppState::global().ws_addr.lock().unwrap().is_some() {
-        debug("Additional UI websocket connection rejected.");
+        warn!("Additional UI websocket connection rejected.");
         return Ok(HttpResponse::Unauthorized()
             .body("Only one UI connection allowed."));
     }
-    debug("Frontend Websocket Connected");
+    info!("Frontend Websocket Connected");
     ws::start(WsSession { hb: Instant::now() }, &req, stream)
 }
 
@@ -59,7 +60,7 @@ impl WsSession {
             // check client heartbeats
             if Instant::now().duration_since(act.hb) > CLIENT_TIMEOUT {
                 // heartbeat timed out
-                debug("Websocket Client heartbeat failed, disconnecting!");
+                warn!("Websocket Client heartbeat failed, disconnecting!");
 
                 // stop actor
                 ctx.stop();
@@ -138,9 +139,7 @@ impl WsSession {
         // dbg!(msg.clone());
         // unwrap here since something this core to the app's function should
         // just crash it
-        let encoded: Vec<u8> = bincode::serialize(&msg)
-            .map_err(|e| error("Failed to serialize message.", e))
-            .unwrap();
+        let encoded: Vec<u8> = bincode::serialize(&msg).unwrap();
         ctx.binary(encoded);
     }
 
@@ -256,14 +255,12 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsSession {
             }
             ws::Message::Binary(bytes) => {
                 // deserialize ToBack
-                let decoded: ToBack = bincode::deserialize(&bytes[..])
-                    .map_err(|e| error("Failed to deserialize message.", e))
-                    .unwrap();
+                let decoded: ToBack = bincode::deserialize(&bytes[..]).unwrap();
                 self.handle_msg(decoded, ctx);
             }
             ws::Message::Text(text) => println!("got text {}", text),
             ws::Message::Close(reason) => {
-                debug(&format!("Closing websocket with reason: {:?}", reason));
+                warn!("Closing websocket with reason: {reason:?}");
                 ctx.close(reason);
                 ctx.stop();
             }

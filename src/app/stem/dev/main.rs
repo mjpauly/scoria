@@ -13,8 +13,6 @@ extern crate stem;
 
 #[tokio::main]
 async fn main() -> Result<(), std::io::Error> {
-    env_logger::init(); // sets output verbosity based on RUST_LOG env var
-
     println!("Run dir: {}", std::env::current_dir().unwrap().display());
 
     stem::local::local_setup_with_dev_db("dev_fs/", 8081).await;

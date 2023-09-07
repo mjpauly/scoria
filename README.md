@@ -5,6 +5,8 @@
 - debug-ability
     - [ ] action failure alterts (esp for importing)
     - [ ] ability to submit bug report and export stemlog (log\_panics too)
+        - [x] switch to `tracing`
+        - [ ] also for frontend
 - security
     - [ ] investigate rcgen certificates, extra query parameter frontend key
     - [ ] only allow webView to make network requests to backend
@@ -15,6 +17,9 @@
     - [ ] zoom to current location on first install
     - [ ] quick time update buttons
     - [ ] better obfuscating, include\_crypt, etc
+    - [ ] enable running Scoria on iPad and Mac
+- filesystem
+    - [ ] switch to Library/Caches for map cache (and cleanup old location)
 - [ ] reset to "today" time range and data-centered view if user is away from
     the app for 1+ hr
 - [ ] export tab on map (csv, maybe image)

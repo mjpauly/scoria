@@ -19,7 +19,6 @@ use actix_web::{HttpResponse, Responder};
 use rand::RngCore;
 
 use crate::app_state::AppState;
-use crate::core::error;
 use crate::geojson::{lines_geojson_route, points_geojson_route};
 use crate::map::{automap::screen, basemap::map_data_route};
 use crate::ws_session::ws_route;
@@ -71,14 +70,8 @@ impl FrontendKey {
 /// known value (123) for local testing.
 pub async fn run(port: u16, secure: bool) -> ServerConfig {
     // If we bind to port 0, the OS assigns us an available port
-    let listener = TcpListener::bind(format!("127.0.0.1:{}", port))
-        .map_err(|e| error("Failed to bind tcp listener.", e))
-        .unwrap();
-    let port = listener
-        .local_addr()
-        .map_err(|e| error("Failed to get tcp listener local_addr.", e))
-        .unwrap()
-        .port();
+    let listener = TcpListener::bind(format!("127.0.0.1:{}", port)).unwrap();
+    let port = listener.local_addr().unwrap().port();
 
     let frontend_key = if secure {
         FrontendKey::new()
@@ -143,7 +136,6 @@ fn build(listener: TcpListener, frontend_key: FrontendKey) -> Server {
     })
     .workers(1)
     .listen(listener)
-    .map_err(|e| error("Failed to start server.", e))
     .unwrap()
     .run()
 }

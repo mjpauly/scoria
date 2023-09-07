@@ -137,6 +137,7 @@ crates_repository(
         "geo": crate.spec(version = "0.26.0"),
         "geo-clipper": crate.spec(version = "0.7.3"),
         "geojson": crate.spec(version = "0.24.1", features = ["geo-types"]),
+        "log-panics": crate.spec(version = "2.1.0"),
         "mvt": crate.spec(version = "0.8.1"),
         "pointy": crate.spec(version = "0.4.0"),
         "rand": crate.spec(version = "0.8.5"),
@@ -151,6 +152,17 @@ crates_repository(
         "tokio": crate.spec(
             version = "1.24.2",
             features = ["full"],
+        ),
+        "tracing": crate.spec(
+            version = "0.1.37",
+            # statically remove tracing instrumentation at levels above error
+            # for release builds
+            features = ["release_max_level_error"],
+        ),
+        "tracing-appender": crate.spec(version = "0.2.2"),
+        "tracing-subscriber": crate.spec(
+            version = "0.3.17",
+            features = ["env-filter", "tracing-log"],
         ),
         "walkdir": crate.spec(version = "2.3.3"),
         "anyhow": crate.spec(
@@ -266,7 +278,6 @@ crates_repository(
         ),
 
         # dev + testing
-        "env_logger": crate.spec(version = "0.10.0",),
         "tokio-tungstenite": crate.spec(version = "0.18.0",),
         "futures-util": crate.spec(version = "0.3.27",),
         "rusty-fork": crate.spec(version = "0.3.0",),

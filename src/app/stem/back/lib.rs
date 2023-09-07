@@ -12,20 +12,21 @@
 //! swift wrapper.
 //!
 
-use std::ffi::CStr;
-use std::os::raw::c_char;
-use std::path::PathBuf;
-
 pub mod app_state; // backend state storage
 pub mod core; // high-level app logic that spans multiple modules
 pub mod database; // manages the SQLite database
 pub mod geojson; // construct the data to display in the frontend
 pub mod location_config; // location logging configuration
+pub mod logs;
 pub mod map;
 pub mod paths; // stores and retrieve file system paths
 pub mod runtime; // retrieves async runtime for use in the sync C interface
 pub mod server; // server for the UI
 pub mod ws_session; // websocket actor for the UI
+
+use std::ffi::CStr;
+use std::os::raw::c_char;
+use std::path::PathBuf;
 
 /// Set the directories known to the Rust library.
 ///
@@ -61,22 +62,27 @@ fn cstr_to_string(cstr: *const c_char) -> String {
 /// Top app level initialization. Does not start the UI server yet; that is done
 /// when the app enters the foreground and calls `handle_enter_foreground`.
 pub async fn init(init_paths: paths::Paths) {
-    let db = database::init_db(paths::get_db_path_helper(
-        init_paths.documents_dir.clone(),
-    ))
-    .await
-    .unwrap();
+    // initialize the tracing infrastructure here, since it's universal to dev
+    // and release (this belies how our stem "library" acts in like a binary)
+    let subscriber = logs::get_subscriber(&init_paths);
+    logs::init_logging(subscriber);
+    let span = tracing::span!(tracing::Level::INFO, "init");
+    let _enter = span.enter();
+
+    let db = database::init_db(paths::get_db_path_helper(&init_paths))
+        .await
+        .unwrap();
     app_state::AppState::init(init_paths, db);
     // vacuum and checkpoint the database at startup, so it shrinks to size
     database::checkpoint_db().await;
-    core::debug("===== App Startup =====");
+    tracing::info!("===== App Startup =====");
 }
 
 /// Handle shutdown of the app by saving certain persistent state elements to
 /// the filesystem, which will be read-back at startup.
 #[no_mangle]
 pub extern "C" fn handle_shutdown() {
-    core::debug("----- App Shutdown -----");
+    tracing::info!("----- App Shutdown -----");
     app_state::AppState::save_to_file();
 }
 
@@ -85,7 +91,7 @@ pub extern "C" fn handle_shutdown() {
 /// app is brought to the foreground.
 #[no_mangle]
 pub extern "C" fn handle_enter_foreground() -> server::ServerConfig {
-    core::debug("App Foregrounded");
+    tracing::info!("App Foregrounded");
     runtime::get_runtime().block_on(async {
         // We may have received new data while in the background
         tokio::spawn(geojson::update_geojson(None, true));
@@ -101,7 +107,7 @@ pub extern "C" fn handle_enter_foreground() -> server::ServerConfig {
 /// helps).
 #[no_mangle]
 pub extern "C" fn handle_enter_background() {
-    core::debug("App Backgrounded");
+    tracing::info!("App Backgrounded");
     runtime::get_runtime().block_on(async {
         server::shutdown().await;
     });

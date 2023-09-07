@@ -73,12 +73,12 @@ use actix_web::{routes, web, HttpResponse, Responder};
 use obfstr::obfstr;
 use serde::Deserialize;
 use tokio::sync::OnceCell;
+use tracing::{debug, error, info, instrument, trace};
 use walkdir::WalkDir;
 
 use super::automap::{automap_is_on, tile_has_been_visited};
 use super::coords::TileXYZ;
 use crate::app_state::AppState;
-use crate::core::{debug, error};
 use crate::paths::get_map_cache_dir;
 
 // references to the remote url are replaced with the backend url when serving
@@ -96,6 +96,7 @@ pub struct Key {
 /// - checks if the tile is needed or not (e.g. in an obscured automap region)
 /// - checks if the tile is already cached
 ///     - if the cache is old, attempts to retrieve it, falls back to existing
+#[instrument(skip(key, req))]
 #[routes]
 #[get("/mapdata/{path:.*}")]
 #[get("/analyze/mapdata/{path:.*}")]
@@ -190,7 +191,7 @@ async fn check_map_cache(
         if dur > std::time::Duration::from_secs(REFRESH_CACHE_AFTER)
             && !fetch_is_disabled()
         {
-            debug("Refreshing cache with new data");
+            debug!("Refreshing cache with new data");
             if let Some(new_bytes) =
                 fetch_and_cache_from_network(path, key).await
             {
@@ -292,8 +293,8 @@ async fn fetch_and_cache_from_network(
     path: &str,
     key: &web::Query<Key>,
 ) -> Option<Vec<u8>> {
-    // let now = Instant::now();
-    // debug(&format!("retrieving {path}"));
+    let now = std::time::Instant::now();
+    debug!("retrieving from network: {path}");
 
     // construct the url to fetch the resource from
     let mut url = format!("{}/{path}", obfstr!(MAPTILER_URL));
@@ -320,10 +321,10 @@ async fn fetch_and_cache_from_network(
     std::fs::create_dir_all(dest_path.parent().unwrap()).unwrap();
 
     if !response.status().is_success() {
-        debug(&format!(
+        info!(
             "Received error status code {:?}, assuming resource doesn't exit",
             response.status()
-        ));
+        );
         // got an error, likely doesn't exist, remember this as an empty file
         std::fs::write(dest_path, b"").unwrap();
         return None;
@@ -332,8 +333,8 @@ async fn fetch_and_cache_from_network(
     let body = response.bytes().await.unwrap().to_vec();
     std::fs::write(&dest_path, &body).unwrap(); // cache as-is
 
-    // let elapsed_time = now.elapsed();
-    // debug(&format!("Fetch took {} ms", elapsed_time.as_millis()));
+    let elapsed_time = now.elapsed();
+    debug!("Fetch took {} ms", elapsed_time.as_millis());
 
     Some(body)
 }
@@ -356,7 +357,7 @@ pub async fn evict_old_map_data() {
     // only enter eviction if there are no other current attempts to do eviction
     let Ok(_evict_guard) = EVICT_LOCK.try_lock() else { return };
 
-    // let now = Instant::now();
+    let now = std::time::Instant::now();
     // consider only tiles for deletion, not map styles
     let dir = get_map_cache_dir().join("tiles");
     let cache_pref = AppState::global()
@@ -390,27 +391,31 @@ pub async fn evict_old_map_data() {
     });
     let cache_size =
         |files: &Vec<CachedFile>| files.iter().map(|f| f.len).sum::<u64>();
-    // debug(&format!(
-    // "Cache size: {} MB",
-    // cache_size(&files) as f64 / 1_000_000.0
-    // ));
+    // debug!("Cache size: {} MB", cache_size(&files) as f64 / 1_000_000.0);
+    let initial_size = cache_size(&files);
     while cache_size(&files) > cache_pref.max_size {
         let to_evict = files.pop().unwrap();
-        // debug(&format!(
-        // "Evicting file with access time {:?} and path {:?}",
-        // to_evict.atime, to_evict.path,
-        // ));
+        debug!(
+            "Evicting file with access time {:?} and path {:?}",
+            to_evict.atime, to_evict.path,
+        );
         if let Err(e) = std::fs::remove_file(to_evict.path) {
-            error("Failed to evict file", e);
+            error!("Failed to evict file: {e}");
         }
     }
+    let final_size = cache_size(&files);
     // update the cache size state so it can be displayed in the frontend
     AppState::global()
         .persistent
         .lock()
         .unwrap()
         .back
-        .map_cache_size = cache_size(&files);
-    // let elapsed_time = now.elapsed();
-    // debug(&format!("Eviction took {} ms", elapsed_time.as_millis()));
+        .map_cache_size = final_size;
+    let elapsed_time = now.elapsed();
+    trace!(
+        "Map cache size: {} MB -> {} MB. Took {} ms",
+        initial_size as f64 / 1_000_000.0,
+        final_size as f64 / 1_000_000.0,
+        elapsed_time.as_micros() as f64 / 1_000.0
+    );
 }

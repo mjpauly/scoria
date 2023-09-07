@@ -60,11 +60,9 @@ use sqlx::{
     sqlite::{SqliteConnectOptions, SqliteJournalMode},
     FromRow, SqlitePool,
 };
+use tracing::{error, info};
 
-use crate::{
-    app_state::AppState,
-    core::{debug, error},
-};
+use crate::app_state::AppState;
 
 // Embed our migrations from "migrations/" into our binary at compile time
 static MIGRATOR: Migrator = sqlx::migrate!();
@@ -189,7 +187,7 @@ pub async fn checkpoint_db() {
         .execute(&conn)
         .await
     {
-        error("Failed to checkpoint/vacuum db.", e);
+        error!("Failed to checkpoint/vacuum db: {e}.");
         // not a fatal error, continue onwards
     }
 }
@@ -264,7 +262,7 @@ pub async fn get_last_record() -> Option<common::Location> {
     {
         Ok(mut result) => result.pop().map(|l| l.into()),
         Err(e) => {
-            error("Failed to get last record.", e);
+            error!("Failed to get last record: {e}");
             None
         }
     }
@@ -288,7 +286,7 @@ pub async fn get_records_time_range(
             result.into_iter().map(|l| l.into()).collect()
         }
         Err(e) => {
-            error("Failed to get records in time range.", e);
+            error!("Failed to get records in time range: {e}");
             vec![]
         }
     }
@@ -313,7 +311,7 @@ pub async fn get_records_after_with_limit(
     {
         Ok(result) => result.into_iter().map(|l| l.into()).collect(),
         Err(e) => {
-            error("Failed to get records in time range.", e);
+            error!("Failed to get records in time range: {e}");
             vec![]
         }
     }
@@ -343,7 +341,7 @@ pub async fn count_records_since(thresh: time::OffsetDateTime) -> i32 {
     {
         Ok(result) => result.count,
         Err(e) => {
-            error("Failed to count records since.", e);
+            error!("Failed to count records since threshold: {e}.");
             0
         }
     }
@@ -360,7 +358,7 @@ async fn count_all_records(conn: &SqlitePool) -> i32 {
     {
         Ok(result) => result.count,
         Err(e) => {
-            error("Failed to count all records.", e);
+            error!("Failed to count all records: {e}");
             0
         }
     }
@@ -377,7 +375,7 @@ async fn get_first_timestamp(conn: &SqlitePool) -> time::OffsetDateTime {
     {
         Ok(result) => common::Location::from(result).timestamp,
         Err(e) => {
-            error("Failed to get first record.", e);
+            error!("Failed to get first record: {e}");
             LastAutomapUpdate::default().0
         }
     }
@@ -387,19 +385,19 @@ async fn get_first_timestamp(conn: &SqlitePool) -> time::OffsetDateTime {
 /// migrate it to the current schema, if it's out of date.
 pub async fn import_database_records(import_db_path: PathBuf) {
     let import_db_url = import_db_path.display().to_string();
-    debug(&format!("importing file at {}", import_db_url));
+    info!("importing file at {import_db_url}");
     // Open a connection to the database if possible
     let import_conn = match SqlitePool::connect(&import_db_url).await {
         Ok(c) => c,
         Err(e) => {
-            error("Failed to open connection to import db.", e);
+            error!("Failed to open connection to import db: {e}");
             // TODO: send failure feedback to user
             return;
         }
     };
     // Migrate the databse, mark all rows with was_imported=true, and close it.
     if let Err(e) = MIGRATOR.run(&import_conn).await {
-        error("Failed to migrate import db.", e);
+        error!("Failed to migrate import db: {e}.");
         import_conn.close().await;
         return;
     }
@@ -407,7 +405,7 @@ pub async fn import_database_records(import_db_path: PathBuf) {
         .execute(&import_conn)
         .await
     {
-        error("Failed to mark records as imported.", e);
+        error!("Failed to mark records as imported: {e}");
         import_conn.close().await;
         return;
     }
@@ -450,7 +448,7 @@ pub async fn import_database_records(import_db_path: PathBuf) {
     .execute(&conn)
     .await;
     if let Err(e) = result {
-        error("Failed to import records.", e);
+        error!("Failed to import records: {e}");
         return;
     }
 
@@ -459,11 +457,10 @@ pub async fn import_database_records(import_db_path: PathBuf) {
 
     reset_last_automap_update(&first_import_timestamp);
 
-    debug(&format!(
-        "Successfully imported {} records. ({} duplicates ignored.)",
-        n_imported,
+    info!(
+        "Successfully imported {n_imported} records. ({} duplicates ignored.)",
         n_to_import - n_imported
-    ));
+    );
 
     // TODO: send success to UI
 }
