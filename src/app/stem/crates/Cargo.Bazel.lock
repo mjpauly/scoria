@@ -1,5 +1,5 @@
 {
-  "checksum": "f8bd416bebbca7892b76ff561379afa497d4ab393265a5f0580f1347e19463c5",
+  "checksum": "4d0e2debf7a80bdf126eec3259ce549bea7eb864b56ca856488b09f21ff5e93f",
   "crates": {
     "actix 0.13.0": {
       "name": "actix",
@@ -19388,11 +19388,15 @@
         "crate_features": {
           "common": [
             "BootstrapBoxArrowUp",
+            "BootstrapBoxArrowUpRight",
             "BootstrapBrush",
             "BootstrapCalendarRange",
             "BootstrapCheck",
+            "BootstrapChevronDown",
             "BootstrapChevronLeft",
             "BootstrapChevronRight",
+            "BootstrapExclamationCircle",
+            "BootstrapExclamationCircleFill",
             "BootstrapFullscreen",
             "BootstrapFunnel",
             "BootstrapGear",

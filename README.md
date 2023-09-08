@@ -4,9 +4,7 @@
 
 - debug-ability
     - [ ] action failure alterts (esp for importing)
-    - [ ] ability to submit bug report and export stemlog (log\_panics too)
-        - [x] switch to `tracing`
-        - [ ] also for frontend
+    - [ ] have frontend send logs to backend
 - security
     - [ ] investigate rcgen certificates, extra query parameter frontend key
     - [ ] only allow webView to make network requests to backend
@@ -153,6 +151,8 @@
 - [x] automap to occlude unexplored areas
 - [x] fix lines across antimeridian bug
 - [x] native binary stripping
+- [x] ability to submit bug report and export stemlog (log\_panics too)
+    - [x] switch to `tracing`
 
 ## Structure
 

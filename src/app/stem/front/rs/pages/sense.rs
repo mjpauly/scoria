@@ -19,11 +19,8 @@ use common::{LocationAccuracyMode, LocationMode};
 #[function_component]
 pub fn Sense() -> Html {
     let navigator = use_navigator().unwrap();
-    // retrieve the previous settings page
-    let settings_route =
-        use_selector(|s: &FrontState| s.settings_route.clone());
     let settings_onclick = Callback::from(move |_e: MouseEvent| {
-        navigator.push(&SettingsRoute::from_persisted_route(&settings_route))
+        navigator.push(&SettingsRoute::Root)
     });
     html! {
         <>

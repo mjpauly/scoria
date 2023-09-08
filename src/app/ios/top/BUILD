@@ -33,7 +33,7 @@ ios_application(
 # the LAST build number matching "7.5.x"
 apple_bundle_version(
     name = "app_version",
-    build_version = "1.2.3",
+    build_version = "1.2.4",
     short_version_string = "1.2",
 )
 

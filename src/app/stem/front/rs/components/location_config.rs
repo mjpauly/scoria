@@ -152,7 +152,7 @@ pub fn LocationConfigurator() -> Html {
                 // scroll with the content
                 // h-min wasn't working so height is hardcoded to the switch
                 // height of 6
-                <div class="relative ml-4 mr-1 h-6">
+                <div class="relative ml-4 h-6">
                 <input type="checkbox" id="enable"
                     checked={config.enabled}
                     onclick={enabled_on_click}

@@ -1,8 +1,18 @@
 //! Deeper app settings, such as data log exporting
+//!
+//! Introduction
+//!
+//! General
+//! Map
+//! Data
+//!
+//! Report a problem
+//! Privacy
 
 use yew::prelude::*;
 use yew_icons::{Icon, IconId};
 use yew_router::prelude::*;
+use yewdux::prelude::*;
 
 use crate::components::buttons::DoneButton;
 use crate::components::map_settings::{AutomapSetting, CacheSetting};
@@ -10,6 +20,7 @@ use crate::components::unit_picker::UnitPicker;
 use crate::components::{HomeBarSpacer, TopNav};
 use crate::router::{Route, SettingsRoute};
 use crate::swift_poke;
+use crate::ui_state::BackState;
 use crate::websocket::{ToBack, WebsocketService};
 
 #[function_component]
@@ -31,8 +42,17 @@ pub fn Settings() -> Html {
             navigator.push(&SettingsRoute::MapSettings)
         })
     };
-    let datalog_onclick = Callback::from(move |_e: MouseEvent| {
-        navigator.push(&SettingsRoute::Data)
+    let datalog_onclick = {
+        let navigator = navigator.clone();
+        Callback::from(move |_e: MouseEvent| {
+            navigator.push(&SettingsRoute::Data)
+        })
+    };
+    let report_onclick = Callback::from(move |_e: MouseEvent| {
+        navigator.push(&SettingsRoute::ReportProblem)
+    });
+    let last_error_reviewed = use_selector(|s: &BackState| {
+        s.last_logged_error.as_ref().map(|x| x.1).unwrap_or(true)
     });
     html! {
         <>
@@ -43,20 +63,24 @@ pub fn Settings() -> Html {
 
             <div class="grow overflow-scroll h-0 \
                 px-4 w-full max-w-prose mx-auto">
-                <h1 class="font-bold text-3xl text-left py-4 px-2">
+                <h1 class="font-bold text-3xl text-left my-4 mx-2">
                     {"Settings"}
                 </h1>
 
                 // settings card
-                <div class="bg-neutral-900 rounded-lg px-4">
+                <div class="my-4 bg-neutral-900 rounded-lg px-4">
                     // settings line
-                    <button class="py-2 border-b border-neutral-800 w-full \
+                    <button class="py-2 w-full \
                         flex items-center justify-between"
                         onclick={intro_onclick}>
                         <label>{"Introduction"}</label>
                         <Icon icon_id={IconId::BootstrapChevronRight}
                             class="h-4 w-4 text-neutral-500" />
                     </button>
+                </div>
+
+                // settings card
+                <div class="my-4 bg-neutral-900 rounded-lg px-4">
                     <button class="py-2 border-b border-neutral-800 w-full \
                         flex items-center justify-between"
                         onclick={general_onclick}>
@@ -71,25 +95,35 @@ pub fn Settings() -> Html {
                         <Icon icon_id={IconId::BootstrapChevronRight}
                             class="h-4 w-4 text-neutral-500" />
                     </button>
-                    <button class="py-2 border-b border-neutral-800 w-full \
+                    <button class="py-2 w-full \
                         flex items-center justify-between"
                         onclick={datalog_onclick}>
                         <label>{"Data"}</label>
                         <Icon icon_id={IconId::BootstrapChevronRight}
                             class="h-4 w-4 text-neutral-500" />
                     </button>
-                    <a class="py-2 border-b border-neutral-800 w-full \
+                </div>
+
+                // settings card
+                <div class="my-4 bg-neutral-900 rounded-lg px-4">
+                    <button class="py-2 border-b border-neutral-800 w-full \
                         flex items-center justify-between"
-                        href="https://scoria.info/contact">
-                        <label>{"Feedback"}</label>
+                        onclick={report_onclick}>
+                        <label class="flex items-center">
+                            {"Report a Problem"}
+                            if !*last_error_reviewed {
+                            <Icon icon_id={IconId::BootstrapExclamationCircle}
+                                class="ml-2 h-4 w-4 text-neutral-500" />
+                            }
+                        </label>
                         <Icon icon_id={IconId::BootstrapChevronRight}
                             class="h-4 w-4 text-neutral-500" />
-                    </a>
+                    </button>
                     <a class="py-2 w-full \
                         flex items-center justify-between"
                         href="https://scoria.info/privacy">
                         <label>{"Privacy"}</label>
-                        <Icon icon_id={IconId::BootstrapChevronRight}
+                        <Icon icon_id={IconId::BootstrapBoxArrowUpRight}
                             class="h-4 w-4 text-neutral-500" />
                     </a>
                 </div>

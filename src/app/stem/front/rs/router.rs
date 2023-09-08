@@ -45,6 +45,8 @@ pub enum SettingsRoute {
     Data,
     #[at("/settings/mapsettings")]
     MapSettings,
+    #[at("/settings/reportproblem")]
+    ReportProblem,
     #[not_found]
     #[at("/settings/404")]
     NotFound,
@@ -97,6 +99,7 @@ fn switch_settings(route: SettingsRoute) -> Html {
         SettingsRoute::General => html! { <pages::General /> },
         SettingsRoute::Data => html! { <pages::DataSettings /> },
         SettingsRoute::MapSettings => html! { <pages::MapSettings /> },
+        SettingsRoute::ReportProblem => html! { <pages::ReportProblem /> },
         SettingsRoute::NotFound => html! {
             <Redirect<Route> to={Route::NotFound}/>
         },
@@ -136,6 +139,7 @@ impl SettingsRoute {
             PersistedSettingsRoute::General => Self::General,
             PersistedSettingsRoute::Data => Self::Data,
             PersistedSettingsRoute::MapSettings => Self::MapSettings,
+            PersistedSettingsRoute::ReportProblem => Self::ReportProblem,
         }
     }
 
@@ -145,6 +149,7 @@ impl SettingsRoute {
             Self::General => PersistedSettingsRoute::General,
             Self::Data => PersistedSettingsRoute::Data,
             Self::MapSettings => PersistedSettingsRoute::MapSettings,
+            Self::ReportProblem => PersistedSettingsRoute::ReportProblem,
             _ => PersistedSettingsRoute::Root,
         }
     }

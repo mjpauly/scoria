@@ -96,6 +96,13 @@ pub extern "C" fn handle_enter_foreground() -> server::ServerConfig {
         // We may have received new data while in the background
         tokio::spawn(geojson::update_geojson(None, true));
         tokio::spawn(map::automap::update_automap());
+        tokio::spawn(async {
+            if let Err(e) = logs::update_last_logged_error().await {
+                tracing::error!(
+                    "IO failure when updating last logged error: {e}"
+                );
+            };
+        });
         server::run(0, true).await
     })
 }

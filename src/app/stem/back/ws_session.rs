@@ -14,6 +14,7 @@ use tracing::{info, warn};
 
 use crate::database;
 use crate::geojson::update_geojson;
+use crate::logs::update_last_logged_error;
 use crate::map::automap::update_automap;
 use crate::map::basemap::evict_old_map_data;
 use crate::runtime::get_runtime;
@@ -86,7 +87,8 @@ impl WsSession {
             ToBack::SetFrontState(val) => {
                 let main_route = val.route.clone();
                 let settings_route = val.settings_route.clone();
-                AppState::global().persistent.lock().unwrap().front = Some(val);
+                AppState::global().persistent.lock().unwrap().front =
+                    Some(*val);
                 AppState::save_to_file();
                 get_runtime().spawn(update_geojson(None, false));
                 if main_route == PersistedRoute::SettingsSubpage
@@ -98,6 +100,19 @@ impl WsSession {
                     // Same goes for evicting data from the map cache (if the
                     // user reduced the cache size).
                     get_runtime().spawn(evict_old_map_data());
+                }
+                // when the frontend pushes the settings root as the main route,
+                // the settings route changes after a moment, so we test both
+                if main_route == PersistedRoute::SettingsRoot
+                    && settings_route == PersistedSettingsRoute::Root
+                {
+                    get_runtime().spawn(async move {
+                        if let Err(e) = update_last_logged_error().await {
+                            tracing::error!(
+                                "Failed to update last logged error: {e}"
+                            );
+                        };
+                    });
                 }
             }
             ToBack::ExportSqliteLog => {
@@ -120,6 +135,17 @@ impl WsSession {
                     .lock()
                     .unwrap()
                     .should_request_when_in_use_authorization = true;
+            }
+            ToBack::ReviewedLastError => {
+                if let Some((_, reviewed)) = &mut AppState::global()
+                    .persistent
+                    .lock()
+                    .unwrap()
+                    .back
+                    .last_logged_error
+                {
+                    *reviewed = true;
+                }
             }
             ToBack::GetPopupText((location, data_color)) => {
                 let recipient = ctx.address().recipient();

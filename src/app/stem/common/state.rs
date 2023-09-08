@@ -64,6 +64,11 @@ pub struct BackState {
     // current size of the map cache
     #[serde(deserialize_with = "ok_or_default")]
     pub map_cache_size: u64,
+
+    // the most recent error that was recorded, if it exists, and whether it was
+    // reviewed by the user already (if yes, no prompting to review it)
+    #[serde(deserialize_with = "ok_or_default")]
+    pub last_logged_error: Option<(String, bool)>,
 }
 
 /// Driven by frontend
@@ -94,6 +99,10 @@ pub struct FrontState {
     // Map data cache preferences
     #[serde(deserialize_with = "ok_or_default")]
     pub map_cache_pref: MapCachePreference,
+
+    // State of partially-filled problem report
+    #[serde(deserialize_with = "ok_or_default")]
+    pub problem_report: ProblemReport,
 }
 
 /// The page the frontend is on. Only variants that we care to persist between
@@ -116,6 +125,7 @@ pub enum PersistedSettingsRoute {
     General,
     Data,
     MapSettings,
+    ReportProblem,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -186,6 +196,27 @@ impl Default for MapCachePreference {
         Self {
             max_size: 100 * 1000 * 1000, // 100 MB default
             disable_fetch: false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct ProblemReport {
+    #[serde(deserialize_with = "ok_or_default")]
+    pub email: String,
+    #[serde(deserialize_with = "ok_or_default")]
+    pub body: String,
+    #[serde(deserialize_with = "ok_or_default")]
+    pub attach_log: bool,
+}
+
+impl Default for ProblemReport {
+    fn default() -> Self {
+        Self {
+            email: String::from(""),
+            body: String::from(""),
+            attach_log: true,
         }
     }
 }
