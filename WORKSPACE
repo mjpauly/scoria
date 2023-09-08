@@ -318,6 +318,11 @@ crates_repository(
         ),
         "time": crate.spec( version = "0.3.20",),
         "tokio": crate.spec( version = "1.24.2", features = ["full"],),
+        "tracing": crate.spec( version = "0.1.37",),
+        "tracing-subscriber": crate.spec(
+            version = "0.3.17",
+            features = ["env-filter", "tracing-log"],
+        ),
         "uuid": crate.spec(
             version = "1.3.0",
             features = ["v4", "fast-rng", "macro-diagnostics",]

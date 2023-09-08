@@ -73,6 +73,8 @@ rust_binary(
     deps = [
         ":website",
         "@website_crate_index//:tokio",
+        "@website_crate_index//:tracing",
+        "@website_crate_index//:tracing-subscriber",
     ],
     # Extra optimizations on optimized builds
     # doc: https://doc.rust-lang.org/rustc/codegen-options/index.html
