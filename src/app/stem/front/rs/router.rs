@@ -28,8 +28,6 @@ pub enum Route {
     SettingsSubpage,
     #[at("/intro")]
     Intro,
-    #[at("/test_page")]
-    TestPage,
     #[not_found]
     #[at("/404")]
     NotFound,
@@ -63,7 +61,6 @@ pub fn switch(route: Route) -> Html {
     match route {
         Route::NotFound => (),
         Route::Splash { .. } => (),
-        Route::TestPage { .. } => (),
         _ => persist_route(),
     }
     match route {
@@ -74,7 +71,6 @@ pub fn switch(route: Route) -> Html {
             <Switch<SettingsRoute> render={switch_settings} />
         },
         Route::Intro => html! { <pages::Intro /> },
-        Route::TestPage => html! { <pages::TestPage /> },
         Route::NotFound => html! {
                 <h1 class="text-primary text-3xl mb-6 mt-16">
                     { "Something went wrong" }
@@ -161,7 +157,11 @@ pub fn navigate_to_last_page(
     front_state: &Option<common::FrontState>,
     navigator: &yew_router::navigator::Navigator,
 ) {
-    if let Some(s) = front_state {
+    if cfg!(debug_assertions) {
+        // For debug, skip the intro. Also a good spot to change the default
+        // route during development
+        navigator.push(&Route::Sense);
+    } else if let Some(s) = front_state {
         if s.last_viewed_intro_version < INTRO_VERSION {
             // new intro to view -> show intro on startup
             navigator

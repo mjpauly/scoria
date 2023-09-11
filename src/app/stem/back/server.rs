@@ -125,13 +125,13 @@ fn build(listener: TcpListener, frontend_key: FrontendKey) -> Server {
                     .service(map_data_route)
                     .service(screen)
                     .route("/ws", web::get().to(ws_route))
-                    // yew-router adds trailing slashes that change the relative
-                    // scope that static files are loaded from on reload, so we
-                    // redirect those to the routes without the trailing slash
-                    .service(web::redirect("/sense/", "../sense"))
-                    .service(web::redirect("/analyze/", "../analyze"))
-                    .service(web::redirect("/settings/", "../settings"))
-                    .service(web::redirect("/intro/", "../intro")),
+                    // If the UI crashes, the browser may reload it at the same
+                    // path, so we want to redirect that back to the index
+                    .service(web::redirect("/analyze", "./"))
+                    .service(web::redirect("/intro", "./"))
+                    .service(web::redirect("/sense", "./"))
+                    .service(web::redirect("/settings", "./"))
+                    .service(web::redirect("/settings/{subpath}", "../")),
             )
     })
     .workers(1)
@@ -145,16 +145,7 @@ async fn health_check() -> impl Responder {
     HttpResponse::Ok()
 }
 
-// redirect SPA pages to the index so reloading works
-#[routes]
 #[get("/")]
-#[get("/sense")]
-#[get("/analyze")]
-#[get("/settings")]
-#[get("/settings/appearance")]
-#[get("/settings/data")]
-#[get("/intro")]
-#[get("/test_page")]
 async fn index() -> impl Responder {
     HttpResponse::Ok()
         .content_type(ContentType::html())
