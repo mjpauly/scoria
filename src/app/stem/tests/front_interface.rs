@@ -66,8 +66,9 @@ async fn simple_navigation(
 ) -> Result<(), fantoccini::error::CmdError> {
     sleep(Duration::from_millis(100)).await;
 
-    // Exit the intro
-    c.find(Locator::Css("#done")).await?.click().await?;
+    // Exit the intro (no longer needed now that intro is skipped when
+    // debug_assertions are on, which happens if we compile without opts)
+    // c.find(Locator::Css("#done")).await?.click().await?;
 
     c.find(Locator::Css("#Map")).await?.click().await?;
     assert_url_eq(c, base_url.clone() + "analyze").await;
