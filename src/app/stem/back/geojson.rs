@@ -1,12 +1,10 @@
 //! Builds the geojson data to plot in maplibre.
 
-use actix_web::{
-    http::header::{CacheControl, CacheDirective, ContentType},
-    routes, HttpResponse, Responder,
-};
+use actix_web::{http::header::ContentType, routes, HttpResponse, Responder};
 use geojson::{Feature, FeatureCollection, GeoJson, JsonObject, Value};
 
 use crate::map::coords::TileXYZ;
+use crate::server::no_caching_directives;
 use crate::{app_state::AppState, database, ws_session};
 use common::{
     cmaps,
@@ -27,7 +25,7 @@ static DECIMATION_THRESHOLD: usize = 20_000;
 pub async fn points_geojson_route() -> impl Responder {
     HttpResponse::Ok()
         .content_type(ContentType(mime::APPLICATION_JSON))
-        .insert_header(CacheControl(vec![CacheDirective::NoCache]))
+        .insert_header(no_caching_directives())
         .body(
             AppState::global()
                 .map_data
@@ -44,7 +42,7 @@ pub async fn points_geojson_route() -> impl Responder {
 pub async fn lines_geojson_route() -> impl Responder {
     HttpResponse::Ok()
         .content_type(ContentType(mime::APPLICATION_JSON))
-        .insert_header(CacheControl(vec![CacheDirective::NoCache]))
+        .insert_header(no_caching_directives())
         .body(
             AppState::global()
                 .map_data

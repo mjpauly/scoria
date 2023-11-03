@@ -415,3 +415,22 @@ clicked, only the content. This can be fixed by changing the div into a button.
 Usually a "PhaseScriptExecution failed with nonzero .." error. Try cleaning the
 Derived Data from xcode (File -> Project Settings -> gray arrow -> delete
 corresponding directory).
+
+### Map Won't Render, Stays Black Until Full Restart
+
+iOS 17 Safari has a higher rate of "WebGL Context Lost" errors. 17.1 supposedly
+fixes them.
+
+### `xcode-locator` Fails to Find the Correct Version
+
+Run `bazel clean --expunge` if you update Xcode.
+
+### Examining Plist Files in an App Bundle
+
+`/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" BinaryPlist.plist`
+
+### Can't Put App Bundle on Device
+
+With iOS 17 and Xcode 15, putting the app bundle directly on the device with
+Xcode doesn't work (either the play button with the device selected or dragging
+the bundle onto the device in the Devices Window). No known fix yet.

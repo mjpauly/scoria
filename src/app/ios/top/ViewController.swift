@@ -47,6 +47,8 @@ class ViewController: UIViewController, MyViewControllerProtocol, WKNavigationDe
         let webConfiguration = WKWebViewConfiguration()
         // innocuous user agent addition to thwart malicious API use
         webConfiguration.applicationNameForUserAgent = "WebDriver/A118.35 (iPhone)"
+        // don't persist any data to disk
+        webConfiguration.websiteDataStore = WKWebsiteDataStore.nonPersistent()
         let webView = WKWebView(frame: .zero, configuration: webConfiguration)
         webView.translatesAutoresizingMaskIntoConstraints = false
         webView.scrollView.bounces = false
@@ -55,7 +57,7 @@ class ViewController: UIViewController, MyViewControllerProtocol, WKNavigationDe
 #if DEBUG_WEBVIEW
         if #available(macOS 13.3, iOS 16.4, tvOS 16.4, *) {
             webView.isInspectable = true
-            print("Debugable webView")
+            print("Debuggable webView")
         }
 #endif
         return webView

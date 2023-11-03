@@ -66,7 +66,7 @@ use std::sync::Mutex;
 use std::time::SystemTime;
 
 use actix_web::http::header::{
-    ACCESS_CONTROL_ALLOW_ORIGIN, CACHE_CONTROL, CONTENT_TYPE,
+    CacheDirective, ACCESS_CONTROL_ALLOW_ORIGIN, CONTENT_TYPE,
 };
 use actix_web::HttpRequest;
 use actix_web::{routes, web, HttpResponse, Responder};
@@ -80,6 +80,7 @@ use super::automap::{automap_is_on, tile_has_been_visited};
 use super::coords::TileXYZ;
 use crate::app_state::AppState;
 use crate::paths::get_map_cache_dir;
+use crate::server::no_caching_directives;
 
 // references to the remote url are replaced with the backend url when serving
 // tile jsons
@@ -152,6 +153,8 @@ pub fn fetch_is_disabled() -> bool {
 /// Response when the requested tile (vector or raster) is outside the explroed
 /// region and should be responded with 204 no content or a blank png.
 fn no_content_response(path: &str) -> HttpResponse {
+    let mut cache_directives = no_caching_directives();
+    cache_directives.0.push(CacheDirective::MaxAge(2));
     match PathBuf::from(path).extension().and_then(OsStr::to_str) {
         Some("png") | Some("webp") | Some("jpg") | Some("jpeg") => {
             // browser/maplibre don't like 204 for images, so we return a blank
@@ -161,14 +164,14 @@ fn no_content_response(path: &str) -> HttpResponse {
             return reply
                 .insert_header((CONTENT_TYPE, content_type))
                 .insert_header((ACCESS_CONTROL_ALLOW_ORIGIN, "*"))
-                .insert_header((CACHE_CONTROL, "max-age=2"))
+                .insert_header(cache_directives)
                 .body(BLANK_PNG);
         }
         _ => (),
     };
     let mut reply = HttpResponse::NoContent();
     reply.insert_header((ACCESS_CONTROL_ALLOW_ORIGIN, "*"));
-    reply.insert_header((CACHE_CONTROL, "max-age=2"));
+    reply.insert_header(cache_directives);
     reply.finish()
 }
 
@@ -233,10 +236,12 @@ fn build_response(
         Some(unmatched) => unmatched,
         _ => "unknown",
     };
+    let mut cache_directives = no_caching_directives();
+    cache_directives.0.push(CacheDirective::MaxAge(1000));
     HttpResponse::Ok()
         .insert_header((CONTENT_TYPE, content_type))
         .insert_header((ACCESS_CONTROL_ALLOW_ORIGIN, "*"))
-        .insert_header((CACHE_CONTROL, "max-age=1000"))
+        .insert_header(cache_directives)
         .body(bytes)
 }
 

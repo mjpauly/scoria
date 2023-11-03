@@ -15,7 +15,10 @@ use std::net::TcpListener;
 use actix_web::dev::Server;
 use actix_web::http::header::ContentType;
 use actix_web::{get, routes, web, App, HttpServer};
-use actix_web::{HttpResponse, Responder};
+use actix_web::{
+    http::header::{CacheControl, CacheDirective},
+    HttpResponse, Responder,
+};
 use rand::RngCore;
 
 use crate::app_state::AppState;
@@ -140,6 +143,21 @@ fn build(listener: TcpListener, frontend_key: FrontendKey) -> Server {
     .run()
 }
 
+/// Directives for responses to limit the extent that the browser caches them,
+/// since we're already doing that outselves for map data and location data.
+///
+/// - private: don't put data in a shared cache (viewing region can leak info)
+/// - no-store: don't store cache on disk, only memory
+/// - must-revalidate: disallow using stale responses, which should prompt
+///     the browser to delete them
+pub fn no_caching_directives() -> CacheControl {
+    CacheControl(vec![
+        CacheDirective::NoStore,
+        CacheDirective::MustRevalidate,
+        CacheDirective::Private,
+    ])
+}
+
 #[get("/health_check")]
 async fn health_check() -> impl Responder {
     HttpResponse::Ok()
@@ -149,6 +167,7 @@ async fn health_check() -> impl Responder {
 async fn index() -> impl Responder {
     HttpResponse::Ok()
         .content_type(ContentType::html())
+        .insert_header(no_caching_directives())
         .body(INDEX_FILE)
 }
 

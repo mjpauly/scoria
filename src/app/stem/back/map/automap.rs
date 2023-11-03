@@ -4,6 +4,8 @@
 //! Since it's updated in real-time, the tiles are given a short max-age in the
 //! cache control header so the map library reloads it regularly.
 //!
+//! See basemap.rs for details about the other cache directives that are added.
+//!
 //! On-disk, unexplored regions are bincode encoded as geo::MultiPolygons which
 //! correspond to map tiles in tile coordinates. The tile coordinates span 0-1
 //! for each tile. When serving requests, the coordinates are scaled up to
@@ -13,7 +15,7 @@ use std::collections::HashSet;
 use std::f64::consts::TAU;
 use std::path::PathBuf;
 
-use actix_web::http::header::{ACCESS_CONTROL_ALLOW_ORIGIN, CACHE_CONTROL};
+use actix_web::http::header::{CacheDirective, ACCESS_CONTROL_ALLOW_ORIGIN};
 use actix_web::{routes, web, HttpResponse, Responder};
 use geo::{
     coord, line_string, AffineOps, AffineTransform, Coord, CoordsIter,
@@ -29,6 +31,7 @@ use crate::app_state::AppState;
 use crate::core::send_state_to_front;
 use crate::database;
 use crate::paths::get_unexplored_data_dir;
+use crate::server::no_caching_directives;
 use common::filters::apply_filters;
 use common::state::default_accuracy_filter;
 use common::{LngLat, Location};
@@ -67,8 +70,10 @@ async fn screen(path: web::Path<String>) -> impl Responder {
         actix_web::http::header::CONTENT_TYPE,
         "application/x-protobuf",
     ));
-    // have screen tiles be re-requested every second so they're up-to-date
-    reply.insert_header((CACHE_CONTROL, "max-age=2"));
+    // have screen tiles be re-requested every two seconds so they're up-to-date
+    let mut cache_directives = no_caching_directives();
+    cache_directives.0.push(CacheDirective::MaxAge(2));
+    reply.insert_header(cache_directives);
     reply.insert_header((ACCESS_CONTROL_ALLOW_ORIGIN, "*"));
     reply.body(tile)
 }
