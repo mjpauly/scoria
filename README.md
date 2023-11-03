@@ -2,18 +2,22 @@
 
 ## To Do
 
-- website
-    - [ ] cross compile website binary
-    - [ ] try kube for scoria.app
-- accessibility
-    - [ ] accessible map size scaling
 - debug-ability
     - [ ] action failure alterts (esp for importing)
-    - [ ] ability to export stemlog for debugging
+    - [ ] have frontend send logs to backend
+- security
+    - [ ] investigate rcgen certificates, extra query parameter frontend key
+    - [ ] only allow webView to make network requests to backend
 - features
-    - [ ] automap to occlude unexplored areas (100m radius? diameter?)
+    - [ ] what's new section
+    - [ ] release notes
+    - [ ] show latest location
     - [ ] zoom to current location on first install
     - [ ] quick time update buttons
+    - [ ] better obfuscating, include\_crypt, etc
+    - [ ] enable running Scoria on iPad and Mac
+- filesystem
+    - [ ] switch to Library/Caches for map cache (and cleanup old location)
 - [ ] reset to "today" time range and data-centered view if user is away from
     the app for 1+ hr
 - [ ] export tab on map (csv, maybe image)
@@ -28,6 +32,7 @@
 - [ ] have maps\_ok respond with 204 No Content instead of 404
 - [ ] custom map style that uses more black
 - [ ] arcgis HD satellite maps
+- [ ] follow current location mode on map
 
 - later features
     - sensing: environmental noise
@@ -141,6 +146,13 @@
 - [x] accessible font sizing for colorbar, attribution
 - [x] custom user agent to restrict api access
     - [x] also allow only `127.0.0.1` origins
+- website
+    - [x] cross compile website binary
+- [x] automap to occlude unexplored areas
+- [x] fix lines across antimeridian bug
+- [x] native binary stripping
+- [x] ability to submit bug report and export stemlog (log\_panics too)
+    - [x] switch to `tracing`
 
 ## Structure
 
@@ -360,6 +372,10 @@ something like an option behind the Mutex.
 - To format text to a certain width with hard linebreaks, set textwidth=80,
   highlight the text, then do `gq`
 
+### Security / Obfuscation
+
+Inspect the symbols in a binary with `nm [file] | nvim -R -`.
+
 ## Style Notes
 
 - Check rust code formatting with: `bazel build --@rules_rust//:rustfmt.toml=//:rustfmt.toml --aspects=@rules_rust//rust:defs.bzl%rustfmt_aspect --output_groups=rustfmt_checks //...`
@@ -379,6 +395,7 @@ developer.apple.com.
 4. Build the app
     4a. Developemnt: `bazel build //:iosapp --ios_multi_cpus=arm64 -c opt`
     4b. Distribution: `bazel build //:iosapp --ios_multi_cpus=arm64 --device_debug_entitlements=false --define profile=distribution -c opt`
+     - or: `bazel bulid //:iosapp --config=app_release`
 5. Locate the `.ipa` archive in `bazel-bin/src/app/ios/top/Scoria.ipa`.
 6. Install/upload the app
     6a. Developemnt: Go to Xcode -> devices and simulators -> [your device] ->
@@ -392,3 +409,28 @@ developer.apple.com.
 
 For some reason, on iOS onclick events don't fire when the padding of a div is
 clicked, only the content. This can be fixed by changing the div into a button.
+
+### Default Action Won't Run in Xcode
+
+Usually a "PhaseScriptExecution failed with nonzero .." error. Try cleaning the
+Derived Data from xcode (File -> Project Settings -> gray arrow -> delete
+corresponding directory).
+
+### Map Won't Render, Stays Black Until Full Restart
+
+iOS 17 Safari has a higher rate of "WebGL Context Lost" errors. 17.1 supposedly
+fixes them.
+
+### `xcode-locator` Fails to Find the Correct Version
+
+Run `bazel clean --expunge` if you update Xcode.
+
+### Examining Plist Files in an App Bundle
+
+`/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" BinaryPlist.plist`
+
+### Can't Put App Bundle on Device
+
+With iOS 17 and Xcode 15, putting the app bundle directly on the device with
+Xcode doesn't work (either the play button with the device selected or dragging
+the bundle onto the device in the Devices Window). No known fix yet.

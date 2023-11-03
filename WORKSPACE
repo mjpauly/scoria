@@ -5,8 +5,8 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(
     name = "rules_xcodeproj",
-    sha256 = "54cee524abd72db950482ded168dd44397369077b734d4cf4b06f734e10a3e80",
-    url = "https://github.com/MobileNativeFoundation/rules_xcodeproj/releases/download/1.5.1/release.tar.gz",
+    sha256 = "f5c1f4bea9f00732ef9d54d333d9819d574de7020dbd9d081074232b93c10b2c",
+    url = "https://github.com/MobileNativeFoundation/rules_xcodeproj/releases/download/1.13.0/release.tar.gz",
 )
 
 load(
@@ -16,14 +16,12 @@ load(
 
 xcodeproj_rules_dependencies()
 
+load("@bazel_features//:deps.bzl", "bazel_features_deps")
+
+bazel_features_deps()
+
 
 # apple / swift support
-
-http_archive(
-    name = "build_bazel_rules_apple",
-    sha256 = "9e26307516c4d5f2ad4aee90ac01eb8cd31f9b8d6ea93619fc64b3cbc81b0944",
-    url = "https://github.com/bazelbuild/rules_apple/releases/download/2.2.0/rules_apple.2.2.0.tar.gz",
-)
 
 load(
     "@build_bazel_rules_apple//apple:repositories.bzl",
@@ -116,13 +114,35 @@ load("@rules_rust//crate_universe:defs.bzl", "crate", "crates_repository", "rend
 # e.g. deps = [ ... , "@stem_crate_index//:tokio", ]
 crates_repository(
     name = "stem_crate_index",
-    cargo_lockfile = "//src/app/stem:Cargo.lock",
-    lockfile = "//src/app/stem:Cargo.Bazel.lock",
+    cargo_lockfile = "//src/app/stem/crates:Cargo.lock",
+    lockfile = "//src/app/stem/crates:Cargo.Bazel.lock",
     isolated = False,  # cache results of the previous invocation to
                        # ${HOME}/.cargo so using it is fast
+    # Patches:
+    # If changes in fork have been committed, generate the patch with
+    # $ git format-patch --keep-subject --no-stat --zero-commit origin/main
+    # more info: https://brentley.dev/patching-bazel-external-dependencies/
+    annotations = {
+        # Patch-in iOS support in the clipper-sys build script (dep of
+        # geo-clipper)
+        "clipper-sys": [crate.annotation(
+            patches = ["@//src/app/stem/crates:clipper_sys_ios.patch"],
+            patch_args = ["-p1"],
+        )],
+    },
     packages = {
         "futures-core": crate.spec(version = "0.3.28"),
+        "geo": crate.spec(version = "0.26.0"),
+        "geo-clipper": crate.spec(version = "0.7.3"),
+        "geojson": crate.spec(version = "0.24.1", features = ["geo-types"]),
+        "log-panics": crate.spec(version = "2.1.0"),
+        "mvt": crate.spec(version = "0.8.1"),
+        "pointy": crate.spec(version = "0.4.0"),
         "rand": crate.spec(version = "0.8.5"),
+        "reqwest": crate.spec(
+            version = "0.11.15",
+            features = ["gzip", "deflate", "brotli"]
+        ),
         "sqlx": crate.spec(
             version = "0.6.2",
             features = ["runtime-tokio-native-tls", "sqlite", "time", "macros"],
@@ -131,6 +151,18 @@ crates_repository(
             version = "1.24.2",
             features = ["full"],
         ),
+        "tracing": crate.spec(
+            version = "0.1.37",
+            # statically remove tracing instrumentation at levels above error
+            # for release builds
+            features = ["release_max_level_error"],
+        ),
+        "tracing-appender": crate.spec(version = "0.2.2"),
+        "tracing-subscriber": crate.spec(
+            version = "0.3.17",
+            features = ["env-filter", "tracing-log"],
+        ),
+        "walkdir": crate.spec(version = "2.3.3"),
         "anyhow": crate.spec(
             version = "1.0.68",
         ),
@@ -166,7 +198,10 @@ crates_repository(
         ),
         "serde_json": crate.spec(version = "1.0.94",),
         "serde-wasm-bindgen": crate.spec(version = "0.5.0",),
-        "uom": crate.spec(version = "0.34.0"),
+        "uom": crate.spec(
+            version = "0.34.0",
+            features = ["u64"],
+        ),
         "yew": crate.spec(
             version = "0.20.0",
             features = ["csr"],
@@ -213,11 +248,15 @@ crates_repository(
             # branch = "main",
             features = [
                 "BootstrapBoxArrowUp",
+                "BootstrapBoxArrowUpRight",
                 "BootstrapBrush",
                 "BootstrapCalendarRange",
                 "BootstrapCheck",
+                "BootstrapChevronDown",
                 "BootstrapChevronLeft",
                 "BootstrapChevronRight",
+                "BootstrapExclamationCircle",
+                "BootstrapExclamationCircleFill",
                 "BootstrapFullscreen",
                 "BootstrapFunnel",
                 "BootstrapGear",
@@ -241,8 +280,6 @@ crates_repository(
         ),
 
         # dev + testing
-        "env_logger": crate.spec(version = "0.10.0",),
-        "reqwest": crate.spec(version = "0.11.15",),
         "tokio-tungstenite": crate.spec(version = "0.18.0",),
         "futures-util": crate.spec(version = "0.3.27",),
         "rusty-fork": crate.spec(version = "0.3.0",),
@@ -283,6 +320,11 @@ crates_repository(
         ),
         "time": crate.spec( version = "0.3.20",),
         "tokio": crate.spec( version = "1.24.2", features = ["full"],),
+        "tracing": crate.spec( version = "0.1.37",),
+        "tracing-subscriber": crate.spec(
+            version = "0.3.17",
+            features = ["env-filter", "tracing-log"],
+        ),
         "uuid": crate.spec(
             version = "1.3.0",
             features = ["v4", "fast-rng", "macro-diagnostics",]

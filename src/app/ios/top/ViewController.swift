@@ -10,7 +10,7 @@ import WebKit
 
 import Sensing
 
-// The Sensing framework  is a dependency, and it defines the protocol both frameworks need to
+// The Sensing library is a dependency, and it defines the protocol both pieces need to
 // agree on for the class's type when passed to the Sensing framwork.
 class ViewController: UIViewController, MyViewControllerProtocol, WKNavigationDelegate {
 
@@ -47,11 +47,19 @@ class ViewController: UIViewController, MyViewControllerProtocol, WKNavigationDe
         let webConfiguration = WKWebViewConfiguration()
         // innocuous user agent addition to thwart malicious API use
         webConfiguration.applicationNameForUserAgent = "WebDriver/A118.35 (iPhone)"
+        // don't persist any data to disk
+        webConfiguration.websiteDataStore = WKWebsiteDataStore.nonPersistent()
         let webView = WKWebView(frame: .zero, configuration: webConfiguration)
         webView.translatesAutoresizingMaskIntoConstraints = false
         webView.scrollView.bounces = false
         webView.isOpaque = false
         webView.backgroundColor = UIColor.clear
+#if DEBUG_WEBVIEW
+        if #available(macOS 13.3, iOS 16.4, tvOS 16.4, *) {
+            webView.isInspectable = true
+            print("Debuggable webView")
+        }
+#endif
         return webView
     }()
     

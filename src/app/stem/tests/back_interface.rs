@@ -100,7 +100,7 @@ async fn set_location_config_changes_backend_state_impl() {
         },
         ..Default::default()
     };
-    let msg = ToBack::SetFrontState(front_state.clone());
+    let msg = ToBack::SetFrontState(Box::new(front_state.clone()));
     let encoded = bincode::serialize(&msg).unwrap();
     write.send(Message::binary(encoded)).await.unwrap();
 

@@ -21,7 +21,7 @@ use common::LocationMode;
 use common::ToBack;
 
 // Bump to indicate the intro should be shown again to users on install
-pub static INTRO_VERSION: usize = 3;
+pub static INTRO_VERSION: u32 = 3;
 
 #[function_component]
 pub fn Intro() -> Html {
@@ -45,7 +45,7 @@ pub fn Intro() -> Html {
         })
     };
 
-    const LAST_PAGE: usize = 9;
+    const LAST_PAGE: u32 = 9;
     html! {
         <>
             <TopNav>
@@ -198,7 +198,7 @@ fn HoldUp() -> Html {
                 {"This information is deeply personal, private, and sensitive. It reveals a tremendous amount about who you are. We, the developers, do not take this lightly. We created Scoria because we believe everyone deserves privacy, and because we felt there were gaps in the space of personal data tools."}
             </p>
             <p class="mb-3">
-                {"Data collected by the app is kept on your device and is only accessible to you. We don't automatically collect any information about you or how you use the app. We make no assumptions about what data is sensitive and what data isn't. We do not know if you use the app or not, how much you use the app, or if the app crashes while you're using it. (If it crashes, please consider letting us know via the feedback form so we can fix it.) All data is private by default."}
+                {"Data logged by the app is kept on your device and is only accessible to you. We don't automatically collect any information about you or how you use the app. We make no assumptions about what data is sensitive and what data isn't. We do not know if you use the app or not, how much you use the app, or if the app crashes while you're using it. (If it crashes, please consider letting us know via the feedback form so we can fix it.) All data is private by default."}
             </p>
 
         </div>

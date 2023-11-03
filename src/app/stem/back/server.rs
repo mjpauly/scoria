@@ -15,12 +15,15 @@ use std::net::TcpListener;
 use actix_web::dev::Server;
 use actix_web::http::header::ContentType;
 use actix_web::{get, routes, web, App, HttpServer};
-use actix_web::{HttpResponse, Responder};
+use actix_web::{
+    http::header::{CacheControl, CacheDirective},
+    HttpResponse, Responder,
+};
 use rand::RngCore;
 
 use crate::app_state::AppState;
-use crate::core::error;
 use crate::geojson::{lines_geojson_route, points_geojson_route};
+use crate::map::{automap::screen, basemap::map_data_route};
 use crate::ws_session::ws_route;
 
 // static files to serve (env vars are set by bazel and poin to file path)
@@ -70,14 +73,8 @@ impl FrontendKey {
 /// known value (123) for local testing.
 pub async fn run(port: u16, secure: bool) -> ServerConfig {
     // If we bind to port 0, the OS assigns us an available port
-    let listener = TcpListener::bind(format!("127.0.0.1:{}", port))
-        .map_err(|e| error("Failed to bind tcp listener.", e))
-        .unwrap();
-    let port = listener
-        .local_addr()
-        .map_err(|e| error("Failed to get tcp listener local_addr.", e))
-        .unwrap()
-        .port();
+    let listener = TcpListener::bind(format!("127.0.0.1:{}", port)).unwrap();
+    let port = listener.local_addr().unwrap().port();
 
     let frontend_key = if secure {
         FrontendKey::new()
@@ -128,21 +125,37 @@ fn build(listener: TcpListener, frontend_key: FrontendKey) -> Server {
                     .service(health_check)
                     .service(points_geojson_route)
                     .service(lines_geojson_route)
+                    .service(map_data_route)
+                    .service(screen)
                     .route("/ws", web::get().to(ws_route))
-                    // yew-router adds trailing slashes that change the relative
-                    // scope that static files are loaded from on reload, so we
-                    // redirect those to the routes without the trailing slash
-                    .service(web::redirect("/sense/", "../sense"))
-                    .service(web::redirect("/analyze/", "../analyze"))
-                    .service(web::redirect("/settings/", "../settings"))
-                    .service(web::redirect("/intro/", "../intro")),
+                    // If the UI crashes, the browser may reload it at the same
+                    // path, so we want to redirect that back to the index
+                    .service(web::redirect("/analyze", "./"))
+                    .service(web::redirect("/intro", "./"))
+                    .service(web::redirect("/sense", "./"))
+                    .service(web::redirect("/settings", "./"))
+                    .service(web::redirect("/settings/{subpath}", "../")),
             )
     })
     .workers(1)
     .listen(listener)
-    .map_err(|e| error("Failed to start server.", e))
     .unwrap()
     .run()
+}
+
+/// Directives for responses to limit the extent that the browser caches them,
+/// since we're already doing that outselves for map data and location data.
+///
+/// - private: don't put data in a shared cache (viewing region can leak info)
+/// - no-store: don't store cache on disk, only memory
+/// - must-revalidate: disallow using stale responses, which should prompt
+///     the browser to delete them
+pub fn no_caching_directives() -> CacheControl {
+    CacheControl(vec![
+        CacheDirective::NoStore,
+        CacheDirective::MustRevalidate,
+        CacheDirective::Private,
+    ])
 }
 
 #[get("/health_check")]
@@ -150,19 +163,11 @@ async fn health_check() -> impl Responder {
     HttpResponse::Ok()
 }
 
-// redirect SPA pages to the index so reloading works
-#[routes]
 #[get("/")]
-#[get("/sense")]
-#[get("/analyze")]
-#[get("/settings")]
-#[get("/settings/appearance")]
-#[get("/settings/data")]
-#[get("/intro")]
-#[get("/test_page")]
 async fn index() -> impl Responder {
     HttpResponse::Ok()
         .content_type(ContentType::html())
+        .insert_header(no_caching_directives())
         .body(INDEX_FILE)
 }
 

@@ -52,6 +52,23 @@ pub struct BackState {
     pub data_center: Option<(LngLat, f64)>, // (LngLat, zoom)
     #[serde(deserialize_with = "ok_or_default")]
     pub cmap_params: CmapParams,
+
+    // time of last data point where automap was updated
+    #[serde(deserialize_with = "ok_or_default")]
+    pub last_automap_update: LastAutomapUpdate,
+    // Number of data points in the database which have not yet been
+    // incorporated into the automap
+    #[serde(deserialize_with = "ok_or_default")]
+    pub num_automap_records_remaining: u64,
+
+    // current size of the map cache
+    #[serde(deserialize_with = "ok_or_default")]
+    pub map_cache_size: u64,
+
+    // the most recent error that was recorded, if it exists, and whether it was
+    // reviewed by the user already (if yes, no prompting to review it)
+    #[serde(deserialize_with = "ok_or_default")]
+    pub last_logged_error: Option<(String, bool)>,
 }
 
 /// Driven by frontend
@@ -60,7 +77,7 @@ pub struct BackState {
 pub struct FrontState {
     // Last version of the introduction/tutorial that was viewed
     #[serde(deserialize_with = "ok_or_default")]
-    pub last_viewed_intro_version: usize,
+    pub last_viewed_intro_version: u32,
 
     #[serde(deserialize_with = "ok_or_default")]
     pub route: PersistedRoute,
@@ -71,10 +88,6 @@ pub struct FrontState {
     #[serde(deserialize_with = "ok_or_default")]
     pub location_config: UserConfig,
 
-    // Whether to use scoria tile server
-    #[serde(deserialize_with = "ok_or_default")]
-    pub use_scoria_tile_server: bool,
-
     // State of the plot view
     #[serde(deserialize_with = "ok_or_default")]
     pub map: MapState,
@@ -82,6 +95,14 @@ pub struct FrontState {
     // User's preferred display units
     #[serde(deserialize_with = "ok_or_default")]
     pub unit_pref: UnitPreference,
+
+    // Map data cache preferences
+    #[serde(deserialize_with = "ok_or_default")]
+    pub map_cache_pref: MapCachePreference,
+
+    // State of partially-filled problem report
+    #[serde(deserialize_with = "ok_or_default")]
+    pub problem_report: ProblemReport,
 }
 
 /// The page the frontend is on. Only variants that we care to persist between
@@ -103,6 +124,8 @@ pub enum PersistedSettingsRoute {
     Root,
     General,
     Data,
+    MapSettings,
+    ReportProblem,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -148,4 +171,52 @@ pub fn default_accuracy_filter() -> Vec<Filter> {
         op: FilterOp::GreaterThan,
         threshold: 100.0,
     }]
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct LastAutomapUpdate(pub time::OffsetDateTime);
+
+impl Default for LastAutomapUpdate {
+    fn default() -> Self {
+        Self(time::OffsetDateTime::from_unix_timestamp(0).unwrap())
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct MapCachePreference {
+    // max cache size in bytes, beyond which eviction happens.
+    pub max_size: u64,
+
+    // prevents loading map data from the internet, relying only on the cache
+    pub disable_fetch: bool,
+}
+
+impl Default for MapCachePreference {
+    fn default() -> Self {
+        Self {
+            max_size: 100 * 1000 * 1000, // 100 MB default
+            disable_fetch: false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct ProblemReport {
+    #[serde(deserialize_with = "ok_or_default")]
+    pub email: String,
+    #[serde(deserialize_with = "ok_or_default")]
+    pub body: String,
+    #[serde(deserialize_with = "ok_or_default")]
+    pub attach_log: bool,
+}
+
+impl Default for ProblemReport {
+    fn default() -> Self {
+        Self {
+            email: String::from(""),
+            body: String::from(""),
+            attach_log: true,
+        }
+    }
 }

@@ -10,7 +10,7 @@ use yewdux::prelude::*;
 
 use crate::components::{
     location_filter_list::LocationFilterList,
-    map_styler::{get_basemap_url, use_check_scoria_tile_server, MapStyler},
+    map_styler::{get_basemap_url, MapStyler},
     Colorbar, TabBar, TimeRangePicker, PRIMARY_BUTTON_STYLE,
     SECONDARY_BUTTON_STYLE,
 };
@@ -22,11 +22,10 @@ use crate::websocket::{
 use common::map_style::ColoredDataStream;
 use common::LngLat;
 
+const BLANK_MAP_STYLE: &str = r#"{"version":8,"name":"Blank","sources":{},"layers":[],"center":[0,0],"zoom":1}"#;
+
 #[function_component]
 pub fn Analyze() -> Html {
-    // Check if the scoria tile server is up, and update the app state
-    use_check_scoria_tile_server();
-
     html! {
         <>
             <AnalyzeLocation />
@@ -198,29 +197,30 @@ fn PlotComponent() -> Html {
     let map_initialized = use_state(|| false);
 
     let map_style = use_selector(|s: &FrontState| s.map.style.clone());
-    let use_scoria_tile_server =
-        use_selector(|s: &FrontState| s.use_scoria_tile_server);
 
     // The style json string for the basemap without user data on top
-    let basemap = use_state(|| Option::<String>::None);
+    let basemap = use_state(|| Option::<Value>::None);
     {
         let basemap = basemap.clone();
         use_effect_with_deps(
             move |basemap_style| {
                 let basemap_style = basemap_style.clone();
                 wasm_bindgen_futures::spawn_local(async move {
-                    let blank_map = String::from(
-                        r#"{"version":8,"name":"Blank","sources":{},"layers":[],"center":[0,0],"zoom":1}"#,
-                    );
-                    let url = get_basemap_url(
-                        &basemap_style,
-                        *use_scoria_tile_server,
-                    );
+                    let blank_map = String::from(BLANK_MAP_STYLE);
+                    let url = get_basemap_url(&basemap_style);
                     let basemap_str = match Request::get(&url).send().await {
-                        Ok(req) => req.text().await.unwrap_or(blank_map),
-                        Err(_) => blank_map,
+                        Ok(req) => req
+                            .text()
+                            .await
+                            .unwrap_or_else(|_| blank_map.clone()),
+                        Err(_) => blank_map.clone(),
                     };
-                    basemap.set(Some(basemap_str));
+                    // if we can't parse the json, just make it a blank map
+                    let basemap_obj: Value = serde_json::from_str(&basemap_str)
+                        .unwrap_or_else(|_| {
+                            serde_json::from_str(&blank_map).unwrap()
+                        });
+                    basemap.set(Some(basemap_obj));
                 });
                 || ()
             },
@@ -235,9 +235,8 @@ fn PlotComponent() -> Html {
         use_effect_with_deps(
             move |(basemap, map_style)| {
                 // if we've loaded the basemap json from the http request
-                if let Some(basemap_str) = &**basemap {
-                    let mut style_obj: Value =
-                        serde_json::from_str(basemap_str).unwrap();
+                if let Some(basemap_obj) = &**basemap {
+                    let mut style_obj = basemap_obj.clone();
                     add_source_and_layers_to_style(&mut style_obj, map_style);
                     style.set(Some(style_obj));
                 }

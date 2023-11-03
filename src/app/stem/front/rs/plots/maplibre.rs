@@ -8,6 +8,7 @@ use js_sys::{Array, Reflect};
 use serde_json::{json, Value};
 use wasm_bindgen::{prelude::*, JsCast};
 
+use crate::router::get_host;
 use common::cmaps;
 use common::map_style::{ColoredDataStream, MapStyle, Rgba};
 use common::view_position::ViewPosition;
@@ -19,6 +20,9 @@ extern "C" {
 
     #[wasm_bindgen(constructor, js_namespace = maplibregl, js_name = Map)]
     pub fn new(options: &JsValue) -> Map;
+
+    #[wasm_bindgen(method, setter, js_name = showTileBoundaries)]
+    pub fn show_tile_boundaries(this: &Map, yes: bool);
 
     #[wasm_bindgen(method)]
     pub fn on(this: &Map, event: &str, listener: &JsValue);
@@ -92,8 +96,12 @@ extern "C" {
 
 static POINTS_SOURCE_ID: &str = "points";
 static POINTS_LAYER_ID: &str = "points";
+static POINTS_SOURCE_URL: &str = "./points.geojson";
 static LINES_SOURCE_ID: &str = "lines";
 static LINES_LAYER_ID: &str = "lines";
+static LINES_SOURCE_URL: &str = "./lines.geojson";
+static UNEXPLORED_SOURCE_ID: &str = "unexplored";
+static UNEXPLORED_LAYER_ID: &str = "unexplored";
 
 pub fn view_pos_from_map(map: &Map) -> ViewPosition {
     let center = map.get_center();
@@ -125,8 +133,12 @@ pub fn new_map(
         "zoom": view_position.zoom,
         "bearing": view_position.bearing,
         "pitch": view_position.pitch,
+        // prevent tile caching so we don't get leak-through of
+        // the basemap past the automap screen when zooming out
+        // "maxTileCacheSize": 0,
     });
     let map = Map::new(&val_to_jsval(&opts));
+    // map.show_tile_boundaries(true); // great for tile debugging
 
     // Add compass control
     map.add_navigation_control(
@@ -297,36 +309,87 @@ pub fn restyle(map: Rc<Map>, style: &Value) {
 /// Modify a serde_json::Value object containing the basemap style to add on
 /// the user data sources and layers.
 pub fn add_source_and_layers_to_style(style: &mut Value, map_style: &MapStyle) {
+    // Sources
     let sources_mut = style["sources"].as_object_mut().unwrap();
-    sources_mut.insert(POINTS_SOURCE_ID.to_string(), points_source());
-    sources_mut.insert(LINES_SOURCE_ID.to_string(), lines_source());
-    let points_layer = make_points_layer(
-        map_style.marker_size,
-        &map_style.solid_color,
-        &map_style.colored_datastream,
+    sources_mut.insert(
+        POINTS_SOURCE_ID.to_string(),
+        geojson_source_with_url(POINTS_SOURCE_URL),
     );
-    let lines_layer = make_lines_layer(
+    sources_mut.insert(
+        LINES_SOURCE_ID.to_string(),
+        geojson_source_with_url(LINES_SOURCE_URL),
+    );
+    if map_style.automap {
+        sources_mut.insert(UNEXPLORED_SOURCE_ID.to_string(), screen_source());
+    }
+
+    // Layers
+    // Earlier layers are lower in the map view.
+    // Unexplored area first, then lines, then points which go on top
+    if map_style.automap {
+        let screen = make_screen_layer(style, map_style);
+        style["layers"].as_array_mut().unwrap().push(screen);
+    }
+    let layers_mut = style["layers"].as_array_mut().unwrap();
+    layers_mut.push(make_lines_layer(
         map_style.line_size,
         &map_style.solid_color,
         &map_style.colored_datastream,
-    );
-    // lines first, so they go under points
-    style["layers"].as_array_mut().unwrap().push(lines_layer);
-    style["layers"].as_array_mut().unwrap().push(points_layer);
+    ));
+    layers_mut.push(make_points_layer(
+        map_style.marker_size,
+        &map_style.solid_color,
+        &map_style.colored_datastream,
+    ));
 }
 
-fn points_source() -> Value {
+fn geojson_source_with_url(url: &str) -> Value {
     json!({
         "type": "geojson",
-        "data": "./points.geojson",
+        "data": url,
     })
 }
 
-fn lines_source() -> Value {
+fn screen_source() -> Value {
+    let host = get_host();
     json!({
-        "type": "geojson",
-        "data": "./lines.geojson",
+        "type": "vector",
+        "tiles": [
+            format!("{host}/screen/tiles/foo/{{z}}/{{x}}/{{y}}.pbf")
+        ],
+        // max zoom to request tiles from, overzooming if going further in
+        "maxzoom": 15,
     })
+}
+
+fn make_screen_layer(style: &Value, map_style: &MapStyle) -> Value {
+    let outline_color = if map_style.basemap_style.is_dark() {
+        "hsl(240, 60%, 80%)" // light, low-saturation blue/purple
+    } else {
+        "hsl(240, 60%, 40%)" // dark, low-saturation blue/purple
+    };
+    json!({
+        "id": UNEXPLORED_LAYER_ID,
+        "type": "fill",
+        "source": UNEXPLORED_SOURCE_ID,
+        "source-layer": "screen", // layer within the tiles
+        // Do not want "minzoom" and "maxzoom" here since they define the range
+        // where the tiles are shown
+        "paint": {
+            "fill-color": get_background_color(style),
+            "fill-outline-color": outline_color,
+        },
+    })
+}
+
+/// Retrieve the background color of the style if it exists.
+fn get_background_color(style: &Value) -> Value {
+    let bg_color = style["layers"][0]["paint"]["background-color"].clone();
+    if bg_color.is_null() {
+        json!("hsl(0, 0%, 10%)")
+    } else {
+        bg_color
+    }
 }
 
 /// Convert from a serde_json::Value (loosely-typed object) to a json JsValue
@@ -374,7 +437,7 @@ fn make_points_layer(
                     json!(marker_color.rgb)
                 },
             "circle-opacity": log_rescale_opacity(marker_color.a),
-            // An invisible stroke of 5px to makes the data points easier to
+            // An invisible stroke of 10px to makes the data points easier to
             // click.
             "circle-stroke-width": 10,
             "circle-stroke-color": "#ffffff",
@@ -401,7 +464,7 @@ fn make_lines_layer(
                     json!(marker_color.rgb)
                 },
             "line-opacity": log_rescale_opacity(marker_color.a),
-        }
+        },
     })
 }
 

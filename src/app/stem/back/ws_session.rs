@@ -4,14 +4,20 @@
 ///
 /// Ridiculously helpful SO thread about using async functions with actors:
 /// https://stackoverflow.com/questions/64434912/how-to-correctly-call-async-functions-in-a-websocket-handler-in-actix-web
+use std::time::{Duration, Instant};
+
 use actix::prelude::*;
 use actix_web::{web, Error, HttpRequest, HttpResponse};
 use actix_web_actors::ws;
-use std::time::{Duration, Instant};
+use common::state::{PersistedRoute, PersistedSettingsRoute};
+use tracing::{info, warn};
 
-use crate::core::{debug, error};
 use crate::database;
 use crate::geojson::update_geojson;
+use crate::logs::update_last_logged_error;
+use crate::map::automap::update_automap;
+use crate::map::basemap::evict_old_map_data;
+use crate::runtime::get_runtime;
 use crate::{app_state::AppState, geojson::get_popup_text};
 use common::{ToBack, ToFront};
 
@@ -30,11 +36,11 @@ pub async fn ws_route(
 ) -> Result<HttpResponse, Error> {
     // Disallow another websocket connection if one is already active
     if AppState::global().ws_addr.lock().unwrap().is_some() {
-        debug("Additional UI websocket connection rejected.");
+        warn!("Additional UI websocket connection rejected.");
         return Ok(HttpResponse::Unauthorized()
             .body("Only one UI connection allowed."));
     }
-    debug("Frontend Websocket Connected");
+    info!("Frontend Websocket Connected");
     ws::start(WsSession { hb: Instant::now() }, &req, stream)
 }
 
@@ -55,7 +61,7 @@ impl WsSession {
             // check client heartbeats
             if Instant::now().duration_since(act.hb) > CLIENT_TIMEOUT {
                 // heartbeat timed out
-                debug("Websocket Client heartbeat failed, disconnecting!");
+                warn!("Websocket Client heartbeat failed, disconnecting!");
 
                 // stop actor
                 ctx.stop();
@@ -79,12 +85,35 @@ impl WsSession {
                 self.send_back_state(ctx);
             }
             ToBack::SetFrontState(val) => {
-                AppState::global().persistent.lock().unwrap().front = Some(val);
+                let main_route = val.route.clone();
+                let settings_route = val.settings_route.clone();
+                AppState::global().persistent.lock().unwrap().front =
+                    Some(*val);
                 AppState::save_to_file();
-                let fut = async move {
-                    update_geojson(None, false).await;
-                };
-                fut.into_actor(self).spawn(ctx);
+                get_runtime().spawn(update_geojson(None, false));
+                if main_route == PersistedRoute::SettingsSubpage
+                    && settings_route == PersistedSettingsRoute::MapSettings
+                {
+                    // Received state while ui is on the map settings, try
+                    // updating the automap in case it was just turned on.
+                    get_runtime().spawn(update_automap());
+                    // Same goes for evicting data from the map cache (if the
+                    // user reduced the cache size).
+                    get_runtime().spawn(evict_old_map_data());
+                }
+                // when the frontend pushes the settings root as the main route,
+                // the settings route changes after a moment, so we test both
+                if main_route == PersistedRoute::SettingsRoot
+                    && settings_route == PersistedSettingsRoute::Root
+                {
+                    get_runtime().spawn(async move {
+                        if let Err(e) = update_last_logged_error().await {
+                            tracing::error!(
+                                "Failed to update last logged error: {e}"
+                            );
+                        };
+                    });
+                }
             }
             ToBack::ExportSqliteLog => {
                 AppState::global()
@@ -107,16 +136,26 @@ impl WsSession {
                     .unwrap()
                     .should_request_when_in_use_authorization = true;
             }
+            ToBack::ReviewedLastError => {
+                if let Some((_, reviewed)) = &mut AppState::global()
+                    .persistent
+                    .lock()
+                    .unwrap()
+                    .back
+                    .last_logged_error
+                {
+                    *reviewed = true;
+                }
+            }
             ToBack::GetPopupText((location, data_color)) => {
                 let recipient = ctx.address().recipient();
-                let fut = async move {
+                get_runtime().spawn(async move {
                     if let Some(msg) =
                         get_popup_text(location, data_color).await
                     {
                         recipient.do_send(MsgToFront(msg))
                     }
-                };
-                fut.into_actor(self).spawn(ctx);
+                });
             }
         }
     }
@@ -126,9 +165,7 @@ impl WsSession {
         // dbg!(msg.clone());
         // unwrap here since something this core to the app's function should
         // just crash it
-        let encoded: Vec<u8> = bincode::serialize(&msg)
-            .map_err(|e| error("Failed to serialize message.", e))
-            .unwrap();
+        let encoded: Vec<u8> = bincode::serialize(&msg).unwrap();
         ctx.binary(encoded);
     }
 
@@ -139,7 +176,7 @@ impl WsSession {
         // message to send to the frontend (or something like that, see
         // the SO thread linked in the docstring for more)
         let recipient = ctx.address().recipient();
-        let fut = async move {
+        get_runtime().spawn(async move {
             // update the last location and number of records in the past hour
             let rec = database::get_last_record().await;
             AppState::global()
@@ -159,20 +196,18 @@ impl WsSession {
             let back =
                 AppState::global().persistent.lock().unwrap().back.clone();
             recipient.do_send(MsgToFront(ToFront::BackState(back)));
-        };
-        fut.into_actor(self).spawn(ctx);
+        });
     }
 
     /// Sends all UI state values, used at startup.
     fn send_front_state(&self, ctx: &mut ws::WebsocketContext<Self>) {
         let recipient = ctx.address().recipient();
-        let fut = async move {
+        get_runtime().spawn(async move {
             // clone the state and send it
             let front =
                 AppState::global().persistent.lock().unwrap().front.clone();
             recipient.do_send(MsgToFront(ToFront::FrontState(front)));
-        };
-        fut.into_actor(self).spawn(ctx);
+        });
     }
 }
 
@@ -246,14 +281,12 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsSession {
             }
             ws::Message::Binary(bytes) => {
                 // deserialize ToBack
-                let decoded: ToBack = bincode::deserialize(&bytes[..])
-                    .map_err(|e| error("Failed to deserialize message.", e))
-                    .unwrap();
+                let decoded: ToBack = bincode::deserialize(&bytes[..]).unwrap();
                 self.handle_msg(decoded, ctx);
             }
             ws::Message::Text(text) => println!("got text {}", text),
             ws::Message::Close(reason) => {
-                debug(&format!("Closing websocket with reason: {:?}", reason));
+                warn!("Closing websocket with reason: {reason:?}");
                 ctx.close(reason);
                 ctx.stop();
             }

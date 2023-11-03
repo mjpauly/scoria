@@ -25,8 +25,15 @@ pub use state::{BackState, FrontState};
 pub use time_range::TimeRange;
 pub use ws_messages::{ToBack, ToFront};
 
+/// Longitude and latitude, encoded in degrees. Use .to_radians() for radians.
 #[derive(PartialEq, Debug, Default, Clone, Serialize, Deserialize)]
 pub struct LngLat {
     pub lng: f64,
     pub lat: f64,
+}
+
+impl From<&LngLat> for Vec<f64> {
+    fn from(lnglat: &LngLat) -> Self {
+        vec![lnglat.lng, lnglat.lat]
+    }
 }

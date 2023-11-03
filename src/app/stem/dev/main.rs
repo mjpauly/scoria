@@ -13,8 +13,6 @@ extern crate stem;
 
 #[tokio::main]
 async fn main() -> Result<(), std::io::Error> {
-    env_logger::init(); // sets output verbosity based on RUST_LOG env var
-
     println!("Run dir: {}", std::env::current_dir().unwrap().display());
 
     stem::local::local_setup_with_dev_db("dev_fs/", 8081).await;
@@ -42,12 +40,15 @@ async fn main() -> Result<(), std::io::Error> {
 }
 
 async fn data_generator() {
-    let starting_n = 60;
+    let update_rate: u64 = 1; // seconds between updates
+    let starting_n = 200;
+    // let starting_n = 30;
+    // let starting_n = 1;
     let mut data = stem::database::OSLocationData {
         timestamp: time::OffsetDateTime::now_utc().unix_timestamp()
             - starting_n,
-        latitude: 37.42984,
-        longitude: -122.16945,
+        latitude: 35.68697,
+        longitude: 139.70140,
         horizontal_accuracy: random::<f64>() * 3.0 + 2.0,
 
         msl_altitude: 0.0,
@@ -66,15 +67,15 @@ async fn data_generator() {
         is_simulated_by_software: false,
         is_produced_by_accessory: false,
     };
-    let mut vx = 0.;
-    let mut vy = 0.;
+    let mut vx = 0.0;
+    let mut vy = 0.0;
     let mut i = 0;
     loop {
         if i > starting_n {
-            sleep(Duration::from_millis(1000)).await;
+            sleep(Duration::from_secs(update_rate)).await;
         }
         i += 1;
-        data.timestamp += 1;
+        data.timestamp += update_rate as i64;
         vx += (random::<f64>() - 0.5) / 10000.0;
         vy += (random::<f64>() - 0.5) / 10000.0;
         data.longitude =

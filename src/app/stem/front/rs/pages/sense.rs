@@ -11,23 +11,16 @@ use yew_icons::{Icon, IconId};
 use yew_router::prelude::*;
 use yewdux::prelude::*;
 
-use crate::components::{
-    map_styler::use_check_scoria_tile_server, LocationConfigurator, TabBar,
-    TopNav,
-};
+use crate::components::{LocationConfigurator, TabBar, TopNav};
 use crate::router::SettingsRoute;
 use crate::ui_state::{BackState, FrontState};
 use common::{LocationAccuracyMode, LocationMode};
 
 #[function_component]
 pub fn Sense() -> Html {
-    use_check_scoria_tile_server();
     let navigator = use_navigator().unwrap();
-    // retrieve the previous settings page
-    let settings_route =
-        use_selector(|s: &FrontState| s.settings_route.clone());
     let settings_onclick = Callback::from(move |_e: MouseEvent| {
-        navigator.push(&SettingsRoute::from_persisted_route(&settings_route))
+        navigator.push(&SettingsRoute::Root)
     });
     html! {
         <>

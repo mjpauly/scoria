@@ -9,9 +9,11 @@ pub enum ToBack {
     GetFrontState,
     // And periodically requests the backend state
     GetBackState,
-    // Set a new value for the UI/Persistent State
-    SetFrontState(FrontState),
+    // Set a new value for the UI/Persistent State (boxed to reduce enum size)
+    SetFrontState(Box<FrontState>),
     GetPopupText((LngLat, Option<String>)),
+
+    ReviewedLastError,
 
     RequestWhenInUseAuthorization,
     ExportSqliteLog,

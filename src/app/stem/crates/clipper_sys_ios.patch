@@ -1,0 +1,21 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: First Last <firstlast@example.com>
+Date: Mon, 28 Aug 2023 14:48:18 -0700
+Subject: add ios support
+
+
+diff --git a/build.rs b/build.rs
+index 012896a..71ecdd9 100644
+--- a/build.rs
++++ b/build.rs
+@@ -19,7 +19,7 @@ fn main() {
+ 
+     match (target_os.as_str(), target_env.as_str()) {
+         ("linux", _) | ("windows", "gnu") => println!("cargo:rustc-link-lib=dylib=stdc++"),
+-        ("macos", _) => println!("cargo:rustc-link-lib=dylib=c++"),
++        ("macos", _) | ("ios", _) => println!("cargo:rustc-link-lib=dylib=c++"),
+         ("windows", "msvc") => {}
+         _ => unimplemented!(
+             "target_os: {}, target_env: {}",
+-- 
+

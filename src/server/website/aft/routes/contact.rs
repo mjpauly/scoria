@@ -1,3 +1,4 @@
+use actix_web::http::header::ACCESS_CONTROL_ALLOW_ORIGIN;
 use actix_web::{
     http::header::ContentType, post, web, HttpResponse, Responder,
 };
@@ -52,17 +53,32 @@ pub async fn contact_form_submitted(
             + r#"</p><p class="text-center"><a href="/">Main Page</a></p>"#
             + TEMPLATE_BOTTOM_FILE
     };
+
+    // expected subject if it's a report from the app:
+    let app_report_subject = "App Problem Report wdiCCGLEBxcedhYxUOTqWhR";
+    // if came from in-app bug report, allow cross origin so device can read
+    // back the response.
+    let allow_origin = form.subject == app_report_subject;
+
     let ok_response = "Submitted! Thanks for reaching out";
     let err_response = "Something went wrong...";
     match persist_feedback(form, pool).await {
-        Ok(_) => HttpResponse::Ok()
-            .content_type(ContentType::html())
-            .body(build_response_body(ok_response)),
+        Ok(_) => {
+            let mut reply = HttpResponse::Ok();
+            reply.content_type(ContentType::html());
+            if allow_origin {
+                reply.insert_header((ACCESS_CONTROL_ALLOW_ORIGIN, "*"));
+            }
+            reply.body(build_response_body(ok_response))
+        }
         Err(e) => {
             println!("Failed to persist feedback: {:?}", e);
-            HttpResponse::InternalServerError()
-                .content_type(ContentType::html())
-                .body(build_response_body(err_response))
+            let mut reply = HttpResponse::InternalServerError();
+            reply.content_type(ContentType::html());
+            if allow_origin {
+                reply.insert_header((ACCESS_CONTROL_ALLOW_ORIGIN, "*"));
+            }
+            reply.body(build_response_body(err_response))
         }
     }
 }

@@ -2,12 +2,6 @@ load("@rules_rust//rust:defs.bzl", "rust_library", "rust_binary", "rust_doc")
 load("@rules_rust//wasm_bindgen:wasm_bindgen.bzl", "rust_wasm_bindgen")
 load("@bazel_skylib//rules:select_file.bzl", "select_file")
 
-filegroup(
-    name = "index",
-    srcs = ["index.html"],
-    visibility = ["//visibility:public"],
-)
-
 # The generated files to serve (wasm, js launcher)
 select_file(
     name = "wasm_file",
@@ -113,31 +107,19 @@ sh_binary(
     srcs = ["download_js_libs.sh"],
 )
 
-filegroup(
-    name = "plotlyjs",
-    srcs = ["static/plotly.min.js"],
-    visibility = ["//visibility:public"],
-)
-filegroup(
-    name = "maplibregl",
-    srcs = ["static/maplibre-gl.js"],
-    visibility = ["//visibility:public"],
-)
-filegroup(
-    name = "maplibregl_css",
-    srcs = ["static/maplibre-gl.css"],
-    visibility = ["//visibility:public"],
-)
+exports_files(
+    [
+        "index.html",
+        "static/plotly.min.js",
+        "static/maplibre-gl.js",
+        "static/maplibre-gl.css",
 
-# static images showing what location authorizations look like
+        # images showing what location authorizations look like
+        "static/when_in_use_auth.png",
+        "static/always_auth.png",
 
-filegroup(
-    name = "when_in_use_auth",
-    srcs = ["static/when_in_use_auth.png"],
-    visibility = ["//visibility:public"],
-)
-filegroup(
-    name = "always_auth",
-    srcs = ["static/always_auth.png"],
-    visibility = ["//visibility:public"],
+        # blank image to show on map if raster data is not to be shown
+        "static/blank.png",
+    ],
+    visibility = ["//src/app/stem:__pkg__"],
 )

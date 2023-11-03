@@ -119,7 +119,8 @@ impl Listener for StateListener {
     type Store = FrontState;
 
     fn on_change(&mut self, state: Rc<Self::Store>) {
-        self.wss.send_msg(ToBack::SetFrontState((**state).clone()));
+        self.wss
+            .send_msg(ToBack::SetFrontState(Box::new((**state).clone())));
     }
 }
 

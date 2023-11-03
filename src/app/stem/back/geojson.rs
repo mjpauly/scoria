@@ -1,13 +1,10 @@
 //! Builds the geojson data to plot in maplibre.
 
-use std::fmt;
+use actix_web::{http::header::ContentType, routes, HttpResponse, Responder};
+use geojson::{Feature, FeatureCollection, GeoJson, JsonObject, Value};
 
-use actix_web::{
-    http::header::{CacheControl, CacheDirective, ContentType},
-    routes, HttpResponse, Responder,
-};
-use serde::Serialize;
-
+use crate::map::coords::TileXYZ;
+use crate::server::no_caching_directives;
 use crate::{app_state::AppState, database, ws_session};
 use common::{
     cmaps,
@@ -20,7 +17,7 @@ use common::{
 
 // The maximum number of data points to put into the geojson. If greater, we
 // decimate (select every nth) by a factor large enough to get under 40k points.
-static DECIMATION_THRESHOLD: usize = 40_000;
+static DECIMATION_THRESHOLD: usize = 20_000;
 
 #[routes]
 #[get("/points.geojson")]
@@ -28,7 +25,7 @@ static DECIMATION_THRESHOLD: usize = 40_000;
 pub async fn points_geojson_route() -> impl Responder {
     HttpResponse::Ok()
         .content_type(ContentType(mime::APPLICATION_JSON))
-        .insert_header(CacheControl(vec![CacheDirective::NoCache]))
+        .insert_header(no_caching_directives())
         .body(
             AppState::global()
                 .map_data
@@ -45,7 +42,7 @@ pub async fn points_geojson_route() -> impl Responder {
 pub async fn lines_geojson_route() -> impl Responder {
     HttpResponse::Ok()
         .content_type(ContentType(mime::APPLICATION_JSON))
-        .insert_header(CacheControl(vec![CacheDirective::NoCache]))
+        .insert_header(no_caching_directives())
         .body(
             AppState::global()
                 .map_data
@@ -56,54 +53,16 @@ pub async fn lines_geojson_route() -> impl Responder {
         )
 }
 
-#[derive(Debug, Serialize)]
-#[serde(tag = "type")]
-pub enum Geojson {
-    FeatureCollection { features: Vec<GeojsonFeature> },
+pub fn empty_geojson() -> GeoJson {
+    GeoJson::from(std::iter::empty::<Feature>().collect::<FeatureCollection>())
 }
 
-impl Geojson {
-    pub fn new_empty() -> Self {
-        Self::FeatureCollection { features: vec![] }
+fn feature_collection_from_vec(v: Vec<Feature>) -> FeatureCollection {
+    FeatureCollection {
+        features: v,
+        bbox: None,
+        foreign_members: None,
     }
-}
-
-impl fmt::Display for Geojson {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            serde_json::to_string(self).map_err(|_| fmt::Error)?
-        )
-    }
-}
-
-impl Default for Geojson {
-    fn default() -> Self {
-        Self::new_empty()
-    }
-}
-
-#[derive(Debug, Serialize)]
-#[serde(tag = "type")]
-pub enum GeojsonFeature {
-    Feature {
-        geometry: GeojsonGeometry,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        properties: Option<GeojsonProperties>,
-    },
-}
-
-#[derive(Debug, Serialize)]
-#[serde(tag = "type")]
-pub enum GeojsonGeometry {
-    Point { coordinates: (f64, f64) }, // (lng, lat)
-    LineString { coordinates: Vec<(f64, f64)> },
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct GeojsonProperties {
-    color: Option<String>, // color of the data point and popup background
 }
 
 /// Determine if the map state/style is different in a way that means we should
@@ -240,36 +199,28 @@ pub async fn update_geojson(new_data: Option<Location>, foregrounded: bool) {
                 // if data in this dimension not known, use a neutral gray color
                 "#808080"
             };
-            Some(GeojsonProperties {
-                color: Some(color.to_string()),
-            })
+            let mut props = JsonObject::new();
+            props.insert("color".to_string(), color.into());
+            Some(props)
         } else {
             None
         };
 
-        let coords = (records[i].longitude, records[i].latitude);
-
+        let coord1 = records[i].lnglat();
         if make_points {
-            points.push(GeojsonFeature::Feature {
-                geometry: GeojsonGeometry::Point {
-                    coordinates: coords,
-                },
-                properties: properties.clone(),
-            })
+            add_point(&coord1, &properties, &mut points);
         }
         if make_line {
-            let end_coords =
-                (records[i + 1].longitude, records[i + 1].latitude);
-            lines.push(GeojsonFeature::Feature {
-                geometry: GeojsonGeometry::LineString {
-                    coordinates: vec![coords, end_coords],
-                },
-                properties,
-            })
+            let coord2 = records[i + 1].lnglat();
+            if crosses_antimeridian(&coord1, &coord2) {
+                cut_and_add_lines(&coord1, &coord2, &properties, &mut lines);
+            } else {
+                add_line(&coord1, &coord2, &properties, &mut lines);
+            }
         }
     }
-    let points_geojson = Geojson::FeatureCollection { features: points };
-    let lines_geojson = Geojson::FeatureCollection { features: lines };
+    let points_geojson = GeoJson::from(feature_collection_from_vec(points));
+    let lines_geojson = GeoJson::from(feature_collection_from_vec(lines));
     let mut map_data_guard = app_state.map_data.lock().unwrap();
     map_data_guard.points_geojson = points_geojson;
     map_data_guard.lines_geojson = lines_geojson;
@@ -278,6 +229,93 @@ pub async fn update_geojson(new_data: Option<Location>, foregrounded: bool) {
     if let Some(addr) = maybe_addr {
         addr.do_send(ws_session::MsgToFront(ToFront::GeojsonUpdated));
     }
+}
+
+fn add_point(
+    coord: &LngLat,
+    properties: &Option<JsonObject>,
+    points: &mut Vec<Feature>,
+) {
+    let mut feat = Feature::from(Value::Point(coord.into()));
+    feat.properties = properties.clone();
+    points.push(feat);
+}
+
+fn add_line(
+    coord1: &LngLat,
+    coord2: &LngLat,
+    properties: &Option<JsonObject>,
+    lines: &mut Vec<Feature>,
+) {
+    let mut feat =
+        Feature::from(Value::LineString(vec![coord1.into(), coord2.into()]));
+    feat.properties = properties.clone();
+    lines.push(feat);
+}
+
+/// Returns true if the line between two coordinates crosses the antimeridian.
+fn crosses_antimeridian(coord1: &LngLat, coord2: &LngLat) -> bool {
+    (coord1.lng - coord2.lng).abs() > 180.0
+}
+
+/// Calculates the coordinate on the antimeridian (A.M.) between the endpoints
+/// of a line which crosses it, then pushes the new multilinestring onto the
+/// vector of features.
+///
+/// Calculation is done in tile coordinates so that the midpoint calculated
+/// results in a line that appears straight on the web mercator projection. Just
+/// using lnglat coords would yield a bent line if away from the equator.
+///
+/// Method is a simple linear proportionality, going from coord1 to coord2,
+/// where the change in y (latitude) at the antimeridian, dy, is:
+///
+///     dy = dx * delta_y / delta_x
+///
+/// - dx is the unsigned distance from coord1 to the antimeridian
+/// - delta_y is the signed y distance between the coordinates
+/// - delta_x is the unsigned distance between the coordinates across the A.M.
+fn cut_and_add_lines(
+    coord1: &LngLat,
+    coord2: &LngLat,
+    properties: &Option<JsonObject>,
+    lines: &mut Vec<Feature>,
+) {
+    // operate on zoom level 0 (single tile), where the lnglat bounds are 0-1.
+    let z = 0;
+    let t1 = TileXYZ::from_lnglat(coord1, z);
+    let t2 = TileXYZ::from_lnglat(coord2, z);
+    let x1 = t1.x;
+    let x2 = t2.x;
+    let y1 = t1.y;
+    let y2 = t2.y;
+    let delta_y = y2 - y1; // signed y distance
+    let delta_x = 1. - (x1 - x2).abs(); // unsigned x distance
+    let x1_sym = x1 - 0.5; // x1 symmetric around 0 (west is negative)
+    let dx = 0.5 - x1_sym.abs(); // unsigned distance to the antimeridian (A.M.)
+    let dy = dx * delta_y / delta_x; // signed y distance from coord1 on A.M.
+    let new_y = y1 + dy;
+    let signum01 = |val: f64| {
+        // signum, scaled to the range 0-1 (0 for neg, 1 for pos)
+        0.5 * (val.signum() + 1.)
+    };
+    let t1a = TileXYZ {
+        x: signum01(x1_sym), // 0 if x1 is in the west, 1 if in east
+        y: new_y,
+        z,
+    };
+    let t2a = TileXYZ {
+        x: signum01(-x1_sym), // 1 if x1 is in the west (x2 in east)
+        y: new_y,
+        z,
+    };
+    let coord1a = t1a.to_lnglat();
+    let coord2a = t2a.to_lnglat();
+    let mut feat = Feature::from(Value::MultiLineString(vec![
+        vec![coord1.into(), (&coord1a).into()],
+        vec![(&coord2a).into(), coord2.into()],
+    ]));
+    feat.properties = properties.clone();
+    lines.push(feat);
 }
 
 /// Calculate the center of a map. Does not take the map size into account, so

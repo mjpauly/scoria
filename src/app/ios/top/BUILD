@@ -8,9 +8,6 @@ ios_application(
     bundle_id = "com.aperturebeam.epsilon",
     bundle_name = "Scoria",
     families = ["iphone"],
-    frameworks = [
-        "//src/app/ios/sensing:sensing_framework",
-    ],
     infoplists = [":Info.plist"],
     launch_storyboard = "Resources/Launch.storyboard",
     minimum_os_version = "16.0",
@@ -36,17 +33,21 @@ ios_application(
 # the LAST build number matching "7.5.x"
 apple_bundle_version(
     name = "app_version",
-    build_version = "1.1.2",
-    short_version_string = "1.1",
+    build_version = "1.2.10",
+    short_version_string = "1.2",
 )
 
 swift_library(
     name = "App.library",
     srcs = glob(["*.swift"]),
     module_name = "Scoria",
-    tags = ["manual"],
     visibility = ["//src/app/ios/tests:__subpackages__"],
     deps = [
         "//src/app/ios/sensing",
     ],
+    defines = select({
+        # disallow debugging the webview in app distribution
+        "//:distribution_profile": [],
+        "//conditions:default": ["DEBUG_WEBVIEW"],
+    }),
 )

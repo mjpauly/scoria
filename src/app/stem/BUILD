@@ -1,41 +1,34 @@
 load("@rules_rust//rust:defs.bzl", "rust_library", "rust_binary", "rust_test")
+load("//src/bzl:files.bzl", "files_and_envs")
 
 
 # static files to bundle into the binary
-static_file_targets = [
-    "//src/app/stem/front:index",
-    "//src/app/stem/front:wasm_file",
-    "//src/app/stem/front:js_file",
-    "//src/app/stem/front:tailwind",
-    "//src/app/stem/front:plotlyjs",
-    "//src/app/stem/front:maplibregl",
-    "//src/app/stem/front:maplibregl_css",
-    "//src/app/stem/front:when_in_use_auth",
-    "//src/app/stem/front:always_auth",
-]
-
-# env var definitions to tell rust compiler where to find the files
-static_file_env_defs = {
-    "INDEX_FILE": "$(location //src/app/stem/front:index)",
-    "WASM_FILE": "$(location //src/app/stem/front:wasm_file)",
-    "JS_FILE": "$(location //src/app/stem/front:js_file)",
-    "TAILWIND_FILE": "$(location //src/app/stem/front:tailwind)",
-    "PLOTLY_FILE": "$(location //src/app/stem/front:plotlyjs)",
-    "MAPLIBRE_FILE": "$(location //src/app/stem/front:maplibregl)",
-    "MAPLIBRE_CSS": "$(location //src/app/stem/front:maplibregl_css)",
-    "WHEN_IN_USE_AUTH_PNG": "$(location //src/app/stem/front:when_in_use_auth)",
-    "ALWAYS_AUTH_PNG": "$(location //src/app/stem/front:always_auth)",
-}
+static_file_targets, static_file_envs = files_and_envs({
+    "//src/app/stem/front:index.html": "INDEX_FILE",
+    "//src/app/stem/front:wasm_file": "WASM_FILE",
+    "//src/app/stem/front:js_file": "JS_FILE",
+    "//src/app/stem/front:tailwind": "TAILWIND_FILE",
+    "//src/app/stem/front:static/plotly.min.js": "PLOTLY_FILE",
+    "//src/app/stem/front:static/maplibre-gl.js": "MAPLIBRE_FILE",
+    "//src/app/stem/front:static/maplibre-gl.css": "MAPLIBRE_CSS",
+    "//src/app/stem/front:static/when_in_use_auth.png": "WHEN_IN_USE_AUTH_PNG",
+    "//src/app/stem/front:static/always_auth.png": "ALWAYS_AUTH_PNG",
+    "//src/app/stem/front:static/blank.png": "BLANK_PNG",
+})
 
 rust_library(
     name = "stem",
-    srcs = glob(["back/*.rs"]),
+    srcs = glob(["back/**/*.rs"]),
     edition = "2021",
     compile_data =
         glob(["migrations/*.sql"])
         + [".env", "//:secrets"]
         + static_file_targets,
-    rustc_env = static_file_env_defs,
+    rustc_env = static_file_envs,
+    rustc_flags = select({ # extra optimizations (stripping must be done later)
+        "//:distribution_profile": ["-C", "lto=y"], # link-time optimization
+        "//conditions:default": [],
+    }),
     crate_features = select({
         "//:distribution_profile": [],
         "//conditions:default": ["extra_debug_logging"],
@@ -46,9 +39,21 @@ rust_library(
     deps = [
         ":common",
         ":alloc",
+        "@stem_crate_index//:geo",
+        "@stem_crate_index//:geo-clipper",
+        "@stem_crate_index//:geojson",
+        "@stem_crate_index//:log-panics",
+        "@stem_crate_index//:mvt",
+        "@stem_crate_index//:obfstr",
+        "@stem_crate_index//:pointy",
         "@stem_crate_index//:rand",
+        "@stem_crate_index//:reqwest",
         "@stem_crate_index//:sqlx",
+        "@stem_crate_index//:tracing",
+        "@stem_crate_index//:tracing-appender",
+        "@stem_crate_index//:tracing-subscriber",
         "@stem_crate_index//:tokio",
+        "@stem_crate_index//:walkdir",
         "@stem_crate_index//:anyhow",
         "@stem_crate_index//:actix-web",
         "@stem_crate_index//:actix",
@@ -81,6 +86,7 @@ rust_test(
     name = "unit_tests",
     crate = ":stem",
     size = "small",  # 20 MB RAM, 1 min timeout
+    crate_features = ["extra_debug_logging"],
     deps = [
         "@stem_crate_index//:reqwest", # for server health check unit test
         "@stem_crate_index//:futures-core",
@@ -118,7 +124,6 @@ rust_binary(
         ":stem",
         "@stem_crate_index//:tokio",
         "@stem_crate_index//:log",
-        "@stem_crate_index//:env_logger",
         "@stem_crate_index//:time",
         "@stem_crate_index//:rand",
     ],
@@ -161,14 +166,3 @@ cc_library(
     name = "alloc",
     srcs = ["alloc.cc"],
 )
-
-
-# rustfmt.toml
-
-exports_files(
-    [
-        "rustfmt.toml",
-    ],
-    visibility = ["//visibility:public"],
-)
-
