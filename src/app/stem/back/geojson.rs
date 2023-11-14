@@ -7,9 +7,7 @@ use crate::map::coords::TileXYZ;
 use crate::server::no_caching_directives;
 use crate::{app_state::AppState, database, ws_session};
 use common::{
-    cmaps,
-    filters::apply_filters,
-    float,
+    cmaps, float,
     state::{MapState, PersistedRoute},
     units::UnitPreference,
     LngLat, Location, ToFront,
@@ -17,7 +15,7 @@ use common::{
 
 // The maximum number of data points to put into the geojson. If greater, we
 // decimate (select every nth) by a factor large enough to get under 40k points.
-static DECIMATION_THRESHOLD: usize = 20_000;
+pub static DECIMATION_THRESHOLD: u64 = 20_000;
 
 #[routes]
 #[get("/points.geojson")]
@@ -128,21 +126,11 @@ fn should_update_geojson(
     Some(map_state.clone())
 }
 
-/// Downsample the records if the number of points is greater than
-/// DECIMATION_THRESHOLD. Downsamples by a number large enough to get below the
-/// threshold. The number of records output will be between half the threshold
-/// and the threshold.
-fn decimate_records<'a>(records: &'a [&Location]) -> Vec<&'a Location> {
-    if records.len() > DECIMATION_THRESHOLD {
-        let decimation_factor = (records.len() as f64
-            / DECIMATION_THRESHOLD as f64)
-            .ceil() as usize;
-        // remove the second reference with .copied()
-        records.iter().step_by(decimation_factor).copied().collect()
-    } else {
-        records.to_vec()
-    }
-}
+// TODO: for showing points only within a window, maybe add some margin to
+// the edges so lines continue off the edge as expected? doesn't fix
+// potential cross-screen wrapping, but we can try to drop those lines when
+// making the geojson if they're really bad. kind of the problem of big line
+// jumps more generally.
 
 /// Build both the points and lines geojson. Doesn't necessarily update; that is
 /// determined by should_update_geojson().
@@ -160,10 +148,14 @@ pub async fn update_geojson(new_data: Option<Location>, foregrounded: bool) {
     };
     let colored_datastream = &map_state.style.colored_datastream;
 
-    let raw_records =
-        database::get_records_time_range(&map_state.time_range).await;
-    let filtered_records = apply_filters(&map_state.filters, &raw_records);
-    let records = decimate_records(&filtered_records);
+    let records = database::FilteredQuery::new()
+        .start(map_state.time_range.start)
+        .end(map_state.time_range.end)
+        .filters(map_state.filters.clone())
+        .decimate(DECIMATION_THRESHOLD)
+        .fetch_all()
+        .await;
+
     let make_points = map_state.style.marker_size > 0;
     let make_lines = map_state.style.line_size > 0;
     let offset = map_state.time_range.start.offset();
@@ -192,7 +184,7 @@ pub async fn update_geojson(new_data: Option<Location>, foregrounded: bool) {
         let make_line = make_lines && i < records.len() - 1;
 
         let properties = if colored_datastream.is_some() {
-            let val = colored_datastream.get_stream(records[i], &offset);
+            let val = colored_datastream.get_stream(&records[i], &offset);
             let color = if let Some(known_val) = val {
                 cmaps::get_data_color(known_val, &cmap_params)
             } else {
@@ -320,7 +312,7 @@ fn cut_and_add_lines(
 
 /// Calculate the center of a map. Does not take the map size into account, so
 /// is overly conservative (zooms further out than needed)
-fn get_view_params(records: &[&common::Location]) -> (LngLat, f64) {
+fn get_view_params(records: &[common::Location]) -> (LngLat, f64) {
     if records.is_empty() {
         return Default::default();
     }
@@ -362,9 +354,14 @@ pub async fn get_popup_text(
         let front = persistent.front.as_ref().unwrap();
         (front.map.clone(), front.unit_pref.clone())
     };
-    let raw_records =
-        database::get_records_time_range(&map_state.time_range).await;
-    let records = apply_filters(&map_state.filters, &raw_records);
+
+    let records = database::FilteredQuery::new()
+        .start(map_state.time_range.start)
+        .end(map_state.time_range.end)
+        .filters(map_state.filters.clone())
+        .decimate(DECIMATION_THRESHOLD)
+        .fetch_all()
+        .await;
 
     let local_offset = map_state.time_range.start.offset();
 

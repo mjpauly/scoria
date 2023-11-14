@@ -418,8 +418,7 @@ corresponding directory).
 
 ### Map Won't Render, Stays Black Until Full Restart
 
-iOS 17 Safari has a higher rate of "WebGL Context Lost" errors. 17.1 supposedly
-fixes them.
+iOS 17 Safari has a higher rate of "WebGL Context Lost" errors. 17.1 fixes this.
 
 ### `xcode-locator` Fails to Find the Correct Version
 
@@ -431,6 +430,7 @@ Run `bazel clean --expunge` if you update Xcode.
 
 ### Can't Put App Bundle on Device
 
-With iOS 17 and Xcode 15, putting the app bundle directly on the device with
-Xcode doesn't work (either the play button with the device selected or dragging
-the bundle onto the device in the Devices Window). No known fix yet.
+Symptom: putting the app bundle directly on the device with Xcode doesn't work
+(either the play button with the device selected or dragging the bundle onto
+the device in the Devices Window). Restarting fixes the issue with the play
+button, but dragging into the devices window still doesn't work.

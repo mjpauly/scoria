@@ -54,18 +54,21 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 use anyhow::Result;
-use common::state::LastAutomapUpdate;
+use common::{
+    filters::{DataStream, Filter, FilterOp},
+    state::LastAutomapUpdate,
+};
 use sqlx::{
     migrate::Migrator,
     sqlite::{SqliteConnectOptions, SqliteJournalMode},
-    FromRow, SqlitePool,
+    FromRow, QueryBuilder, Sqlite, SqlitePool,
 };
 use tracing::{error, info};
 
 use crate::app_state::AppState;
 
 // Embed our migrations from "migrations/" into our binary at compile time
-static MIGRATOR: Migrator = sqlx::migrate!();
+pub static MIGRATOR: Migrator = sqlx::migrate!();
 
 /// Struct representation of a Location row in the table
 #[derive(Clone, FromRow, Debug)]
@@ -234,26 +237,8 @@ pub async fn log_location(loc: OSLocationData) -> Result<()> {
 /// Get the last record in the database
 pub async fn get_last_record() -> Option<common::Location> {
     let conn = get_db_pool();
-
     // compile-time checked query macros are failing to infer the right type,
     // so we use the ordinary unchecked version instead for simplicity.
-    /*
-    let mut result = sqlx::query_as!(
-    Location,
-    r#"SELECT
-    id as "id!",
-    lat as "lat!",
-    lon as "lon!",
-    accuracy as "accuracy!",
-    speed as "speed!",
-    course as "course!",
-    timestamp as "timestamp!: time::OffsetDateTime"
-    FROM location
-    ORDER BY timestamp
-    DESC LIMIT 1"#,
-    )
-    */
-
     match sqlx::query_as::<_, LocationRow>(
         "SELECT * FROM location ORDER BY timestamp DESC LIMIT 1",
     )
@@ -264,30 +249,6 @@ pub async fn get_last_record() -> Option<common::Location> {
         Err(e) => {
             error!("Failed to get last record: {e}");
             None
-        }
-    }
-}
-
-pub async fn get_records_time_range(
-    time_range: &common::TimeRange,
-) -> Vec<common::Location> {
-    let conn = get_db_pool();
-    match sqlx::query_as::<_, LocationRow>(
-        "SELECT * FROM location WHERE timestamp >= (?) AND timestamp <= (?)",
-    )
-    .bind(time_range.start.unix_timestamp())
-    .bind(time_range.end.unix_timestamp())
-    .fetch_all(&conn)
-    .await
-    {
-        Ok(result) => {
-            // .into_iter() goes over the items, transferring ownership
-            // (.iter() would give references)
-            result.into_iter().map(|l| l.into()).collect()
-        }
-        Err(e) => {
-            error!("Failed to get records in time range: {e}");
-            vec![]
         }
     }
 }
@@ -509,6 +470,268 @@ impl std::convert::From<LocationRow> for common::Location {
     }
 }
 
+/// A filtered query definition with start time, end time, and other filters.
+///
+/// Uses the builder pattern to define the filters. Then generates the SQL and
+/// returns a CappedQuery upon selecting the method to limit the number of
+/// returned results (either `decimate` or `first_n`).
+///
+/// Under the hood, results are first put in a `filtered` common table
+/// expression (CTE), then in a `capped` CTE when limited by decimation or
+/// first-in-time.
+///
+/// # Usage
+///
+/// ```
+/// let records = database::FilteredQuery::new()
+///     .start(map_state.time_range.start.clone())
+///     .end(map_state.time_range.end.clone())
+///     .filters(map_state.filters.clone())
+///     .decimate(DECIMATION_THRESHOLD)
+///     .fetch_all()
+///     .await;
+/// ```
+#[derive(Default)]
+pub struct FilteredQuery {
+    start: Option<time::OffsetDateTime>,
+    end: Option<time::OffsetDateTime>,
+    filters: Option<Vec<Filter>>,
+}
+
+impl<'a> FilteredQuery {
+    pub fn new() -> Self {
+        Self::default() // all None
+    }
+
+    pub fn start(mut self, start: time::OffsetDateTime) -> Self {
+        self.start = Some(start);
+        self
+    }
+    pub fn end(mut self, end: time::OffsetDateTime) -> Self {
+        self.end = Some(end);
+        self
+    }
+    pub fn filters(mut self, filters: Vec<Filter>) -> Self {
+        self.filters = Some(filters);
+        self
+    }
+
+    /// Start a filtered location query. Creates the following fragment:
+    ///
+    /// WITH
+    ///  filtered AS (
+    ///             SELECT * FROM location
+    ///             WHERE 1 AND timestamp >= ? AND timestamp < ?
+    ///                 AND horizontal_accuracy <= ?
+    ///                 AND speed <= ?
+    ///             )
+    fn start_query(&self) -> QueryBuilder<'a, Sqlite> {
+        let mut q: QueryBuilder<Sqlite> = QueryBuilder::new(
+            "WITH\n filtered AS (
+            SELECT * FROM location
+            WHERE 1",
+        );
+        add_start_time_to_query(&self.start, &mut q);
+        add_end_time_to_query(&self.end, &mut q);
+        add_filters_to_query(&self.filters, &mut q);
+        q.push(
+            "
+            )\n",
+        );
+        q
+    }
+
+    /// Decimate the number of records to fall under the given threshold.
+    /// Returns a CappedQuery. Adds this SQL fragment:
+    ///
+    /// , decim AS (
+    ///             SELECT ((count(*) + ? - 1) / ?) as decim
+    ///             FROM filtered
+    ///             )
+    /// , capped AS (
+    ///             SELECT filtered.* FROM filtered,decim
+    ///             WHERE filtered.id % decim.decim == 0
+    ///             )
+    pub fn decimate(self, decimation_threshold: u64) -> CappedQuery<'a> {
+        let mut q = self.start_query();
+        // Calculate our decimation factor in decim.decim. The decimation factor
+        // is the ceiling of the division of the number of records, count(*), by
+        // the threshold for decimation. The numbers are integers so we're doing
+        // integer division. ceil(N / max) with floating point division is
+        // instead implemented as this expression with integer division: (N +
+        // max - 1) / max
+        q.push(
+            ", decim AS (
+            SELECT ((count(*) + ",
+        );
+        q.push_bind(decimation_threshold as i64);
+        q.push(" - 1) / ");
+        q.push_bind(decimation_threshold as i64);
+        q.push(")");
+        q.push(
+            " as decim
+            FROM filtered
+            )\n",
+        );
+
+        // Mod the row id against our decimation factor and return only the rows
+        // where it's zero. Not a result that is exact decimation in time since
+        // id ranges can jump abruptly and have an offset at the beginning of
+        // our filter range, but it's close enough for our rendering purposes.
+        // During examination of a database, only 0.1% of row ids did not
+        // increment by 1.
+        q.push(
+            ", capped AS (
+            SELECT filtered.* FROM filtered,decim
+            WHERE filtered.id % decim.decim == 0
+            )\n",
+        );
+        CappedQuery::new(q)
+    }
+
+    /// Limit the number of records to the first ones that fall under the limit
+    /// by time (earlier records come through). Returns a CappedQuery. Adds this
+    /// SQL fragment:
+    ///
+    /// , capped AS (
+    ///             SELECT * FROM filtered
+    ///             ORDER BY timestamp ASC
+    ///             LIMIT ?
+    ///             )
+    pub fn first_n(self, limit: u64) -> CappedQuery<'a> {
+        let mut q = self.start_query();
+        q.push(
+            ", capped AS (
+                SELECT * FROM filtered
+                ORDER BY timestamp ASC
+                LIMIT ",
+        );
+        q.push_bind(limit as i64);
+        q.push(")\n");
+        CappedQuery::new(q)
+    }
+}
+
+/// A filtered query where the number of rows to return is capped. The query can
+/// be finalized and the results returned.
+pub struct CappedQuery<'a> {
+    q: QueryBuilder<'a, Sqlite>,
+}
+
+impl<'a> CappedQuery<'a> {
+    /// Create a new CappedQuery and add the final SQL fragment to retrieve the
+    /// results.
+    fn new(mut q: QueryBuilder<'a, Sqlite>) -> Self {
+        q.push("SELECT * FROM capped ORDER BY timestamp ASC");
+        Self { q }
+    }
+
+    /// Execute the query and fetch all matching records into a vector. Takes
+    /// the database connection as an argument.
+    pub async fn fetch_all_with_db(
+        mut self,
+        conn: &SqlitePool,
+    ) -> Vec<common::Location> {
+        let query_as = self.q.build_query_as::<LocationRow>();
+        let recs = query_as.fetch_all(conn).await.unwrap_or_else(|e| {
+            error!("Failed to fetch records from database: {e}");
+            vec![]
+        });
+        recs.into_iter().map(|l| l.into()).collect()
+    }
+
+    /// Exectues the query like with fetch_all_with_db, but uses the default
+    /// database connection in the app state. Used by application code, and
+    /// fetch_all_with_db is broken out separately so it can be exercised by
+    /// tests.
+    pub async fn fetch_all(self) -> Vec<common::Location> {
+        self.fetch_all_with_db(&get_db_pool()).await
+    }
+
+    /// Return the complete SQL for the query.
+    pub fn sql(&self) -> &str {
+        self.q.sql()
+    }
+}
+
+/// Add a starting timestamp constraint to a WHERE clause in a QueryBuilder.
+/// Start time is inclusive.
+///
+/// Assumes a condition has already been added to the WHERE clause, as `AND` is
+/// prepended for both the upper and lower bounds on the time filter.
+fn add_start_time_to_query(
+    start_time: &Option<time::OffsetDateTime>,
+    query: &mut QueryBuilder<Sqlite>,
+) {
+    if let Some(start) = start_time {
+        query.push(" AND timestamp >= ");
+        query.push_bind(start.unix_timestamp());
+    }
+}
+
+/// Add a ending timestamp constraint to a WHERE clause that already has a
+/// condition. End time is exclusive.
+fn add_end_time_to_query(
+    end_time: &Option<time::OffsetDateTime>,
+    query: &mut QueryBuilder<Sqlite>,
+) {
+    if let Some(end) = end_time {
+        query.push(" AND timestamp < ");
+        query.push_bind(end.unix_timestamp());
+    }
+}
+
+/// Adds a filter condition to a SQL query. The WHERE clause must already have a
+/// condition.
+fn add_filters_to_query(
+    filters: &Option<Vec<Filter>>,
+    query: &mut QueryBuilder<Sqlite>,
+) {
+    if let Some(filters) = filters {
+        for filter in filters {
+            if filter.enabled {
+                query.push(
+                    "
+                AND ",
+                );
+                query.push(stream_column_name(filter));
+                query.push(" ");
+                query.push(op_to_sql(filter));
+                query.push(" ");
+                query.push_bind(filter.threshold);
+            }
+        }
+    }
+}
+
+/// INVERTS the condition, since we have filters *hide* data where true.
+fn op_to_sql(filter: &Filter) -> &str {
+    match filter.op {
+        FilterOp::GreaterThan => "<=",
+        FilterOp::LessThan => ">=",
+        FilterOp::GreatherThanOrEq => "<",
+        FilterOp::LessThanOrEq => ">",
+        FilterOp::IsEq => "!=",
+        FilterOp::IsNotEq => "==",
+    }
+}
+
+/// Retrieves the column name given a variant of the DataStream enum.
+fn stream_column_name(filter: &Filter) -> &str {
+    match filter.datastream {
+        DataStream::Lat => "latitude",
+        DataStream::Lon => "longitude",
+        DataStream::HorizAccuracy => "horizontal_accuracy",
+        DataStream::Altitude => "msl_altitude",
+        DataStream::VertAccuracy => "vertical_accuracy",
+        DataStream::Story => "story",
+        DataStream::Speed => "speed",
+        DataStream::SpeedAccuracy => "speed_accuracy",
+        DataStream::Course => "course",
+        DataStream::CourseAccuracy => "course_accuracy",
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::map::automap::{get_last_automap_update, update_automap};
@@ -554,8 +777,12 @@ mod tests {
         let start = time::OffsetDateTime::from_unix_timestamp(3).unwrap();
         let end = time::OffsetDateTime::from_unix_timestamp(7).unwrap();
         // get the first
-        let records =
-            get_records_time_range(&common::TimeRange { start, end }).await;
+        let records = FilteredQuery::new()
+            .start(start)
+            .end(end)
+            .first_n(1_000)
+            .fetch_all()
+            .await;
         assert_eq!(records.len(), 1);
         // small integer floats can be exactly compared
         assert!(records[0].latitude == 1.0);
@@ -640,8 +867,12 @@ mod tests {
 
         let start = time::OffsetDateTime::from_unix_timestamp(0).unwrap();
         let end = time::OffsetDateTime::from_unix_timestamp(20).unwrap();
-        let records =
-            get_records_time_range(&common::TimeRange { start, end }).await;
+        let records = FilteredQuery::new()
+            .start(start)
+            .end(end)
+            .first_n(1_000)
+            .fetch_all()
+            .await;
 
         assert_eq!(records.len(), 3);
         assert_eq!(

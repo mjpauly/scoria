@@ -32,7 +32,6 @@ use crate::core::send_state_to_front;
 use crate::database;
 use crate::paths::get_unexplored_data_dir;
 use crate::server::no_caching_directives;
-use common::filters::apply_filters;
 use common::state::default_accuracy_filter;
 use common::{LngLat, Location};
 
@@ -163,7 +162,7 @@ fn add_layer_to_tile(
 // how many records to examine at one time when updating the tiles. reduces file
 // IO and difference operations for adjacent records (which are likely on the
 // same tiles)
-const BATCH_SIZE: u32 = 100;
+const BATCH_SIZE: u64 = 100;
 
 // excludes multiple updaters from running at the same time
 static UPDATE_LOCK: Mutex<()> = Mutex::const_new(());
@@ -198,7 +197,16 @@ pub async fn update_automap() {
 async fn get_records_batch(
     last_update: &time::OffsetDateTime,
 ) -> Vec<common::Location> {
-    database::get_records_after_with_limit(last_update, BATCH_SIZE).await
+    // last_update is inclusive of the last record that was used in updating the
+    // automap, so we increment it by one since build_filtered_query gives us
+    // records that are inclusive of the lower time bound.
+    let start = *last_update + time::Duration::SECOND;
+    database::FilteredQuery::new()
+        .start(start)
+        .filters(default_accuracy_filter())
+        .first_n(BATCH_SIZE)
+        .fetch_all()
+        .await
 }
 
 pub fn get_last_automap_update() -> time::OffsetDateTime {
@@ -253,14 +261,10 @@ const BOOL_OP_SCALE_FACTOR: f64 = TILE_EXTENT;
 
 /// Get the area explored by a set of records (union of their view ellipses)
 /// and return it in tile coordinates at the maximum zoom level.
-async fn get_explored_area(
-    unfiltered_records: &[common::Location],
-) -> MultiPolygon {
+async fn get_explored_area(records: &[common::Location]) -> MultiPolygon {
     // filter out data points with accuracy worse than 100m (our view radius)
-    let filtered_records =
-        apply_filters(&default_accuracy_filter(), unfiltered_records);
     let mut explored = MultiPolygon::new(vec![]);
-    for rec in filtered_records {
+    for rec in records {
         let new = MultiPolygon::new(vec![calc_explored_polygon(rec)]);
         explored = explored.union(&new, BOOL_OP_SCALE_FACTOR);
         explored = explored.simplify_vw_preserve(&MIN_KEEP_AREA);

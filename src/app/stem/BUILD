@@ -66,6 +66,7 @@ rust_library(
         "@stem_crate_index//:time",
         "@stem_crate_index//:once_cell",
     ],
+    visibility = [":__subpackages__"],
 )
 
 # definitions common to both the frontend and the backend
@@ -165,4 +166,14 @@ objc_library(
 cc_library(
     name = "alloc",
     srcs = ["alloc.cc"],
+)
+
+
+# Exports to subpackages
+
+# dev database, useful for querying against real data
+filegroup(
+    name = "dev_db",
+    srcs = glob(["db/data.db*"]),
+    visibility = [":__subpackages__"],
 )
