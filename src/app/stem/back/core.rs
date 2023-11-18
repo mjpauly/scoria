@@ -14,17 +14,6 @@ use crate::geojson::update_geojson;
 use crate::map::automap::update_automap;
 use crate::ws_session;
 
-pub fn send_state_to_front() {
-    // We first want to get the address, NOT in the "if let" scrutinee, since
-    // the lock will be held for the whole if-block, and we won't be able to
-    // await
-    let maybe_addr = AppState::global().ws_addr.lock().unwrap().clone();
-    // If the UI is active, we'll send it the new location to display
-    if let Some(addr) = maybe_addr {
-        addr.do_send(ws_session::SendState);
-    }
-}
-
 pub async fn log_location(loc: OSLocationData) {
     // Log the location in our database
     if let Err(e) = database::log_location(loc.clone()).await {

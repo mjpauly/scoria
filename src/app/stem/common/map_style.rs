@@ -241,7 +241,7 @@ impl ColoredDataStream {
     /// given a vec of locations
     pub fn get_cmap_params(
         &self,
-        records: &[Location],
+        records: &[&Location],
         offset: &time::UtcOffset,
     ) -> CmapParams {
         let mut params = CmapParams {

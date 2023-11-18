@@ -29,6 +29,24 @@ const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
 #[allow(dead_code)]
 const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
 
+pub fn send_back_state_to_front() {
+    send(|addr| addr.do_send(SendState));
+}
+
+pub fn send_message_to_front(msg: ToFront) {
+    send(|addr| addr.do_send(MsgToFront(msg)));
+}
+
+fn send(f: impl FnOnce(actix::Addr<WsSession>)) {
+    // We first want to get the address, NOT in the "if let" scrutinee, since
+    // the lock will be held for the whole if-block, and we won't be able to
+    // await
+    let maybe_addr = AppState::global().ws_addr.lock().unwrap().clone();
+    if let Some(addr) = maybe_addr {
+        f(addr)
+    }
+}
+
 /// Entry point for our websocket route
 pub async fn ws_route(
     req: HttpRequest,

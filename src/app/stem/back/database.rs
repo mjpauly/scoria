@@ -57,6 +57,8 @@ use anyhow::Result;
 use common::{
     filters::{DataStream, Filter, FilterOp},
     state::LastAutomapUpdate,
+    view_position::LngLatBounds,
+    LngLat,
 };
 use sqlx::{
     migrate::Migrator,
@@ -133,15 +135,27 @@ pub struct OSLocationData {
 impl std::convert::From<OSLocationData> for common::Location {
     fn from(loc: OSLocationData) -> Self {
         let some_if_geq_zero = |val| (val >= 0.0).then_some(val);
+        // Altitude data is only valid if the vertical accuracy is greater than
+        // zero, according to the Apple CLLocation documentation.
+        let altitude_valid = loc.vertical_accuracy > 0.0;
+        let msl_altitude = altitude_valid.then_some(loc.msl_altitude);
+        let ellipsoid_altitude =
+            altitude_valid.then_some(loc.ellipsoid_altitude);
+        let vertical_accuracy = altitude_valid.then_some(loc.vertical_accuracy);
+        // TODO? 2023-11-15: update database to invalidate any altitudes where
+        // the vertical accuracy was <= 0 or NULL. Previously we assumed they
+        // were all valid. 2023-06-26 is when altitude started being logged. A
+        // few points where the altitude was wrong: one at -500m and no vertical
+        // accuracy, and a few points at 0m and no vertical accuracy.
         Self {
             timestamp: time::OffsetDateTime::from_unix_timestamp(loc.timestamp)
                 .unwrap(),
             latitude: loc.latitude,
             longitude: loc.longitude,
             horizontal_accuracy: loc.horizontal_accuracy,
-            msl_altitude: Some(loc.msl_altitude),
-            ellipsoid_altitude: Some(loc.ellipsoid_altitude),
-            vertical_accuracy: some_if_geq_zero(loc.vertical_accuracy),
+            msl_altitude,
+            ellipsoid_altitude,
+            vertical_accuracy,
             story: loc.story_available.then_some(loc.story),
             speed: some_if_geq_zero(loc.speed),
             speed_accuracy: some_if_geq_zero(loc.speed_accuracy),
@@ -186,7 +200,7 @@ pub fn get_db_pool() -> SqlitePool {
 /// unused if they involve copying data to a new table.
 pub async fn checkpoint_db() {
     let conn = get_db_pool();
-    if let Err(e) = sqlx::query("VACUUM; PRAGMA wal_checkpoint(FULL);")
+    if let Err(e) = sqlx::query("VACUUM; PRAGMA wal_checkpoint(TRUNCATE);")
         .execute(&conn)
         .await
     {
@@ -610,7 +624,38 @@ impl<'a> FilteredQuery {
         q.push(")\n");
         CappedQuery::new(q)
     }
+
+    /// Take a FilteredQuery and determine the LngLatBounds that encompass the
+    /// data.
+    pub async fn get_bounds(self) -> Option<LngLatBounds> {
+        let mut q = self.start_query();
+        q.push(
+            "SELECT MIN(longitude), MIN(latitude),
+                    MAX(longitude), MAX(latitude)
+                FROM filtered",
+        );
+        let query_as = q.build_query_as::<LngLatBoundsResult>();
+        match query_as.fetch_one(&get_db_pool()).await {
+            Ok(res) => Some(LngLatBounds {
+                sw: LngLat {
+                    lng: res.0,
+                    lat: res.1,
+                },
+                ne: LngLat {
+                    lng: res.2,
+                    lat: res.3,
+                },
+            }),
+            Err(e) => {
+                error!("Failed to get bounds for filtered query: {e}");
+                None
+            }
+        }
+    }
 }
+
+#[derive(FromRow)]
+struct LngLatBoundsResult(f64, f64, f64, f64);
 
 /// A filtered query where the number of rows to return is capped. The query can
 /// be finalized and the results returned.
@@ -632,11 +677,13 @@ impl<'a> CappedQuery<'a> {
         mut self,
         conn: &SqlitePool,
     ) -> Vec<common::Location> {
+        // let now = std::time::Instant::now();
         let query_as = self.q.build_query_as::<LocationRow>();
         let recs = query_as.fetch_all(conn).await.unwrap_or_else(|e| {
             error!("Failed to fetch records from database: {e}");
             vec![]
         });
+        // info!("Filtered query took {:?}", now.elapsed());
         recs.into_iter().map(|l| l.into()).collect()
     }
 

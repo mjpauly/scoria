@@ -160,7 +160,6 @@ fn get_system_font_size() -> Option<f64> {
     // remove trailing "px"
     let trimmed = font_size_str.trim_matches(char::is_alphabetic);
     let font_size = trimmed.parse::<f64>().ok()?;
-    log::debug!("{}", font_size);
     Some(font_size)
 }
 

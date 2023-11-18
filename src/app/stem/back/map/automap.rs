@@ -28,10 +28,10 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
 
 use crate::app_state::AppState;
-use crate::core::send_state_to_front;
 use crate::database;
 use crate::paths::get_unexplored_data_dir;
 use crate::server::no_caching_directives;
+use crate::ws_session::send_back_state_to_front;
 use common::state::default_accuracy_filter;
 use common::{LngLat, Location};
 
@@ -190,7 +190,7 @@ pub async fn update_automap() {
             // get the next batch of records
             records_batch = get_records_batch(&last_automap_update).await;
         }
-        send_state_to_front();
+        send_back_state_to_front();
     }
 }
 

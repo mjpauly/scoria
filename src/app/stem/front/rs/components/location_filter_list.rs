@@ -88,7 +88,7 @@ pub fn LocationFilterList() -> Html {
             let mut entries = s.map.filters.clone();
             // pick rounder values for imperial units
             let threshold = match unit_pref.small_length {
-                LengthUnits::Kilometer => 10.,
+                LengthUnits::Kilometer => 0.01,
                 LengthUnits::Meter => 10.,
                 LengthUnits::Foot => LengthUnits::Foot.to_base_unit(30.),
                 LengthUnits::Mile => LengthUnits::Mile.to_base_unit(0.006),

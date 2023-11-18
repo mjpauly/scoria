@@ -132,9 +132,5 @@ fn set_auto_accuracy(accuracy_mode: LocationAccuracyMode) {
     AppState::save_to_file();
 
     // update the UI in case it's open
-    // (remember: no locks in `if let` scrutinee!)
-    let maybe_addr = AppState::global().ws_addr.lock().unwrap().clone();
-    if let Some(addr) = maybe_addr {
-        addr.do_send(ws_session::SendState);
-    }
+    ws_session::send_back_state_to_front();
 }

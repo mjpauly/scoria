@@ -1,7 +1,4 @@
 //! Bindings and data processing for the Maplibre charts.
-//!
-//! TODO: maplibre just stringifies the json sources anyways. Just do this in
-//! backend and link to the geojson source?
 use std::rc::Rc;
 
 use js_sys::{Array, Reflect};
@@ -58,6 +55,8 @@ extern "C" {
     pub fn get_bearing(this: &Map) -> f64;
     #[wasm_bindgen(method, js_name = getPitch)]
     pub fn get_pitch(this: &Map) -> f64;
+    #[wasm_bindgen(method, js_name = getBounds)]
+    pub fn get_bounds(this: &Map) -> LngLatBounds;
 
     #[wasm_bindgen(method, js_name = flyTo)]
     pub fn fly_to(this: &Map, options: &JsValue);
@@ -82,6 +81,13 @@ extern "C" {
     #[wasm_bindgen(method, getter)]
     pub fn lat(this: &LngLat) -> f64;
 
+    pub type LngLatBounds;
+
+    #[wasm_bindgen(method, js_name = getSouthWest)]
+    pub fn get_south_west(this: &LngLatBounds) -> LngLat;
+    #[wasm_bindgen(method, js_name = getNorthEast)]
+    pub fn get_north_east(this: &LngLatBounds) -> LngLat;
+
     pub type Popup;
 
     #[wasm_bindgen(constructor, js_namespace = maplibregl, js_name = Popup)]
@@ -104,13 +110,22 @@ static UNEXPLORED_SOURCE_ID: &str = "unexplored";
 static UNEXPLORED_LAYER_ID: &str = "unexplored";
 
 pub fn view_pos_from_map(map: &Map) -> ViewPosition {
+    let lnglat_convert = |x: &LngLat| common::LngLat {
+        lng: x.lng(),
+        lat: x.lat(),
+    };
     let center = map.get_center();
+    let bounds = map.get_bounds();
+    let bounds = common::view_position::LngLatBounds {
+        sw: lnglat_convert(&bounds.get_south_west()),
+        ne: lnglat_convert(&bounds.get_north_east()),
+    };
     ViewPosition {
-        lng: center.lng(),
-        lat: center.lat(),
+        center: lnglat_convert(&center),
         zoom: map.get_zoom(),
         bearing: map.get_bearing(),
         pitch: map.get_pitch(),
+        bounds,
     }
 }
 
@@ -129,7 +144,7 @@ pub fn new_map(
     let opts = json!({
         "container": plot_id,
         "style": style,
-        "center": [view_position.lng, view_position.lat],
+        "center": [view_position.center.lng, view_position.center.lat],
         "zoom": view_position.zoom,
         "bearing": view_position.bearing,
         "pitch": view_position.pitch,
@@ -171,7 +186,7 @@ pub fn new_map(
         let map = map.clone();
         Box::new(move || on_view_change_callback(view_pos_from_map(&map)))
     };
-    map.on("moveend", &Closure::wrap(on_view_change).into_js_value());
+    map.on("move", &Closure::wrap(on_view_change).into_js_value());
 
     map
 }

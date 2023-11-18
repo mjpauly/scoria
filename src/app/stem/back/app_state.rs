@@ -18,13 +18,11 @@ use std::sync::{Arc, Mutex};
 
 use actix_web::dev::ServerHandle;
 use common::state::{ok_or_default, MapState};
-use geojson::GeoJson;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 use tracing::error;
 
-use crate::geojson::empty_geojson;
 use crate::paths::{get_library_dir, Paths};
 use crate::ws_session;
 use common::{BackState, FrontState};
@@ -56,26 +54,32 @@ pub struct AppState {
 
     pub swift_messages: Mutex<SwiftMessages>,
 
-    pub map_data: Mutex<MapData>,
+    pub map_data: MapData,
 }
 
 /// Data to to shown on the map in the analyze tab, and helpers for calculating
 /// it.
 #[derive(Debug)]
 pub struct MapData {
-    // data to plot (gets stringified in the actix route)
-    pub points_geojson: GeoJson,
-    pub lines_geojson: GeoJson,
+    // locks to limit only one task to do update computations and one task to
+    // wait for the previous to finish
+    pub geojson_wait_lock: tokio::sync::Mutex<()>,
+    pub geojson_update_lock: tokio::sync::Mutex<()>,
+    // data to pass to frontend via an actix route
+    pub points_geojson: tokio::sync::Mutex<String>,
+    pub lines_geojson: tokio::sync::Mutex<String>,
     // previous map state to determine if an update is needed
-    pub prev_map_state: Option<MapState>,
+    pub prev_map_state: tokio::sync::Mutex<Option<MapState>>,
 }
 
 impl Default for MapData {
     fn default() -> Self {
         Self {
-            points_geojson: empty_geojson(),
-            lines_geojson: empty_geojson(),
-            prev_map_state: None,
+            geojson_wait_lock: tokio::sync::Mutex::new(()),
+            geojson_update_lock: tokio::sync::Mutex::new(()),
+            points_geojson: tokio::sync::Mutex::new(String::new()),
+            lines_geojson: tokio::sync::Mutex::new(String::new()),
+            prev_map_state: tokio::sync::Mutex::new(None),
         }
     }
 }
@@ -181,7 +185,7 @@ impl AppState {
                 server_handle: tokio::sync::Mutex::new(None),
                 persistent: Mutex::new(persistent),
                 swift_messages: Mutex::new(Default::default()),
-                map_data: Mutex::new(Default::default()),
+                map_data: Default::default(),
             }))
             .expect("Could not initialize AppState");
     }
