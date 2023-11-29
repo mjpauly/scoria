@@ -1,4 +1,5 @@
 # Global aliases for the workspace
+load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
 
 # Builds the Xcode project
 alias(
@@ -60,30 +61,48 @@ platform(
     ],
 )
 
-# Config for optimized builds. Sometimes useful during development, so use
-# //:distribution_profile for settings that need to be set only for public
-# release.
+# Config for optimized builds.
 config_setting(
     name = "optimized_build",
-    values = {"compilation_mode": "opt"}
+    values = {
+        "compilation_mode": "opt"
+    },
+    visibility = ["//visibility:public"],
 )
 
+# Flag for the distribution profile.
+string_flag(
+    name = "profile",
+    build_setting_default = "internal",
+)
 
 # Command line flag for enabling settings which are used when compiling the app
 # for distribution. Use like so:
-#   `--define profile=distribution`
+#   `--//:profile=distribution`
 #
 # Effects:
 # - enables the distribution provisioning profile to build/sign the app bundle
-# (omitting the flag causes the build to use the development profile)
-# - disables debug logging
 # - enables the production maptiler key
-# - enables link-time optimizations (LTO)
-# - enables symbol stripping
+# - disables debug logging
+# - disables webview debugging
 config_setting(
     name = "distribution_profile",
-    values = {
-        "define": "profile=distribution",
+    flag_values = {
+        ":profile": "distribution",
+    },
+    visibility = ["//visibility:public"],
+)
+
+# set --//:autoreload=on to enable autoreload during development
+string_flag(
+    name = "autoreload",
+    build_setting_default = "off",
+)
+
+config_setting(
+    name = "autoreload_on",
+    flag_values = {
+        ":autoreload": "on"
     },
     visibility = ["//visibility:public"],
 )

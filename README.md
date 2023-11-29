@@ -2,22 +2,33 @@
 
 ## To Do
 
+Current: GPX export
+
 - debug-ability
     - [ ] action failure alterts (esp for importing)
     - [ ] have frontend send logs to backend
+- develop-ability
+    - [ ] build stamping, version visible in-app
 - security
-    - [ ] investigate rcgen certificates, extra query parameter frontend key
     - [ ] only allow webView to make network requests to backend
 - features
-    - [ ] what's new section
-    - [ ] release notes
+    - [ ] GPX export of selected data
+    - [ ] better warning for export/import
     - [ ] show latest location
-    - [ ] zoom to current location on first install
-    - [ ] quick time update buttons
-    - [ ] better obfuscating, include\_crypt, etc
-    - [ ] enable running Scoria on iPad and Mac
-- filesystem
+    - [ ] self-annotated waypoints, routes, and tracks
+    - [ ] queries/metrics for selected data (distance/time/speed traveled/dwelled, average distanced traveled (mean free path))
+    - [ ] what's new section
+    - [ ] release notes for prior versions
+    - [ ] improve colormap contrast option
+- bugs
+    - [ ] opening map page, points are constrained to too small a height
+    - [ ] network timeout too long in airplane mode?
+- housekeeping
     - [ ] switch to Library/Caches for map cache (and cleanup old location)
+- low priority
+    - [ ] quick time update buttons
+    - [ ] enable running Scoria on iPad and Mac
+    - [ ] zoom to current location on first install
 - [ ] reset to "today" time range and data-centered view if user is away from
     the app for 1+ hr
 - [ ] export tab on map (csv, maybe image)
@@ -153,6 +164,8 @@
 - [x] native binary stripping
 - [x] ability to submit bug report and export stemlog (log\_panics too)
     - [x] switch to `tracing`
+- [x] autoreload for inner dev loop
+- [x] save state between recompiles (don't delete whole dev\_fs)
 
 ## Structure
 
@@ -199,7 +212,12 @@ src
 
 ### Pre-commit checklist
 
-First, verify desired features work in dev with `bazel run //src/app/stem:dev`,
+First, verify desired features work in dev with
+
+```
+RUST_LOG=error,stem=info ibazel run //src/app/stem:dev --//:autoreload=on
+```
+
 then check with the ios app using `bazel run //:iosapp`. Finally, use
 `./precommit.sh` to run tests, lints, and format.
 

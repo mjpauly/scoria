@@ -9,7 +9,7 @@ use yew::prelude::*;
 use yewdux::prelude::*;
 
 use crate::components::{RANGE_INPUT_STYLE, SELECT_STYLE, TOGGLE_SWITCH_STYLE};
-use crate::router::get_host;
+use crate::router::get_scoped_host;
 use crate::ui_state::FrontState;
 use common::map_style::{
     BasemapStyle, ColoredDataStream, BASEMAP_STRINGS, DATASTREAM_STRINGS,
@@ -49,7 +49,7 @@ fn format_tile_url(style: &str) -> String {
         let basemap_path = "mapdata/maps";
         let style_json = "style.json?key=";
     }
-    let basemap_url = format!("{}/{basemap_path}", get_host());
+    let basemap_url = format!("http://{}/{basemap_path}", get_scoped_host());
     let maptiler_key = maptiler_key();
     // should be https://api.url.com/maps/basic-v2/style.json?key=decafbad
     format!("{basemap_url}/{style}/{style_json}{maptiler_key}")

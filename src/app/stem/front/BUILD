@@ -45,6 +45,7 @@ rust_library(
     compile_data = ["//:secrets"],
     crate_features = select({ # crate features used to select desired api keys
         "//:distribution_profile": ["distribution_key"],
+        "//:autoreload_on": ["dev_autoreload"],
         "//conditions:default": [],
     }),
     proc_macro_deps = [

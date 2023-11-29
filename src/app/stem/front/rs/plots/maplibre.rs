@@ -5,7 +5,7 @@ use js_sys::{Array, Reflect};
 use serde_json::{json, Value};
 use wasm_bindgen::{prelude::*, JsCast};
 
-use crate::router::get_host;
+use crate::router::get_scoped_host;
 use common::cmaps;
 use common::map_style::{ColoredDataStream, MapStyle, Rgba};
 use common::view_position::ViewPosition;
@@ -366,11 +366,11 @@ fn geojson_source_with_url(url: &str) -> Value {
 }
 
 fn screen_source() -> Value {
-    let host = get_host();
+    let host = get_scoped_host();
     json!({
         "type": "vector",
         "tiles": [
-            format!("{host}/screen/tiles/foo/{{z}}/{{x}}/{{y}}.pbf")
+            format!("http://{host}/screen/tiles/foo/{{z}}/{{x}}/{{y}}.pbf")
         ],
         // max zoom to request tiles from, overzooming if going further in
         "maxzoom": 15,

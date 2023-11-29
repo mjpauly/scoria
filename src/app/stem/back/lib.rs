@@ -167,11 +167,13 @@ pub extern "C" fn should_export_sqlite_log() -> bool {
     let should_export = guard.should_export_sqlite_log;
     // unset the setting if it was true
     guard.should_export_sqlite_log = false;
-    // Checkpoint the database so all outstanding transactions move from the WAL
-    // file to the database
-    runtime::get_runtime().block_on(async {
-        database::checkpoint_db().await;
-    });
+    if should_export {
+        // Checkpoint the database so all outstanding transactions move from the
+        // WAL file to the database
+        runtime::get_runtime().block_on(async {
+            database::checkpoint_db().await;
+        });
+    }
     should_export
     // drop the lock guard
 }
@@ -270,7 +272,15 @@ pub mod local {
     /// stem/db/data.db.
     /// Returns the actual port used to the caller.
     pub async fn local_setup_with_dev_db(dir: &str, port: u16) -> u16 {
-        let paths = local_fs_setup(dir);
+        // save the previous state to a temp file, then put it back, ignoring
+        // any errors with `let _ =`
+        let state_file =
+            PathBuf::from(dir).join("Library/persistent_state.json");
+        let tmp_file = "persistent_state.json";
+        let _ = std::fs::copy(&state_file, tmp_file);
+        let paths = local_fs_setup(dir); // this clears the previous contents
+        let _ = std::fs::copy(tmp_file, &state_file);
+        let _ = std::fs::remove_file(tmp_file);
         copy_dev_db(paths.documents_dir.clone());
         init(paths).await;
         server::run(port, false).await.port

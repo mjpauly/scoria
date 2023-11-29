@@ -157,11 +157,7 @@ pub fn navigate_to_last_page(
     front_state: &Option<common::FrontState>,
     navigator: &yew_router::navigator::Navigator,
 ) {
-    if cfg!(debug_assertions) {
-        // For debug, skip the intro. Also a good spot to change the default
-        // route during development
-        navigator.push(&Route::Sense);
-    } else if let Some(s) = front_state {
+    if let Some(s) = front_state {
         if s.last_viewed_intro_version < INTRO_VERSION {
             // new intro to view -> show intro on startup
             navigator
@@ -193,14 +189,16 @@ pub fn get_scope() -> String {
         .to_string()
 }
 
-/// Retrieve the port from the current url
-pub fn get_port() -> u16 {
+/// Gets the host including the port.
+pub fn get_host() -> String {
     let location = web_sys::window().unwrap().location();
-    location.port().unwrap().parse::<u16>().unwrap()
+    location.host().unwrap()
 }
 
-pub fn get_host() -> String {
-    let port = get_port();
+/// Returns the host with the secret scope key added. Does not include a
+/// protocol.
+pub fn get_scoped_host() -> String {
+    let host = get_host();
     let scope = get_scope();
-    format!("http://127.0.0.1:{port}/{scope}")
+    format!("{host}/{scope}")
 }

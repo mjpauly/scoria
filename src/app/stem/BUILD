@@ -26,7 +26,7 @@ rust_library(
         + static_file_targets,
     rustc_env = static_file_envs,
     rustc_flags = select({ # extra optimizations (stripping must be done later)
-        "//:distribution_profile": ["-C", "lto=y"], # link-time optimization
+        "//:optimized_build": ["-C", "lto=y"], # link-time optimization
         "//conditions:default": [],
     }),
     crate_features = select({

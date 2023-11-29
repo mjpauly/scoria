@@ -118,17 +118,19 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
+use std::time::Duration;
 
 use futures::channel::mpsc::{Receiver, Sender};
 use futures::stream::{SplitSink, SplitStream};
 use futures::{SinkExt, StreamExt};
+use gloo_net::websocket::WebSocketError;
 use gloo_net::websocket::{futures::WebSocket, Message};
 use uuid::Uuid;
 use wasm_bindgen_futures::spawn_local;
 use yew::functional::{hook, use_context, use_effect_with_deps};
 
-// Re-export the message types
-pub use common::{ToBack, ToFront};
+use crate::router::get_scoped_host;
+pub use common::{ToBack, ToFront}; // Re-export the message types
 
 /// Subscribe to backend events.
 ///
@@ -224,12 +226,8 @@ impl WebsocketService {
         Sender<ToBack>,
         Receiver<ToBack>,
     ) {
-        // Get the port and scope that we connected to on the server
-        let location = web_sys::window().unwrap().location();
-        let port = location.port().unwrap().parse::<u16>().unwrap();
-        let pathname = location.pathname().unwrap();
-        let scope = pathname.trim_matches('/').split('/').next().unwrap();
-        let address = format!("ws://127.0.0.1:{port}/{scope}/ws");
+        // The location of the websocket endpoint on the backend
+        let address = format!("ws://{}/ws", get_scoped_host());
         log::debug!("Binding to websocket at {}", address);
 
         let ws = WebSocket::open(&address).unwrap();
@@ -254,12 +252,17 @@ impl WebsocketService {
         Self::spawn_websocket_reader(
             ws_read,
             subscribers.clone(),
-            reconnect_needed,
+            reconnect_needed.clone(),
         );
         Self::spawn_websocket_writer(yew_rx, ws_write);
         // We choose not to spawn a watchdog since the frontend is reloaded on
         // app foregrounding anyways. This ensures we only try to connect once
         // on foregrounding after the server has started up.
+        #[cfg(feature = "dev_autoreload")]
+        {
+            // In development, we do spawn a watchdog to reload automatically.
+            Self::spawn_autoreloader(reconnect_needed);
+        }
         Self { tx, subscribers }
     }
 
@@ -304,12 +307,14 @@ impl WebsocketService {
                     Ok(Message::Text(data)) => {
                         log::debug!("text from websocket: {}", data);
                     }
+                    Err(WebSocketError::ConnectionClose(close_event)) => {
+                        log::info!("Websocket closed: {close_event:?}");
+                    }
                     Err(e) => {
-                        log::error!("websocket message error: {:?}", e)
+                        log::error!("Websocket error: {e}");
                     }
                 }
             }
-            log::debug!("WebSocket closed");
             *reconnect_needed.borrow_mut() = true;
         });
     }
@@ -325,8 +330,29 @@ impl WebsocketService {
             loop {
                 // periodically get the back state (latest location, etc)
                 self.send_msg(ToBack::GetBackState);
-                yew::platform::time::sleep(std::time::Duration::from_secs(60))
-                    .await;
+                yew::platform::time::sleep(Duration::from_secs(60)).await;
+            }
+        });
+    }
+
+    #[cfg(feature = "dev_autoreload")]
+    fn spawn_autoreloader(reconnect_needed: Rc<RefCell<bool>>) {
+        yew::platform::spawn_local(async move {
+            loop {
+                yew::platform::time::sleep(Duration::from_millis(100)).await;
+                if *reconnect_needed.borrow() {
+                    let address =
+                        format!("http://{}/health_check", get_scoped_host());
+                    let backend_back_up =
+                        gloo_net::http::Request::get(&address)
+                            .send()
+                            .await
+                            .map(|resp| resp.ok())
+                            .unwrap_or(false);
+                    if backend_back_up {
+                        web_sys::window().unwrap().location().reload().unwrap();
+                    }
+                }
             }
         });
     }
