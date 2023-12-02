@@ -54,6 +54,7 @@ rust_library(
     deps = [
         "//src/app/stem:common",
         "@stem_crate_index//:humantime",
+        "@stem_crate_index//:itertools",
         "@stem_crate_index//:js-sys",
         "@stem_crate_index//:obfstr",
         "@stem_crate_index//:plotly",
@@ -83,7 +84,7 @@ rust_library(
 rust_doc(
     name = "front_doc",
     crate = ":front",
-    rustc_flags = ["--document-private-items",],
+    rustdoc_flags = ["--document-private-items",],
 )
 
 genrule(

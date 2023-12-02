@@ -247,8 +247,7 @@ pub async fn update_geojson(new_data: Option<Location>, foregrounded: bool) {
     // The things that take the longest are the queries (this part, up to
     // 500ms), and stringifying the geojson, which is about 150ms for 10k pts.
     let records = database::FilteredQuery::new()
-        .start(map_state.time_range.start)
-        .end(map_state.time_range.end)
+        .time_range(map_state.time_range.clone())
         .filters(filters_with_view_bound(&map_state, FETCH_EXPANSION))
         .decimate(DECIMATION_THRESHOLD)
         .fetch_all()
@@ -344,13 +343,11 @@ async fn update_lines_geojson(lines_geojson: GeoJson) {
 /// Determine the center and zoom level for the `zoom all data` button and
 /// update the frontend.
 fn update_zoom_all_data(map_state: &MapState) {
-    let start = map_state.time_range.start;
-    let end = map_state.time_range.end;
+    let time_range = map_state.time_range.clone();
     let filters = map_state.filters.clone();
     tokio::spawn(async move {
         let data_bounds = database::FilteredQuery::new()
-            .start(start)
-            .end(end)
+            .time_range(time_range)
             .filters(filters)
             .get_bounds()
             .await;
@@ -491,8 +488,7 @@ pub async fn get_popup_text(
     };
 
     let records = database::FilteredQuery::new()
-        .start(map_state.time_range.start)
-        .end(map_state.time_range.end)
+        .time_range(map_state.time_range.clone())
         // use the fetch expansion so the decimation is identical
         .filters(filters_with_view_bound(&map_state, FETCH_EXPANSION))
         .decimate(DECIMATION_THRESHOLD)

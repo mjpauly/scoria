@@ -4,19 +4,23 @@
 //!
 //! General
 //! Map
-//! Data
+//! Data Log
 //!
 //! Report a problem
 //! Privacy
 
 use yew::prelude::*;
 use yew_icons::{Icon, IconId};
-use yew_router::prelude::*;
 use yewdux::prelude::*;
 
-use crate::components::buttons::DoneButton;
 use crate::components::map_settings::{AutomapSetting, CacheSetting};
 use crate::components::unit_picker::UnitPicker;
+use crate::components::{
+    AfterCardParagraph, BouncyScrollContainer, DoneButton, MainSettingsButton,
+    SettingsCard, SettingsCardExternalLink, SettingsCardPageButton,
+    SettingsCardPageButtonWithLabel, SettingsCardSimpleButton, WarningMessage,
+    H1, H2,
+};
 use crate::components::{HomeBarSpacer, TopNav};
 use crate::router::{Route, SettingsRoute};
 use crate::swift_poke;
@@ -25,32 +29,6 @@ use crate::websocket::{ToBack, WebsocketService};
 
 #[function_component]
 pub fn Settings() -> Html {
-    let navigator = use_navigator().unwrap();
-    let intro_onclick = {
-        let navigator = navigator.clone();
-        Callback::from(move |_e: MouseEvent| navigator.push(&Route::Intro))
-    };
-    let general_onclick = {
-        let navigator = navigator.clone();
-        Callback::from(move |_e: MouseEvent| {
-            navigator.push(&SettingsRoute::General)
-        })
-    };
-    let mapsettings_onclick = {
-        let navigator = navigator.clone();
-        Callback::from(move |_e: MouseEvent| {
-            navigator.push(&SettingsRoute::MapSettings)
-        })
-    };
-    let datalog_onclick = {
-        let navigator = navigator.clone();
-        Callback::from(move |_e: MouseEvent| {
-            navigator.push(&SettingsRoute::Data)
-        })
-    };
-    let report_onclick = Callback::from(move |_e: MouseEvent| {
-        navigator.push(&SettingsRoute::ReportProblem)
-    });
     let last_error_reviewed = use_selector(|s: &BackState| {
         s.last_logged_error.as_ref().map(|x| x.1).unwrap_or(true)
     });
@@ -61,74 +39,53 @@ pub fn Settings() -> Html {
                 <DoneButton />
             </TopNav>
 
-            <div class="grow overflow-scroll h-0 \
-                px-4 w-full max-w-prose mx-auto">
-                <h1 class="font-bold text-3xl text-left my-4 mx-2">
-                    {"Settings"}
-                </h1>
+            <BouncyScrollContainer>
+                <H1> {"Settings"} </H1>
 
-                // settings card
-                <div class="my-4 bg-neutral-900 rounded-lg px-4">
-                    // settings line
-                    <button class="py-2 w-full \
-                        flex items-center justify-between"
-                        onclick={intro_onclick}>
-                        <label>{"Introduction"}</label>
-                        <Icon icon_id={IconId::BootstrapChevronRight}
-                            class="h-4 w-4 text-neutral-500" />
-                    </button>
-                </div>
+                <SettingsCard>
+                    <SettingsCardPageButton<Route>
+                        text="Introduction"
+                        route={Route::Intro}
+                    />
+                </SettingsCard>
 
-                // settings card
-                <div class="my-4 bg-neutral-900 rounded-lg px-4">
-                    <button class="py-2 border-b border-neutral-800 w-full \
-                        flex items-center justify-between"
-                        onclick={general_onclick}>
-                        <label>{"General"}</label>
-                        <Icon icon_id={IconId::BootstrapChevronRight}
-                            class="h-4 w-4 text-neutral-500" />
-                    </button>
-                    <button class="py-2 border-b border-neutral-800 w-full \
-                        flex items-center justify-between"
-                        onclick={mapsettings_onclick}>
-                        <label>{"Map"}</label>
-                        <Icon icon_id={IconId::BootstrapChevronRight}
-                            class="h-4 w-4 text-neutral-500" />
-                    </button>
-                    <button class="py-2 w-full \
-                        flex items-center justify-between"
-                        onclick={datalog_onclick}>
-                        <label>{"Data"}</label>
-                        <Icon icon_id={IconId::BootstrapChevronRight}
-                            class="h-4 w-4 text-neutral-500" />
-                    </button>
-                </div>
+                <SettingsCard class="my-4">
+                    <SettingsCardPageButton<SettingsRoute>
+                        text="General"
+                        route={SettingsRoute::General}
+                    />
+                    <SettingsCardPageButton<SettingsRoute>
+                        text="Map"
+                        route={SettingsRoute::MapSettings}
+                    />
+                    <SettingsCardPageButton<SettingsRoute>
+                        text="Data Log"
+                        route={SettingsRoute::Data}
+                    />
+                </SettingsCard>
 
-                // settings card
-                <div class="my-4 bg-neutral-900 rounded-lg px-4">
-                    <button class="py-2 border-b border-neutral-800 w-full \
-                        flex items-center justify-between"
-                        onclick={report_onclick}>
+                <SettingsCard class="my-4">
+                    <SettingsCardPageButtonWithLabel<SettingsRoute>
+                        route={SettingsRoute::ReportProblem}
+                    >
                         <label class="flex items-center">
                             {"Report a Problem"}
                             if !*last_error_reviewed {
-                            <Icon icon_id={IconId::BootstrapExclamationCircle}
-                                class="ml-2 h-4 w-4 text-neutral-500" />
+                                // show a icon if there is an error to review
+                                <Icon
+                                    icon_id={IconId::BootstrapInfoCircle}
+                                    class="ml-2 h-4 w-4 text-neutral-500"
+                                />
                             }
                         </label>
-                        <Icon icon_id={IconId::BootstrapChevronRight}
-                            class="h-4 w-4 text-neutral-500" />
-                    </button>
-                    <a class="py-2 w-full \
-                        flex items-center justify-between"
-                        href="https://scoria.info/privacy">
-                        <label>{"Privacy"}</label>
-                        <Icon icon_id={IconId::BootstrapBoxArrowUpRight}
-                            class="h-4 w-4 text-neutral-500" />
-                    </a>
-                </div>
+                    </SettingsCardPageButtonWithLabel<SettingsRoute>>
+                    <SettingsCardExternalLink
+                        text="Privacy"
+                        href="https://scoria.info/privacy"
+                    />
+                </SettingsCard>
 
-            </div>
+            </BouncyScrollContainer>
 
             <HomeBarSpacer />
         </>
@@ -137,7 +94,6 @@ pub fn Settings() -> Html {
 
 #[function_component]
 pub fn General() -> Html {
-    // let _big_list = (1..41).map(|i| html! { <div>{format!("{}", i)}</div> });
     html! {
         <>
             <TopNav>
@@ -145,27 +101,11 @@ pub fn General() -> Html {
                 <DoneButton />
             </TopNav>
 
-            // Centered, width-limited content container.
-            //
-            // "grow overflow-scroll h-0" allow this element to elastically
-            // scroll if it's too long to fully show.
-            //
-            // If we just do "flex-1" instead, we'll get the transparency effect
-            // on sticky elements, but the scrolling won't be elastic. We could
-            // have bouncy scrolling everywhere, but then that's unnatural for
-            // elements that are supposed to by fixed/sticky (though it is the
-            // norm for all mobile websites).
-            <div class="grow overflow-scroll h-0 \
-                px-4 w-full max-w-prose mx-auto">
-                <h1 class="font-bold text-3xl text-left my-4 px-2">
-                    {"General"}
-                </h1>
-                <p class="font-bold text-xl pb-2 text-left px-4 mt-6">
-                    {"Units"}
-                </p>
+            <BouncyScrollContainer>
+                <H1> {"General"} </H1>
+                <H2> {"Units"} </H2>
                 <UnitPicker />
-                // {for _big_list}
-            </div>
+            </BouncyScrollContainer>
 
             <HomeBarSpacer />
         </>
@@ -180,43 +120,18 @@ pub fn MapSettings() -> Html {
                 <MainSettingsButton />
                 <DoneButton />
             </TopNav>
-            <div class="grow overflow-scroll h-0 \
-                px-4 w-full max-w-prose mx-auto">
-                <h1 class="font-bold text-3xl text-left my-4 px-2">
-                    {"Map"}
-                </h1>
+            <BouncyScrollContainer>
+                <H1> {"Map"} </H1>
 
-                <p class="font-bold text-xl pb-2 text-left px-4 mt-6">
-                    {"Automap"}
-                </p>
+                <H2> {"Automap"} </H2>
                 <AutomapSetting />
 
-                <p class="font-bold text-xl pb-2 text-left px-4 mt-6">
-                    {"Cache"}
-                </p>
+                <H2> {"Cache"} </H2>
                 <CacheSetting />
-            </div>
+            </BouncyScrollContainer>
 
             <HomeBarSpacer />
         </>
-    }
-}
-
-/// Button to place in a TopNav (on the left) which will go to the main settings
-/// page.
-#[function_component]
-pub fn MainSettingsButton() -> Html {
-    let navigator = use_navigator().unwrap();
-    let main_settings_onclick = Callback::from(move |_e: MouseEvent| {
-        navigator.push(&SettingsRoute::Root)
-    });
-    html! {
-        <button class="text-primary flex items-center p-2 px-4"
-            onclick={main_settings_onclick}>
-            <Icon icon_id={IconId::BootstrapChevronLeft}
-                class="h-5 w-5" />
-            <label>{"All Settings"}</label>
-        </button>
     }
 }
 
@@ -241,49 +156,44 @@ pub fn DataSettings() -> Html {
                 <DoneButton />
             </TopNav>
 
-            <div class="grow overflow-scroll h-0 \
-                px-4 w-full max-w-prose mx-auto">
-                <h1 class="font-bold text-3xl text-left px-2 py-4">
-                    {"Data"}
-                </h1>
+            <BouncyScrollContainer>
+                <H1> {"Data Log"} </H1>
 
-                // settings card
-                <div class="bg-neutral-900 rounded-lg px-4 mt-2">
-                    // settings line
-                    <button onclick={export_onclick}
-                        class="flex items-center justify-between py-2 w-full">
-                        <span class="text-red-600">
-                            {"Export Log"}
-                        </span>
-                    </button>
-                </div>
-                <p class="text-neutral-500 text-left px-2 pt-1">
-                    {"Exported logs can be imported back into Scoria. You can
+                <WarningMessage class="mb-6 mt-2" >
+                    {"Your log contains your complete location history.
+                    For privacy, avoid sharing it with others."}
+                </WarningMessage>
+
+                <SettingsCard>
+                    <SettingsCardSimpleButton
+                        onclick={export_onclick}
+                        text="Export Log"
+                />
+                </SettingsCard>
+                <AfterCardParagraph>
+                    {"An Exported log can be imported back into Scoria. You can
                     use this to backup your data or migrate between devices."}
-                </p>
+                </AfterCardParagraph>
 
-                // settings card
-                <div class="bg-neutral-900 rounded-lg px-4 mt-2">
-                    // settings line
-                    <button onclick={import_onclick}
-                        class="flex items-center justify-between py-2 w-full">
-                        <span class="text-primary">
-                            {"Import Log"}
-                        </span>
-                    </button>
-                </div>
-                <p class="text-neutral-500 text-left px-2 pt-1">
+                <SettingsCard class="mt-4">
+                    <SettingsCardSimpleButton
+                        onclick={import_onclick}
+                        text="Import Log">
+                    </SettingsCardSimpleButton>
+                </SettingsCard>
+                <AfterCardParagraph>
                     {"Import a Scoria log that was previously exported.
                     The data will be added to your current log. Duplicate data
                     points are determined by timestamp, and are not imported."}
-                </p>
-                <p class="text-neutral-500 text-left px-2 pt-1">
+                </AfterCardParagraph>
+                <AfterCardParagraph>
                     {"Since imported data is irreversibly added to your log,
                     using this feature for looking at data that is not your own
                     is not recommended. Let us know if you want this kind of
-                    feature."} </p>
+                    feature."}
+                </AfterCardParagraph>
 
-            </div>
+            </BouncyScrollContainer>
 
             <HomeBarSpacer />
         </>

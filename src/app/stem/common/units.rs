@@ -125,8 +125,8 @@ impl UnitPreference {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum LengthUnits {
-    Kilometer,
     Meter,
+    Kilometer,
     Foot,
     Mile,
     NauticalMile,
@@ -140,9 +140,10 @@ pub enum VelocityUnits {
     Knot,
 }
 
+/// Actual text to display to the user, in this particular order.
 pub static LENGTH_STRINGS: [(LengthUnits, &str); 5] = [
-    (LengthUnits::Kilometer, "Kilometer"),
     (LengthUnits::Meter, "Meter"),
+    (LengthUnits::Kilometer, "Kilometer"),
     (LengthUnits::Foot, "Foot"),
     (LengthUnits::Mile, "Mile"),
     (LengthUnits::NauticalMile, "Nautical Mile"),
@@ -168,6 +169,12 @@ where
 }
 
 impl LengthUnits {
+    /// Return an iterator over references to the enum variants in the display
+    /// order.
+    pub fn all_variants() -> impl Iterator<Item = &'static Self> {
+        LENGTH_STRINGS.iter().map(|x| &x.0)
+    }
+
     /// Turn a value in the preferred unit into Scoria's base unit
     pub fn to_base_unit(&self, val: f64) -> f64 {
         // Haven't figured out how to generically pass uom dimensions and units
@@ -233,6 +240,12 @@ impl LengthUnits {
 }
 
 impl VelocityUnits {
+    /// Return an iterator over references to the enum variants in the display
+    /// order.
+    pub fn all_variants() -> impl Iterator<Item = &'static Self> {
+        VELOCITY_STRINGS.iter().map(|x| &x.0)
+    }
+
     pub fn to_base_unit(&self, val: f64) -> f64 {
         let quantity = match self {
             Self::MeterPerSecond => {

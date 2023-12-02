@@ -18,6 +18,8 @@ container_push(
     registry = "registry.digitalocean.com/epsln",
     repository = "site", # name of the image
     # tag = "latest", # latest is the default
+    tags = ["manual"], # only compatible with --config=linux_amd64, so we don't
+                       # want //:rustanalyzer to pick it up and error
 )
 
 container_image(
@@ -33,6 +35,7 @@ container_image(
     ports = ["8000"],
     tars = [":website_tar"],
     workdir = "/app",
+    tags = ["manual"], # same story as :push_amd64
 )
 
 pkg_tar(

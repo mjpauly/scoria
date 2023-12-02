@@ -58,7 +58,7 @@ use common::{
     filters::{DataStream, Filter, FilterOp},
     state::LastAutomapUpdate,
     view_position::LngLatBounds,
-    LngLat,
+    LngLat, TimeRange,
 };
 use sqlx::{
     migrate::Migrator,
@@ -523,6 +523,11 @@ impl<'a> FilteredQuery {
     }
     pub fn end(mut self, end: time::OffsetDateTime) -> Self {
         self.end = Some(end);
+        self
+    }
+    pub fn time_range(mut self, time_range: TimeRange) -> Self {
+        self.start = Some(time_range.start);
+        self.end = Some(time_range.end);
         self
     }
     pub fn filters(mut self, filters: Vec<Filter>) -> Self {

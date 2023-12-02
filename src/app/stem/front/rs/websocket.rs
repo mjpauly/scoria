@@ -252,17 +252,13 @@ impl WebsocketService {
         Self::spawn_websocket_reader(
             ws_read,
             subscribers.clone(),
+            #[allow(clippy::redundant_clone)]
             reconnect_needed.clone(),
         );
         Self::spawn_websocket_writer(yew_rx, ws_write);
-        // We choose not to spawn a watchdog since the frontend is reloaded on
-        // app foregrounding anyways. This ensures we only try to connect once
-        // on foregrounding after the server has started up.
+        // In development, we spawn a task to reload if the websocket drops.
         #[cfg(feature = "dev_autoreload")]
-        {
-            // In development, we do spawn a watchdog to reload automatically.
-            Self::spawn_autoreloader(reconnect_needed);
-        }
+        Self::spawn_autoreloader(reconnect_needed);
         Self { tx, subscribers }
     }
 
