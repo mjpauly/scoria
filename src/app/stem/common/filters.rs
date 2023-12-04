@@ -14,7 +14,7 @@ use crate::Location;
 /// E.g. (datastream, op, threshold) of:
 /// (DataStream::HorizAccuracy, FilterOp::GreaterThan, 20.0)
 /// would exclude data where the horizontal accuracy is worse than 20 meters.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Filter {
     pub id: usize,
     pub enabled: bool, // quick toggle on/off
@@ -23,7 +23,7 @@ pub struct Filter {
     pub threshold: f64,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, PartialEq, Serialize, Deserialize)]
 pub enum FilterOp {
     GreaterThan,
     LessThan,
@@ -110,7 +110,7 @@ impl std::str::FromStr for FilterOp {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let item =
             OP_STRINGS.iter().find(|x| x.1 == s).ok_or(ParseEnumError)?;
-        Ok(item.0.clone())
+        Ok(item.0)
     }
 }
 
@@ -122,7 +122,7 @@ impl std::str::FromStr for FilterOp {
 use uom::str::ParseQuantityError;
 
 /// All possible data streams, excluding time which is a fairly special case
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, PartialEq, Serialize, Deserialize)]
 pub enum DataStream {
     Lat,
     Lon,
@@ -235,6 +235,6 @@ impl std::str::FromStr for DataStream {
             .iter()
             .find(|x| x.1 == s)
             .ok_or(ParseEnumError)?;
-        Ok(item.0.clone())
+        Ok(item.0)
     }
 }

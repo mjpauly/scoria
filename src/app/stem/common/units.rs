@@ -20,7 +20,7 @@ pub type BaseVelocity = velocity::meter_per_second;
 pub type BaseAngle = angle::degree;
 pub static BASE_ANGLE_INST: BaseAngle = angle::degree;
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, PartialEq, Serialize, Deserialize)]
 pub struct UnitPreference {
     // lengths much larger than human scale, e.g. distance traveled
     pub large_length: LengthUnits,
@@ -123,7 +123,7 @@ impl UnitPreference {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, PartialEq, Serialize, Deserialize)]
 pub enum LengthUnits {
     Meter,
     Kilometer,
@@ -132,7 +132,7 @@ pub enum LengthUnits {
     NauticalMile,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, PartialEq, Serialize, Deserialize)]
 pub enum VelocityUnits {
     MeterPerSecond,
     KilometerPerHour,
@@ -339,7 +339,7 @@ impl std::str::FromStr for LengthUnits {
             .iter()
             .find(|x| x.1 == s)
             .ok_or(ParseEnumError)?;
-        Ok(item.0.clone())
+        Ok(item.0)
     }
 }
 
@@ -357,6 +357,6 @@ impl std::str::FromStr for VelocityUnits {
             .iter()
             .find(|x| x.1 == s)
             .ok_or(ParseEnumError)?;
-        Ok(item.0.clone())
+        Ok(item.0)
     }
 }

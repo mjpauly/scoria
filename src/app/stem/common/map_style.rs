@@ -61,7 +61,7 @@ pub struct Rgba {
 /// Displayable enum for basemap selections
 ///
 /// Consists of public tile server options available in plotly natively
-#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
 pub enum BasemapStyle {
     Basic,
     Dataviz,
@@ -132,14 +132,14 @@ impl std::str::FromStr for BasemapStyle {
             .iter()
             .find(|x| x.1 == s)
             .ok_or(ParseEnumError)?;
-        Ok(item.0.clone())
+        Ok(item.0)
     }
 }
 
 // === COLORED DATASTREAM === //
 
 /// Displayable enum for datastream selection for colormapping
-#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
 pub enum ColoredDataStream {
     #[default]
     None,
@@ -288,6 +288,6 @@ impl std::str::FromStr for ColoredDataStream {
             .iter()
             .find(|x| x.1 == s)
             .ok_or(ParseEnumError)?;
-        Ok(item.0.clone())
+        Ok(item.0)
     }
 }

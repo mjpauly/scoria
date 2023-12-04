@@ -103,8 +103,8 @@ impl WsSession {
                 self.send_back_state(ctx);
             }
             ToBack::SetFrontState(val) => {
-                let main_route = val.route.clone();
-                let settings_route = val.settings_route.clone();
+                let main_route = val.route;
+                let settings_route = val.settings_route;
                 AppState::global().persistent.lock().unwrap().front =
                     Some(*val);
                 AppState::save_to_file();

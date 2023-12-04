@@ -3,7 +3,7 @@
 use crate::LngLat;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub struct ViewPosition {
     pub center: LngLat,
     pub zoom: f64,
@@ -17,7 +17,7 @@ pub struct ViewPosition {
 /// 180 or less than -180 when the antimeridian is visible. When determining if
 /// a point is contained inside the bounds we thus have to check wrapped
 /// longitude values as well
-#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub struct LngLatBounds {
     pub sw: LngLat,
     pub ne: LngLat,
@@ -36,7 +36,7 @@ impl LngLatBounds {
     /// The expansion amount on all sides is the same, and is based on the width
     /// of the map.
     pub fn expand(&self, factor: f64) -> Self {
-        let mut bounds = self.clone();
+        let mut bounds = *self;
         // expansion for each of the four bounding sides (width * factor / 2)
         let width_expansion = (bounds.ne.lng - bounds.sw.lng) * factor / 2.0;
         bounds.sw.lng -= width_expansion;

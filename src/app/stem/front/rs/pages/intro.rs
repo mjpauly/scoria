@@ -239,7 +239,7 @@ static LOCATION_MODES: [LocationMode; 3] = [
 #[function_component]
 fn LoggingMode() -> Html {
     let dispatch = Dispatch::<FrontState>::new();
-    let config = use_selector(|s: &FrontState| s.location_config.clone());
+    let config = use_selector(|s: &FrontState| s.location_config);
 
     // location mode
     let mode_onchange = {
@@ -270,7 +270,7 @@ fn LoggingMode() -> Html {
                 elem.set_value(&(mode.to_string()));
             },
             // update when these change
-            config.mode.clone(),
+            config.mode,
         )
     };
     html! {
@@ -347,7 +347,7 @@ fn EnableLocation() -> Html {
 #[function_component]
 fn EnableLocationPartTwo() -> Html {
     let dispatch = Dispatch::<FrontState>::new();
-    let config = use_selector(|s: &FrontState| s.location_config.clone());
+    let config = use_selector(|s: &FrontState| s.location_config);
     // enable/disable location
     let enabled_on_click = {
         dispatch.reduce_mut_callback(move |s: &mut FrontState| {

@@ -79,7 +79,7 @@ fn parse_information_to_bytes(val: &str) -> Result<u64, ParseQuantityError> {
 pub fn CacheSetting() -> Html {
     let dispatch = Dispatch::<FrontState>::new();
 
-    let cache_pref = use_selector(|s: &FrontState| s.map_cache_pref.clone());
+    let cache_pref = use_selector(|s: &FrontState| s.map_cache_pref);
     let max_cache_size_text = format_bytes_as_megabytes(cache_pref.max_size);
     let max_cache_size_onchange = dispatch.reduce_mut_callback_with(
         move |s: &mut FrontState, value: String| {

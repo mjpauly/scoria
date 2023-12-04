@@ -109,8 +109,7 @@ fn get_location_config() -> AllLocationConfig {
         .lock()
         .unwrap()
         .back
-        .auto_location_config
-        .clone();
+        .auto_location_config;
     AllLocationConfig {
         user: user_config,
         auto: auto_config,

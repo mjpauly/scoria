@@ -107,7 +107,7 @@ pub struct FrontState {
 
 /// The page the frontend is on. Only variants that we care to persist between
 /// launches are stored.
-#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub enum PersistedRoute {
     #[default]
     Sense,
@@ -118,7 +118,7 @@ pub enum PersistedRoute {
 }
 
 /// The settings page the frontend is on
-#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub enum PersistedSettingsRoute {
     #[default]
     Root,
@@ -173,7 +173,7 @@ pub fn default_accuracy_filter() -> Vec<Filter> {
     }]
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct LastAutomapUpdate(pub time::OffsetDateTime);
 
 impl Default for LastAutomapUpdate {
@@ -182,7 +182,7 @@ impl Default for LastAutomapUpdate {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct MapCachePreference {
     // max cache size in bytes, beyond which eviction happens.
     pub max_size: u64,

@@ -247,7 +247,7 @@ pub async fn update_geojson(new_data: Option<Location>, foregrounded: bool) {
     // The things that take the longest are the queries (this part, up to
     // 500ms), and stringifying the geojson, which is about 150ms for 10k pts.
     let records = database::FilteredQuery::new()
-        .time_range(map_state.time_range.clone())
+        .time_range(map_state.time_range)
         .filters(filters_with_view_bound(&map_state, FETCH_EXPANSION))
         .decimate(DECIMATION_THRESHOLD)
         .fetch_all()
@@ -265,7 +265,7 @@ pub async fn update_geojson(new_data: Option<Location>, foregrounded: bool) {
     {
         // update the cmap parameters
         let mut persistent_guard = app_state.persistent.lock().unwrap();
-        persistent_guard.back.cmap_params = cmap_params.clone();
+        persistent_guard.back.cmap_params = cmap_params;
         ws_session::send_back_state_to_front();
     }
 
@@ -343,7 +343,7 @@ async fn update_lines_geojson(lines_geojson: GeoJson) {
 /// Determine the center and zoom level for the `zoom all data` button and
 /// update the frontend.
 fn update_zoom_all_data(map_state: &MapState) {
-    let time_range = map_state.time_range.clone();
+    let time_range = map_state.time_range;
     let filters = map_state.filters.clone();
     tokio::spawn(async move {
         let data_bounds = database::FilteredQuery::new()
@@ -484,11 +484,11 @@ pub async fn get_popup_text(
         let state = AppState::global();
         let persistent = state.persistent.lock().unwrap();
         let front = persistent.front.as_ref().unwrap();
-        (front.map.clone(), front.unit_pref.clone())
+        (front.map.clone(), front.unit_pref)
     };
 
     let records = database::FilteredQuery::new()
-        .time_range(map_state.time_range.clone())
+        .time_range(map_state.time_range)
         // use the fetch expansion so the decimation is identical
         .filters(filters_with_view_bound(&map_state, FETCH_EXPANSION))
         .decimate(DECIMATION_THRESHOLD)

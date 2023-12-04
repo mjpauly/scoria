@@ -82,7 +82,7 @@ pub fn LocationFilterList() -> Html {
             s.map.filters = entries
         },
     );
-    let unit_pref = use_selector(|s: &FrontState| s.unit_pref.clone());
+    let unit_pref = use_selector(|s: &FrontState| s.unit_pref);
     let onadd =
         dispatch.reduce_mut_callback_with(move |s: &mut FrontState, _| {
             let mut entries = s.map.filters.clone();
@@ -187,10 +187,10 @@ fn FilterEntry(props: &FilterEntryProps) -> Html {
             onchange_op.emit((id, op))
         }
     };
-    let unit_pref = use_selector(|s: &FrontState| s.unit_pref.clone());
+    let unit_pref = use_selector(|s: &FrontState| s.unit_pref);
     let onchange_threshold = {
         let onchange_threshold = props.onchange_threshold.clone();
-        let stream = filt.datastream.clone();
+        let stream = filt.datastream;
         let unit_pref = unit_pref.clone();
         move |e: Event| {
             let elem: HtmlInputElement = e.target_dyn_into().unwrap();
@@ -223,7 +223,7 @@ fn FilterEntry(props: &FilterEntryProps) -> Html {
                 let e = op_node_ref.cast::<HtmlSelectElement>().unwrap();
                 e.set_value(&(op.to_string()));
             },
-            (filt.datastream.clone(), filt.op.clone()),
+            (filt.datastream, filt.op),
         )
     };
     html! {

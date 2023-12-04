@@ -21,7 +21,7 @@ use std::fmt;
 use serde::{Deserialize, Serialize};
 
 /// Complete location configuration
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Default)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Copy, Clone, Default)]
 #[serde(default)]
 pub struct AllLocationConfig {
     pub user: UserConfig,
@@ -70,7 +70,7 @@ impl AllLocationConfig {
 }
 
 /// Location configuration user settings
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Copy, Clone)]
 #[serde(default)]
 pub struct UserConfig {
     pub enabled: bool,
@@ -121,7 +121,7 @@ impl Default for UserConfig {
 }
 
 /// User-settable location modes. Differs from OSLocationMode
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Copy, Clone)]
 pub enum LocationMode {
     Auto,    // Switches between Best and 100m accuracy
     Reduced, // Standard service at 100m accuracy always
@@ -130,7 +130,7 @@ pub enum LocationMode {
 }
 
 /// Configuration of the Standard Mode (either user settings or auto mode)
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Copy, Clone)]
 pub struct StandardLocationConfig {
     pub accuracy_mode: LocationAccuracyMode,
     pub distance_filter: f32,
@@ -138,7 +138,7 @@ pub struct StandardLocationConfig {
 
 /// Accuracy modes for the Standard Mode
 #[repr(C)]
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Copy)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub enum LocationAccuracyMode {
     Best,
     TenMeters,
@@ -148,7 +148,7 @@ pub enum LocationAccuracyMode {
 }
 
 /// State of the Auto config (what we tell the OS if Auto is on)
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct AutoConfig {
     pub mode: OSLocationMode,
     pub standard_config: StandardLocationConfig,
@@ -177,7 +177,7 @@ impl Default for AutoConfig {
 
 /// Possible location modes that can actually be set. UserConfig is
 /// user-facing, while this is OS-facing
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub enum OSLocationMode {
     Standard,
     SignificantChanges,
@@ -239,6 +239,6 @@ impl std::str::FromStr for LocationMode {
             .iter()
             .find(|x| x.1 == s)
             .ok_or(ParseEnumError)?;
-        Ok(item.0.clone())
+        Ok(item.0)
     }
 }

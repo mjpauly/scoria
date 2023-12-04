@@ -204,7 +204,7 @@ fn PlotComponent() -> Html {
         let basemap = basemap.clone();
         use_effect_with_deps(
             move |basemap_style| {
-                let basemap_style = basemap_style.clone();
+                let basemap_style = *basemap_style;
                 wasm_bindgen_futures::spawn_local(async move {
                     let blank_map = String::from(BLANK_MAP_STYLE);
                     let url = get_basemap_url(&basemap_style);
@@ -224,7 +224,7 @@ fn PlotComponent() -> Html {
                 });
                 || ()
             },
-            map_style.basemap_style.clone(),
+            map_style.basemap_style,
         );
     }
 
@@ -251,8 +251,7 @@ fn PlotComponent() -> Html {
     {
         let map = map.clone();
         let map_initialized = map_initialized.clone();
-        let view_position =
-            use_selector(|s: &FrontState| s.map.view_pos.clone());
+        let view_position = use_selector(|s: &FrontState| s.map.view_pos);
         let front_dispatch = Dispatch::<FrontState>::new();
         use_effect_with_deps(
             move |style| {
@@ -317,8 +316,7 @@ fn PlotComponent() -> Html {
 
     let flytodata_onclick = {
         let map = map.clone();
-        let data_center =
-            use_selector(|state: &BackState| state.data_center.clone());
+        let data_center = use_selector(|state: &BackState| state.data_center);
         Callback::from(move |_e: MouseEvent| {
             if let Some(center) = &*data_center {
                 maplibre::fly_to(

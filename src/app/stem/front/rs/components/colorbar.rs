@@ -21,14 +21,14 @@ pub fn cmap_to_plotly(cmap: &[(f64, &'static str)]) -> ColorScale {
 #[function_component]
 pub fn Colorbar() -> Html {
     let colorbar_id = "colorbar";
-    let cmap_params = use_selector(|s: &BackState| s.cmap_params.clone());
+    let cmap_params = use_selector(|s: &BackState| s.cmap_params);
     let colored_datastream =
-        use_selector(|s: &FrontState| s.map.style.colored_datastream.clone());
-    let unit_pref = use_selector(|s: &FrontState| s.unit_pref.clone());
+        use_selector(|s: &FrontState| s.map.style.colored_datastream);
+    let unit_pref = use_selector(|s: &FrontState| s.unit_pref);
 
     use_effect_with_deps(
         move |(cmap_params, colored_datastream)| {
-            let mut cmap_params = (**cmap_params).clone();
+            let mut cmap_params = **cmap_params;
             // Convert cmax/cmin to preferred units
             match **colored_datastream {
                 ColoredDataStream::HorizAccuracy

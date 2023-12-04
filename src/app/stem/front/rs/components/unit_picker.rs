@@ -23,7 +23,7 @@ enum UnitPreset {
 #[function_component]
 pub fn UnitPicker() -> Html {
     let dispatch = Dispatch::<FrontState>::new();
-    let unit_pref = use_selector(|s: &FrontState| s.unit_pref.clone());
+    let unit_pref = use_selector(|s: &FrontState| s.unit_pref);
 
     // show the correct preset as selected if the units match
     let preset = use_state(|| {
@@ -93,7 +93,7 @@ pub fn UnitPicker() -> Html {
 #[function_component]
 pub fn CustomUnitPicker() -> Html {
     let dispatch = Dispatch::<FrontState>::new();
-    let unit_pref = use_selector(|s: &FrontState| s.unit_pref.clone());
+    let unit_pref = use_selector(|s: &FrontState| s.unit_pref);
 
     let small_length_onchange = dispatch.reduce_mut_callback_with(
         move |s: &mut FrontState, new_unit: LengthUnits| {
@@ -117,19 +117,19 @@ pub fn CustomUnitPicker() -> Html {
     html! {
         <SettingsCard>
             <SettingsCardSelect<LengthUnits>
-                selection={unit_pref.small_length.clone()}
+                selection={unit_pref.small_length}
                 choices={length_choices.clone()}
                 onchange={small_length_onchange}
                 text="Small Lengths"
             />
             <SettingsCardSelect<LengthUnits>
-                selection={unit_pref.large_length.clone()}
+                selection={unit_pref.large_length}
                 choices={length_choices}
                 onchange={large_length_onchange}
                 text="Large Lengths"
             />
             <SettingsCardSelect<VelocityUnits>
-                selection={unit_pref.velocity.clone()}
+                selection={unit_pref.velocity}
                 choices={velocity_choices}
                 onchange={velocity_onchange}
                 text="Speed"

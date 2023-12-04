@@ -34,7 +34,7 @@ static LOCATION_MODES: [LocationMode; 4] = [
 #[function_component]
 pub fn LocationConfigurator() -> Html {
     let dispatch = Dispatch::<FrontState>::new();
-    let config = use_selector(|s: &FrontState| s.location_config.clone());
+    let config = use_selector(|s: &FrontState| s.location_config);
 
     // convenient aliases for the modes that are selected
     let standard_mode = config.is_standard();
@@ -97,11 +97,11 @@ pub fn LocationConfigurator() -> Html {
                 }
             },
             // update when these change
-            (config.mode.clone(), config.standard_config.accuracy_mode),
+            (config.mode, config.standard_config.accuracy_mode),
         )
     };
 
-    let unit_pref = use_selector(|s: &FrontState| s.unit_pref.clone());
+    let unit_pref = use_selector(|s: &FrontState| s.unit_pref);
     let dist_filt_text = unit_pref.format_small_length(
         config.standard_config.distance_filter as f64,
         Some(2),

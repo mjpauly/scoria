@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 /// A range of times.
 /// Encoding as a struct helps ensure `start` and `end` are not accidentally
 /// swapped.
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct TimeRange {
     pub start: time::OffsetDateTime,
     pub end: time::OffsetDateTime,
@@ -36,7 +36,7 @@ impl From<&TimeDeltaRange> for TimeRange {
 /// A range of times, defined by time deltas from now. (delta = then - now)
 /// Used as the persistent data store for the map view
 /// Negative offsets are backwars in time, positive are forward.
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct TimeDeltaRange {
     pub start_offset: time::Duration,
     pub end_offset: time::Duration,
