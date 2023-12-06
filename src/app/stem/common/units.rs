@@ -1,11 +1,11 @@
 //! Units module, defining the units used internally within Scoria and
 //! methods for parsing and formatting the user's preferred units.
 
-use std::fmt;
 use std::str::FromStr;
 
 use serde::Deserialize;
 use serde::Serialize;
+use strum::{Display, EnumIter, EnumString};
 use uom::fmt::DisplayStyle;
 use uom::si::angle;
 use uom::si::f64::*;
@@ -123,38 +123,53 @@ impl UnitPreference {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(
+    Debug,
+    Copy,
+    Clone,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    Display,
+    EnumString,
+    EnumIter,
+)]
+#[strum(serialize_all = "title_case")]
 pub enum LengthUnits {
+    #[strum(serialize = "Meters")]
     Meter,
+    #[strum(serialize = "Kilometers")]
     Kilometer,
+    #[strum(serialize = "Feet")]
     Foot,
+    #[strum(serialize = "Miles")]
     Mile,
+    #[strum(serialize = "Nautical miles")]
     NauticalMile,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(
+    Debug,
+    Copy,
+    Clone,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    Display,
+    EnumString,
+    EnumIter,
+)]
+#[strum(serialize_all = "title_case")]
 pub enum VelocityUnits {
+    #[strum(serialize = "Meters per second")]
     MeterPerSecond,
+    #[strum(serialize = "Kilometers per hour")]
     KilometerPerHour,
+    #[strum(serialize = "Miles per hour")]
     MilePerHour,
+    #[strum(serialize = "Knots")]
     Knot,
 }
-
-/// Actual text to display to the user, in this particular order.
-pub static LENGTH_STRINGS: [(LengthUnits, &str); 5] = [
-    (LengthUnits::Meter, "Meter"),
-    (LengthUnits::Kilometer, "Kilometer"),
-    (LengthUnits::Foot, "Foot"),
-    (LengthUnits::Mile, "Mile"),
-    (LengthUnits::NauticalMile, "Nautical Mile"),
-];
-
-pub static VELOCITY_STRINGS: [(VelocityUnits, &str); 4] = [
-    (VelocityUnits::MeterPerSecond, "Meter per Second"),
-    (VelocityUnits::KilometerPerHour, "Kilometer per Hour"),
-    (VelocityUnits::MilePerHour, "Mile per Hour"),
-    (VelocityUnits::Knot, "Knot"),
-];
 
 /// Format a value with an optional precision.
 fn format_with_prec<T>(f: T, prec: Option<usize>) -> String
@@ -169,12 +184,6 @@ where
 }
 
 impl LengthUnits {
-    /// Return an iterator over references to the enum variants in the display
-    /// order.
-    pub fn all_variants() -> impl Iterator<Item = &'static Self> {
-        LENGTH_STRINGS.iter().map(|x| &x.0)
-    }
-
     /// Turn a value in the preferred unit into Scoria's base unit
     pub fn to_base_unit(&self, val: f64) -> f64 {
         // Haven't figured out how to generically pass uom dimensions and units
@@ -240,12 +249,6 @@ impl LengthUnits {
 }
 
 impl VelocityUnits {
-    /// Return an iterator over references to the enum variants in the display
-    /// order.
-    pub fn all_variants() -> impl Iterator<Item = &'static Self> {
-        VELOCITY_STRINGS.iter().map(|x| &x.0)
-    }
-
     pub fn to_base_unit(&self, val: f64) -> f64 {
         let quantity = match self {
             Self::MeterPerSecond => {
@@ -320,43 +323,4 @@ pub fn format_angle(val: f64, prec: Option<usize>) -> String {
     let input = Angle::new::<BaseAngle>(val);
     let f = Angle::format_args(BASE_ANGLE_INST, style).with(input);
     format_with_prec(f, prec)
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub struct ParseEnumError;
-
-impl fmt::Display for LengthUnits {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let item = LENGTH_STRINGS.iter().find(|x| x.0 == *self).unwrap();
-        write!(f, "{}", item.1)
-    }
-}
-
-impl std::str::FromStr for LengthUnits {
-    type Err = ParseEnumError;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let item = LENGTH_STRINGS
-            .iter()
-            .find(|x| x.1 == s)
-            .ok_or(ParseEnumError)?;
-        Ok(item.0)
-    }
-}
-
-impl fmt::Display for VelocityUnits {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let item = VELOCITY_STRINGS.iter().find(|x| x.0 == *self).unwrap();
-        write!(f, "{}", item.1)
-    }
-}
-
-impl std::str::FromStr for VelocityUnits {
-    type Err = ParseEnumError;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let item = VELOCITY_STRINGS
-            .iter()
-            .find(|x| x.1 == s)
-            .ok_or(ParseEnumError)?;
-        Ok(item.0)
-    }
 }

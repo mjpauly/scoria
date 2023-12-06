@@ -149,6 +149,10 @@ crates_repository(
             version = "0.6.2",
             features = ["runtime-tokio-native-tls", "sqlite", "time", "macros"],
         ),
+        "strum": crate.spec(
+            version = "0.25.0",
+            features = ["derive"],
+        ),
         "tokio": crate.spec(
             version = "1.24.2",
             features = ["full"],

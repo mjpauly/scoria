@@ -175,6 +175,8 @@ where
     pub choices: Vec<C>,       // list of choices to select from in order
     pub onchange: Callback<C>, // the callback to emit with the selection
     pub text: String,          // label text
+    #[prop_or_default]
+    pub id: AttrValue,
 }
 
 /// A select from multiple options.
@@ -192,6 +194,7 @@ where
                 choices={p.choices.clone()}
                 onchange={p.onchange.clone()}
                 class="ml-4"
+                id={p.id.clone()}
             />
         </label>
     }
@@ -202,6 +205,8 @@ pub struct SettingsCardToggleProps {
     pub checked: bool,                 // the current state
     pub onclick: Callback<MouseEvent>, // the callback to emit
     pub text: String,                  // label text
+    #[prop_or_default]
+    pub id: AttrValue,
 }
 
 #[function_component]
@@ -213,6 +218,7 @@ pub fn SettingsCardToggle(p: &SettingsCardToggleProps) -> Html {
                 class={"ml-4 mr-1"}
                 checked={p.checked}
                 onclick={p.onclick.clone()}
+                id={p.id.clone()}
             />
         </label>
     }
@@ -225,6 +231,8 @@ pub struct SettingsCardInputProps {
     pub onchange: Callback<String>, // the callback to emit
     #[prop_or_default]
     pub class: Classes, // classes to pass to the input itself, e.g. w-24
+    #[prop_or_default]
+    pub id: AttrValue,
 }
 
 #[function_component]
@@ -239,6 +247,7 @@ pub fn SettingsCardInput(p: &SettingsCardInputProps) -> Html {
                 )}
                 value={p.value.clone()}
                 onchange={p.onchange.clone()}
+                id={p.id.clone()}
             />
         </label>
     }

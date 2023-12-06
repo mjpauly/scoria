@@ -13,6 +13,8 @@ pub struct ToggleSwitchProps {
     pub onclick: Callback<MouseEvent>, // the callback to emit
     #[prop_or_default]
     pub class: Classes,
+    #[prop_or_default]
+    pub id: AttrValue,
 }
 
 #[function_component]
@@ -29,6 +31,7 @@ pub fn ToggleSwitch(p: &ToggleSwitchProps) -> Html {
                 checked={p.checked}
                 onclick={p.onclick.clone()}
                 class={TOGGLE_SWITCH_STYLE}
+                id={p.id.clone()}
             />
         </div>
     }
@@ -40,6 +43,8 @@ pub struct ShortInputProps {
     pub onchange: Callback<String>, // the callback to emit
     #[prop_or_default]
     pub class: Classes,
+    #[prop_or_default]
+    pub id: AttrValue,
 }
 
 #[function_component]
@@ -63,6 +68,7 @@ pub fn ShortInput(p: &ShortInputProps) -> Html {
             )}
             onchange={callback}
             value={p.value.clone()}
+            id={p.id.clone()}
         />
     }
 }

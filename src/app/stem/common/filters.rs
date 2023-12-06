@@ -1,8 +1,7 @@
 //! Types for filtering location data based on thresholding.
 
-use std::fmt;
-
 use serde::{Deserialize, Serialize};
+use strum::{Display, EnumIter, EnumString};
 
 use crate::units::{LengthUnits, UnitPreference};
 use crate::Location;
@@ -23,13 +22,29 @@ pub struct Filter {
     pub threshold: f64,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(
+    Debug,
+    Copy,
+    Clone,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    Display,
+    EnumString,
+    EnumIter,
+)]
 pub enum FilterOp {
+    #[strum(serialize = ">")]
     GreaterThan,
+    #[strum(serialize = "<")]
     LessThan,
+    #[strum(serialize = "≥")]
     GreatherThanOrEq,
+    #[strum(serialize = "≤")]
     LessThanOrEq,
+    #[strum(serialize = "=")]
     IsEq,
+    #[strum(serialize = "≠")]
     IsNotEq,
 }
 
@@ -83,37 +98,6 @@ pub fn apply_filters<'a>(
         .collect()
 }
 
-pub static OP_STRINGS: [(FilterOp, &str); 6] = [
-    (FilterOp::GreaterThan, ">"),
-    (FilterOp::LessThan, "<"),
-    (FilterOp::GreatherThanOrEq, "≥"),
-    (FilterOp::LessThanOrEq, "≤"),
-    (FilterOp::IsEq, "="),
-    (FilterOp::IsNotEq, "≠"),
-];
-
-impl fmt::Display for FilterOp {
-    /// Allows us to use `.to_string()` on BasemapStyle
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        // unwrap since we shouldn't fail to find the enum variant
-        let item = OP_STRINGS.iter().find(|x| x.0 == *self).unwrap();
-        write!(f, "{}", item.1)
-    }
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub struct ParseEnumError;
-
-impl std::str::FromStr for FilterOp {
-    type Err = ParseEnumError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let item =
-            OP_STRINGS.iter().find(|x| x.1 == s).ok_or(ParseEnumError)?;
-        Ok(item.0)
-    }
-}
-
 // === DATASTREAM === //
 
 // Displayable enum for datastream selection and parsing/formatting of values
@@ -122,32 +106,36 @@ impl std::str::FromStr for FilterOp {
 use uom::str::ParseQuantityError;
 
 /// All possible data streams, excluding time which is a fairly special case
-#[derive(Debug, Copy, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(
+    Debug,
+    Copy,
+    Clone,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    Display,
+    EnumString,
+    EnumIter,
+)]
+#[strum(serialize_all = "title_case")]
 pub enum DataStream {
+    #[strum(serialize = "Latitude")]
     Lat,
+    #[strum(serialize = "Longitude")]
     Lon,
+    #[strum(serialize = "Horiz Err")]
     HorizAccuracy,
     Altitude,
+    #[strum(serialize = "Alt Err")]
     VertAccuracy,
     Story,
     Speed,
+    #[strum(serialize = "Speed Err")]
     SpeedAccuracy,
     Course,
+    #[strum(serialize = "Course Err")]
     CourseAccuracy,
 }
-
-pub static DATASTREAM_STRINGS: [(DataStream, &str); 10] = [
-    (DataStream::Lat, "Latitude"),
-    (DataStream::Lon, "Longitude"),
-    (DataStream::Speed, "Speed"),
-    (DataStream::Course, "Course"),
-    (DataStream::Altitude, "Altitude"),
-    (DataStream::Story, "Story"),
-    (DataStream::HorizAccuracy, "Horiz Err"),
-    (DataStream::VertAccuracy, "Alt Err"),
-    (DataStream::SpeedAccuracy, "Speed Err"),
-    (DataStream::CourseAccuracy, "Course Err"),
-];
 
 // Stream-specific conversions
 
@@ -213,28 +201,5 @@ impl DataStream {
             DataStream::Course => unit_pref.format_angle(val, None),
             DataStream::CourseAccuracy => unit_pref.format_angle(val, None),
         }
-    }
-}
-
-// Convert the DataStream enum itself to/from String representation
-
-impl fmt::Display for DataStream {
-    /// Allows us to use `.to_string()` on BasemapStyle
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        // unwrap since we shouldn't fail to find the enum variant
-        let item = DATASTREAM_STRINGS.iter().find(|x| x.0 == *self).unwrap();
-        write!(f, "{}", item.1)
-    }
-}
-
-impl std::str::FromStr for DataStream {
-    type Err = ParseEnumError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let item = DATASTREAM_STRINGS
-            .iter()
-            .find(|x| x.1 == s)
-            .ok_or(ParseEnumError)?;
-        Ok(item.0)
     }
 }

@@ -76,6 +76,7 @@ rust_library(
     edition = "2021",
     deps = [
         "@stem_crate_index//:serde",
+        "@stem_crate_index//:strum",
         "@stem_crate_index//:time",
         "@stem_crate_index//:uom",
     ],

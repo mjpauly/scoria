@@ -4,6 +4,7 @@ use std::str::FromStr;
 use std::u8;
 
 use obfstr::obfstr;
+use strum::IntoEnumIterator;
 use web_sys::{HtmlInputElement, HtmlSelectElement};
 use yew::prelude::*;
 use yewdux::prelude::*;
@@ -11,9 +12,7 @@ use yewdux::prelude::*;
 use crate::components::{RANGE_INPUT_STYLE, SELECT_STYLE, TOGGLE_SWITCH_STYLE};
 use crate::router::get_scoped_host;
 use crate::ui_state::FrontState;
-use common::map_style::{
-    BasemapStyle, ColoredDataStream, BASEMAP_STRINGS, DATASTREAM_STRINGS,
-};
+use common::map_style::{BasemapStyle, ColoredDataStream};
 
 // BASEMAP STYLES
 
@@ -128,17 +127,17 @@ pub fn MapStyler() -> Html {
         })
     };
 
-    let basemap_options = BASEMAP_STRINGS.iter().map(|x| {
+    let basemap_options = BasemapStyle::iter().map(|x| {
         html! {
-            <option selected={x.0 == style.basemap_style}>
-                {x.1.to_string()}
+            <option selected={x == style.basemap_style}>
+                {x.to_string()}
             </option>
         }
     });
-    let datastream_options = DATASTREAM_STRINGS.iter().map(|x| {
+    let datastream_options = ColoredDataStream::iter().map(|x| {
         html! {
-            <option selected={x.0 == style.colored_datastream}>
-                {x.1.to_string()}
+            <option selected={x == style.colored_datastream}>
+                {x.to_string()}
             </option>
         }
     });

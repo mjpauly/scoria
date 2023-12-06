@@ -1,8 +1,7 @@
 //! Types that define the map style, such as marker and basemap appearance.
 
-use std::fmt;
-
 use serde::{Deserialize, Serialize};
+use strum::{Display, EnumIter, EnumString};
 
 use crate::{
     cmaps::{Cmap, CmapParams},
@@ -61,18 +60,35 @@ pub struct Rgba {
 /// Displayable enum for basemap selections
 ///
 /// Consists of public tile server options available in plotly natively
-#[derive(Copy, Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+#[derive(
+    Debug,
+    Copy,
+    Clone,
+    PartialEq,
+    Default,
+    Serialize,
+    Deserialize,
+    Display,
+    EnumString,
+    EnumIter,
+)]
+#[strum(serialize_all = "title_case")]
 pub enum BasemapStyle {
     Basic,
     Dataviz,
     Streets,
     Topo,
     Outdoor,
+    #[strum(serialize = "Dark Basic")]
     #[default]
     BasicDark,
+    #[strum(serialize = "Dark Dataviz")]
     DatavizDark,
+    #[strum(serialize = "Dark Streets")]
     StreetsDark,
+    #[strum(serialize = "Dark Topo")]
     TopoDark,
+    #[strum(serialize = "Dark Outdoor")]
     OutdoorDark,
     Satellite,
 }
@@ -97,81 +113,42 @@ impl BasemapStyle {
     }
 }
 
-// Displays according to order of this array
-pub static BASEMAP_STRINGS: [(BasemapStyle, &str); 11] = [
-    (BasemapStyle::Basic, "Basic"),
-    (BasemapStyle::Dataviz, "Dataviz"),
-    (BasemapStyle::Streets, "Streets"),
-    (BasemapStyle::Topo, "Topo"),
-    (BasemapStyle::Outdoor, "Outdoor"),
-    (BasemapStyle::BasicDark, "Dark Basic"),
-    (BasemapStyle::DatavizDark, "Dark Dataviz"),
-    (BasemapStyle::StreetsDark, "Dark Streets"),
-    (BasemapStyle::TopoDark, "Dark Topo"),
-    (BasemapStyle::OutdoorDark, "Dark Outdoor"),
-    (BasemapStyle::Satellite, "Satellite"),
-];
-
-impl fmt::Display for BasemapStyle {
-    /// Allows us to use `.to_string()` on BasemapStyle
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        // unwrap since we shouldn't fail to find the enum variant
-        let item = BASEMAP_STRINGS.iter().find(|x| x.0 == *self).unwrap();
-        write!(f, "{}", item.1)
-    }
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub struct ParseEnumError;
-
-impl std::str::FromStr for BasemapStyle {
-    type Err = ParseEnumError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let item = BASEMAP_STRINGS
-            .iter()
-            .find(|x| x.1 == s)
-            .ok_or(ParseEnumError)?;
-        Ok(item.0)
-    }
-}
-
 // === COLORED DATASTREAM === //
 
 /// Displayable enum for datastream selection for colormapping
-#[derive(Copy, Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    PartialEq,
+    Default,
+    Serialize,
+    Deserialize,
+    Display,
+    EnumString,
+    EnumIter,
+)]
+#[strum(serialize_all = "title_case")]
 pub enum ColoredDataStream {
     #[default]
     None,
-    Lat,
-    Lon,
+    #[strum(serialize = "Horizontal Error")]
     HorizAccuracy,
     Altitude,
+    #[strum(serialize = "Altitude Error")]
     VertAccuracy,
+    #[strum(serialize = "Building Story")]
     Story,
     Speed,
+    #[strum(serialize = "Speed Error")]
     SpeedAccuracy,
     Course,
+    #[strum(serialize = "Course Error")]
     CourseAccuracy,
     Time,
+    #[strum(serialize = "Time of Day")]
     TimeOfDay,
 }
-
-pub static DATASTREAM_STRINGS: [(ColoredDataStream, &str); 11] = [
-    (ColoredDataStream::None, "None"),
-    // (ColoredDataStream::Lat, "Latitude"),
-    // (ColoredDataStream::Lon, "Longitude"),
-    (ColoredDataStream::Speed, "Speed"),
-    (ColoredDataStream::Course, "Course"),
-    (ColoredDataStream::Time, "Time"),
-    (ColoredDataStream::TimeOfDay, "Time of Day"),
-    (ColoredDataStream::Altitude, "Altitude"),
-    (ColoredDataStream::Story, "Building Story"),
-    (ColoredDataStream::HorizAccuracy, "Horizontal Error"),
-    (ColoredDataStream::VertAccuracy, "Altitude Error"),
-    (ColoredDataStream::SpeedAccuracy, "Speed Error"),
-    (ColoredDataStream::CourseAccuracy, "Course Error"),
-];
 
 impl ColoredDataStream {
     /// Selects the right data stream from a common::Location struct
@@ -186,8 +163,6 @@ impl ColoredDataStream {
         };
         match self {
             ColoredDataStream::None => None,
-            ColoredDataStream::Lat => Some(loc.latitude),
-            ColoredDataStream::Lon => Some(loc.longitude),
             ColoredDataStream::HorizAccuracy => Some(loc.horizontal_accuracy),
             ColoredDataStream::Altitude => loc.msl_altitude,
             ColoredDataStream::VertAccuracy => loc.vertical_accuracy,
@@ -218,10 +193,7 @@ impl ColoredDataStream {
             | ColoredDataStream::TimeOfDay
             | ColoredDataStream::Story => format!("{}", self),
             // Degree units
-            ColoredDataStream::Lat
-            | ColoredDataStream::Lon
-            | ColoredDataStream::Course
-            | ColoredDataStream::CourseAccuracy => {
+            ColoredDataStream::Course | ColoredDataStream::CourseAccuracy => {
                 format!("{} (º)", self)
             }
             // Small lengths
@@ -268,26 +240,5 @@ impl ColoredDataStream {
             params.cmax = float::max(&colorvals);
         }
         params
-    }
-}
-
-impl fmt::Display for ColoredDataStream {
-    /// Allows us to use `.to_string()` on BasemapStyle
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        // unwrap since we shouldn't fail to find the enum variant
-        let item = DATASTREAM_STRINGS.iter().find(|x| x.0 == *self).unwrap();
-        write!(f, "{}", item.1)
-    }
-}
-
-impl std::str::FromStr for ColoredDataStream {
-    type Err = ParseEnumError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let item = DATASTREAM_STRINGS
-            .iter()
-            .find(|x| x.1 == s)
-            .ok_or(ParseEnumError)?;
-        Ok(item.0)
     }
 }

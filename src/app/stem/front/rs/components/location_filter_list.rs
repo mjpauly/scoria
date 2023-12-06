@@ -16,6 +16,7 @@
 
 use std::str::FromStr;
 
+use strum::IntoEnumIterator;
 use web_sys::{HtmlInputElement, HtmlSelectElement};
 use yew::prelude::*;
 use yew_icons::{Icon, IconId};
@@ -26,7 +27,7 @@ use crate::{
     ui_state::FrontState,
 };
 use common::{
-    filters::{DataStream, Filter, FilterOp, DATASTREAM_STRINGS, OP_STRINGS},
+    filters::{DataStream, Filter, FilterOp},
     units::LengthUnits,
 };
 
@@ -203,11 +204,11 @@ fn FilterEntry(props: &FilterEntryProps) -> Html {
     };
 
     // option html elements for select elements
-    let stream_options = DATASTREAM_STRINGS.iter().map(|x| {
-        html! { <option> {x.0.to_string()} </option> }
+    let stream_options = DataStream::iter().map(|x| {
+        html! { <option> {x.to_string()} </option> }
     });
-    let op_options = OP_STRINGS.iter().map(|x| {
-        html! { <option> {x.1.to_string()} </option> }
+    let op_options = FilterOp::iter().map(|x| {
+        html! { <option> {x.to_string()} </option> }
     });
 
     // update the displayed value for select elements

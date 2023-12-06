@@ -107,6 +107,10 @@ async fn location_config_propagates(
         .await?;
 
     let dist_filt_elem = c.find(Locator::Css("#distance_filter")).await?;
+    for _i in 0..10 {
+        // delete contents by sending backspace keys
+        dist_filt_elem.send_keys("\u{e003}").await?;
+    }
     dist_filt_elem.send_keys("4 m").await?;
 
     c.find(Locator::Css("#accuracy_mode"))

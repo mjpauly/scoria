@@ -1,5 +1,6 @@
 //! Picker for user preference units
 
+use strum::IntoEnumIterator;
 use yew::prelude::*;
 use yew_icons::{Icon, IconId};
 use yewdux::prelude::*;
@@ -110,10 +111,8 @@ pub fn CustomUnitPicker() -> Html {
             s.unit_pref.velocity = new_unit;
         },
     );
-    let length_choices =
-        LengthUnits::all_variants().cloned().collect::<Vec<_>>();
-    let velocity_choices =
-        VelocityUnits::all_variants().cloned().collect::<Vec<_>>();
+    let length_choices = LengthUnits::iter().collect::<Vec<_>>();
+    let velocity_choices = VelocityUnits::iter().collect::<Vec<_>>();
     html! {
         <SettingsCard>
             <SettingsCardSelect<LengthUnits>

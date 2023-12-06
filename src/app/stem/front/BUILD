@@ -60,6 +60,7 @@ rust_library(
         "@stem_crate_index//:plotly",
         "@stem_crate_index//:serde_json",
         "@stem_crate_index//:serde-wasm-bindgen",
+        "@stem_crate_index//:strum",
         "@stem_crate_index//:uom",
         "@stem_crate_index//:yew",
         "@stem_crate_index//:yew-hooks",

@@ -20,6 +20,8 @@ where
     pub onchange: Callback<C>, // the callback to emit with the selection
     #[prop_or_default]
     pub class: Classes,
+    #[prop_or_default]
+    pub id: AttrValue,
 }
 
 /// A select from multiple options. Wrap with a \<label\> tag to make the name
@@ -64,6 +66,7 @@ where
             )}
             ref={node_ref}
             onchange={onchange}
+            id={p.id.clone()}
         >
             { for choices }
         </select>
