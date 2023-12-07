@@ -8,18 +8,20 @@ use yew::prelude::*;
 use yew_icons::{Icon, IconId};
 use yewdux::prelude::*;
 
-use crate::components::{
-    location_filter_list::LocationFilterList,
-    map_styler::{get_basemap_url, MapStyler},
-    Colorbar, TabBar, TimeRangePicker, PRIMARY_BUTTON_STYLE,
-    SECONDARY_BUTTON_STYLE,
-};
 use crate::plots::maplibre::{self, add_source_and_layers_to_style};
 use crate::ui_state::{BackState, FrontState};
 use crate::websocket::{
     use_backend_event_with_deps, ToBack, ToFront, WebsocketService,
 };
-use common::map_style::ColoredDataStream;
+use crate::{
+    components::{
+        location_filter_list::LocationFilterList,
+        map_styler::{get_basemap_url, MapStyler},
+        Colorbar, TabBar, TimeRangePicker, PRIMARY_BUTTON_STYLE,
+        SECONDARY_BUTTON_STYLE,
+    },
+    plots::maplibre::view_pos_from_map,
+};
 use common::LngLat;
 
 const BLANK_MAP_STYLE: &str = r#"{"version":8,"name":"Blank","sources":{},"layers":[],"center":[0,0],"zoom":1}"#;
@@ -44,9 +46,6 @@ fn AnalyzeLocation() -> Html {
     // Get the number of filters clamped to the range [0, 2], which is where
     // resizing of the filter list occurs. If the value changes, trigger resize
     let num_filters = (*filters).len().clamp(0, 2);
-    // Colorbar toggle hidden on Time selection
-    let colored_datastream_is_time =
-        map_style.colored_datastream == ColoredDataStream::Time;
 
     // after rerender, trigger the plot's resize handler if the visible settings
     // tab has changed, or if that settings tab's size has changed
@@ -58,7 +57,6 @@ fn AnalyzeLocation() -> Html {
         (
             settings_tab.clone(),
             num_filters,
-            colored_datastream_is_time,
             map_style.should_show_colorbar(),
         ),
     );
@@ -278,6 +276,32 @@ fn PlotComponent() -> Html {
                 }
             },
             style.clone(),
+        )
+    };
+    // cleanup the map when we navigate away
+    use_effect_with_deps(
+        move |map| {
+            let map = map.clone();
+            move || {
+                if let Some(map) = &*map {
+                    map.remove();
+                }
+            }
+        },
+        map.clone(),
+    );
+    // on load, retrieve the view bounds and send the bounds to the backend
+    {
+        let front_dispatch = Dispatch::<FrontState>::new();
+        let map = map.clone();
+        use_effect_with_deps(
+            move |map_initialized| {
+                if **map_initialized {
+                    let view_pos = view_pos_from_map(&(*map).clone().unwrap());
+                    front_dispatch.reduce_mut(|s| s.map.view_pos = view_pos)
+                }
+            },
+            map_initialized.clone(),
         )
     };
 

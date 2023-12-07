@@ -17,6 +17,8 @@ extern "C" {
 
     #[wasm_bindgen(constructor, js_namespace = maplibregl, js_name = Map)]
     pub fn new(options: &JsValue) -> Map;
+    #[wasm_bindgen(method)]
+    pub fn remove(this: &Map);
 
     #[wasm_bindgen(method, setter, js_name = showTileBoundaries)]
     pub fn show_tile_boundaries(this: &Map, yes: bool);
