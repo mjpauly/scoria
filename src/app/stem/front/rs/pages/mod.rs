@@ -1,4 +1,5 @@
 pub mod analyze;
+pub mod export_track;
 pub mod intro;
 pub mod report_problem;
 pub mod sense;
@@ -6,6 +7,7 @@ pub mod settings;
 pub mod splash;
 
 pub use analyze::Analyze;
+pub use export_track::ExportTrack;
 pub use intro::Intro;
 pub use report_problem::ReportProblem;
 pub use sense::Sense;

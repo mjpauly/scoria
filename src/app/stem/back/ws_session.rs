@@ -13,6 +13,7 @@ use common::state::{PersistedRoute, PersistedSettingsRoute};
 use tracing::{info, warn};
 
 use crate::database;
+use crate::export::export_selected;
 use crate::geojson::update_geojson;
 use crate::logs::update_last_logged_error;
 use crate::map::automap::update_automap;
@@ -132,6 +133,9 @@ impl WsSession {
                         };
                     });
                 }
+            }
+            ToBack::ExportTrack => {
+                get_runtime().spawn(async { export_selected().await });
             }
             ToBack::ExportSqliteLog => {
                 AppState::global()

@@ -14,6 +14,9 @@ void set_app_dirs(
     const char* bundle_dir
 );
 
+// log errors
+void log_error(const char*);
+
 // handle app state changes
 
 void handle_shutdown(void);
@@ -70,3 +73,4 @@ bool should_request_when_in_use_authorization(void);
 bool should_export_sqlite_log(void);
 bool should_import_sqlite_log(void);
 void import_from_sqlite_log(const char*);
+bool should_export_track(void);

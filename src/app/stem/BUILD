@@ -39,9 +39,12 @@ rust_library(
     deps = [
         ":common",
         ":alloc",
+        "@stem_crate_index//:csv",
         "@stem_crate_index//:geo",
         "@stem_crate_index//:geo-clipper",
         "@stem_crate_index//:geojson",
+        "@stem_crate_index//:gpx",
+        "@stem_crate_index//:itertools",
         "@stem_crate_index//:log-panics",
         "@stem_crate_index//:mvt",
         "@stem_crate_index//:obfstr",

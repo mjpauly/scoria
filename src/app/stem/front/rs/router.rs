@@ -39,10 +39,12 @@ pub enum SettingsRoute {
     Root,
     #[at("/settings/general")]
     General,
-    #[at("/settings/data")]
-    Data,
     #[at("/settings/mapsettings")]
     MapSettings,
+    #[at("/settings/export")]
+    Export,
+    #[at("/settings/data")]
+    Data,
     #[at("/settings/reportproblem")]
     ReportProblem,
     #[not_found]
@@ -93,8 +95,9 @@ fn switch_settings(route: SettingsRoute) -> Html {
     match route {
         SettingsRoute::Root => html! { <pages::Settings /> },
         SettingsRoute::General => html! { <pages::General /> },
-        SettingsRoute::Data => html! { <pages::DataSettings /> },
         SettingsRoute::MapSettings => html! { <pages::MapSettings /> },
+        SettingsRoute::Export => html! { <pages::ExportTrack /> },
+        SettingsRoute::Data => html! { <pages::DataSettings /> },
         SettingsRoute::ReportProblem => html! { <pages::ReportProblem /> },
         SettingsRoute::NotFound => html! {
             <Redirect<Route> to={Route::NotFound}/>
@@ -133,8 +136,9 @@ impl SettingsRoute {
         match *r {
             PersistedSettingsRoute::Root => Self::Root,
             PersistedSettingsRoute::General => Self::General,
-            PersistedSettingsRoute::Data => Self::Data,
             PersistedSettingsRoute::MapSettings => Self::MapSettings,
+            PersistedSettingsRoute::Export => Self::Export,
+            PersistedSettingsRoute::Data => Self::Data,
             PersistedSettingsRoute::ReportProblem => Self::ReportProblem,
         }
     }
@@ -143,8 +147,9 @@ impl SettingsRoute {
         match self {
             Self::Root => PersistedSettingsRoute::Root,
             Self::General => PersistedSettingsRoute::General,
-            Self::Data => PersistedSettingsRoute::Data,
             Self::MapSettings => PersistedSettingsRoute::MapSettings,
+            Self::Export => PersistedSettingsRoute::Export,
+            Self::Data => PersistedSettingsRoute::Data,
             Self::ReportProblem => PersistedSettingsRoute::ReportProblem,
             _ => PersistedSettingsRoute::Root,
         }

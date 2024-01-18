@@ -131,6 +131,7 @@ crates_repository(
         )],
     },
     packages = {
+        "csv": crate.spec(version = "1.3.0"),
         "futures-core": crate.spec(version = "0.3.28"),
         "geo": crate.spec(version = "0.26.0"),
         "geo-clipper": crate.spec(version = "0.7.3"),

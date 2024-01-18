@@ -143,7 +143,7 @@ class MyLocationManager: NSObject, CLLocationManagerDelegate, ObservableObject {
         do {
             try await Task.sleep(nanoseconds: 1_000_000_000 * 60) // one minute
         } catch {
-            print_and_log(s: "failed to sleep")
+            print_and_log_error(s: "failed to sleep")
         }
         // let endTime = DispatchTime.now()
         // let elapsedTime = endTime.uptimeNanoseconds - startTime.uptimeNanoseconds

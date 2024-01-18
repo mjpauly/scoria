@@ -5,6 +5,7 @@
 use serde::{Deserialize, Serialize};
 
 pub mod cmaps;
+pub mod export_options;
 pub mod filters;
 pub mod float;
 pub mod location;

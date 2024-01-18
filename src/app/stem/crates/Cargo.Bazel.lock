@@ -1,5 +1,5 @@
 {
-  "checksum": "1af7d5c91a44375ad7ae9a216a047e46e81cee6de9a9a3df3e3d85c1c9356426",
+  "checksum": "ddd912d8d73edf5f3875bf4c6e76e168ef2778416d7f55b2c09ad3e933e1f3dd",
   "crates": {
     "actix 0.13.0": {
       "name": "actix",
@@ -3763,6 +3763,102 @@
       },
       "license": "MIT OR Apache-2.0"
     },
+    "csv 1.3.0": {
+      "name": "csv",
+      "version": "1.3.0",
+      "repository": {
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/csv/1.3.0/download",
+          "sha256": "ac574ff4d437a7b5ad237ef331c17ccca63c46479e5b5453eb8e10bb99a759fe"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "csv",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "csv",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "deps": {
+          "common": [
+            {
+              "id": "csv-core 0.1.11",
+              "target": "csv_core"
+            },
+            {
+              "id": "itoa 1.0.5",
+              "target": "itoa"
+            },
+            {
+              "id": "ryu 1.0.12",
+              "target": "ryu"
+            },
+            {
+              "id": "serde 1.0.152",
+              "target": "serde"
+            }
+          ],
+          "selects": {}
+        },
+        "edition": "2021",
+        "version": "1.3.0"
+      },
+      "license": "Unlicense/MIT"
+    },
+    "csv-core 0.1.11": {
+      "name": "csv-core",
+      "version": "0.1.11",
+      "repository": {
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/csv-core/0.1.11/download",
+          "sha256": "5efa2b3d7902f4b634a20cae3c9c4e6209dc4779feb6863329607560143efa70"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "csv_core",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "csv_core",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "crate_features": {
+          "common": [
+            "default"
+          ],
+          "selects": {}
+        },
+        "deps": {
+          "common": [
+            {
+              "id": "memchr 2.5.0",
+              "target": "memchr"
+            }
+          ],
+          "selects": {}
+        },
+        "edition": "2018",
+        "version": "0.1.11"
+      },
+      "license": "Unlicense/MIT"
+    },
     "cxx 1.0.91": {
       "name": "cxx",
       "version": "1.0.91",
@@ -4499,6 +4595,10 @@
             {
               "id": "bincode 1.3.3",
               "target": "bincode"
+            },
+            {
+              "id": "csv 1.3.0",
+              "target": "csv"
             },
             {
               "id": "fantoccini 0.19.3",

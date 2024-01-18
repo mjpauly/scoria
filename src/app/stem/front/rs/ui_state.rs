@@ -18,6 +18,7 @@ use yewdux::prelude::*;
 
 use crate::{
     components::time_range_picker::{local_offset, time_delta_range_today},
+    swift_poke,
     websocket::{Callback, ToBack, ToFront, WebsocketService},
 };
 
@@ -107,6 +108,7 @@ pub fn get_update_callback() -> Callback {
         // These messages handled by other callbacks, and not stored globally
         ToFront::GeojsonUpdated => (),
         ToFront::PopupText { .. } => (),
+        ToFront::SwiftPoke => swift_poke::poke(),
     };
     Box::new(callback)
 }

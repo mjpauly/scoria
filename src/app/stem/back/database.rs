@@ -785,7 +785,7 @@ fn stream_column_name(filter: &Filter) -> &str {
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
     use crate::map::automap::{get_last_automap_update, update_automap};
     use crate::{local::test_setup, paths::get_documents_dir};
 
@@ -798,7 +798,7 @@ mod tests {
     }
 
     /// Generate location data that is different for each idx
-    fn get_test_data(idx: usize) -> OSLocationData {
+    pub fn get_test_data(idx: usize) -> OSLocationData {
         OSLocationData {
             timestamp: idx as i64 * 5,
             latitude: idx as f64,

@@ -15,6 +15,7 @@
 pub mod app_state; // backend state storage
 pub mod core; // high-level app logic that spans multiple modules
 pub mod database; // manages the SQLite database
+pub mod export; // export data to common geo data file formats
 pub mod geojson; // construct the data to display in the frontend
 pub mod location_config; // location logging configuration
 pub mod logs;
@@ -76,6 +77,14 @@ pub async fn init(init_paths: paths::Paths) {
     // vacuum and checkpoint the database at startup, so it shrinks to size
     database::checkpoint_db().await;
     tracing::info!("===== App Startup =====");
+}
+
+/// Error logging and handling is handled with tracing, so we have the app
+/// wrapper pass any error strings to Stem to be logged.
+#[no_mangle]
+pub extern "C" fn log_error(msg: *const c_char) {
+    let msg = cstr_to_string(msg);
+    tracing::error!("Swift error: {}", msg);
 }
 
 /// Handle shutdown of the app by saving certain persistent state elements to
@@ -204,6 +213,16 @@ pub extern "C" fn should_request_when_in_use_authorization() -> bool {
     let should_request = guard.should_request_when_in_use_authorization;
     guard.should_request_when_in_use_authorization = false;
     should_request
+}
+
+/// Tell swift to share the generated track_export.{ext} track in a share sheet
+#[no_mangle]
+pub extern "C" fn should_export_track() -> bool {
+    let state = app_state::AppState::global();
+    let mut guard = state.swift_messages.lock().unwrap();
+    let should_export = guard.should_export_track;
+    guard.should_export_track = false;
+    should_export
 }
 
 /// Unit tests for the top-level library interface.

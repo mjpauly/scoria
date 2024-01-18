@@ -68,6 +68,7 @@ fn parse_information_to_bytes(val: &str) -> Result<u64, ParseQuantityError> {
     let result =
         Information::from_str(val).map(|x| x.get::<information::byte>());
     if result.is_err() {
+        // Assume MB if it's just a number and retry parsing
         if let Ok(parsed) = val.parse::<f64>() {
             return Ok((parsed * 1_000_000.0).floor() as u64);
         }

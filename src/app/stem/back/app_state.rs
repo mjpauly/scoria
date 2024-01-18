@@ -108,6 +108,7 @@ pub struct SwiftMessages {
     pub should_export_sqlite_log: bool,
     // tell swift to import the SQLite log
     pub should_import_sqlite_log: bool,
+    pub should_export_track: bool,
 }
 
 impl AppState {

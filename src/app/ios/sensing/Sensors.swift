@@ -7,7 +7,6 @@ public protocol MyViewControllerProtocol: UIViewController, UIDocumentPickerDele
 var myLocationManager = MyLocationManager()
 public var server_port: UInt16 = 0;
 public var server_scope: UInt64 = 0;
-public var logfile = getDocumentsDirectory().appendingPathComponent("swiftlog.txt").path()
 
 public func startup() {
     // Set the app directories known to the core library and get the
@@ -31,6 +30,7 @@ public func handle_poke(viewController: MyViewControllerProtocol) {
     myLocationManager.updateConfig()
     check_export_sqlite_log(viewController: viewController)
     check_import_sqlite_log(viewController: viewController)
+    check_export_track(viewController: viewController)
 }
 
 // check if we should prompt for when-in-use authorization
@@ -40,9 +40,9 @@ func check_request_when_in_use_authorization() {
     }
 }
 
-public func print_and_log(s: String) {
+public func print_and_log_error(s: String) {
     print(s)
-    appendToFile(file: logfile, dataString: "\(s)\n")
+    log_error(s)
 }
 
 public func handle_background() {
@@ -63,19 +63,49 @@ public func check_export_sqlite_log(viewController: UIViewController) {
         let db_fname = "data.db"
         let base = getDocumentsDirectory()
         let db_url = base.appendingPathComponent(db_fname)
-        
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "yyyy-MM-dd_HH-mm-ss"
-        let formattedDateTime = dateFormatter.string(from: Date())
-        let desired_fname = "Scoria_Export_\(formattedDateTime).sqlite"
-        
+
+        let desired_fname = "Scoria_Export_\(getFormattedDateTime()).sqlite"
         shareFileWithDifferentName(originalURL: db_url, desiredFilename: desired_fname, viewController: viewController)
     }
+}
+
+func getFormattedDateTime() -> String {
+    let dateFormatter = DateFormatter()
+    dateFormatter.dateFormat = "yyyy-MM-dd_HH-mm-ss"
+    let formattedDateTime = dateFormatter.string(from: Date())
+    return formattedDateTime
 }
 
 func check_import_sqlite_log(viewController: MyViewControllerProtocol) {
     if should_import_sqlite_log() {
         importFile(viewController: viewController)
+    }
+}
+
+func check_export_track(viewController: UIViewController) {
+    if should_export_track() {
+        do {
+            let fileManager = FileManager.default
+            let dir = fileManager.temporaryDirectory
+            let track_fname: String = "track_export"
+            let directoryContents = try fileManager.contentsOfDirectory(
+                at: dir,
+                includingPropertiesForKeys: nil
+            )
+            for url in directoryContents {
+                if url.lastPathComponent.starts(with: track_fname) {
+                    let ext = url.pathExtension
+                    let desiredFilename = "Scoria_Track_\(getFormattedDateTime()).\(ext)"
+                    let new_url = dir.appendingPathComponent(desiredFilename)
+                    try fileManager.moveItem(at: url, to: new_url)
+                    shareFile(file: new_url, viewController: viewController, deleteAfterShare: true)
+                    return
+                }
+            }
+            print_and_log_error(s: "Failed to find a track file to export.")
+        } catch {
+            print_and_log_error(s: "Failed to either list directory contents or rename the track.")
+        }
     }
 }
 
@@ -91,18 +121,18 @@ public func handle_import(fileURL: URL) {
             try fileManager.removeItem(at: temporaryURL)
         } catch {
             // Handle the error if unable to remove the file
-            print_and_log(s: "Failed to remove existing temporary import file: \(error)")
+            print_and_log_error(s: "Failed to remove existing temporary import file: \(error)")
             return
         }
     }
     if !fileURL.startAccessingSecurityScopedResource() {
-        print_and_log(s: "Failed to access import file")
+        print_and_log_error(s: "Failed to access import file")
         return
     }
     do {
         try fileManager.copyItem(at: fileURL, to: temporaryURL)
     } catch {
-        print_and_log(s: "Error copying import file: \(error)")
+        print_and_log_error(s: "Error copying import file: \(error)")
         return
     }
     fileURL.stopAccessingSecurityScopedResource()
@@ -113,6 +143,6 @@ public func handle_import(fileURL: URL) {
     do {
         try fileManager.removeItem(at: temporaryURL)
     } catch {
-        print_and_log(s: "Failed to remove temporary database file after import: \(error)")
+        print_and_log_error(s: "Failed to remove temporary database file after import: \(error)")
     }
 }

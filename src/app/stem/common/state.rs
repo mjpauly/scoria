@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     cmaps::CmapParams,
+    export_options::ExportOptions,
     filters::{DataStream, Filter, FilterOp},
     map_style::MapStyle,
     time_range::TimeDeltaRange,
@@ -103,6 +104,10 @@ pub struct FrontState {
     // State of partially-filled problem report
     #[serde(deserialize_with = "ok_or_default")]
     pub problem_report: ProblemReport,
+
+    // Export options for GPX, GeoJSON, CSV, etc
+    #[serde(deserialize_with = "ok_or_default")]
+    pub export_opts: ExportOptions,
 }
 
 /// The page the frontend is on. Only variants that we care to persist between
@@ -123,8 +128,9 @@ pub enum PersistedSettingsRoute {
     #[default]
     Root,
     General,
-    Data,
     MapSettings,
+    Export,
+    Data,
     ReportProblem,
 }
 

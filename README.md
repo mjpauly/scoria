@@ -2,7 +2,7 @@
 
 ## To Do
 
-Current: GPX export
+Current: GPX export, then database query improvement
 
 - debug-ability
     - [ ] action failure alterts (esp for importing)
@@ -20,6 +20,7 @@ Current: GPX export
     - [ ] what's new section
     - [ ] release notes for prior versions
     - [ ] improve colormap contrast option
+    - [ ] lock screen widget to show active/inactive status
 - bugs
     - [ ] opening map page, points are constrained to too small a height
     - [ ] network timeout too long in airplane mode?

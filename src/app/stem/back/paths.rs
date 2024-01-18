@@ -48,6 +48,8 @@ const UNEXPLORED_AREA_DIR: &str = "unexplored_area";
 // name of the directory containing hourly logs
 const LOGS_DIR: &str = "logs";
 
+const EXPORT_FNAME: &str = "track_export";
+
 // Struct that contains the app directory paths.
 // Lets us keep the paths without having to pass it from Swift every function
 // call.
@@ -109,6 +111,10 @@ pub fn get_logs_dir() -> PathBuf {
 
 pub fn get_logs_dir_helper(paths: &Paths) -> PathBuf {
     paths.library_dir.join(LOGS_DIR)
+}
+
+pub fn get_export_fname() -> PathBuf {
+    get_tmp_dir().join(EXPORT_FNAME)
 }
 
 #[cfg(test)]

@@ -11,7 +11,8 @@ use crate::components::{Select, ShortInput, ToggleSwitch};
 
 // A line on a settings card that is a horizontal flexbox that takes the full
 // width and separates the elements to the ends of the line.
-const LINE_FLEX_STYLE: &str = "flex items-center justify-between py-2 w-full";
+const LINE_FLEX_STYLE: &str =
+    "flex items-center justify-between py-2 px-4 w-full active:bg-neutral-800";
 
 #[derive(Properties, PartialEq)]
 pub struct ChildenAndClasses {
@@ -40,7 +41,7 @@ pub fn SettingsCard(p: &ChildenAndClasses) -> Html {
     );
     html! {
         <div class={classes!(
-            Classes::from("bg-neutral-900 rounded-lg px-4"),
+            Classes::from("bg-neutral-900 rounded-lg overflow-hidden"),
             p.class.clone()
         )}>
             { for children }

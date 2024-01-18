@@ -59,6 +59,10 @@ pub fn Settings() -> Html {
                         route={SettingsRoute::MapSettings}
                     />
                     <SettingsCardPageButton<SettingsRoute>
+                        text="Export Track"
+                        route={SettingsRoute::Export}
+                    />
+                    <SettingsCardPageButton<SettingsRoute>
                         text="Data Log"
                         route={SettingsRoute::Data}
                     />
