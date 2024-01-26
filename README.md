@@ -2,7 +2,7 @@
 
 ## To Do
 
-Current: GPX export, then database query improvement
+Current: index on longitude, pins, widget, android
 
 - debug-ability
     - [ ] action failure alterts (esp for importing)
@@ -12,7 +12,6 @@ Current: GPX export, then database query improvement
 - security
     - [ ] only allow webView to make network requests to backend
 - features
-    - [ ] GPX export of selected data
     - [ ] better warning for export/import
     - [ ] show latest location
     - [ ] self-annotated waypoints, routes, and tracks

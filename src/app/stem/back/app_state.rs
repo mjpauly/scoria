@@ -23,6 +23,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 use tracing::error;
 
+use crate::geojson::empty_geojson;
 use crate::paths::{get_library_dir, Paths};
 use crate::ws_session;
 use common::{BackState, FrontState};
@@ -77,8 +78,10 @@ impl Default for MapData {
         Self {
             geojson_wait_lock: tokio::sync::Mutex::new(()),
             geojson_update_lock: tokio::sync::Mutex::new(()),
-            points_geojson: tokio::sync::Mutex::new(String::new()),
-            lines_geojson: tokio::sync::Mutex::new(String::new()),
+            points_geojson: tokio::sync::Mutex::new(
+                empty_geojson().to_string(),
+            ),
+            lines_geojson: tokio::sync::Mutex::new(empty_geojson().to_string()),
             prev_map_state: tokio::sync::Mutex::new(None),
         }
     }

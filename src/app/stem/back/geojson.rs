@@ -1,7 +1,6 @@
 //! Builds the geojson data to plot in maplibre.
 
 use actix_web::{http::header::ContentType, routes, HttpResponse, Responder};
-use common::filters::{apply_filters, DataStream, Filter, FilterOp};
 use common::view_position::LngLatBounds;
 use geojson::{Feature, FeatureCollection, GeoJson, JsonObject, Value};
 
@@ -19,6 +18,13 @@ use common::{
 // decimate (select every nth) by a factor large enough to get under 10k points.
 // 10k is a sweet spot for fairly low database query and map render times.
 pub static DECIMATION_THRESHOLD: u64 = 10_000;
+
+/// View window expansion factor for fetching from the database. This factor
+/// expands the width and height by this value. 0.04 -> 4%.
+/// We fetch data points outside the window since points can have some width and
+/// it's nice to not have them suddenly-pop in only when their center is inside
+/// the view window.
+pub const BOUND_EXPANSION: f64 = 0.04;
 
 #[routes]
 #[get("/points.geojson")]
@@ -120,11 +126,11 @@ async fn should_update_geojson(
                 .unwrap_or(false);
             let new_data_visible = new_data
                 .map(|l| {
-                    !apply_filters(
-                        &filters_with_view_bound(map_state, FETCH_EXPANSION),
-                        &[l],
-                    )
-                    .is_empty()
+                    map_state
+                        .view_pos
+                        .bounds
+                        .expand(BOUND_EXPANSION)
+                        .contains(&l.lnglat())
                 })
                 .unwrap_or(false);
             if !((new_data_in_time_range && new_data_visible)
@@ -139,82 +145,6 @@ async fn should_update_geojson(
     // store the current state as the previous state
     *prev_map_data_guard = Some(map_state.clone());
     Some(map_state.clone())
-}
-
-// View window expansion factor for fetching from the database. This factor
-// expands the width and height by this value. 0.1 -> 10%.
-// We fetch data points outside the window so there's a region where there are
-// points that can connect to visible points, but where lines between these
-// outlying points are not drawn since they produce a lot of cross-screen
-// clutter.
-const FETCH_EXPANSION: f64 = 0.10;
-// Expansion for determining whether to draw lines.
-const DRAW_EXPANSION: f64 = 0.04;
-
-/// Take the existing filters and augment them with limits based on the
-/// LngLatBounds of the viewing region. The expansion argument determines how
-/// much to expand the width and height of the viewing region by.
-///
-/// Horizontal cross section:
-///
-///     |   |  |              |  |   |
-///     |   |  |     Map      |  |   |
-///     |   |  |              |  |   |
-///            ^--- window ---^               no expansion
-///         ^----- draw all -----^            DRAW_EXPANSION
-///     ^------- fetch from db ------^        FETCH_EXPANSION
-///  ^--- won't fetch from database ---^
-///
-/// Lines are only drawn if the endpoints are both within the draw-all region.
-/// Fetching a larger region allows us to ensure that jumps between points at
-/// the edge don't produce a lot of clutter on the screen.
-pub fn filters_with_view_bound(
-    map_state: &MapState,
-    expansion: f64,
-) -> Vec<Filter> {
-    let bounds = map_state.view_pos.bounds.expand(expansion);
-    let mut filters = map_state.filters.clone();
-    let start_id = filters.last().map(|entry| entry.id + 1).unwrap_or(1);
-    // filter by latitude
-    filters.extend_from_slice(&[
-        Filter {
-            id: start_id,
-            enabled: true,
-            datastream: DataStream::Lat,
-            op: FilterOp::LessThan,
-            threshold: bounds.sw.lat,
-        },
-        Filter {
-            id: start_id + 1,
-            enabled: true,
-            datastream: DataStream::Lat,
-            op: FilterOp::GreaterThan,
-            threshold: bounds.ne.lat,
-        },
-    ]);
-    // Only filter lng if there's no wrapping (viewing area doesn't include the
-    // antimeridian). Maplibre returns longitudes outside the normal range when
-    // this happens, and we need some updates to our query method to be able to
-    // support wrapped longitude filtering.
-    if bounds.sw.lng >= -180.0 && bounds.ne.lng <= 180.0 {
-        filters.extend_from_slice(&[
-            Filter {
-                id: start_id + 2,
-                enabled: true,
-                datastream: DataStream::Lon,
-                op: FilterOp::LessThan,
-                threshold: bounds.sw.lng,
-            },
-            Filter {
-                id: start_id + 3,
-                enabled: true,
-                datastream: DataStream::Lon,
-                op: FilterOp::GreaterThan,
-                threshold: bounds.ne.lng,
-            },
-        ]);
-    }
-    filters
 }
 
 /// Build both the points and lines geojson. Doesn't necessarily update; that is
@@ -246,21 +176,40 @@ pub async fn update_geojson(new_data: Option<Location>, foregrounded: bool) {
 
     // The things that take the longest are the queries (this part, up to
     // 500ms), and stringifying the geojson, which is about 150ms for 10k pts.
+
+    // point sizes can be large so it's worth expanding the viewport bounds
+    // slightly
+    let bounds = map_state.view_pos.bounds.expand(BOUND_EXPANSION);
+    let make_points = map_state.style.marker_size > 0;
+    let make_lines = map_state.style.line_size > 0;
+
+    // let before = std::time::Instant::now();
     let records = database::FilteredQuery::new()
         .time_range(map_state.time_range)
-        .filters(filters_with_view_bound(&map_state, FETCH_EXPANSION))
+        .filters(map_state.filters.clone())
+        .bounds(bounds)
+        // only bother with the performance overhead of getting points adjacent
+        // to the viewbounds if lines are actually drawn
+        .get_adjacent(make_lines)
         .decimate(DECIMATION_THRESHOLD)
         .fetch_all()
         .await;
+    // tracing::info!("Query took {:.6?}", before.elapsed());
 
-    let make_points = map_state.style.marker_size > 0;
-    let make_lines = map_state.style.line_size > 0;
+    // filter out points that are not visible and do not create a line segment
+    // that will be visible when calculating the colormap
+    let mut cmap_records = vec![];
+    for i in 0..records.len() {
+        let should_keep = bounds.contains(&records[i].lnglat())
+            || (i < records.len() - 1
+                && bounds.contains(&records[i + 1].lnglat()));
+        if should_keep {
+            cmap_records.push(&records[i]);
+        }
+    }
     let offset = map_state.time_range.start.offset();
-
-    // only calculate cmap params within the drawing region
-    let cmap_filters = filters_with_view_bound(&map_state, DRAW_EXPANSION);
-    let cmap_params = colored_datastream
-        .get_cmap_params(&apply_filters(&cmap_filters, &records), &offset);
+    let cmap_params =
+        colored_datastream.get_cmap_params(&cmap_records, &offset);
 
     {
         // update the cmap parameters
@@ -271,17 +220,16 @@ pub async fn update_geojson(new_data: Option<Location>, foregrounded: bool) {
 
     let mut points = Vec::new();
     let mut lines = Vec::new();
-    let bounds = map_state.view_pos.bounds.expand(DRAW_EXPANSION);
     for i in 0..records.len() {
         // Only make a point if it's within our drawing boundary
         let make_point = make_points && bounds.contains(&records[i].lnglat());
         // With the lines we index one ahead to get the line endpoint, so we
         // don't want to make the line on the final record. We also only draw
-        // lines where both endpoints are within the drawing boundary.
+        // lines where one endpoint is within the drawing boundary.
         let make_line = make_lines
             && i < records.len() - 1
-            && bounds.contains(&records[i].lnglat())
-            && bounds.contains(&records[i + 1].lnglat());
+            && (bounds.contains(&records[i].lnglat())
+                || bounds.contains(&records[i + 1].lnglat()));
 
         let properties = if colored_datastream.is_some() {
             let val = colored_datastream.get_stream(&records[i], &offset);
@@ -487,10 +435,11 @@ pub async fn get_popup_text(
         (front.map.clone(), front.unit_pref)
     };
 
+    // use the bound expansion so the decimation is identical
     let records = database::FilteredQuery::new()
         .time_range(map_state.time_range)
-        // use the fetch expansion so the decimation is identical
-        .filters(filters_with_view_bound(&map_state, FETCH_EXPANSION))
+        .filters(map_state.filters.clone())
+        .bounds(map_state.view_pos.bounds.expand(BOUND_EXPANSION))
         .decimate(DECIMATION_THRESHOLD)
         .fetch_all()
         .await;

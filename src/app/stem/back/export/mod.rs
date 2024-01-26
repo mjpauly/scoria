@@ -52,21 +52,17 @@ async fn get_records_to_write(
     map_state: &MapState,
     export_opts: &ExportOptions,
 ) -> ExportData {
-    let filters = match export_opts.view_bounded {
-        // don't expand beyond what's immediately visible on the map
-        true => geojson::filters_with_view_bound(&map_state, 0.0),
-        false => map_state.filters.clone(),
-    };
     let records = database::FilteredQuery::new()
         .time_range(map_state.time_range)
-        .filters(filters.clone())
+        .filters(map_state.filters.clone())
+        .bounds(map_state.view_pos.bounds.expand(geojson::BOUND_EXPANSION))
         .decimate(export_opts.max_points)
         .fetch_all()
         .await;
     ExportData {
         records,
         time_range: map_state.time_range,
-        filters,
+        filters: map_state.filters.clone(),
         max_points: export_opts.max_points,
     }
 }
