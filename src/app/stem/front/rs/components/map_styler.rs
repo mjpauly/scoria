@@ -66,7 +66,8 @@ pub fn get_basemap_url(style: &BasemapStyle) -> String {
         BasemapStyle::StreetsDark => format_tile_url("streets-v2-dark"),
         BasemapStyle::TopoDark => format_tile_url("topo-v2-dark"),
         BasemapStyle::OutdoorDark => format_tile_url("outdoor-v2-dark"),
-        BasemapStyle::Satellite => format_tile_url("hybrid"),
+        BasemapStyle::Hybrid => format_tile_url("hybrid"),
+        BasemapStyle::Satellite => format_tile_url("satellite"),
     }
 }
 

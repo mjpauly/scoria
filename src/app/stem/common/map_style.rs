@@ -90,6 +90,7 @@ pub enum BasemapStyle {
     TopoDark,
     #[strum(serialize = "Dark Outdoor")]
     OutdoorDark,
+    Hybrid,
     Satellite,
 }
 
@@ -103,6 +104,7 @@ impl BasemapStyle {
             | Self::StreetsDark
             | Self::TopoDark
             | Self::OutdoorDark
+            | Self::Hybrid
             | Self::Satellite => true,
             Self::Basic
             | Self::Dataviz
