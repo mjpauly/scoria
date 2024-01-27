@@ -228,19 +228,26 @@ fn PlotComponent() -> Html {
 
     // The style object with user data
     let style = use_state(|| Option::<Value>::None);
+    let last_loc =
+        use_selector(|state: &BackState| state.last_location.clone());
+    let last_loc_lnglat = last_loc.as_ref().as_ref().map(|x| x.lnglat());
     {
         let style = style.clone();
         use_effect_with_deps(
-            move |(basemap, map_style)| {
+            move |(basemap, map_style, last_loc_lnglat)| {
                 // if we've loaded the basemap json from the http request
                 if let Some(basemap_obj) = &**basemap {
                     let mut style_obj = basemap_obj.clone();
-                    add_source_and_layers_to_style(&mut style_obj, map_style);
+                    add_source_and_layers_to_style(
+                        &mut style_obj,
+                        map_style,
+                        *last_loc_lnglat,
+                    );
                     style.set(Some(style_obj));
                 }
                 || ()
             },
-            (basemap, map_style.clone()),
+            (basemap, map_style.clone(), last_loc_lnglat),
         );
     }
 
@@ -321,6 +328,23 @@ fn PlotComponent() -> Html {
     };
     use_backend_event_with_deps(on_geojson_update, map_initialized.clone());
 
+    // update last location
+    {
+        let map = map.clone();
+        let show_last_location = map_style.show_last_location;
+        use_effect_with_deps(
+            move |(map_initialized, last_loc_lnglat)| {
+                if **map_initialized && show_last_location {
+                    maplibre::update_last_location(
+                        (*map).clone().unwrap(),
+                        *last_loc_lnglat,
+                    );
+                }
+            },
+            (map_initialized.clone(), last_loc_lnglat),
+        )
+    };
+
     // === Restyle map === //
     {
         let map = map.clone();
@@ -343,24 +367,14 @@ fn PlotComponent() -> Html {
         let data_center = use_selector(|state: &BackState| state.data_center);
         Callback::from(move |_e: MouseEvent| {
             if let Some(center) = &*data_center {
-                maplibre::fly_to(
-                    (*map).clone().unwrap(),
-                    (center.0.lng, center.0.lat),
-                    center.1,
-                )
+                maplibre::fly_to((*map).clone().unwrap(), center.0, center.1)
             }
         })
     };
 
-    let last_loc =
-        use_selector(|state: &BackState| state.last_location.clone());
     let flytome_onclick = Callback::from(move |_e: MouseEvent| {
-        if let Some(loc) = &*last_loc {
-            maplibre::fly_to(
-                (*map).clone().unwrap(),
-                (loc.longitude, loc.latitude),
-                16.,
-            );
+        if let Some(loc) = last_loc_lnglat {
+            maplibre::fly_to((*map).clone().unwrap(), loc, 16.);
         }
     });
 

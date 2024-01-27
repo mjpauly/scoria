@@ -110,6 +110,8 @@ static LINES_LAYER_ID: &str = "lines";
 static LINES_SOURCE_URL: &str = "./lines.geojson";
 static UNEXPLORED_SOURCE_ID: &str = "unexplored";
 static UNEXPLORED_LAYER_ID: &str = "unexplored";
+static LAST_LOCATION_SOURCE_ID: &str = "last_location";
+static LAST_LOCATION_LAYER_ID: &str = "last_location";
 
 pub fn view_pos_from_map(map: &Map) -> ViewPosition {
     let lnglat_convert = |x: &LngLat| common::LngLat {
@@ -325,7 +327,11 @@ pub fn restyle(map: Rc<Map>, style: &Value) {
 
 /// Modify a serde_json::Value object containing the basemap style to add on
 /// the user data sources and layers.
-pub fn add_source_and_layers_to_style(style: &mut Value, map_style: &MapStyle) {
+pub fn add_source_and_layers_to_style(
+    style: &mut Value,
+    map_style: &MapStyle,
+    last_loc: Option<common::LngLat>,
+) {
     // Sources
     let sources_mut = style["sources"].as_object_mut().unwrap();
     sources_mut.insert(
@@ -336,6 +342,12 @@ pub fn add_source_and_layers_to_style(style: &mut Value, map_style: &MapStyle) {
         LINES_SOURCE_ID.to_string(),
         geojson_source_with_url(LINES_SOURCE_URL),
     );
+    if map_style.show_last_location {
+        sources_mut.insert(
+            LAST_LOCATION_SOURCE_ID.to_string(),
+            geojson_source_with_value(&geojson_point(last_loc)),
+        );
+    }
     if map_style.automap {
         sources_mut.insert(UNEXPLORED_SOURCE_ID.to_string(), screen_source());
     }
@@ -358,6 +370,9 @@ pub fn add_source_and_layers_to_style(style: &mut Value, map_style: &MapStyle) {
         &map_style.solid_color,
         &map_style.colored_datastream,
     ));
+    if map_style.show_last_location {
+        layers_mut.push(make_last_location_layer());
+    }
 }
 
 fn geojson_source_with_url(url: &str) -> Value {
@@ -485,9 +500,61 @@ fn make_lines_layer(
     })
 }
 
-pub fn fly_to(map: Rc<Map>, lnglat: (f64, f64), zoom: f64) {
+pub fn fly_to(map: Rc<Map>, lnglat: common::LngLat, zoom: f64) {
     map.fly_to(&val_to_jsval(&json!({
-        "center": [lnglat.0, lnglat.1],
+        "center": [lnglat.lng, lnglat.lat],
         "zoom": zoom,
     })));
+}
+
+/// A geojson object containing a single lnglat point
+fn geojson_point(loc: Option<common::LngLat>) -> Value {
+    if let Some(loc) = loc {
+        json!({
+            "type": "FeatureCollection",
+            "features": [{
+                "type": "Feature",
+                "properties": {},
+                "geometry": {
+                     "type": "Point",
+                     "coordinates": [ loc.lng, loc.lat ]
+                }
+            }]
+        })
+    } else {
+        json!({
+            "type": "FeatureCollection",
+            "features": []
+        })
+    }
+}
+
+/// The point that shows the last logged location as a blue circle with a white
+/// ring.
+fn make_last_location_layer() -> Value {
+    json!({
+        "id": LAST_LOCATION_LAYER_ID,
+        "type": "circle",
+        "source": LAST_LOCATION_SOURCE_ID,
+        "paint": {
+            "circle-radius": 5,
+            "circle-color": "#0a84ff",
+            "circle-opacity": 1.,
+            "circle-stroke-width": 3,
+            "circle-stroke-color": "#ffffff",
+            // "circle-stroke-opacity": 1.,
+        }
+    })
+}
+
+pub fn update_last_location(map: Rc<Map>, loc: Option<common::LngLat>) {
+    map.get_source(LAST_LOCATION_SOURCE_ID)
+        .set_data(&val_to_jsval(&geojson_point(loc)));
+}
+
+fn geojson_source_with_value(value: &Value) -> Value {
+    json!({
+        "type": "geojson",
+        "data": value,
+    })
 }

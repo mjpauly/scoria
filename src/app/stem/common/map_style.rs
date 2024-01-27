@@ -22,6 +22,8 @@ pub struct MapStyle {
     pub show_colorbar: bool,
     #[serde(deserialize_with = "ok_or_default")]
     pub automap: bool, // hide unexplored map regions
+    #[serde(deserialize_with = "ok_or_default")]
+    pub show_last_location: bool,
 }
 
 impl MapStyle {
@@ -45,6 +47,7 @@ impl Default for MapStyle {
             colored_datastream: Default::default(),
             show_colorbar: true,
             automap: false,
+            show_last_location: true,
         }
     }
 }
