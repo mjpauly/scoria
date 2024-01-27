@@ -567,7 +567,17 @@ impl std::convert::From<LocationRow> for common::Location {
 /// -- // select in "capped" since NULL values compare as unequal
 ///, before_first AS (
 ///            SELECT * FROM ids_and_bounding
-///            WHERE id < (SELECT id FROM first_one)
+///            -- // likelihood(X, p) hints the query planner how likely
+///            -- // (0.0 <= p <= 1.0) the condition X is to be true. If it is
+///            -- // unlikely, then this condition will be very selective, and
+///            -- // an index on this column should be used. Thus we give a
+///            -- // low likelihood to this `id` selection to make the search
+///            -- // use the id index. This is because the point before the
+///            -- // first is very likely to be close by id to the first point,
+///            -- // and examination of the query plans showed that the
+///            -- // `timestamp` auto index was being used instead, causing
+///            -- // slowdowns on queries with wide time ranges
+///            WHERE likelihood(id < (SELECT id FROM first_one), 0.0)
 ///            ORDER BY id DESC LIMIT 1
 ///            )
 /// -- // During the recursion, "curr" is considered to be the previous point,
@@ -711,8 +721,15 @@ impl<'a> FilteredQuery {
     }
 
     /// Start a filtered location query.
-    fn start_query(&self) -> QueryBuilder<'a, Sqlite> {
-        let mut q: QueryBuilder<Sqlite> = QueryBuilder::new(
+    fn start_query(
+        &self,
+        explain_query_plan: bool,
+    ) -> QueryBuilder<'a, Sqlite> {
+        let mut q: QueryBuilder<Sqlite> = QueryBuilder::new("");
+        if explain_query_plan {
+            q.push("EXPLAIN QUERY PLAN ");
+        }
+        q.push(
             "WITH RECURSIVE\n filtered AS (
             SELECT * FROM location
             WHERE 1",
@@ -727,10 +744,29 @@ impl<'a> FilteredQuery {
         q
     }
 
-    /// Decimate the number of records to fall under the given threshold.
-    /// Returns a CappedQuery.
+    /// Decimate and return a CappedQuery which can fetch Location records
     pub fn decimate(self, decimation_threshold: u64) -> CappedQuery<'a> {
-        let mut q = self.start_query();
+        let q = self.add_decimation(decimation_threshold, false);
+        CappedQuery::new(q)
+    }
+
+    /// Decimate and return an ExplainQuery which can explain the query plan
+    pub fn explain_decimate(
+        self,
+        decimation_threshold: u64,
+    ) -> ExplainQuery<'a> {
+        let q = self.add_decimation(decimation_threshold, true);
+        ExplainQuery::new(q)
+    }
+
+    /// Decimate the number of records to fall under the given threshold.
+    /// Consumes self and returns the query.
+    fn add_decimation(
+        self,
+        decimation_threshold: u64,
+        explain_query_plan: bool,
+    ) -> QueryBuilder<'a, Sqlite> {
+        let mut q = self.start_query(explain_query_plan);
         // Calculate our decimation factor in decim.decim. The decimation factor
         // is the ceiling of the division of the number of records, count(*), by
         // the threshold for decimation. The numbers are integers so we're doing
@@ -771,7 +807,7 @@ impl<'a> FilteredQuery {
         if self.bounds.is_none() {
             // Not bounding -> just select from the decimated region
             q.push(", capped AS (SELECT * FROM decimated)");
-            return CappedQuery::new(q);
+            return q;
         }
         if !self.get_adjacent {
             // Not getting adjacent points outside the bounded region -> just
@@ -782,7 +818,7 @@ impl<'a> FilteredQuery {
                 "
             )\n",
             );
-            return CappedQuery::new(q);
+            return q;
         }
 
         q.push(
@@ -808,7 +844,7 @@ impl<'a> FilteredQuery {
         q.push(
             ", before_first AS (
             SELECT * FROM ids_and_bounding
-            WHERE id < (SELECT id FROM first_one)
+            WHERE likelihood(id < (SELECT id FROM first_one), 0.0)
             ORDER BY id DESC LIMIT 1
             )\n",
         );
@@ -877,13 +913,13 @@ impl<'a> FilteredQuery {
             WHERE id IN (SELECT curr FROM triples)
             )\n",
         );
-        CappedQuery::new(q)
+        q
     }
 
     /// Limit the number of records to the first ones that fall under the limit
     /// by time (earlier records come through).
     pub fn first_n(self, limit: u64) -> CappedQuery<'a> {
-        let mut q = self.start_query();
+        let mut q = self.start_query(false);
         q.push(
             ", capped AS (
                 SELECT * FROM filtered
@@ -898,7 +934,7 @@ impl<'a> FilteredQuery {
     /// Determine the LngLatBounds that encompass the data, ignoring any lnglat
     /// bounding. Consumes self.
     pub async fn get_bounds(self) -> Option<LngLatBounds> {
-        let mut q = self.start_query();
+        let mut q = self.start_query(false);
         q.push(
             "SELECT MIN(longitude), MIN(latitude),
                     MAX(longitude), MAX(latitude)
@@ -968,6 +1004,56 @@ impl<'a> CappedQuery<'a> {
     /// Return the complete SQL for the query.
     pub fn sql(&self) -> &str {
         self.q.sql()
+    }
+}
+
+/// Same as CappedQuery, but with EXPLAIN QUERY PLAN at the front. Used for
+/// debugging slow queries.
+pub struct ExplainQuery<'a> {
+    q: QueryBuilder<'a, Sqlite>,
+}
+
+impl<'a> ExplainQuery<'a> {
+    /// Create a new ExplainQuery and add the final SQL fragment to retrieve the
+    /// results.
+    fn new(mut q: QueryBuilder<'a, Sqlite>) -> Self {
+        q.push("SELECT * FROM capped ORDER BY timestamp ASC");
+        Self { q }
+    }
+
+    /// Explain the query and print the result
+    pub async fn explain(mut self) {
+        tracing::info!("{}", self.q.sql());
+        let query = self.q.build_query_as::<ExplainQueryPlan>();
+        let rows = query.fetch_all(&get_db_pool()).await.unwrap();
+        let roots = rows.iter().filter(|x| x.parent == 0);
+        for root in roots {
+            root.print(&rows, "");
+        }
+    }
+}
+
+/// A row of the output from EXPLAIN QUERY PLAN
+#[derive(sqlx::FromRow, Debug)]
+struct ExplainQueryPlan {
+    id: i64,
+    parent: i64,
+    #[allow(dead_code)]
+    notused: i64,
+    detail: String,
+}
+
+impl ExplainQueryPlan {
+    /// Print the description of the row, then recurse on all children with
+    /// increasing indenting. Children are found by looking at rows in the
+    /// query plan where the parent is equal to self's id.
+    fn print(&self, rows: &Vec<ExplainQueryPlan>, indent: &str) {
+        println!("{indent}{}", self.detail);
+        let children = rows.iter().filter(|x| x.parent == self.id);
+        let new_indent = format!("  {}", indent);
+        for c in children {
+            c.print(rows, &new_indent)
+        }
     }
 }
 

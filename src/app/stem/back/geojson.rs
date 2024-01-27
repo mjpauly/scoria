@@ -1,4 +1,17 @@
 //! Builds the geojson data to plot in maplibre.
+//!
+//! To debug slow queries, use the ExplainQuery created by explain_decimate().
+//! ```
+//! // prints the query and the query plan
+//! database::FilteredQuery::new()
+//!     .time_range(map_state.time_range)
+//!     .filters(map_state.filters.clone())
+//!     .bounds(bounds)
+//!     .get_adjacent(make_lines)
+//!     .explain_decimate(DECIMATION_THRESHOLD)
+//!     .explain()
+//!     .await;
+//! ```
 
 use actix_web::{http::header::ContentType, routes, HttpResponse, Responder};
 use common::view_position::LngLatBounds;
