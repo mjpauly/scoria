@@ -204,8 +204,8 @@ async fn get_records_batch(
     database::FilteredQuery::new()
         .start(start)
         .filters(default_accuracy_filter())
-        .first_n(BATCH_SIZE)
-        .fetch_all()
+        .limit(BATCH_SIZE)
+        .fetch_first_n()
         .await
 }
 

@@ -101,8 +101,8 @@ mod tests {
         };
         let records = FilteredQuery::new()
             .time_range(time_range)
-            .first_n(1_000)
-            .fetch_all()
+            .limit(1_000)
+            .fetch_first_n()
             .await;
 
         let data = ExportData {

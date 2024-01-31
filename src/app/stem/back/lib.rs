@@ -126,6 +126,7 @@ pub extern "C" fn handle_enter_background() {
     tracing::info!("App Backgrounded");
     runtime::get_runtime().block_on(async {
         server::shutdown().await;
+        database::reduce_db_cache_size().await;
     });
     // save the app state to file
     app_state::AppState::save_to_file();

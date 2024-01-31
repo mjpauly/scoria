@@ -204,10 +204,10 @@ pub async fn update_geojson(new_data: Option<Location>, foregrounded: bool) {
         // only bother with the performance overhead of getting points adjacent
         // to the viewbounds if lines are actually drawn
         .get_adjacent(make_lines)
-        .decimate(DECIMATION_THRESHOLD)
-        .fetch_all()
+        .limit(DECIMATION_THRESHOLD)
+        .fetch_decimated()
         .await;
-    // tracing::info!("Query took {:.6?}", before.elapsed());
+    // tracing::info!("Full query took {:.6?}", before.elapsed());
 
     // filter out points that are not visible and do not create a line segment
     // that will be visible when calculating the colormap
@@ -310,7 +310,7 @@ fn update_zoom_all_data(map_state: &MapState) {
         let data_bounds = database::FilteredQuery::new()
             .time_range(time_range)
             .filters(filters)
-            .get_bounds()
+            .fetch_bounds()
             .await;
         let app_state = AppState::global();
         let mut persistent_guard = app_state.persistent.lock().unwrap();
@@ -453,8 +453,8 @@ pub async fn get_popup_text(
         .time_range(map_state.time_range)
         .filters(map_state.filters.clone())
         .bounds(map_state.view_pos.bounds.expand(BOUND_EXPANSION))
-        .decimate(DECIMATION_THRESHOLD)
-        .fetch_all()
+        .limit(DECIMATION_THRESHOLD)
+        .fetch_decimated()
         .await;
 
     let local_offset = map_state.time_range.start.offset();

@@ -341,3 +341,24 @@ Symptom: putting the app bundle directly on the device with Xcode doesn't work
 (either the play button with the device selected or dragging the bundle onto
 the device in the Devices Window). Restarting fixes the issue with the play
 button, but dragging into the devices window still doesn't work.
+
+### Profiling with Instruments
+
+Need the binary to be signed with the get-task-allow entitlement. Run `dev`
+normally, then take note of the working directory, which ends with
+`dev.runfiles/__main__`. Trim `.runfiles/__main__` from the end to get the
+binary path. Then run this to sign the binary:
+
+```
+codesign -s - -v -f --entitlements =(echo -n '<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com/DTDs/PropertyList-1.0.dtd"\>
+<plist version="1.0">
+    <dict>
+        <key>com.apple.security.get-task-allow</key>
+        <true/>
+    </dict>
+</plist>') THE_BINARY_PATH
+```
+
+The path to the binary and the working directory can be entered into Instruments
+so that it can launch it and log the stack trace from startup.

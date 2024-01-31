@@ -181,7 +181,24 @@ pub async fn init_db(db_path: String) -> Result<SqlitePool> {
         .journal_mode(SqliteJournalMode::Wal);
     let conn = SqlitePool::connect_with(opt).await?;
     MIGRATOR.run(&conn).await?;
+    // Set the in-memory cache size to 2Gb (2M kibibytes)
+    if let Err(e) = sqlx::query("PRAGMA cache_size = -2000000;")
+        .execute(&conn)
+        .await
+    {
+        tracing::error!("Failed to set database cache size: {e}");
+    }
     Ok(conn)
+}
+
+/// Lower the database cache size when in the background to 2Mb (2k kibibytes)
+pub async fn reduce_db_cache_size() {
+    if let Err(e) = sqlx::query("PRAGMA cache_size = -2000;")
+        .execute(&get_db_pool())
+        .await
+    {
+        tracing::error!("Failed to reduce database cache size: {e}");
+    }
 }
 
 /// Get a handle for the database pool.
@@ -284,7 +301,7 @@ pub async fn get_records_after_with_limit(
     .fetch_all(&conn)
     .await
     {
-        Ok(result) => result.into_iter().map(|l| l.into()).collect(),
+        Ok(result) => to_common_locations(result),
         Err(e) => {
             error!("Failed to get records in time range: {e}");
             vec![]
@@ -484,196 +501,6 @@ impl std::convert::From<LocationRow> for common::Location {
     }
 }
 
-/// A filtered query definition with start time, end time, and other filters.
-///
-/// Uses the builder pattern to define the filters. Then generates the SQL and
-/// returns a CappedQuery upon selecting the method to limit the number of
-/// returned results (either `decimate` or `first_n`).
-///
-/// Lnglat bounding is only supported for decimation queries.
-///
-/// Under the hood, results are first put in a `filtered` common table
-/// expression (CTE), then in a `capped` CTE when limited by decimation or
-/// first-in-time. More CTEs are used for computing decimation queries.
-///
-/// # Usage
-///
-/// ```
-/// let records = database::FilteredQuery::new()
-///     .start(map_state.time_range.start.clone())
-///     .end(map_state.time_range.end.clone())
-///     .filters(map_state.filters.clone())
-///     .decimate(DECIMATION_THRESHOLD)
-///     .fetch_all()
-///     .await;
-/// ```
-///
-/// Generated SQL for a first-n query:
-/// ```
-/// WITH
-///  filtered AS (
-///             SELECT * FROM location
-///             WHERE 1 AND timestamp >= ?
-///                     AND timestamp < ?
-///                     AND horizontal_accuracy <= ?
-///                     AND speed <= ?
-///                    ...
-///             )
-/// , capped AS (
-///             SELECT * FROM filtered
-///             ORDER BY timestamp ASC
-///             LIMIT ?
-///             )
-/// ```
-///
-/// Generated SQL for a lnglat-bounded decimation query:
-/// ```
-/// -- // Start of our query
-/// WITH RECURSIVE
-/// filtered AS (
-///            SELECT * FROM location
-///            WHERE 1 AND ...
-///            )
-///, decim AS (
-///            SELECT ((count(*) + ? - 1) / ?) as decim
-///            FROM filtered
-///            WHERE latitude >= ?
-///                AND latitude <= ?
-///                AND ((longitude >= ? AND longitude <= ?)
-///                   OR (longitude >= ? AND longitude <= ?))
-///           )
-///, decimated AS (
-///            SELECT * FROM filtered
-///            WHERE id % (SELECT decim FROM decim) == 0
-///            )
-///, ids_and_bounding AS (
-///            SELECT id,
-///                (latitude >= ?
-///                AND latitude <= ?
-///                AND ((longitude >= ? AND longitude <= ?)
-///                   OR (longitude >= ? AND longitude <= ?))
-///                   ) as is_bounded
-///            FROM decimated
-///            )
-/// -- // Skip ahead to the first point that is bounded. this is the row that
-/// -- // goes into the initial "next" columns of our "triples" recursive CTE
-///, first_one AS (
-///            SELECT * FROM ids_and_bounding
-///            WHERE is_bounded
-///            ORDER BY id ASC LIMIT 1
-///            )
-/// -- // The point that preceded the first one that was bounded, becomes "curr"
-/// -- // If there is no such point, it will be null and drop out from the final
-/// -- // select in "capped" since NULL values compare as unequal
-///, before_first AS (
-///            SELECT * FROM ids_and_bounding
-///            -- // likelihood(X, p) hints the query planner how likely
-///            -- // (0.0 <= p <= 1.0) the condition X is to be true. If it is
-///            -- // unlikely, then this condition will be very selective, and
-///            -- // an index on this column should be used. Thus we give a
-///            -- // low likelihood to this `id` selection to make the search
-///            -- // use the id index. This is because the point before the
-///            -- // first is very likely to be close by id to the first point,
-///            -- // and examination of the query plans showed that the
-///            -- // `timestamp` auto index was being used instead, causing
-///            -- // slowdowns on queries with wide time ranges
-///            WHERE likelihood(id < (SELECT id FROM first_one), 0.0)
-///            ORDER BY id DESC LIMIT 1
-///            )
-/// -- // During the recursion, "curr" is considered to be the previous point,
-/// -- // "next" is the current one, and the next point is grabbed with a select
-/// -- // The "curr" column contains the ids of points that are within or
-/// -- // adjacent to points that are within the view bounds. "curr_in" and
-/// -- // "next_in" track whether the points are bounded. Only points that are
-/// -- // view bounded or adjacent to view bounded points are put in the
-/// -- // "triples" recursive CTE.
-///, triples(curr, next, curr_in, next_in) AS (
-///            SELECT
-///                (SELECT id FROM before_first),
-///                (SELECT id FROM first_one),
-///                (SELECT is_bounded FROM before_first),
-///                (SELECT is_bounded FROM first_one)
-///            UNION ALL
-///            -- // Sadly we cannot factor out some commonly used statements,
-///            -- // such as the jump-ahead condition, due to restrictions on
-///            -- // the syntax for recursive CTEs.
-///            SELECT
-///                -- // Test if we should jump ahead to the next set of points
-///                -- // that are view bounded. We jump if none of the 3 points
-///                -- // in our sliding window will be in the bounded region.
-///                -- // column curr
-///                CASE WHEN NOT (curr_in OR next_in OR
-///                            (SELECT is_bounded FROM ids_and_bounding
-///                            WHERE id > next ORDER BY id ASC LIMIT 1))
-///                    -- // jump: get the point before the next bounded one
-///                    THEN
-///                        (SELECT id FROM ids_and_bounding
-///                            WHERE id < (SELECT id FROM ids_and_bounding
-///                                WHERE is_bounded AND id > next
-///                                ORDER BY id ASC LIMIT 1
-///                            )
-///                            ORDER BY id DESC LIMIT 1
-///                        )
-///                    -- // no jump: move next into curr
-///                    ELSE next
-///                END,
-///
-///                -- // column next
-///                CASE WHEN (SELECT id FROM ids_and_bounding
-///                            WHERE id >= next AND is_bounded
-///                            ORDER BY id ASC LIMIT 1) IS NULL
-///                    -- // no more bounded points, exit after next recursion
-///                    -- // by setting "next" to NULL
-///                    THEN NULL
-///                    WHEN NOT (curr_in OR next_in OR
-///                            (SELECT is_bounded FROM ids_and_bounding
-///                            WHERE id > next ORDER BY id ASC LIMIT 1))
-///                    -- // jump: get the next bounded point
-///                    THEN
-///                        (SELECT id FROM ids_and_bounding
-///                            WHERE is_bounded AND id > next
-///                            ORDER BY id ASC LIMIT 1
-///                        )
-///                    -- // no jump: get the point beyond "next" to be the
-///                    -- // new "next"
-///                    ELSE
-///                        (SELECT id FROM ids_and_bounding
-///                            WHERE id > next ORDER BY id ASC LIMIT 1)
-///                END,
-///
-///                -- // column curr_in
-///                CASE WHEN NOT (curr_in OR next_in OR
-///                            (SELECT is_bounded FROM ids_and_bounding
-///                            WHERE id > next ORDER BY id ASC LIMIT 1))
-///                    -- // jump: the point before the bounded point we are
-///                    -- // jumping to is not going to be bounded
-///                    THEN 0
-///                    -- // no jump: shift next_in to curr_in
-///                    ELSE next_in
-///                END,
-///
-///                -- // column next_in
-///                CASE WHEN NOT (curr_in OR next_in OR
-///                            (SELECT is_bounded FROM ids_and_bounding
-///                            WHERE id > next ORDER BY id ASC LIMIT 1))
-///                    -- // jump: the bounded point we are jumping to is going
-///                    -- // to be bounded
-///                    THEN 1
-///                    -- // no jump: get whether the point beyond "next" is
-///                    -- // bounded
-///                    ELSE
-///                        (SELECT is_bounded FROM ids_and_bounding
-///                            WHERE id > next ORDER BY id ASC LIMIT 1)
-///                END
-///            FROM triples
-///            WHERE next is NOT NULL
-///            )
-///, capped AS (
-///            SELECT * FROM decimated
-///            WHERE id IN (SELECT curr FROM triples)
-///            )
-/// -- // End of our query
-/// ```
 #[derive(Default)]
 pub struct FilteredQuery {
     start: Option<time::OffsetDateTime>,
@@ -682,6 +509,8 @@ pub struct FilteredQuery {
     bounds: Option<LngLatBounds>,
     // if bounded, whether to get points adjacent to the bounded points
     get_adjacent: bool,
+    // limit on the number of points to return
+    limit: Option<u64>,
 }
 
 impl<'a> FilteredQuery {
@@ -706,7 +535,7 @@ impl<'a> FilteredQuery {
         self.filters = Some(filters);
         self
     }
-    /// Set the lnglat bounds for the query (only works for decimation queries)
+    /// Set the lnglat bounds for the query
     pub fn bounds(mut self, bounds: LngLatBounds) -> Self {
         self.bounds = Some(bounds);
         self
@@ -714,232 +543,268 @@ impl<'a> FilteredQuery {
     /// Whether to get the next/previous point just outside the lnglat
     /// bounds (only works for decimation queries)
     ///
-    /// Does not affect the decimation.
+    /// Does not affect the decimation factor.
     pub fn get_adjacent(mut self, get_adjacent: bool) -> Self {
         self.get_adjacent = get_adjacent;
         self
     }
 
-    /// Start a filtered location query.
-    fn start_query(
+    /// Set the limit on the number of data points returned. This drives the
+    /// decimation factor for decimation queries, and the number of points
+    /// returned for first_n queries.
+    pub fn limit(mut self, limit: u64) -> Self {
+        self.limit = Some(limit);
+        self
+    }
+
+    /// Create a query that counts the number of records inside the view bounds
+    fn count_query(
+        &self,
+        explain_query_plan: bool,
+        decim: i64,
+    ) -> QueryBuilder<'a, Sqlite> {
+        let mut q = new_query(explain_query_plan);
+        q.push("SELECT count(*) FROM location WHERE 1");
+        add_bounds_to_query(&self.bounds, &mut q);
+        add_decim_to_query(decim, &mut q);
+        self.add_basic_filters(&mut q);
+        q
+    }
+
+    /// Create a query that fetches records that are bounded and spaced
+    /// according to the decimation factor.
+    fn bounded_decim_query(
+        &self,
+        explain_query_plan: bool,
+        decim: i64,
+    ) -> QueryBuilder<'a, Sqlite> {
+        let mut q = new_query(explain_query_plan);
+        q.push("SELECT * FROM location WHERE 1");
+        add_bounds_to_query(&self.bounds, &mut q);
+        add_decim_to_query(decim, &mut q);
+        self.add_basic_filters(&mut q);
+        q
+    }
+
+    /// Create a query that fetches a data point before the supplied timestamp
+    fn adjacent_before_query(
+        &self,
+        explain_query_plan: bool,
+        decim: i64,
+        timestamp: i64,
+    ) -> QueryBuilder<'a, Sqlite> {
+        let mut q = new_query(explain_query_plan);
+        q.push("SELECT * FROM location WHERE 1");
+        self.add_basic_filters(&mut q);
+        add_decim_to_query(decim, &mut q);
+        q.push(" AND timestamp < ");
+        q.push_bind(timestamp);
+        q.push(" ORDER BY timestamp DESC LIMIT 1");
+        q
+    }
+
+    /// Create a query that fetches a data point after the supplied timestamp
+    fn adjacent_after_query(
+        &self,
+        explain_query_plan: bool,
+        decim: i64,
+        timestamp: i64,
+    ) -> QueryBuilder<'a, Sqlite> {
+        let mut q = new_query(explain_query_plan);
+        q.push("SELECT * FROM location WHERE 1");
+        self.add_basic_filters(&mut q);
+        add_decim_to_query(decim, &mut q);
+        q.push(" AND timestamp > ");
+        q.push_bind(timestamp);
+        q.push(" ORDER BY timestamp ASC LIMIT 1");
+        q
+    }
+
+    /// Add the simpler filters to the query that don't require special
+    /// consideration. (Time and user-defined filters)
+    fn add_basic_filters(&self, q: &mut QueryBuilder<Sqlite>) {
+        add_start_time_to_query(&self.start, q);
+        add_end_time_to_query(&self.end, q);
+        add_filters_to_query(&self.filters, q);
+    }
+
+    /// Count the number of points in the visible region, and use that to
+    /// calculate the decimation factor for the query. The count is sped up by
+    /// sampling every 10th point, then multiplying this count by 10. (Speeds up
+    /// 330 ms -> 120 ms.)
+    async fn fetch_decim(&self, conn: &SqlitePool) -> i64 {
+        let factor = 10;
+        let mut q = self.count_query(false, factor);
+        let query_as = q.build_query_as::<CountResult>();
+
+        // let before = std::time::Instant::now();
+        let reduced_count = query_as.fetch_one(conn).await.unwrap().0;
+        // println!("count query took: {:.6?}\n", before.elapsed());
+
+        // Since we decimate this count, we need to make sure the it's not 0
+        let count = reduced_count.max(1) * factor;
+        let thresh = self.limit.unwrap_or(10000) as i64;
+        (count + thresh - 1) / thresh
+    }
+
+    /// Fetch the points in the bounded region
+    async fn fetch_bounded(
+        &self,
+        conn: &SqlitePool,
+        decim: i64,
+    ) -> Vec<LocationRow> {
+        let mut q = self.bounded_decim_query(false, decim);
+        let query_as = q.build_query_as::<LocationRow>();
+        // let before = std::time::Instant::now();
+        let mut bounded_recs = query_as.fetch_all(conn).await.unwrap();
+        // println!("bounded query took: {:.6?}\n", before.elapsed());
+
+        // Use Rust's timsort-like alg to quickly sort the mostly sorted result
+        bounded_recs
+            .sort_by(|ra, rb| ra.timestamp.partial_cmp(&rb.timestamp).unwrap());
+
+        bounded_recs
+    }
+
+    /// Fetch the points adjacent to the bounded region.
+    async fn fetch_adjacent(
+        &self,
+        conn: &SqlitePool,
+        decim: i64,
+        mut recs: Vec<LocationRow>,
+    ) -> Vec<LocationRow> {
+        // let before = std::time::Instant::now();
+        let mut new_recs = vec![]; // (index to insert, rec)
+        for (i, rec) in recs.iter().enumerate() {
+            let mut fetch_before = true;
+            let mut fetch_after = true;
+            // check if the before and after records are offset by decim. if
+            // they are, we can skip fetching adjacent points in that direction.
+            if i > 0 {
+                let before = &recs[i - 1];
+                if before.id + decim == rec.id {
+                    fetch_before = false;
+                }
+            }
+            if i < recs.len() - 1 {
+                let after = &recs[i + 1];
+                if rec.id + decim == after.id {
+                    fetch_after = false;
+                }
+            }
+            let should_push_new_rec = |new_rec: &LocationRow, idx, before| {
+                // check existing records to see if we fetched a duplicate
+                if (i != 0 && before) || (i != recs.len() - 1 && !before) {
+                    let already_there_idx =
+                        if before { idx - 1 } else { idx + 1 };
+                    if let Some(already_there) = recs.get(already_there_idx) {
+                        let already_there: &LocationRow = already_there;
+                        if already_there.id == new_rec.id {
+                            return false; // duplicate, don't push
+                        }
+                    }
+                }
+                true
+            };
+            if fetch_before {
+                let mut q =
+                    self.adjacent_before_query(false, decim, rec.timestamp);
+                let query_as = q.build_query_as::<LocationRow>();
+                let mut maybe_new = query_as.fetch_all(conn).await.unwrap();
+                if let Some(new_rec) = maybe_new.pop() {
+                    if should_push_new_rec(&new_rec, i, true) {
+                        new_recs.push((i, new_rec));
+                    }
+                }
+            }
+            if fetch_after {
+                let mut q =
+                    self.adjacent_after_query(false, decim, rec.timestamp);
+                let query_as = q.build_query_as::<LocationRow>();
+                let mut maybe_new = query_as.fetch_all(conn).await.unwrap();
+                if let Some(new_rec) = maybe_new.pop() {
+                    if should_push_new_rec(&new_rec, i, false) {
+                        new_recs.push((i + 1, new_rec));
+                    }
+                }
+            }
+        }
+        // println!("adjacent took: {:.6?}", before.elapsed());
+        // insert the new data into the sorted array
+        let mut offset = 0;
+        for (insert_idx, new_rec) in new_recs.into_iter() {
+            if insert_idx > 0 {
+                if let Some(before) = recs.get(insert_idx + offset - 1) {
+                    if before.id == new_rec.id {
+                        // The backwards adjacent point is the same as the
+                        // previous bounded point's forward adjacent point ->
+                        // don't duplicate
+                        continue;
+                    }
+                }
+            }
+            recs.insert(insert_idx + offset, new_rec);
+            offset += 1;
+        }
+        recs
+    }
+
+    /// Fetch points while decimating to keep under the limit
+    pub async fn fetch_decimated_with_db(
+        &self,
+        conn: &SqlitePool,
+    ) -> Vec<common::Location> {
+        let decim = self.fetch_decim(conn).await;
+        let mut recs = self.fetch_bounded(conn, decim).await;
+        if self.bounds.is_some() && self.get_adjacent {
+            recs = self.fetch_adjacent(conn, decim, recs).await;
+        }
+        to_common_locations(recs)
+    }
+
+    pub async fn fetch_decimated(&self) -> Vec<common::Location> {
+        self.fetch_decimated_with_db(&get_db_pool()).await
+    }
+
+    fn first_n_query(
         &self,
         explain_query_plan: bool,
     ) -> QueryBuilder<'a, Sqlite> {
-        let mut q: QueryBuilder<Sqlite> = QueryBuilder::new("");
-        if explain_query_plan {
-            q.push("EXPLAIN QUERY PLAN ");
-        }
-        q.push(
-            "WITH RECURSIVE\n filtered AS (
-            SELECT * FROM location
-            WHERE 1",
-        );
-        add_start_time_to_query(&self.start, &mut q);
-        add_end_time_to_query(&self.end, &mut q);
-        add_filters_to_query(&self.filters, &mut q);
-        q.push(
-            "
-            )\n",
-        );
+        let mut q = new_query(explain_query_plan);
+        q.push("SELECT * FROM location WHERE 1");
+        add_bounds_to_query(&self.bounds, &mut q);
+        self.add_basic_filters(&mut q);
+        q.push(" ORDER BY timestamp ASC LIMIT ");
+        q.push_bind(self.limit.unwrap_or(10000) as i64);
         q
     }
 
-    /// Decimate and return a CappedQuery which can fetch Location records
-    pub fn decimate(self, decimation_threshold: u64) -> CappedQuery<'a> {
-        let q = self.add_decimation(decimation_threshold, false);
-        CappedQuery::new(q)
-    }
-
-    /// Decimate and return an ExplainQuery which can explain the query plan
-    pub fn explain_decimate(
-        self,
-        decimation_threshold: u64,
-    ) -> ExplainQuery<'a> {
-        let q = self.add_decimation(decimation_threshold, true);
-        ExplainQuery::new(q)
-    }
-
-    /// Decimate the number of records to fall under the given threshold.
-    /// Consumes self and returns the query.
-    fn add_decimation(
-        self,
-        decimation_threshold: u64,
-        explain_query_plan: bool,
-    ) -> QueryBuilder<'a, Sqlite> {
-        let mut q = self.start_query(explain_query_plan);
-        // Calculate our decimation factor in decim.decim. The decimation factor
-        // is the ceiling of the division of the number of records, count(*), by
-        // the threshold for decimation. The numbers are integers so we're doing
-        // integer division. ceil(N / max) with floating point division is
-        // instead implemented as this expression with integer division: (N +
-        // max - 1) / max
-        q.push(
-            ", decim AS (
-            SELECT ((count(*) + ",
-        );
-        q.push_bind(decimation_threshold as i64);
-        q.push(" - 1) / ");
-        q.push_bind(decimation_threshold as i64);
-        q.push(")");
-        q.push(
-            " as decim
-            FROM filtered
-            WHERE ",
-        );
-        add_bounds_to_query(&self.bounds, &mut q);
-        q.push(
-            "
-           )\n",
-        );
-
-        // Mod the row id against our decimation factor and return only the rows
-        // where it's zero. Not a result that is exact decimation in time since
-        // id ranges can jump abruptly and have an offset at the beginning of
-        // our filter range, but it's close enough for our rendering purposes.
-        // During examination of a database, only 0.1% of row ids did not
-        // increment by 1.
-        q.push(
-            ", decimated AS (
-            SELECT * FROM filtered
-            WHERE id % (SELECT decim FROM decim) == 0
-            )\n",
-        );
-        if self.bounds.is_none() {
-            // Not bounding -> just select from the decimated region
-            q.push(", capped AS (SELECT * FROM decimated)");
-            return q;
-        }
-        if !self.get_adjacent {
-            // Not getting adjacent points outside the bounded region -> just
-            // select the decimated points that fall inside the bound
-            q.push(", capped AS (SELECT * FROM decimated WHERE ");
-            add_bounds_to_query(&self.bounds, &mut q);
-            q.push(
-                "
-            )\n",
-            );
-            return q;
-        }
-
-        q.push(
-            ", ids_and_bounding AS (
-            SELECT id,
-                (",
-        );
-        add_bounds_to_query(&self.bounds, &mut q);
-        q.push(
-            ") as is_bounded
-            FROM decimated
-            )\n",
-        );
-
-        // NOTE: see docstring above this struct for comments
-        q.push(
-            ", first_one AS (
-            SELECT * FROM ids_and_bounding
-            WHERE is_bounded
-            ORDER BY id ASC LIMIT 1
-            )\n",
-        );
-        q.push(
-            ", before_first AS (
-            SELECT * FROM ids_and_bounding
-            WHERE likelihood(id < (SELECT id FROM first_one), 0.0)
-            ORDER BY id DESC LIMIT 1
-            )\n",
-        );
-        q.push(
-            ", triples(curr, next, curr_in, next_in) AS (
-            SELECT
-                (SELECT id FROM before_first),
-                (SELECT id FROM first_one),
-                (SELECT is_bounded FROM before_first),
-                (SELECT is_bounded FROM first_one)
-            UNION ALL
-            SELECT
-                CASE WHEN NOT (curr_in OR next_in OR
-                            (SELECT is_bounded FROM ids_and_bounding
-                            WHERE id > next ORDER BY id ASC LIMIT 1))
-                    THEN
-                        (SELECT id FROM ids_and_bounding
-                            WHERE id < (SELECT id FROM ids_and_bounding
-                                WHERE is_bounded AND id > next
-                                ORDER BY id ASC LIMIT 1
-                            )
-                            ORDER BY id DESC LIMIT 1
-                        )
-                    ELSE next
-                END,
-
-                CASE WHEN (SELECT id FROM ids_and_bounding
-                            WHERE id >= next AND is_bounded
-                            ORDER BY id ASC LIMIT 1) IS NULL
-                    THEN NULL
-                    WHEN NOT (curr_in OR next_in OR
-                            (SELECT is_bounded FROM ids_and_bounding
-                            WHERE id > next ORDER BY id ASC LIMIT 1))
-                    THEN
-                        (SELECT id FROM ids_and_bounding
-                            WHERE is_bounded AND id > next
-                            ORDER BY id ASC LIMIT 1
-                        )
-                    ELSE
-                        (SELECT id FROM ids_and_bounding
-                            WHERE id > next ORDER BY id ASC LIMIT 1)
-                END,
-
-                CASE WHEN NOT (curr_in OR next_in OR
-                            (SELECT is_bounded FROM ids_and_bounding
-                            WHERE id > next ORDER BY id ASC LIMIT 1))
-                    THEN 0
-                    ELSE next_in
-                END,
-
-                CASE WHEN NOT (curr_in OR next_in OR
-                            (SELECT is_bounded FROM ids_and_bounding
-                            WHERE id > next ORDER BY id ASC LIMIT 1))
-                    THEN 1
-                    ELSE
-                        (SELECT is_bounded FROM ids_and_bounding
-                            WHERE id > next ORDER BY id ASC LIMIT 1)
-                END
-            FROM triples
-            WHERE next is NOT NULL
-            )\n",
-        );
-        q.push(
-            ", capped AS (
-            SELECT * FROM decimated
-            WHERE id IN (SELECT curr FROM triples)
-            )\n",
-        );
-        q
-    }
-
-    /// Limit the number of records to the first ones that fall under the limit
-    /// by time (earlier records come through).
-    pub fn first_n(self, limit: u64) -> CappedQuery<'a> {
-        let mut q = self.start_query(false);
-        q.push(
-            ", capped AS (
-                SELECT * FROM filtered
-                ORDER BY timestamp ASC
-                LIMIT ",
-        );
-        q.push_bind(limit as i64);
-        q.push(")\n");
-        CappedQuery::new(q)
+    pub async fn fetch_first_n(&self) -> Vec<common::Location> {
+        let mut q = self.first_n_query(false);
+        let query_as = q.build_query_as::<LocationRow>();
+        let recs = query_as.fetch_all(&get_db_pool()).await.unwrap();
+        to_common_locations(recs)
     }
 
     /// Determine the LngLatBounds that encompass the data, ignoring any lnglat
-    /// bounding. Consumes self.
-    pub async fn get_bounds(self) -> Option<LngLatBounds> {
-        let mut q = self.start_query(false);
+    /// bounding. Consumes self. Assumes decimation.
+    fn get_bounds_query(
+        &self,
+        explain_query_plan: bool,
+    ) -> QueryBuilder<'a, Sqlite> {
+        let mut q = new_query(explain_query_plan);
         q.push(
             "SELECT MIN(longitude), MIN(latitude),
                     MAX(longitude), MAX(latitude)
-                FROM filtered",
+                FROM location WHERE 1",
         );
+        add_bounds_to_query(&self.bounds, &mut q);
+        self.add_basic_filters(&mut q);
+        q
+    }
+
+    pub async fn fetch_bounds(&self) -> Option<LngLatBounds> {
+        let mut q = self.get_bounds_query(false);
         let query_as = q.build_query_as::<LngLatBoundsResult>();
         match query_as.fetch_one(&get_db_pool()).await {
             Ok(res) => Some(LngLatBounds {
@@ -963,73 +828,32 @@ impl<'a> FilteredQuery {
 #[derive(FromRow)]
 struct LngLatBoundsResult(f64, f64, f64, f64);
 
-/// A filtered query where the number of rows to return is capped. The query can
-/// be finalized and the results returned.
-pub struct CappedQuery<'a> {
-    q: QueryBuilder<'a, Sqlite>,
+fn to_common_locations(recs: Vec<LocationRow>) -> Vec<common::Location> {
+    recs.into_iter().map(|l| l.into()).collect()
 }
 
-impl<'a> CappedQuery<'a> {
-    /// Create a new CappedQuery and add the final SQL fragment to retrieve the
-    /// results.
-    fn new(mut q: QueryBuilder<'a, Sqlite>) -> Self {
-        q.push("SELECT * FROM capped ORDER BY timestamp ASC");
-        Self { q }
-    }
+#[derive(FromRow)]
+struct CountResult(i64);
 
-    /// Execute the query and fetch all matching records into a vector. Takes
-    /// the database connection as an argument.
-    pub async fn fetch_all_with_db(
-        mut self,
-        conn: &SqlitePool,
-    ) -> Vec<common::Location> {
-        // let now = std::time::Instant::now();
-        let query_as = self.q.build_query_as::<LocationRow>();
-        let recs = query_as.fetch_all(conn).await.unwrap_or_else(|e| {
-            error!("Failed to fetch records from database: {e}");
-            vec![]
-        });
-        // info!("Filtered query took {:?}", now.elapsed());
-        recs.into_iter().map(|l| l.into()).collect()
+/// Create a new QueryBuilder, optionally adding EXPLAIN QUERY PLAN to the
+/// beginning so the query can be passed to explain_query().
+fn new_query<'a>(explain_query_plan: bool) -> QueryBuilder<'a, Sqlite> {
+    let mut q: QueryBuilder<Sqlite> = QueryBuilder::new("");
+    if explain_query_plan {
+        q.push("EXPLAIN QUERY PLAN ");
     }
-
-    /// Exectues the query like with fetch_all_with_db, but uses the default
-    /// database connection in the app state. Used by application code, and
-    /// fetch_all_with_db is broken out separately so it can be exercised by
-    /// tests.
-    pub async fn fetch_all(self) -> Vec<common::Location> {
-        self.fetch_all_with_db(&get_db_pool()).await
-    }
-
-    /// Return the complete SQL for the query.
-    pub fn sql(&self) -> &str {
-        self.q.sql()
-    }
+    q
 }
 
-/// Same as CappedQuery, but with EXPLAIN QUERY PLAN at the front. Used for
-/// debugging slow queries.
-pub struct ExplainQuery<'a> {
-    q: QueryBuilder<'a, Sqlite>,
-}
-
-impl<'a> ExplainQuery<'a> {
-    /// Create a new ExplainQuery and add the final SQL fragment to retrieve the
-    /// results.
-    fn new(mut q: QueryBuilder<'a, Sqlite>) -> Self {
-        q.push("SELECT * FROM capped ORDER BY timestamp ASC");
-        Self { q }
-    }
-
-    /// Explain the query and print the result
-    pub async fn explain(mut self) {
-        tracing::info!("{}", self.q.sql());
-        let query = self.q.build_query_as::<ExplainQueryPlan>();
-        let rows = query.fetch_all(&get_db_pool()).await.unwrap();
-        let roots = rows.iter().filter(|x| x.parent == 0);
-        for root in roots {
-            root.print(&rows, "");
-        }
+/// Take an explainable query and print out the query plan. This is usedful for
+/// debugging slow queries, since it shows what indexes are used.
+#[allow(unused)]
+async fn explain_query(mut q: QueryBuilder<'_, Sqlite>) {
+    let query = q.build_query_as::<ExplainQueryPlan>();
+    let rows = query.fetch_all(&get_db_pool()).await.unwrap();
+    let roots = rows.iter().filter(|x| x.parent == 0);
+    for root in roots {
+        root.print(&rows, "");
     }
 }
 
@@ -1062,13 +886,19 @@ impl ExplainQueryPlan {
 ///
 /// Assumes a condition has already been added to the WHERE clause, as `AND` is
 /// prepended for both the upper and lower bounds on the time filter.
+///
+/// We use likelihood(X, p), to indicate that the timestamp condition X should
+/// not be used for indexing. This way we will default to using the longitude
+/// index. Small p means the condition would be selective, and that an index
+/// should be used. Valid values are in the range [0.0, 1.0].
 fn add_start_time_to_query(
     start_time: &Option<time::OffsetDateTime>,
     query: &mut QueryBuilder<Sqlite>,
 ) {
     if let Some(start) = start_time {
-        query.push(" AND timestamp >= ");
+        query.push(" AND likelihood(timestamp >= ");
         query.push_bind(start.unix_timestamp());
+        query.push(", 1.0)");
     }
 }
 
@@ -1079,8 +909,9 @@ fn add_end_time_to_query(
     query: &mut QueryBuilder<Sqlite>,
 ) {
     if let Some(end) = end_time {
-        query.push(" AND timestamp < ");
+        query.push(" AND likelihood(timestamp < ");
         query.push_bind(end.unix_timestamp());
+        query.push(", 1.0)");
     }
 }
 
@@ -1107,6 +938,13 @@ fn add_filters_to_query(
     }
 }
 
+/// Add a decimation condition to a query.
+fn add_decim_to_query(decim: i64, q: &mut QueryBuilder<Sqlite>) {
+    q.push(" AND id % ");
+    q.push_bind(decim);
+    q.push(" == 0 ");
+}
+
 /// Adds lnglat bound conditions to a SQL query.
 ///
 /// LngLatBounds can "spill over" onto the next left/right map alias if the view
@@ -1116,7 +954,7 @@ fn add_bounds_to_query(
     q: &mut QueryBuilder<Sqlite>,
 ) {
     if let Some(bounds) = bounds {
-        q.push("latitude >= ");
+        q.push(" AND latitude >= ");
         q.push_bind(bounds.sw.lat);
         q.push(
             "
@@ -1203,7 +1041,8 @@ pub mod tests {
         get_db_pool();
     }
 
-    /// Generate location data that is different for each idx
+    /// Generate location data that is different for each idx. SQLite will start
+    /// database ids at 1.
     pub fn get_test_data(idx: usize) -> OSLocationData {
         OSLocationData {
             timestamp: idx as i64 * 5,
@@ -1240,19 +1079,19 @@ pub mod tests {
             },
             ne: LngLat { lng: 5.5, lat: 5.5 },
         };
-        let q = FilteredQuery::new().bounds(bounds).decimate(10000);
-        let sql = q.sql();
-        println!("no adjacent sql: {}\n", sql);
-        let records = q.fetch_all().await;
+        let records = FilteredQuery::new()
+            .bounds(bounds)
+            .limit(10000)
+            .fetch_decimated()
+            .await;
         assert_eq!(records.len(), 6);
 
-        let q = FilteredQuery::new()
+        let records = FilteredQuery::new()
             .bounds(bounds)
             .get_adjacent(true)
-            .decimate(10000);
-        let sql = q.sql();
-        println!("adjacent sql: {}", sql);
-        let records = q.fetch_all().await;
+            .limit(10000)
+            .fetch_decimated()
+            .await;
         assert_eq!(records.len(), 7);
     }
 
@@ -1283,20 +1122,19 @@ pub mod tests {
                 lat: 5.5,
             },
         };
-        let q = FilteredQuery::new().bounds(bounds).decimate(10000);
-        let sql = q.sql();
-        println!("no adjacent sql: {}\n", sql);
-        let records = q.fetch_all().await;
+        let records = FilteredQuery::new()
+            .bounds(bounds)
+            .limit(10000)
+            .fetch_decimated()
+            .await;
         assert_eq!(records.len(), 2);
 
-        let q = FilteredQuery::new()
+        let records = FilteredQuery::new()
             .bounds(bounds)
             .get_adjacent(true)
-            .decimate(10000);
-        let sql = q.sql();
-        println!("adjacent sql: {}", sql);
-        let records = q.fetch_all().await;
-        // dbg!(records.iter().map(|r| r.timestamp).collect::<Vec<_>>());
+            .limit(10000)
+            .fetch_decimated()
+            .await;
         assert_eq!(records.len(), 5);
     }
 
@@ -1313,8 +1151,8 @@ pub mod tests {
         let records = FilteredQuery::new()
             .start(start)
             .end(end)
-            .first_n(1_000)
-            .fetch_all()
+            .limit(1_000)
+            .fetch_first_n()
             .await;
         assert_eq!(records.len(), 1);
         // small integer floats can be exactly compared
@@ -1403,8 +1241,8 @@ pub mod tests {
         let records = FilteredQuery::new()
             .start(start)
             .end(end)
-            .first_n(1_000)
-            .fetch_all()
+            .limit(1_000)
+            .fetch_first_n()
             .await;
 
         assert_eq!(records.len(), 3);

@@ -150,15 +150,14 @@ pub async fn filter_during_query(
     end_time: &time::OffsetDateTime,
     filters: &[Filter],
 ) -> std::time::Duration {
-    let capped_query = FilteredQuery::new()
+    let now = Instant::now();
+    let recs = FilteredQuery::new()
         .start(*start_time)
         .end(*end_time)
         .filters(filters.to_owned())
-        .decimate(DECIMATION_THRESHOLD);
-    // println!("full statement:\n{}", capped_query.sql());
-
-    let now = Instant::now();
-    let recs = capped_query.fetch_all_with_db(conn).await;
+        .limit(DECIMATION_THRESHOLD)
+        .fetch_decimated_with_db(conn)
+        .await;
     let elapsed = now.elapsed();
     println!("query time: {:?}", now.elapsed());
     println!("num recs: {}", recs.len());

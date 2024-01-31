@@ -56,8 +56,8 @@ async fn get_records_to_write(
         .time_range(map_state.time_range)
         .filters(map_state.filters.clone())
         .bounds(map_state.view_pos.bounds.expand(geojson::BOUND_EXPANSION))
-        .decimate(export_opts.max_points)
-        .fetch_all()
+        .limit(export_opts.max_points)
+        .fetch_decimated()
         .await;
     ExportData {
         records,
