@@ -15,6 +15,30 @@ use crate::ui_state::{BackState, FrontState};
 const MIN_CACHE_SIZE: u64 = 10_000_000;
 
 #[function_component]
+pub fn ShowLastLocationSetting() -> Html {
+    let dispatch = Dispatch::<FrontState>::new();
+    let style = use_selector(|s: &FrontState| s.map.style.clone());
+
+    let show_last_location_on_click = {
+        dispatch.reduce_mut_callback(move |s: &mut FrontState| {
+            s.map.style.show_last_location = !s.map.style.show_last_location;
+        })
+    };
+
+    html! {
+        <>
+            <SettingsCard>
+                <SettingsCardToggle
+                    checked={style.show_last_location}
+                    onclick={show_last_location_on_click}
+                    text={"Show Last Location"}
+                />
+            </SettingsCard>
+        </>
+    }
+}
+
+#[function_component]
 pub fn AutomapSetting() -> Html {
     let dispatch = Dispatch::<FrontState>::new();
     let style = use_selector(|s: &FrontState| s.map.style.clone());

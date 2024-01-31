@@ -127,12 +127,6 @@ pub fn MapStyler() -> Html {
             s.map.style.show_colorbar = !s.map.style.show_colorbar;
         })
     };
-    let show_last_location_on_click = {
-        dispatch.reduce_mut_callback(move |s: &mut FrontState| {
-            s.map.style.show_last_location = !s.map.style.show_last_location;
-        })
-    };
-
     let basemap_options = BasemapStyle::iter().map(|x| {
         html! {
             <option selected={x == style.basemap_style}>
@@ -209,16 +203,6 @@ pub fn MapStyler() -> Html {
                     </div>
                 </div>
             }
-            // toggle show last location
-            <div class="flex items-center justify-between flex-wrap my-1">
-                <label for="colorbar">{"Show Last Location"}</label>
-                <div class="relative ml-4 mr-1 h-6">
-                    <input type="checkbox" id="show_last_location"
-                        checked={style.show_last_location}
-                        onclick={show_last_location_on_click}
-                        class={TOGGLE_SWITCH_STYLE} />
-                </div>
-            </div>
         </div>
         </div>
     }

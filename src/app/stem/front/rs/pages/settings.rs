@@ -13,7 +13,9 @@ use yew::prelude::*;
 use yew_icons::{Icon, IconId};
 use yewdux::prelude::*;
 
-use crate::components::map_settings::{AutomapSetting, CacheSetting};
+use crate::components::map_settings::{
+    AutomapSetting, CacheSetting, ShowLastLocationSetting,
+};
 use crate::components::unit_picker::UnitPicker;
 use crate::components::{
     AfterCardParagraph, BouncyScrollContainer, DoneButton, MainSettingsButton,
@@ -126,6 +128,8 @@ pub fn MapSettings() -> Html {
             </TopNav>
             <BouncyScrollContainer>
                 <H1> {"Map"} </H1>
+
+                <ShowLastLocationSetting />
 
                 <H2> {"Automap"} </H2>
                 <AutomapSetting />
