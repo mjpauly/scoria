@@ -11,7 +11,8 @@ void set_app_dirs(
     const char* documents_dir,
     const char* library_dir,
     const char* temp_dir,
-    const char* bundle_dir
+    const char* bundle_dir,
+    const char* app_version
 );
 
 // log errors

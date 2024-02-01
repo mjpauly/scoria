@@ -34,6 +34,7 @@ pub fn Settings() -> Html {
     let last_error_reviewed = use_selector(|s: &BackState| {
         s.last_logged_error.as_ref().map(|x| x.1).unwrap_or(true)
     });
+    let app_version = use_selector(|s: &BackState| s.app_version.clone());
     html! {
         <>
             <TopNav>
@@ -90,6 +91,10 @@ pub fn Settings() -> Html {
                         href="https://scoria.info/privacy"
                     />
                 </SettingsCard>
+
+                <AfterCardParagraph>
+                    {"Scoria v"}{app_version}
+                </AfterCardParagraph>
 
             </BouncyScrollContainer>
 

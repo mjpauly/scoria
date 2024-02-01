@@ -44,6 +44,7 @@ pub extern "C" fn set_app_dirs(
     library_dir: *const c_char,
     temp_dir: *const c_char,
     bundle_dir: *const c_char,
+    app_version: *const c_char,
 ) {
     let paths_to_set = paths::Paths {
         documents_dir: PathBuf::from(cstr_to_string(documents_dir)),
@@ -51,7 +52,9 @@ pub extern "C" fn set_app_dirs(
         temp_dir: PathBuf::from(cstr_to_string(temp_dir)),
         bundle_dir: PathBuf::from(cstr_to_string(bundle_dir)),
     };
-    runtime::get_runtime().block_on(async { init(paths_to_set).await })
+    let app_version = cstr_to_string(app_version);
+    runtime::get_runtime()
+        .block_on(async { init(paths_to_set, app_version).await })
 }
 
 /// Convert a const char* reference from C into an owned Rust String.
@@ -62,7 +65,7 @@ fn cstr_to_string(cstr: *const c_char) -> String {
 
 /// Top app level initialization. Does not start the UI server yet; that is done
 /// when the app enters the foreground and calls `handle_enter_foreground`.
-pub async fn init(init_paths: paths::Paths) {
+pub async fn init(init_paths: paths::Paths, app_version: String) {
     // initialize the tracing infrastructure here, since it's universal to dev
     // and release (this belies how our stem "library" acts in like a binary)
     let subscriber = logs::get_subscriber(&init_paths);
@@ -73,7 +76,7 @@ pub async fn init(init_paths: paths::Paths) {
     let db = database::init_db(paths::get_db_path_helper(&init_paths))
         .await
         .unwrap();
-    app_state::AppState::init(init_paths, db);
+    app_state::AppState::init(init_paths, app_version, db);
     // vacuum and checkpoint the database at startup, so it shrinks to size
     database::checkpoint_db().await;
     tracing::info!("===== App Startup =====");
@@ -247,12 +250,14 @@ pub mod tests {
             .iter()
             .map(|s| CString::new(&*s.to_string_lossy()).unwrap())
             .collect();
+        let version = CString::new("test").unwrap();
         // call the C-facing set_app_dirs function
         super::set_app_dirs(
             cstrings[0].as_ptr(),
             cstrings[1].as_ptr(),
             cstrings[2].as_ptr(),
             cstrings[3].as_ptr(),
+            version.as_ptr(),
         );
         // test that we can now get the Documents directory as expected
         assert_eq!(super::paths::get_documents_dir(), paths.documents_dir);
@@ -281,7 +286,7 @@ pub mod local {
     /// caller knows this already so we just return the port.
     pub async fn local_setup(dir: &str, port: u16) -> u16 {
         let paths = local_fs_setup(dir);
-        init(paths).await;
+        init(paths, "1.test.0".into()).await;
         server::run(port, false).await.port
     }
 
@@ -302,7 +307,7 @@ pub mod local {
         let _ = std::fs::copy(tmp_file, &state_file);
         let _ = std::fs::remove_file(tmp_file);
         copy_dev_db(paths.documents_dir.clone());
-        init(paths).await;
+        init(paths, "1.test.0".into()).await;
         server::run(port, false).await.port
     }
 

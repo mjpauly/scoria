@@ -11,10 +11,12 @@ public var server_scope: UInt64 = 0;
 public func startup() {
     // Set the app directories known to the core library and get the
     // backend server port and secret key
+    let app_version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown"
     set_app_dirs(getDocumentsDirectory().path(),
                  getLibraryDirectory().path(),
                  getTemporaryDirectoryPath(),
-                 getBundlePath())
+                 getBundlePath(),
+                 app_version)
     myLocationManager.touch()  // initialize the lazy global var
 }
 

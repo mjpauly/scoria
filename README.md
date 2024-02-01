@@ -7,12 +7,9 @@ Current: pins, widget, android
 - debug-ability
     - [ ] action failure alterts (esp for importing)
     - [ ] have frontend send logs to backend
-- develop-ability
-    - [ ] build stamping, version visible in-app
 - security
     - [ ] only allow webView to make network requests to backend
 - features
-    - [ ] show latest location
     - [ ] self-annotated waypoints, routes, and tracks
     - [ ] queries/metrics for selected data (distance/time/speed traveled/dwelled, average distanced traveled (mean free path))
     - [ ] what's new section
@@ -30,7 +27,6 @@ Current: pins, widget, android
     - [ ] zoom to current location on first install
 - [ ] reset to "today" time range and data-centered view if user is away from
     the app for 1+ hr
-- [ ] export tab on map (csv, maybe image)
 - [ ] notify user when they close the app that keeping it open is required for
     data to be logged
 

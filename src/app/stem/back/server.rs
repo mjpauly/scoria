@@ -281,7 +281,7 @@ mod tests {
     async fn server_shutdown_works() {
         let dir = "server_shutdown_works/";
         let paths = local_fs_setup(dir);
-        init(paths).await;
+        init(paths, "1.test.0".into()).await;
         let cfg = run(0, true).await;
 
         let url = format!(

@@ -41,6 +41,9 @@ where
 #[serde(default)]
 pub struct BackState {
     #[serde(deserialize_with = "ok_or_default")]
+    pub app_version: String,
+
+    #[serde(deserialize_with = "ok_or_default")]
     pub auto_location_config: AutoConfig,
 
     #[serde(deserialize_with = "ok_or_default")]
