@@ -228,26 +228,19 @@ fn PlotComponent() -> Html {
 
     // The style object with user data
     let style = use_state(|| Option::<Value>::None);
-    let last_loc =
-        use_selector(|state: &BackState| state.last_location.clone());
-    let last_loc_lnglat = last_loc.as_ref().as_ref().map(|x| x.lnglat());
     {
         let style = style.clone();
         use_effect_with_deps(
-            move |(basemap, map_style, last_loc_lnglat)| {
+            move |(basemap, map_style)| {
                 // if we've loaded the basemap json from the http request
                 if let Some(basemap_obj) = &**basemap {
                     let mut style_obj = basemap_obj.clone();
-                    add_source_and_layers_to_style(
-                        &mut style_obj,
-                        map_style,
-                        *last_loc_lnglat,
-                    );
+                    add_source_and_layers_to_style(&mut style_obj, map_style);
                     style.set(Some(style_obj));
                 }
                 || ()
             },
-            (basemap, map_style.clone(), last_loc_lnglat),
+            (basemap, map_style.clone()),
         );
     }
 
@@ -329,6 +322,9 @@ fn PlotComponent() -> Html {
     use_backend_event_with_deps(on_geojson_update, map_initialized.clone());
 
     // update last location
+    let last_loc =
+        use_selector(|state: &BackState| state.last_location.clone());
+    let last_loc_lnglat = last_loc.as_ref().as_ref().map(|x| x.lnglat());
     {
         let map = map.clone();
         let show_last_location = map_style.show_last_location;

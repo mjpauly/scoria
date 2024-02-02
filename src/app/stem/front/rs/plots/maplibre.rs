@@ -327,11 +327,7 @@ pub fn restyle(map: Rc<Map>, style: &Value) {
 
 /// Modify a serde_json::Value object containing the basemap style to add on
 /// the user data sources and layers.
-pub fn add_source_and_layers_to_style(
-    style: &mut Value,
-    map_style: &MapStyle,
-    last_loc: Option<common::LngLat>,
-) {
+pub fn add_source_and_layers_to_style(style: &mut Value, map_style: &MapStyle) {
     // Sources
     let sources_mut = style["sources"].as_object_mut().unwrap();
     sources_mut.insert(
@@ -343,9 +339,10 @@ pub fn add_source_and_layers_to_style(
         geojson_source_with_url(LINES_SOURCE_URL),
     );
     if map_style.show_last_location {
+        // The last location will be added when the map initializes
         sources_mut.insert(
             LAST_LOCATION_SOURCE_ID.to_string(),
-            geojson_source_with_value(&geojson_point(last_loc)),
+            geojson_source_with_value(&geojson_point(None)),
         );
     }
     if map_style.automap {
