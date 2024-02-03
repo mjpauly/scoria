@@ -7,6 +7,7 @@
 
 import UIKit
 import Sensing
+import WidgetKit
 
 @main
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -35,8 +36,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Use this method to release any resources that were specific to the discarded scenes, as they will not return.
         //print_and_log(s: "Scene session discarded")
         app_shutdown()
+        // let widget know that the app shut down and that logging is not on
+        updateWidget(is_on: false)
     }
-
-
 }
-

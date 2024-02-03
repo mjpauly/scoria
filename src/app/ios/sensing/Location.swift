@@ -18,6 +18,14 @@ class MyLocationManager: NSObject, CLLocationManagerDelegate, ObservableObject {
         print("Initializing location manager")
     }
     
+    // Determine if the location services are on so that background updates will arrive.
+    // This boolean is used to update the state of lockscreen widgets.
+    func isOn() -> Bool {
+        let authorizedAlways = locationManager.authorizationStatus == .authorizedAlways
+        let userEnabledLocation = get_location_enabled()
+        return authorizedAlways && userEnabledLocation
+    }
+    
     func updateConfig() {
         setLocationEnabled()
         setSignificantChanges()

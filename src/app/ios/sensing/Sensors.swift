@@ -35,6 +35,10 @@ public func handle_poke(viewController: MyViewControllerProtocol) {
     check_export_track(viewController: viewController)
 }
 
+public func is_location_on() -> Bool {
+    return myLocationManager.isOn()
+}
+
 // check if we should prompt for when-in-use authorization
 func check_request_when_in_use_authorization() {
     if should_request_when_in_use_authorization() {
