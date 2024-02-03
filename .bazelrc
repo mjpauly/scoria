@@ -9,3 +9,8 @@ build:app_release \
     --//:profile=distribution \
     --device_debug_entitlements=false \
     --ios_multi_cpus=arm64 \
+
+build:internal_opt \
+    -c opt \
+    --objc_enable_binary_stripping \
+    --ios_multi_cpus=arm64

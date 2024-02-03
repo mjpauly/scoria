@@ -7,6 +7,7 @@ load("@rules_xcodeproj//xcodeproj:defs.bzl", "xcode_provisioning_profile")
 ios_extension(
     name = "widget",
     bundle_id = "com.aperturebeam.epsilon.widget",
+    bundle_name = "ScoriaWidget",
     families = ["iphone"],
     infoplists = [":Info.plist"],
     minimum_os_version = "16.0",

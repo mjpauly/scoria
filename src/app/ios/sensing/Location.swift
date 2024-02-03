@@ -31,6 +31,7 @@ class MyLocationManager: NSObject, CLLocationManagerDelegate, ObservableObject {
         setSignificantChanges()
         setAccuracyMode()
         setDistanceFilter()
+        setActivityType()
     }
     
     func requestPermissions() {
@@ -87,6 +88,12 @@ class MyLocationManager: NSObject, CLLocationManagerDelegate, ObservableObject {
         }
         //print_and_log(s: "setting accuracy to \(converted)")
         locationManager.desiredAccuracy = converted
+    }
+    
+    // The default activity type of "other" often attempts to adhere to roads like when cycling.
+    // "otherNavigation" indicates that movement doesn't necessarily adhere to roads.
+    func setActivityType() {
+        locationManager.activityType = .otherNavigation
     }
     
     // The locationManager() method of the CLLocationManagerDelegate protocol is called when the location manager receives new location data
