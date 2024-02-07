@@ -10,7 +10,9 @@ use obfstr::obfstr;
 use web_sys::{HtmlInputElement, HtmlTextAreaElement};
 use yewdux::prelude::*;
 
-use crate::components::{DoneButton, MainSettingsButton};
+use crate::components::{
+    BouncyScrollContainer, DoneButton, MainSettingsButton,
+};
 use crate::components::{HomeBarSpacer, TopNav};
 use crate::components::{InfoMessage, TOGGLE_SWITCH_STYLE};
 use crate::ui_state::{BackState, FrontState};
@@ -134,9 +136,7 @@ pub fn ReportProblem() -> Html {
                 <MainSettingsButton />
                 <DoneButton />
             </TopNav>
-            <div
-                class="grow overflow-scroll h-0 px-4 w-full max-w-prose mx-auto"
-            >
+            <BouncyScrollContainer>
                 <h1 class="font-bold text-3xl text-left my-4 px-2">
                     {"Report a Problem"}
                 </h1>
@@ -269,7 +269,7 @@ pub fn ReportProblem() -> Html {
                 </button>
                 }
 
-            </div>
+            </BouncyScrollContainer>
 
             <HomeBarSpacer />
         </>

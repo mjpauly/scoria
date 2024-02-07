@@ -11,7 +11,7 @@ ios_application(
     # but redundantly including it helps surface inconsistencies
     entitlements = "Scoria.entitlements",
     extensions = ["//src/app/ios/widget"],
-    families = ["iphone"],
+    families = ["iphone", "ipad"],
     infoplists = [":Info.plist"],
     launch_storyboard = "Resources/Launch.storyboard",
     minimum_os_version = "16.0",
@@ -37,7 +37,7 @@ ios_application(
 # the LAST build number matching "7.5.x"
 apple_bundle_version(
     name = "app_version",
-    build_version = "1.3.5",
+    build_version = "1.3.6",
     short_version_string = "1.3",
     visibility = ["//src/app/ios:__subpackages__"],
 )

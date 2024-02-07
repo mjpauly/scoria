@@ -94,10 +94,22 @@ genrule(
     outs = ["tailwind.css"],
     cmd = """
 cp $(location tailwind.config.js) .
+
+# We have to tell node where to find the plugin and, since the plugin imports
+# from tailwind, where to find tailwind's code as well. We point node to each
+# of these by adding the node_modules directories to the NODE_PATH envar.
+# For the plugin, we query the plugin's location, then use dirname to go up one
+# level for the node_modules directory.
+# For tailwind, we append the binary path with the right runfiles directory
+export NODE_PATH=$$(dirname $(location @front_npm//:node_modules/tailwindcss-safe-area)):$(location @front_npm//tailwindcss/bin:tailwindcss).runfiles/front_npm/node_modules
+
 $(execpath @front_npm//tailwindcss/bin:tailwindcss) -i $(location styles.css) \
         -o $@
 """,
-    tools = ["@front_npm//tailwindcss/bin:tailwindcss"],
+    tools = [
+        "@front_npm//tailwindcss/bin:tailwindcss",
+        "@front_npm//:node_modules/tailwindcss-safe-area",
+    ],
     visibility = ["//visibility:public"],
 )
 

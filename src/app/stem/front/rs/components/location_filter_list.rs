@@ -108,11 +108,11 @@ pub fn LocationFilterList() -> Html {
         });
     let num_filters = (*filters).len();
     let height = if num_filters == 0 {
-        "h-[4.5rem]" // 18 tailwind units (16 for item + 2x1 margin)
+        "h-[3.75rem]" // 18 tailwind units (13 for item + 2x1 margin)
     } else if num_filters == 1 {
-        "h-[8.75rem]" // 35 tailwind units (2x16 items + 3x1 margin)
+        "h-[7.25rem]" // 35 tailwind units (2x13 items + 3x1 margin)
     } else {
-        "h-52" // (3x16 items + 4x1 margin)
+        "h-[10.75rem]" // (3x13 items + 4x1 margin)
     };
     html! {
         <div class="flex">
@@ -129,8 +129,7 @@ pub fn LocationFilterList() -> Html {
                             />
                     }
                 )}
-                <div class="flex items-center justify-between pl-4 pr-2
-                    h-16 min-h-fit m-1">
+                <div class="flex items-center justify-between pl-4 pr-2 m-1">
                     <p class="text-neutral-500 text-left mr-4">
                         {"Filters hide data where the condition is true. Tap
                             the plus to add another."}
@@ -229,21 +228,21 @@ fn FilterEntry(props: &FilterEntryProps) -> Html {
     };
     html! {
         // horizontal flex
-        <div class="flex flex-wrap items-center justify-between py-1 \
-            h-16 min-h-fit bg-neutral-900 rounded-lg px-4 m-1">
+        <div class="flex flex-wrap items-center justify-end py-2 \
+            bg-neutral-900 rounded-lg px-4 m-1">
             <button onclick={onremove} id={format!("filt_{}_remove", filt.id)}>
                 <Icon icon_id={IconId::BootstrapXCircle}
-                    class="h-5 w-5 my-1 text-neutral-500" />
+                    class="h-5 w-5 text-neutral-500" />
             </button>
 
-            <select class={format!("my-1 ml-2 flex-grow {}", SELECT_STYLE)}
+            <select class={format!("ml-2 flex-grow {}", SELECT_STYLE)}
                 ref={stream_node_ref}
                 id={format!("filt_{}_datastream", filt.id)}
                 onchange={onchange_stream}>
                 {for stream_options.clone()}
             </select>
 
-            <select class={format!("my-1 ml-2 {}", SELECT_STYLE)} ref={op_node_ref}
+            <select class={format!("ml-2 {}", SELECT_STYLE)} ref={op_node_ref}
                 id={format!("filt_{}_op", filt.id)}
                 onchange={onchange_op}>
                 {for op_options.clone()}
@@ -253,12 +252,12 @@ fn FilterEntry(props: &FilterEntryProps) -> Html {
                 id={format!("filt_{}_threshold", filt.id)}
                 placeholder={filt.datastream.format_value(
                                 &unit_pref, filt.threshold)}
-                class="w-16 flex-grow ml-2 my-1 rounded bg-black \
+                class="w-16 flex-grow ml-2 rounded bg-black \
                 border border-neutral-700 \
                 placeholder:text-neutral-500"
             />
 
-            <div class="relative h-6 ml-2 my-1">
+            <div class="relative h-6 ml-2">
                 <input type="checkbox" checked={filt.enabled} onclick={ontoggle}
                     id={format!("filt_{}_toggle", filt.id)}
                     class={TOGGLE_SWITCH_STYLE} />

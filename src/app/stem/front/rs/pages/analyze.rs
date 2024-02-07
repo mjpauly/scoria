@@ -383,13 +383,13 @@ fn PlotComponent() -> Html {
         <div id={plot_id} class="w-screen flex-1 min-h-0 relative z-0">
             <button onclick={flytodata_onclick}
                 class="p-2 rounded-lg bg-black w-min opacity-50 \
-                    absolute bottom-[3.375rem] left-2.5 z-40">
+                    absolute bottom-[3.375rem] left-safe-or-2.5 z-40">
                 <Icon icon_id={IconId::BootstrapFullscreen}
                     class="h-6 w-6 text-[#aaaaaa]" />
             </button>
             <button onclick={flytome_onclick}
                 class="p-2 rounded-lg bg-black w-min opacity-50 \
-                    absolute bottom-[6.125rem] left-2.5 z-40">
+                    absolute bottom-[6.125rem] left-safe-or-2.5 z-40">
                 <Icon icon_id={IconId::FontAwesomeSolidLocationArrow}
                     class="h-6 w-6 text-[#aaaaaa]" />
             </button>

@@ -47,7 +47,7 @@ pub fn ExportTrack() -> Html {
                 <DoneButton />
             </TopNav>
 
-            <BouncyScrollContainer>
+            <BouncyScrollContainer class="pb-8">
                 <H1> {"Export Track"} </H1>
 
                 <p class="mt-2 mx-2 text-left">

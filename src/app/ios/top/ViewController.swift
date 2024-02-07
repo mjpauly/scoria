@@ -69,8 +69,11 @@ class ViewController: UIViewController, MyViewControllerProtocol, WKNavigationDe
 
         additionalSafeAreaInsets.bottom -= view.safeAreaInsets.bottom
         additionalSafeAreaInsets.top -= view.safeAreaInsets.top
-        additionalSafeAreaInsets.left -= view.safeAreaInsets.left
-        additionalSafeAreaInsets.right -= view.safeAreaInsets.right
+        // we can use viewport-fit=cover to fit over these regions, then use
+        // the CSS safe-area-insert- variables to position things away from
+        // the notch in landscape mode
+//        additionalSafeAreaInsets.left -= view.safeAreaInsets.left
+//        additionalSafeAreaInsets.right -= view.safeAreaInsets.right
     }
 
     // Determine which navigation actions should result in opening in the browser

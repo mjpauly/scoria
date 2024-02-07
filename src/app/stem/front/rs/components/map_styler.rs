@@ -143,7 +143,7 @@ pub fn MapStyler() -> Html {
     });
 
     html! {
-        <div class="flex">
+        <div class="flex mt-1">
         <div class="max-w-fit mx-auto">
             <div class="flex items-center justify-between h-8 flex-wrap">
                 <label for="opacity">{"Opacity"}</label>
@@ -169,22 +169,8 @@ pub fn MapStyler() -> Html {
                     class={format!("m-1 ml-6 {}", RANGE_INPUT_STYLE)}
                     oninput={line_size_onchange} />
             </div>
-            <div class="flex items-center justify-between flex-wrap">
-                <label for="basemap">{"Basemap Style"}</label>
-                <select onchange={basemap_onchange} id="basemap"
-                    class={format!("m-1 ml-6 {}", SELECT_STYLE)}>
-                    {for basemap_options}
-                </select>
-            </div>
-            <div class="flex items-center justify-between flex-wrap">
-                <label for="datastream">{"Data Coloring"}</label>
-                <select onchange={datastream_onchange} id="datastream"
-                    class={format!("m-1 ml-6 {}", SELECT_STYLE)}>
-                    {for datastream_options}
-                </select>
-            </div>
             if style.colored_datastream == ColoredDataStream::None {
-                <div class="flex items-center justify-between flex-wrap my-1">
+                <div class="flex items-center justify-between flex-wrap">
                     <label for="marker_color">{"Marker Color"}</label>
                     <input type="color" id="marker_color"
                         value={style.solid_color.rgb.clone()}
@@ -193,9 +179,9 @@ pub fn MapStyler() -> Html {
                 </div>
             } else if style.colored_datastream != ColoredDataStream::Time {
                 // since no colorbar for time, colorbar option is hidden
-                <div class="flex items-center justify-between flex-wrap my-1">
+                <div class="flex items-center justify-between flex-wrap">
                     <label for="colorbar">{"Colorbar"}</label>
-                    <div class="relative ml-4 mr-1 h-6">
+                    <div class="relative my-1 ml-4 mr-1 h-6">
                         <input type="checkbox" id="colorbar"
                             checked={style.show_colorbar}
                             onclick={colorbar_on_click}
@@ -203,6 +189,20 @@ pub fn MapStyler() -> Html {
                     </div>
                 </div>
             }
+            <div class="flex items-center justify-between flex-wrap">
+                <label for="datastream">{"Data Coloring"}</label>
+                <select onchange={datastream_onchange} id="datastream"
+                    class={format!("m-1 ml-6 {}", SELECT_STYLE)}>
+                    {for datastream_options}
+                </select>
+            </div>
+            <div class="flex items-center justify-between flex-wrap">
+                <label for="basemap">{"Basemap Style"}</label>
+                <select onchange={basemap_onchange} id="basemap"
+                    class={format!("m-1 ml-6 {}", SELECT_STYLE)}>
+                    {for basemap_options}
+                </select>
+            </div>
         </div>
         </div>
     }

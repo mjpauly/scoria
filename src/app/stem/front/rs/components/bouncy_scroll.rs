@@ -5,10 +5,14 @@ use yew::prelude::*;
 #[derive(Properties, PartialEq)]
 pub struct BouncyScrollContainerProps {
     pub children: Children, // the field name `children` is important!
+    #[prop_or_default]
+    pub class: Classes,
 }
 
+/// To center content vertically within the bouncy scroll, add "flex flex-col"
+/// to the container, then wrap content in a "my-auto" div.
 #[function_component]
-pub fn BouncyScrollContainer(props: &BouncyScrollContainerProps) -> Html {
+pub fn BouncyScrollContainer(p: &BouncyScrollContainerProps) -> Html {
     // let _big_list = (1..41).map(|i| html! { <div>{format!("{}", i)}</div> });
     html! {
         // Centered, width-limited content container.
@@ -21,8 +25,12 @@ pub fn BouncyScrollContainer(props: &BouncyScrollContainerProps) -> Html {
         // have bouncy scrolling everywhere, but then that's unnatural for
         // elements that are supposed to by fixed/sticky (though it is the
         // norm for all mobile websites).
-        <div class="grow overflow-scroll h-0 px-4 w-full max-w-prose mx-auto">
-            { for props.children.iter() }
+        <div class={classes!(
+            Classes::from("grow overflow-scroll h-0 px-4 w-full max-w-prose \
+                          mx-auto"),
+            p.class.clone()
+        )}>
+            { for p.children.iter() }
             // {for _big_list}
         </div>
     }

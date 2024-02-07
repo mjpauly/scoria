@@ -42,7 +42,7 @@ pub fn Settings() -> Html {
                 <DoneButton />
             </TopNav>
 
-            <BouncyScrollContainer>
+            <BouncyScrollContainer class="pb-8">
                 <H1> {"Settings"} </H1>
 
                 <SettingsCard>
@@ -112,7 +112,7 @@ pub fn General() -> Html {
                 <DoneButton />
             </TopNav>
 
-            <BouncyScrollContainer>
+            <BouncyScrollContainer class="pb-8">
                 <H1> {"General"} </H1>
                 <H2> {"Units"} </H2>
                 <UnitPicker />
@@ -131,7 +131,7 @@ pub fn MapSettings() -> Html {
                 <MainSettingsButton />
                 <DoneButton />
             </TopNav>
-            <BouncyScrollContainer>
+            <BouncyScrollContainer class="pb-8">
                 <H1> {"Map"} </H1>
 
                 <ShowLastLocationSetting />
@@ -169,7 +169,7 @@ pub fn DataSettings() -> Html {
                 <DoneButton />
             </TopNav>
 
-            <BouncyScrollContainer>
+            <BouncyScrollContainer class="pb-8">
                 <H1> {"Data Log"} </H1>
 
                 <WarningMessage class="mb-6 mt-2" >
