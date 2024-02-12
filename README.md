@@ -2,7 +2,7 @@
 
 ## To Do
 
-Current: pins, widget, android
+Current: android, pins
 
 - debug-ability
     - [ ] action failure alterts (esp for importing)
@@ -15,15 +15,14 @@ Current: pins, widget, android
     - [ ] what's new section
     - [ ] release notes for prior versions
     - [ ] improve colormap contrast option
-    - [ ] lock screen widget to show active/inactive status
+    - [ ] support other activity types in "Custom" location mode
 - bugs
-    - [ ] opening map page, points are constrained to too small a height
     - [ ] network timeout too long in airplane mode?
 - housekeeping
     - [ ] switch to Library/Caches for map cache (and cleanup old location)
 - low priority
     - [ ] quick time update buttons
-    - [ ] enable running Scoria on iPad and Mac
+    - [ ] enable running Scoria on Mac
     - [ ] zoom to current location on first install
 - [ ] reset to "today" time range and data-centered view if user is away from
     the app for 1+ hr
@@ -35,9 +34,6 @@ Current: pins, widget, android
     - [ ] app usage metadata (when app launched, quit, foregrounded, backgrounded)
     - [ ] data viewership (what map data viewed and when)
     - [ ] battery charge (to correlate with location mode) [ref](https://stackoverflow.com/questions/27475506/check-battery-level-ios-swift)
-- [ ] have maps\_ok respond with 204 No Content instead of 404
-- [ ] custom map style that uses more black
-- [ ] arcgis HD satellite maps
 - [ ] follow current location mode on map
 
 - later features

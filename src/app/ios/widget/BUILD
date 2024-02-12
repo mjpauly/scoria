@@ -15,7 +15,10 @@ ios_extension(
         "//:distribution_profile": "Scoria_Widget_Distribution.mobileprovision",
         "//conditions:default": "Scoria_Widget_Internal.mobileprovision",
     }),
-    resources = glob(["Assets.xcassets/AppIcon.appiconset/**"]),
+    resources = glob(
+        ["Assets.xcassets/AppIcon.appiconset/**"],
+        exclude = ["**/.DS_Store"],
+    ),
     version = "//src/app/ios/top:app_version",
     visibility = ["//src/app/ios:__subpackages__"],
     deps = [

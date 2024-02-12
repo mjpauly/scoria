@@ -93,7 +93,7 @@ class MyLocationManager: NSObject, CLLocationManagerDelegate, ObservableObject {
     // The default activity type of "other" often attempts to adhere to roads like when cycling.
     // "otherNavigation" indicates that movement doesn't necessarily adhere to roads.
     func setActivityType() {
-        locationManager.activityType = .otherNavigation
+        locationManager.activityType = .other
     }
     
     // The locationManager() method of the CLLocationManagerDelegate protocol is called when the location manager receives new location data

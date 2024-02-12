@@ -4,7 +4,10 @@ load("@build_bazel_rules_swift//swift:swift.bzl", "swift_library")
 
 ios_application(
     name = "Scoria",
-    app_icons = glob(["Resources/Assets.xcassets/AppIcon.appiconset/**"]),
+    app_icons = glob(
+        ["Resources/Assets.xcassets/AppIcon.appiconset/**"],
+        exclude = ["**/.DS_Store"],
+    ),
     bundle_id = "com.aperturebeam.epsilon",
     bundle_name = "Scoria",
     # optional, since provisioning profile supports the App groups capability,
@@ -37,7 +40,7 @@ ios_application(
 # the LAST build number matching "7.5.x"
 apple_bundle_version(
     name = "app_version",
-    build_version = "1.3.6",
+    build_version = "1.3.7",
     short_version_string = "1.3",
     visibility = ["//src/app/ios:__subpackages__"],
 )
