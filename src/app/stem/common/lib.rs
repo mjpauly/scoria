@@ -5,6 +5,7 @@
 use serde::{Deserialize, Serialize};
 
 pub mod cmaps;
+pub mod export_options;
 pub mod filters;
 pub mod float;
 pub mod location;
@@ -26,7 +27,7 @@ pub use time_range::TimeRange;
 pub use ws_messages::{ToBack, ToFront};
 
 /// Longitude and latitude, encoded in degrees. Use .to_radians() for radians.
-#[derive(PartialEq, Debug, Default, Clone, Serialize, Deserialize)]
+#[derive(PartialEq, Debug, Default, Copy, Clone, Serialize, Deserialize)]
 pub struct LngLat {
     pub lng: f64,
     pub lat: f64,

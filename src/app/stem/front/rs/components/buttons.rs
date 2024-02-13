@@ -3,9 +3,10 @@
 
 use yew::prelude::*;
 use yew::MouseEvent;
+use yew_icons::{Icon, IconId};
 use yew_router::prelude::*;
 
-use crate::router::Route;
+use crate::router::{Route, SettingsRoute};
 
 /// Button to place in a TopNav (on the right) which will go to the Sense page.
 #[function_component]
@@ -17,6 +18,24 @@ pub fn DoneButton() -> Html {
         <button class="text-primary p-2 px-6"
             onclick={exit_settings_onclick}>
             <label id="done">{"Done"}</label>
+        </button>
+    }
+}
+
+/// Button to place in a TopNav (on the left) which will go to the main settings
+/// page.
+#[function_component]
+pub fn MainSettingsButton() -> Html {
+    let navigator = use_navigator().unwrap();
+    let main_settings_onclick = Callback::from(move |_e: MouseEvent| {
+        navigator.push(&SettingsRoute::Root)
+    });
+    html! {
+        <button class="text-primary flex items-center p-2 px-4"
+            onclick={main_settings_onclick}>
+            <Icon icon_id={IconId::BootstrapChevronLeft}
+                class="h-5 w-5" />
+            <label>{"All Settings"}</label>
         </button>
     }
 }

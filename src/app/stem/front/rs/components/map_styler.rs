@@ -4,16 +4,15 @@ use std::str::FromStr;
 use std::u8;
 
 use obfstr::obfstr;
+use strum::IntoEnumIterator;
 use web_sys::{HtmlInputElement, HtmlSelectElement};
 use yew::prelude::*;
 use yewdux::prelude::*;
 
 use crate::components::{RANGE_INPUT_STYLE, SELECT_STYLE, TOGGLE_SWITCH_STYLE};
-use crate::router::get_host;
+use crate::router::get_scoped_host;
 use crate::ui_state::FrontState;
-use common::map_style::{
-    BasemapStyle, ColoredDataStream, BASEMAP_STRINGS, DATASTREAM_STRINGS,
-};
+use common::map_style::{BasemapStyle, ColoredDataStream};
 
 // BASEMAP STYLES
 
@@ -49,7 +48,7 @@ fn format_tile_url(style: &str) -> String {
         let basemap_path = "mapdata/maps";
         let style_json = "style.json?key=";
     }
-    let basemap_url = format!("{}/{basemap_path}", get_host());
+    let basemap_url = format!("http://{}/{basemap_path}", get_scoped_host());
     let maptiler_key = maptiler_key();
     // should be https://api.url.com/maps/basic-v2/style.json?key=decafbad
     format!("{basemap_url}/{style}/{style_json}{maptiler_key}")
@@ -67,7 +66,8 @@ pub fn get_basemap_url(style: &BasemapStyle) -> String {
         BasemapStyle::StreetsDark => format_tile_url("streets-v2-dark"),
         BasemapStyle::TopoDark => format_tile_url("topo-v2-dark"),
         BasemapStyle::OutdoorDark => format_tile_url("outdoor-v2-dark"),
-        BasemapStyle::Satellite => format_tile_url("hybrid"),
+        BasemapStyle::Hybrid => format_tile_url("hybrid"),
+        BasemapStyle::Satellite => format_tile_url("satellite"),
     }
 }
 
@@ -127,24 +127,23 @@ pub fn MapStyler() -> Html {
             s.map.style.show_colorbar = !s.map.style.show_colorbar;
         })
     };
-
-    let basemap_options = BASEMAP_STRINGS.iter().map(|x| {
+    let basemap_options = BasemapStyle::iter().map(|x| {
         html! {
-            <option selected={x.0 == style.basemap_style}>
-                {x.1.to_string()}
+            <option selected={x == style.basemap_style}>
+                {x.to_string()}
             </option>
         }
     });
-    let datastream_options = DATASTREAM_STRINGS.iter().map(|x| {
+    let datastream_options = ColoredDataStream::iter().map(|x| {
         html! {
-            <option selected={x.0 == style.colored_datastream}>
-                {x.1.to_string()}
+            <option selected={x == style.colored_datastream}>
+                {x.to_string()}
             </option>
         }
     });
 
     html! {
-        <div class="flex">
+        <div class="flex mt-1">
         <div class="max-w-fit mx-auto">
             <div class="flex items-center justify-between h-8 flex-wrap">
                 <label for="opacity">{"Opacity"}</label>
@@ -170,20 +169,6 @@ pub fn MapStyler() -> Html {
                     class={format!("m-1 ml-6 {}", RANGE_INPUT_STYLE)}
                     oninput={line_size_onchange} />
             </div>
-            <div class="flex items-center justify-between flex-wrap">
-                <label for="basemap">{"Basemap Style"}</label>
-                <select onchange={basemap_onchange} id="basemap"
-                    class={format!("m-1 ml-6 {}", SELECT_STYLE)}>
-                    {for basemap_options}
-                </select>
-            </div>
-            <div class="flex items-center justify-between flex-wrap">
-                <label for="datastream">{"Data Coloring"}</label>
-                <select onchange={datastream_onchange} id="datastream"
-                    class={format!("m-1 ml-6 {}", SELECT_STYLE)}>
-                    {for datastream_options}
-                </select>
-            </div>
             if style.colored_datastream == ColoredDataStream::None {
                 <div class="flex items-center justify-between flex-wrap">
                     <label for="marker_color">{"Marker Color"}</label>
@@ -196,7 +181,7 @@ pub fn MapStyler() -> Html {
                 // since no colorbar for time, colorbar option is hidden
                 <div class="flex items-center justify-between flex-wrap">
                     <label for="colorbar">{"Colorbar"}</label>
-                    <div class="relative ml-4 mr-1 h-6">
+                    <div class="relative my-1 ml-4 mr-1 h-6">
                         <input type="checkbox" id="colorbar"
                             checked={style.show_colorbar}
                             onclick={colorbar_on_click}
@@ -204,6 +189,20 @@ pub fn MapStyler() -> Html {
                     </div>
                 </div>
             }
+            <div class="flex items-center justify-between flex-wrap">
+                <label for="datastream">{"Data Coloring"}</label>
+                <select onchange={datastream_onchange} id="datastream"
+                    class={format!("m-1 ml-6 {}", SELECT_STYLE)}>
+                    {for datastream_options}
+                </select>
+            </div>
+            <div class="flex items-center justify-between flex-wrap">
+                <label for="basemap">{"Basemap Style"}</label>
+                <select onchange={basemap_onchange} id="basemap"
+                    class={format!("m-1 ml-6 {}", SELECT_STYLE)}>
+                    {for basemap_options}
+                </select>
+            </div>
         </div>
         </div>
     }

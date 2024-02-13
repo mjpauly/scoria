@@ -18,6 +18,7 @@ pub enum ToBack {
     RequestWhenInUseAuthorization,
     ExportSqliteLog,
     ImportSqliteLog,
+    ExportTrack,
 }
 
 /// Messages from the backend to the frontend
@@ -31,4 +32,5 @@ pub enum ToFront {
         text: String,
         bg_color: String,
     },
+    SwiftPoke,
 }

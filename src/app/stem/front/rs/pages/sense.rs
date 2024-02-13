@@ -67,10 +67,9 @@ fn LocationDetails() -> Html {
         use_selector(|state: &BackState| state.last_location.clone());
     let locs_per_hour =
         use_selector(|state: &BackState| state.locations_past_hour);
-    let user_config = use_selector(|s: &FrontState| s.location_config.clone());
-    let auto_config =
-        use_selector(|s: &BackState| s.auto_location_config.clone());
-    let unit_pref = use_selector(|s: &FrontState| s.unit_pref.clone());
+    let user_config = use_selector(|s: &FrontState| s.location_config);
+    let auto_config = use_selector(|s: &BackState| s.auto_location_config);
+    let unit_pref = use_selector(|s: &FrontState| s.unit_pref);
 
     // Update the current state of `now` every second, so things update even if
     // there's no new data coming from the backend

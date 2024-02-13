@@ -16,12 +16,11 @@
 //!
 //! "Auto" and "Automatic" are used interchangeably.
 
-use std::fmt;
-
 use serde::{Deserialize, Serialize};
+use strum::{Display, EnumIter, EnumString};
 
 /// Complete location configuration
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Default)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Copy, Clone, Default)]
 #[serde(default)]
 pub struct AllLocationConfig {
     pub user: UserConfig,
@@ -70,7 +69,7 @@ impl AllLocationConfig {
 }
 
 /// Location configuration user settings
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Copy, Clone)]
 #[serde(default)]
 pub struct UserConfig {
     pub enabled: bool,
@@ -121,16 +120,30 @@ impl Default for UserConfig {
 }
 
 /// User-settable location modes. Differs from OSLocationMode
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(
+    Debug,
+    Copy,
+    Clone,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    Display,
+    EnumString,
+    EnumIter,
+)]
 pub enum LocationMode {
-    Auto,    // Switches between Best and 100m accuracy
+    #[strum(serialize = "Automatic")]
+    Auto, // Switches between Best and 100m accuracy
+    #[strum(serialize = "Reduced")]
     Reduced, // Standard service at 100m accuracy always
+    #[strum(serialize = "Infrequent")]
     SignificantChanges,
+    #[strum(serialize = "Custom")]
     Standard,
 }
 
 /// Configuration of the Standard Mode (either user settings or auto mode)
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Copy, Clone)]
 pub struct StandardLocationConfig {
     pub accuracy_mode: LocationAccuracyMode,
     pub distance_filter: f32,
@@ -138,17 +151,32 @@ pub struct StandardLocationConfig {
 
 /// Accuracy modes for the Standard Mode
 #[repr(C)]
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Copy)]
+#[derive(
+    Debug,
+    Copy,
+    Clone,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    Display,
+    EnumString,
+    EnumIter,
+)]
 pub enum LocationAccuracyMode {
+    #[strum(serialize = "Best")]
     Best,
+    #[strum(serialize = "10 m")]
     TenMeters,
+    #[strum(serialize = "100 m")]
     HundredMeters,
+    #[strum(serialize = "1 km")]
     Kilometer,
+    #[strum(serialize = "3 km")]
     ThreeKilometers,
 }
 
 /// State of the Auto config (what we tell the OS if Auto is on)
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct AutoConfig {
     pub mode: OSLocationMode,
     pub standard_config: StandardLocationConfig,
@@ -177,68 +205,8 @@ impl Default for AutoConfig {
 
 /// Possible location modes that can actually be set. UserConfig is
 /// user-facing, while this is OS-facing
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub enum OSLocationMode {
     Standard,
     SignificantChanges,
-}
-
-// displayability
-
-static ACCURACY_MODE_STRINGS: [(LocationAccuracyMode, &str); 5] = [
-    (LocationAccuracyMode::Best, "Best"),
-    (LocationAccuracyMode::TenMeters, "10 m"),
-    (LocationAccuracyMode::HundredMeters, "100 m"),
-    (LocationAccuracyMode::Kilometer, "1 km"),
-    (LocationAccuracyMode::ThreeKilometers, "3 km"),
-];
-
-impl fmt::Display for LocationAccuracyMode {
-    /// Allows us to use `.to_string()`
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let item = ACCURACY_MODE_STRINGS.iter().find(|x| x.0 == *self).unwrap();
-        write!(f, "{}", item.1)
-    }
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub struct ParseEnumError;
-
-impl std::str::FromStr for LocationAccuracyMode {
-    type Err = ParseEnumError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let item = ACCURACY_MODE_STRINGS
-            .iter()
-            .find(|x| x.1 == s)
-            .ok_or(ParseEnumError)?;
-        Ok(item.0)
-    }
-}
-
-static MODE_STRINGS: [(LocationMode, &str); 4] = [
-    (LocationMode::Auto, "Automatic"),
-    (LocationMode::Reduced, "Reduced"),
-    (LocationMode::SignificantChanges, "Infrequent"),
-    (LocationMode::Standard, "Custom"),
-];
-
-impl fmt::Display for LocationMode {
-    /// Allows us to use `.to_string()`
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let item = MODE_STRINGS.iter().find(|x| x.0 == *self).unwrap();
-        write!(f, "{}", item.1)
-    }
-}
-
-impl std::str::FromStr for LocationMode {
-    type Err = ParseEnumError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let item = MODE_STRINGS
-            .iter()
-            .find(|x| x.1 == s)
-            .ok_or(ParseEnumError)?;
-        Ok(item.0.clone())
-    }
 }

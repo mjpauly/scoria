@@ -7,7 +7,7 @@ use yew::prelude::*;
 use yew_icons::{Icon, IconId};
 use yewdux::prelude::*;
 
-use crate::components::SELECT_STYLE;
+use crate::components::{BouncyScrollContainer, SELECT_STYLE};
 use crate::{
     components::{
         buttons::DoneButton, unit_picker::UnitPicker, BottomNav, TopNav,
@@ -52,28 +52,29 @@ pub fn Intro() -> Html {
                 <div></div>
                 <DoneButton />
             </TopNav>
-            <div class="grow overflow-scroll h-0 w-full \
-                flex flex-col">
-                if *subpage == 1 {
-                    <IntroStart />
-                } else if *subpage == 2 {
-                    <HowItWorks />
-                } else if *subpage == 3 {
-                    <HoldUp />
-                } else if *subpage == 4 {
-                    <SeePrivacyPolicy />
-                } else if *subpage == 5 {
-                    <LoggingMode />
-                } else if *subpage == 6 {
-                    <EnableLocation />
-                } else if *subpage == 7 {
-                    <EnableLocationPartTwo />
-                } else if *subpage == 8 {
-                    <PickUnits />
-                } else if *subpage == 9 {
-                    <IntroFinish />
-                }
-            </div>
+            <BouncyScrollContainer class="flex flex-col">
+                <div class="my-auto py-5">
+                    if *subpage == 1 {
+                        <IntroStart />
+                    } else if *subpage == 2 {
+                        <HowItWorks />
+                    } else if *subpage == 3 {
+                        <HoldUp />
+                    } else if *subpage == 4 {
+                        <SeePrivacyPolicy />
+                    } else if *subpage == 5 {
+                        <LoggingMode />
+                    } else if *subpage == 6 {
+                        <EnableLocation />
+                    } else if *subpage == 7 {
+                        <EnableLocationPartTwo />
+                    } else if *subpage == 8 {
+                        <PickUnits />
+                    } else if *subpage == 9 {
+                        <IntroFinish />
+                    }
+                </div>
+            </BouncyScrollContainer>
             <BottomNav>
                 if *subpage > 1 {
                     <button onclick={prev_page_onclick}
@@ -108,7 +109,7 @@ fn BackupNotice() -> Html {
         swift_poke::poke();
     });
     html! {
-        <div class="my-auto p-5">
+        <>
             <p class="text-primary text-2xl mb-3">
                 {"🛟 Data Backup Recommended"}
             </p>
@@ -138,14 +139,14 @@ fn BackupNotice() -> Html {
                 {"This option is also accessible from the settings."}
             </p>
 
-        </div>
+        </>
     }
 }
 
 #[function_component]
 fn IntroStart() -> Html {
     html! {
-        <div class="my-auto p-5">
+        <>
             <p class="text-primary text-2xl mb-6">
                 {"Introduction"}
             </p>
@@ -160,14 +161,14 @@ fn IntroStart() -> Html {
                 {"🔒 Data is stored only on your device and is not accessible to
                 anyone except you."}
             </p>
-        </div>
+        </>
     }
 }
 
 #[function_component]
 fn HowItWorks() -> Html {
     html! {
-        <div class="my-auto p-5">
+        <>
             <p class="text-primary text-2xl mb-6">
                 {"How it Works"}
             </p>
@@ -180,14 +181,14 @@ fn HowItWorks() -> Html {
             <p class="mb-3">
                 {"🛤️ You can see where you've been, the routes you've taken, time spent at destinations and during travel, and much more. Scoria is an automatic spatial activity journal."}
             </p>
-        </div>
+        </>
     }
 }
 
 #[function_component]
 fn HoldUp() -> Html {
     html! {
-        <div class="my-auto p-5">
+        <>
             <p class="text-primary text-2xl mb-6">
                 {"✋ Hold Up"}
             </p>
@@ -201,14 +202,14 @@ fn HoldUp() -> Html {
                 {"Data logged by the app is kept on your device and is only accessible to you. We don't automatically collect any information about you or how you use the app. We make no assumptions about what data is sensitive and what data isn't. We do not know if you use the app or not, how much you use the app, or if the app crashes while you're using it. (If it crashes, please consider letting us know via the feedback form so we can fix it.) All data is private by default."}
             </p>
 
-        </div>
+        </>
     }
 }
 
 #[function_component]
 fn SeePrivacyPolicy() -> Html {
     html! {
-        <div class="my-auto p-5">
+        <>
             <p class="text-primary text-2xl mb-6">
                 {"The Privacy Policy"}
             </p>
@@ -226,7 +227,7 @@ fn SeePrivacyPolicy() -> Html {
                 {"You can find it anytime from the Settings menu."}
             </p>
 
-        </div>
+        </>
     }
 }
 
@@ -239,7 +240,7 @@ static LOCATION_MODES: [LocationMode; 3] = [
 #[function_component]
 fn LoggingMode() -> Html {
     let dispatch = Dispatch::<FrontState>::new();
-    let config = use_selector(|s: &FrontState| s.location_config.clone());
+    let config = use_selector(|s: &FrontState| s.location_config);
 
     // location mode
     let mode_onchange = {
@@ -270,11 +271,11 @@ fn LoggingMode() -> Html {
                 elem.set_value(&(mode.to_string()));
             },
             // update when these change
-            config.mode.clone(),
+            config.mode,
         )
     };
     html! {
-        <div class="my-auto p-5">
+        <>
             <p class="text-primary text-2xl mb-6">
                 {"Location Logging Mode"}
             </p>
@@ -299,7 +300,7 @@ fn LoggingMode() -> Html {
                     {for mode_options}
                 </select>
             </div>
-        </div>
+        </>
     }
 }
 
@@ -311,7 +312,7 @@ fn EnableLocation() -> Html {
         swift_poke::poke();
     });
     html! {
-        <div class="my-auto p-5">
+        <>
             <p class="text-primary text-2xl mb-3">
                 {"📍 Enabling Location"}
             </p>
@@ -340,14 +341,14 @@ fn EnableLocation() -> Html {
             </div>
             </div>
 
-        </div>
+        </>
     }
 }
 
 #[function_component]
 fn EnableLocationPartTwo() -> Html {
     let dispatch = Dispatch::<FrontState>::new();
-    let config = use_selector(|s: &FrontState| s.location_config.clone());
+    let config = use_selector(|s: &FrontState| s.location_config);
     // enable/disable location
     let enabled_on_click = {
         dispatch.reduce_mut_callback(move |s: &mut FrontState| {
@@ -356,7 +357,7 @@ fn EnableLocationPartTwo() -> Html {
         })
     };
     html! {
-        <div class="my-auto p-5">
+        <>
             <p class="mb-3">
                 {"To log location data in the background when
                 the app is closed, you also need to grant permission to always
@@ -388,26 +389,26 @@ fn EnableLocationPartTwo() -> Html {
             </div>
             </div>
 
-        </div>
+        </>
     }
 }
 
 #[function_component]
 fn PickUnits() -> Html {
     html! {
-        <div class="p-5 my-auto">
+        <>
             <p class="mb-3">
                 {"Finally, select your preferred system of units:"}
             </p>
             <UnitPicker />
-        </div>
+        </>
     }
 }
 
 #[function_component]
 fn IntroFinish() -> Html {
     html! {
-        <div class="my-auto p-5">
+        <>
             <p class="mb-3">
                 {"That's it! You're all set up. ✅"}
             </p>
@@ -418,6 +419,6 @@ fn IntroFinish() -> Html {
             <p class="mb-3">
                 {"Close this page to finish the introduction."}
             </p>
-        </div>
+        </>
     }
 }

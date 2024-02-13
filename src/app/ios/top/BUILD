@@ -4,16 +4,23 @@ load("@build_bazel_rules_swift//swift:swift.bzl", "swift_library")
 
 ios_application(
     name = "Scoria",
-    app_icons = glob(["Resources/Assets.xcassets/AppIcon.appiconset/**"]),
+    app_icons = glob(
+        ["Resources/Assets.xcassets/AppIcon.appiconset/**"],
+        exclude = ["**/.DS_Store"],
+    ),
     bundle_id = "com.aperturebeam.epsilon",
     bundle_name = "Scoria",
-    families = ["iphone"],
+    # optional, since provisioning profile supports the App groups capability,
+    # but redundantly including it helps surface inconsistencies
+    entitlements = "Scoria.entitlements",
+    extensions = ["//src/app/ios/widget"],
+    families = ["iphone", "ipad"],
     infoplists = [":Info.plist"],
     launch_storyboard = "Resources/Launch.storyboard",
     minimum_os_version = "16.0",
     provisioning_profile = select({
-        "//:distribution_profile": "Epsilon_iOS_Distribution.mobileprovision",
-        "//conditions:default": "Epsilon_Internal.mobileprovision",
+        "//:distribution_profile": "Scoria_Distribution.mobileprovision",
+        "//conditions:default": "Scoria_Internal.mobileprovision",
     }),
     version = ":app_version",
     visibility = ["//visibility:public"],
@@ -33,8 +40,9 @@ ios_application(
 # the LAST build number matching "7.5.x"
 apple_bundle_version(
     name = "app_version",
-    build_version = "1.2.10",
-    short_version_string = "1.2",
+    build_version = "1.3.7",
+    short_version_string = "1.3",
+    visibility = ["//src/app/ios:__subpackages__"],
 )
 
 swift_library(

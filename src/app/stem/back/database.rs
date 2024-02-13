@@ -54,18 +54,23 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 use anyhow::Result;
-use common::state::LastAutomapUpdate;
+use common::{
+    filters::{DataStream, Filter, FilterOp},
+    state::LastAutomapUpdate,
+    view_position::LngLatBounds,
+    LngLat, TimeRange,
+};
 use sqlx::{
     migrate::Migrator,
     sqlite::{SqliteConnectOptions, SqliteJournalMode},
-    FromRow, SqlitePool,
+    FromRow, QueryBuilder, Sqlite, SqlitePool,
 };
 use tracing::{error, info};
 
 use crate::app_state::AppState;
 
 // Embed our migrations from "migrations/" into our binary at compile time
-static MIGRATOR: Migrator = sqlx::migrate!();
+pub static MIGRATOR: Migrator = sqlx::migrate!();
 
 /// Struct representation of a Location row in the table
 #[derive(Clone, FromRow, Debug)]
@@ -130,15 +135,27 @@ pub struct OSLocationData {
 impl std::convert::From<OSLocationData> for common::Location {
     fn from(loc: OSLocationData) -> Self {
         let some_if_geq_zero = |val| (val >= 0.0).then_some(val);
+        // Altitude data is only valid if the vertical accuracy is greater than
+        // zero, according to the Apple CLLocation documentation.
+        let altitude_valid = loc.vertical_accuracy > 0.0;
+        let msl_altitude = altitude_valid.then_some(loc.msl_altitude);
+        let ellipsoid_altitude =
+            altitude_valid.then_some(loc.ellipsoid_altitude);
+        let vertical_accuracy = altitude_valid.then_some(loc.vertical_accuracy);
+        // TODO? 2023-11-15: update database to invalidate any altitudes where
+        // the vertical accuracy was <= 0 or NULL. Previously we assumed they
+        // were all valid. 2023-06-26 is when altitude started being logged. A
+        // few points where the altitude was wrong: one at -500m and no vertical
+        // accuracy, and a few points at 0m and no vertical accuracy.
         Self {
             timestamp: time::OffsetDateTime::from_unix_timestamp(loc.timestamp)
                 .unwrap(),
             latitude: loc.latitude,
             longitude: loc.longitude,
             horizontal_accuracy: loc.horizontal_accuracy,
-            msl_altitude: Some(loc.msl_altitude),
-            ellipsoid_altitude: Some(loc.ellipsoid_altitude),
-            vertical_accuracy: some_if_geq_zero(loc.vertical_accuracy),
+            msl_altitude,
+            ellipsoid_altitude,
+            vertical_accuracy,
             story: loc.story_available.then_some(loc.story),
             speed: some_if_geq_zero(loc.speed),
             speed_accuracy: some_if_geq_zero(loc.speed_accuracy),
@@ -164,7 +181,24 @@ pub async fn init_db(db_path: String) -> Result<SqlitePool> {
         .journal_mode(SqliteJournalMode::Wal);
     let conn = SqlitePool::connect_with(opt).await?;
     MIGRATOR.run(&conn).await?;
+    // Set the in-memory cache size to 2Gb (2M kibibytes)
+    if let Err(e) = sqlx::query("PRAGMA cache_size = -2000000;")
+        .execute(&conn)
+        .await
+    {
+        tracing::error!("Failed to set database cache size: {e}");
+    }
     Ok(conn)
+}
+
+/// Lower the database cache size when in the background to 2Mb (2k kibibytes)
+pub async fn reduce_db_cache_size() {
+    if let Err(e) = sqlx::query("PRAGMA cache_size = -2000;")
+        .execute(&get_db_pool())
+        .await
+    {
+        tracing::error!("Failed to reduce database cache size: {e}");
+    }
 }
 
 /// Get a handle for the database pool.
@@ -183,7 +217,7 @@ pub fn get_db_pool() -> SqlitePool {
 /// unused if they involve copying data to a new table.
 pub async fn checkpoint_db() {
     let conn = get_db_pool();
-    if let Err(e) = sqlx::query("VACUUM; PRAGMA wal_checkpoint(FULL);")
+    if let Err(e) = sqlx::query("VACUUM; PRAGMA wal_checkpoint(TRUNCATE);")
         .execute(&conn)
         .await
     {
@@ -234,26 +268,8 @@ pub async fn log_location(loc: OSLocationData) -> Result<()> {
 /// Get the last record in the database
 pub async fn get_last_record() -> Option<common::Location> {
     let conn = get_db_pool();
-
     // compile-time checked query macros are failing to infer the right type,
     // so we use the ordinary unchecked version instead for simplicity.
-    /*
-    let mut result = sqlx::query_as!(
-    Location,
-    r#"SELECT
-    id as "id!",
-    lat as "lat!",
-    lon as "lon!",
-    accuracy as "accuracy!",
-    speed as "speed!",
-    course as "course!",
-    timestamp as "timestamp!: time::OffsetDateTime"
-    FROM location
-    ORDER BY timestamp
-    DESC LIMIT 1"#,
-    )
-    */
-
     match sqlx::query_as::<_, LocationRow>(
         "SELECT * FROM location ORDER BY timestamp DESC LIMIT 1",
     )
@@ -264,30 +280,6 @@ pub async fn get_last_record() -> Option<common::Location> {
         Err(e) => {
             error!("Failed to get last record: {e}");
             None
-        }
-    }
-}
-
-pub async fn get_records_time_range(
-    time_range: &common::TimeRange,
-) -> Vec<common::Location> {
-    let conn = get_db_pool();
-    match sqlx::query_as::<_, LocationRow>(
-        "SELECT * FROM location WHERE timestamp >= (?) AND timestamp <= (?)",
-    )
-    .bind(time_range.start.unix_timestamp())
-    .bind(time_range.end.unix_timestamp())
-    .fetch_all(&conn)
-    .await
-    {
-        Ok(result) => {
-            // .into_iter() goes over the items, transferring ownership
-            // (.iter() would give references)
-            result.into_iter().map(|l| l.into()).collect()
-        }
-        Err(e) => {
-            error!("Failed to get records in time range: {e}");
-            vec![]
         }
     }
 }
@@ -309,7 +301,7 @@ pub async fn get_records_after_with_limit(
     .fetch_all(&conn)
     .await
     {
-        Ok(result) => result.into_iter().map(|l| l.into()).collect(),
+        Ok(result) => to_common_locations(result),
         Err(e) => {
             error!("Failed to get records in time range: {e}");
             vec![]
@@ -509,8 +501,535 @@ impl std::convert::From<LocationRow> for common::Location {
     }
 }
 
+#[derive(Default)]
+pub struct FilteredQuery {
+    start: Option<time::OffsetDateTime>,
+    end: Option<time::OffsetDateTime>,
+    filters: Option<Vec<Filter>>,
+    bounds: Option<LngLatBounds>,
+    // if bounded, whether to get points adjacent to the bounded points
+    get_adjacent: bool,
+    // limit on the number of points to return
+    limit: Option<u64>,
+}
+
+impl<'a> FilteredQuery {
+    pub fn new() -> Self {
+        Self::default() // all None/false
+    }
+
+    pub fn start(mut self, start: time::OffsetDateTime) -> Self {
+        self.start = Some(start);
+        self
+    }
+    pub fn end(mut self, end: time::OffsetDateTime) -> Self {
+        self.end = Some(end);
+        self
+    }
+    pub fn time_range(mut self, time_range: TimeRange) -> Self {
+        self.start = Some(time_range.start);
+        self.end = Some(time_range.end);
+        self
+    }
+    pub fn filters(mut self, filters: Vec<Filter>) -> Self {
+        self.filters = Some(filters);
+        self
+    }
+    /// Set the lnglat bounds for the query
+    pub fn bounds(mut self, bounds: LngLatBounds) -> Self {
+        self.bounds = Some(bounds);
+        self
+    }
+    /// Whether to get the next/previous point just outside the lnglat
+    /// bounds (only works for decimation queries)
+    ///
+    /// Does not affect the decimation factor.
+    pub fn get_adjacent(mut self, get_adjacent: bool) -> Self {
+        self.get_adjacent = get_adjacent;
+        self
+    }
+
+    /// Set the limit on the number of data points returned. This drives the
+    /// decimation factor for decimation queries, and the number of points
+    /// returned for first_n queries.
+    pub fn limit(mut self, limit: u64) -> Self {
+        self.limit = Some(limit);
+        self
+    }
+
+    /// Create a query that counts the number of records inside the view bounds
+    fn count_query(
+        &self,
+        explain_query_plan: bool,
+        decim: i64,
+    ) -> QueryBuilder<'a, Sqlite> {
+        let mut q = new_query(explain_query_plan);
+        q.push("SELECT count(*) FROM location WHERE 1");
+        add_bounds_to_query(&self.bounds, &mut q);
+        add_decim_to_query(decim, &mut q);
+        self.add_basic_filters(&mut q);
+        q
+    }
+
+    /// Create a query that fetches records that are bounded and spaced
+    /// according to the decimation factor.
+    fn bounded_decim_query(
+        &self,
+        explain_query_plan: bool,
+        decim: i64,
+    ) -> QueryBuilder<'a, Sqlite> {
+        let mut q = new_query(explain_query_plan);
+        q.push("SELECT * FROM location WHERE 1");
+        add_bounds_to_query(&self.bounds, &mut q);
+        add_decim_to_query(decim, &mut q);
+        self.add_basic_filters(&mut q);
+        q
+    }
+
+    /// Create a query that fetches a data point before the supplied timestamp
+    fn adjacent_before_query(
+        &self,
+        explain_query_plan: bool,
+        decim: i64,
+        timestamp: i64,
+    ) -> QueryBuilder<'a, Sqlite> {
+        let mut q = new_query(explain_query_plan);
+        q.push("SELECT * FROM location WHERE 1");
+        self.add_basic_filters(&mut q);
+        add_decim_to_query(decim, &mut q);
+        q.push(" AND timestamp < ");
+        q.push_bind(timestamp);
+        q.push(" ORDER BY timestamp DESC LIMIT 1");
+        q
+    }
+
+    /// Create a query that fetches a data point after the supplied timestamp
+    fn adjacent_after_query(
+        &self,
+        explain_query_plan: bool,
+        decim: i64,
+        timestamp: i64,
+    ) -> QueryBuilder<'a, Sqlite> {
+        let mut q = new_query(explain_query_plan);
+        q.push("SELECT * FROM location WHERE 1");
+        self.add_basic_filters(&mut q);
+        add_decim_to_query(decim, &mut q);
+        q.push(" AND timestamp > ");
+        q.push_bind(timestamp);
+        q.push(" ORDER BY timestamp ASC LIMIT 1");
+        q
+    }
+
+    /// Add the simpler filters to the query that don't require special
+    /// consideration. (Time and user-defined filters)
+    fn add_basic_filters(&self, q: &mut QueryBuilder<Sqlite>) {
+        add_start_time_to_query(&self.start, q);
+        add_end_time_to_query(&self.end, q);
+        add_filters_to_query(&self.filters, q);
+    }
+
+    /// Count the number of points in the visible region, and use that to
+    /// calculate the decimation factor for the query. The count is sped up by
+    /// sampling every 10th point, then multiplying this count by 10. (Speeds up
+    /// 330 ms -> 120 ms.)
+    async fn fetch_decim(&self, conn: &SqlitePool) -> i64 {
+        let factor = 10;
+        let mut q = self.count_query(false, factor);
+        let query_as = q.build_query_as::<CountResult>();
+
+        // let before = std::time::Instant::now();
+        let reduced_count = query_as.fetch_one(conn).await.unwrap().0;
+        // println!("count query took: {:.6?}\n", before.elapsed());
+
+        // Since we decimate this count, we need to make sure the it's not 0
+        let count = reduced_count.max(1) * factor;
+        let thresh = self.limit.unwrap_or(10000) as i64;
+        (count + thresh - 1) / thresh
+    }
+
+    /// Fetch the points in the bounded region
+    async fn fetch_bounded(
+        &self,
+        conn: &SqlitePool,
+        decim: i64,
+    ) -> Vec<LocationRow> {
+        let mut q = self.bounded_decim_query(false, decim);
+        let query_as = q.build_query_as::<LocationRow>();
+        // let before = std::time::Instant::now();
+        let mut bounded_recs = query_as.fetch_all(conn).await.unwrap();
+        // println!("bounded query took: {:.6?}\n", before.elapsed());
+
+        // Use Rust's timsort-like alg to quickly sort the mostly sorted result
+        bounded_recs
+            .sort_by(|ra, rb| ra.timestamp.partial_cmp(&rb.timestamp).unwrap());
+
+        bounded_recs
+    }
+
+    /// Fetch the points adjacent to the bounded region.
+    async fn fetch_adjacent(
+        &self,
+        conn: &SqlitePool,
+        decim: i64,
+        mut recs: Vec<LocationRow>,
+    ) -> Vec<LocationRow> {
+        // let before = std::time::Instant::now();
+        let mut new_recs = vec![]; // (index to insert, rec)
+        for (i, rec) in recs.iter().enumerate() {
+            let mut fetch_before = true;
+            let mut fetch_after = true;
+            // check if the before and after records are offset by decim. if
+            // they are, we can skip fetching adjacent points in that direction.
+            if i > 0 {
+                let before = &recs[i - 1];
+                if before.id + decim == rec.id {
+                    fetch_before = false;
+                }
+            }
+            if i < recs.len() - 1 {
+                let after = &recs[i + 1];
+                if rec.id + decim == after.id {
+                    fetch_after = false;
+                }
+            }
+            let should_push_new_rec = |new_rec: &LocationRow, idx, before| {
+                // check existing records to see if we fetched a duplicate
+                if (i != 0 && before) || (i != recs.len() - 1 && !before) {
+                    let already_there_idx =
+                        if before { idx - 1 } else { idx + 1 };
+                    if let Some(already_there) = recs.get(already_there_idx) {
+                        let already_there: &LocationRow = already_there;
+                        if already_there.id == new_rec.id {
+                            return false; // duplicate, don't push
+                        }
+                    }
+                }
+                true
+            };
+            if fetch_before {
+                let mut q =
+                    self.adjacent_before_query(false, decim, rec.timestamp);
+                let query_as = q.build_query_as::<LocationRow>();
+                let mut maybe_new = query_as.fetch_all(conn).await.unwrap();
+                if let Some(new_rec) = maybe_new.pop() {
+                    if should_push_new_rec(&new_rec, i, true) {
+                        new_recs.push((i, new_rec));
+                    }
+                }
+            }
+            if fetch_after {
+                let mut q =
+                    self.adjacent_after_query(false, decim, rec.timestamp);
+                let query_as = q.build_query_as::<LocationRow>();
+                let mut maybe_new = query_as.fetch_all(conn).await.unwrap();
+                if let Some(new_rec) = maybe_new.pop() {
+                    if should_push_new_rec(&new_rec, i, false) {
+                        new_recs.push((i + 1, new_rec));
+                    }
+                }
+            }
+        }
+        // println!("adjacent took: {:.6?}", before.elapsed());
+        // insert the new data into the sorted array
+        let mut offset = 0;
+        for (insert_idx, new_rec) in new_recs.into_iter() {
+            if insert_idx > 0 {
+                if let Some(before) = recs.get(insert_idx + offset - 1) {
+                    if before.id == new_rec.id {
+                        // The backwards adjacent point is the same as the
+                        // previous bounded point's forward adjacent point ->
+                        // don't duplicate
+                        continue;
+                    }
+                }
+            }
+            recs.insert(insert_idx + offset, new_rec);
+            offset += 1;
+        }
+        recs
+    }
+
+    /// Fetch points while decimating to keep under the limit
+    pub async fn fetch_decimated_with_db(
+        &self,
+        conn: &SqlitePool,
+    ) -> Vec<common::Location> {
+        let decim = self.fetch_decim(conn).await;
+        let mut recs = self.fetch_bounded(conn, decim).await;
+        if self.bounds.is_some() && self.get_adjacent {
+            recs = self.fetch_adjacent(conn, decim, recs).await;
+        }
+        to_common_locations(recs)
+    }
+
+    pub async fn fetch_decimated(&self) -> Vec<common::Location> {
+        self.fetch_decimated_with_db(&get_db_pool()).await
+    }
+
+    fn first_n_query(
+        &self,
+        explain_query_plan: bool,
+    ) -> QueryBuilder<'a, Sqlite> {
+        let mut q = new_query(explain_query_plan);
+        q.push("SELECT * FROM location WHERE 1");
+        add_bounds_to_query(&self.bounds, &mut q);
+        self.add_basic_filters(&mut q);
+        q.push(" ORDER BY timestamp ASC LIMIT ");
+        q.push_bind(self.limit.unwrap_or(10000) as i64);
+        q
+    }
+
+    pub async fn fetch_first_n(&self) -> Vec<common::Location> {
+        let mut q = self.first_n_query(false);
+        let query_as = q.build_query_as::<LocationRow>();
+        let recs = query_as.fetch_all(&get_db_pool()).await.unwrap();
+        to_common_locations(recs)
+    }
+
+    /// Determine the LngLatBounds that encompass the data, ignoring any lnglat
+    /// bounding. Consumes self. Assumes decimation.
+    fn get_bounds_query(
+        &self,
+        explain_query_plan: bool,
+    ) -> QueryBuilder<'a, Sqlite> {
+        let mut q = new_query(explain_query_plan);
+        q.push(
+            "SELECT MIN(longitude), MIN(latitude),
+                    MAX(longitude), MAX(latitude)
+                FROM location WHERE 1",
+        );
+        add_bounds_to_query(&self.bounds, &mut q);
+        self.add_basic_filters(&mut q);
+        q
+    }
+
+    pub async fn fetch_bounds(&self) -> Option<LngLatBounds> {
+        let mut q = self.get_bounds_query(false);
+        let query_as = q.build_query_as::<LngLatBoundsResult>();
+        match query_as.fetch_one(&get_db_pool()).await {
+            Ok(res) => Some(LngLatBounds {
+                sw: LngLat {
+                    lng: res.0,
+                    lat: res.1,
+                },
+                ne: LngLat {
+                    lng: res.2,
+                    lat: res.3,
+                },
+            }),
+            Err(e) => {
+                error!("Failed to get bounds for filtered query: {e}");
+                None
+            }
+        }
+    }
+}
+
+#[derive(FromRow)]
+struct LngLatBoundsResult(f64, f64, f64, f64);
+
+fn to_common_locations(recs: Vec<LocationRow>) -> Vec<common::Location> {
+    recs.into_iter().map(|l| l.into()).collect()
+}
+
+#[derive(FromRow)]
+struct CountResult(i64);
+
+/// Create a new QueryBuilder, optionally adding EXPLAIN QUERY PLAN to the
+/// beginning so the query can be passed to explain_query().
+fn new_query<'a>(explain_query_plan: bool) -> QueryBuilder<'a, Sqlite> {
+    let mut q: QueryBuilder<Sqlite> = QueryBuilder::new("");
+    if explain_query_plan {
+        q.push("EXPLAIN QUERY PLAN ");
+    }
+    q
+}
+
+/// Take an explainable query and print out the query plan. This is usedful for
+/// debugging slow queries, since it shows what indexes are used.
+#[allow(unused)]
+async fn explain_query(mut q: QueryBuilder<'_, Sqlite>) {
+    let query = q.build_query_as::<ExplainQueryPlan>();
+    let rows = query.fetch_all(&get_db_pool()).await.unwrap();
+    let roots = rows.iter().filter(|x| x.parent == 0);
+    for root in roots {
+        root.print(&rows, "");
+    }
+}
+
+/// A row of the output from EXPLAIN QUERY PLAN
+#[derive(sqlx::FromRow, Debug)]
+struct ExplainQueryPlan {
+    id: i64,
+    parent: i64,
+    #[allow(dead_code)]
+    notused: i64,
+    detail: String,
+}
+
+impl ExplainQueryPlan {
+    /// Print the description of the row, then recurse on all children with
+    /// increasing indenting. Children are found by looking at rows in the
+    /// query plan where the parent is equal to self's id.
+    fn print(&self, rows: &Vec<ExplainQueryPlan>, indent: &str) {
+        println!("{indent}{}", self.detail);
+        let children = rows.iter().filter(|x| x.parent == self.id);
+        let new_indent = format!("  {}", indent);
+        for c in children {
+            c.print(rows, &new_indent)
+        }
+    }
+}
+
+/// Add a starting timestamp constraint to a WHERE clause in a QueryBuilder.
+/// Start time is inclusive.
+///
+/// Assumes a condition has already been added to the WHERE clause, as `AND` is
+/// prepended for both the upper and lower bounds on the time filter.
+///
+/// We use likelihood(X, p), to indicate that the timestamp condition X should
+/// not be used for indexing. This way we will default to using the longitude
+/// index. Small p means the condition would be selective, and that an index
+/// should be used. Valid values are in the range [0.0, 1.0].
+fn add_start_time_to_query(
+    start_time: &Option<time::OffsetDateTime>,
+    query: &mut QueryBuilder<Sqlite>,
+) {
+    if let Some(start) = start_time {
+        query.push(" AND likelihood(timestamp >= ");
+        query.push_bind(start.unix_timestamp());
+        query.push(", 1.0)");
+    }
+}
+
+/// Add a ending timestamp constraint to a WHERE clause that already has a
+/// condition. End time is exclusive.
+fn add_end_time_to_query(
+    end_time: &Option<time::OffsetDateTime>,
+    query: &mut QueryBuilder<Sqlite>,
+) {
+    if let Some(end) = end_time {
+        query.push(" AND likelihood(timestamp < ");
+        query.push_bind(end.unix_timestamp());
+        query.push(", 1.0)");
+    }
+}
+
+/// Adds a filter condition to a SQL query. The WHERE clause must already have a
+/// condition.
+fn add_filters_to_query(
+    filters: &Option<Vec<Filter>>,
+    query: &mut QueryBuilder<Sqlite>,
+) {
+    if let Some(filters) = filters {
+        for filter in filters {
+            if filter.enabled {
+                query.push(
+                    "
+                AND ",
+                );
+                query.push(stream_column_name(filter));
+                query.push(" ");
+                query.push(op_to_sql(filter));
+                query.push(" ");
+                query.push_bind(filter.threshold);
+            }
+        }
+    }
+}
+
+/// Add a decimation condition to a query.
+fn add_decim_to_query(decim: i64, q: &mut QueryBuilder<Sqlite>) {
+    q.push(" AND id % ");
+    q.push_bind(decim);
+    q.push(" == 0 ");
+}
+
+/// Adds lnglat bound conditions to a SQL query.
+///
+/// LngLatBounds can "spill over" onto the next left/right map alias if the view
+/// includes the antimeridian. This means the bounds can be beyond [-180, 180]
+fn add_bounds_to_query(
+    bounds: &Option<LngLatBounds>,
+    q: &mut QueryBuilder<Sqlite>,
+) {
+    if let Some(bounds) = bounds {
+        q.push(" AND latitude >= ");
+        q.push_bind(bounds.sw.lat);
+        q.push(
+            "
+                AND latitude <= ",
+        );
+        q.push_bind(bounds.ne.lat);
+        // whether to create an alias at +/-360 degrees
+        let alias_positive = bounds.sw.lng < -180.;
+        let alias_negative = bounds.ne.lng > 180.;
+        if alias_negative && alias_positive {
+            // if we're aliasing on both sides, that means the full lng width
+            // of the map is visible and we don't need to have any lng bounds
+            return;
+        }
+        q.push(
+            "
+                AND (",
+        );
+        let add_lng_bounds =
+            |low: f64, high: f64, q: &mut QueryBuilder<Sqlite>| {
+                q.push("(longitude >= ");
+                q.push_bind(low);
+                q.push(" AND longitude <= ");
+                q.push_bind(high);
+                q.push(")");
+            };
+        add_lng_bounds(bounds.sw.lng, bounds.ne.lng, q);
+        if alias_positive {
+            q.push(
+                "
+                   OR ",
+            );
+            add_lng_bounds(bounds.sw.lng + 360., bounds.ne.lng + 360., q);
+        }
+        if alias_negative {
+            q.push(
+                "
+                   OR ",
+            );
+            add_lng_bounds(bounds.sw.lng - 360., bounds.ne.lng - 360., q);
+        }
+        q.push(")");
+    }
+}
+
+/// INVERTS the condition, since we have filters *hide* data where true.
+fn op_to_sql(filter: &Filter) -> &str {
+    match filter.op {
+        FilterOp::GreaterThan => "<=",
+        FilterOp::LessThan => ">=",
+        FilterOp::GreatherThanOrEq => "<",
+        FilterOp::LessThanOrEq => ">",
+        FilterOp::IsEq => "!=",
+        FilterOp::IsNotEq => "==",
+    }
+}
+
+/// Retrieves the column name given a variant of the DataStream enum.
+fn stream_column_name(filter: &Filter) -> &str {
+    match filter.datastream {
+        DataStream::Lat => "latitude",
+        DataStream::Lon => "longitude",
+        DataStream::HorizAccuracy => "horizontal_accuracy",
+        DataStream::Altitude => "msl_altitude",
+        DataStream::VertAccuracy => "vertical_accuracy",
+        DataStream::Story => "story",
+        DataStream::Speed => "speed",
+        DataStream::SpeedAccuracy => "speed_accuracy",
+        DataStream::Course => "course",
+        DataStream::CourseAccuracy => "course_accuracy",
+    }
+}
+
 #[cfg(test)]
-mod tests {
+pub mod tests {
     use crate::map::automap::{get_last_automap_update, update_automap};
     use crate::{local::test_setup, paths::get_documents_dir};
 
@@ -522,8 +1041,9 @@ mod tests {
         get_db_pool();
     }
 
-    /// Generate location data that is different for each idx
-    fn get_test_data(idx: usize) -> OSLocationData {
+    /// Generate location data that is different for each idx. SQLite will start
+    /// database ids at 1.
+    pub fn get_test_data(idx: usize) -> OSLocationData {
         OSLocationData {
             timestamp: idx as i64 * 5,
             latitude: idx as f64,
@@ -545,6 +1065,80 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_bounded_query() {
+        test_setup("test_bounded_query/").await;
+        let mut recs = vec![];
+        for i in 0..10 {
+            recs.push(get_test_data(i));
+            log_location(recs[i].clone()).await.unwrap();
+        }
+        let bounds = LngLatBounds {
+            sw: LngLat {
+                lng: -10.,
+                lat: -5.,
+            },
+            ne: LngLat { lng: 5.5, lat: 5.5 },
+        };
+        let records = FilteredQuery::new()
+            .bounds(bounds)
+            .limit(10000)
+            .fetch_decimated()
+            .await;
+        assert_eq!(records.len(), 6);
+
+        let records = FilteredQuery::new()
+            .bounds(bounds)
+            .get_adjacent(true)
+            .limit(10000)
+            .fetch_decimated()
+            .await;
+        assert_eq!(records.len(), 7);
+    }
+
+    #[tokio::test]
+    async fn test_aliased_bounded_query() {
+        test_setup("test_aliased_bounded_query/").await;
+        let lnglats = vec![
+            (170., 0.0),
+            (179., 0.0), // inside
+            (179., 40.0),
+            (-179., 0.0), // inside
+            (-179., 40.0),
+            (-170., 0.0),
+        ];
+        for (i, lnglat) in lnglats.iter().enumerate() {
+            let mut r = get_test_data(i);
+            r.longitude = lnglat.0;
+            r.latitude = lnglat.1;
+            log_location(r).await.unwrap();
+        }
+        let bounds = LngLatBounds {
+            sw: LngLat {
+                lng: 175.,
+                lat: -5.,
+            },
+            ne: LngLat {
+                lng: 185.,
+                lat: 5.5,
+            },
+        };
+        let records = FilteredQuery::new()
+            .bounds(bounds)
+            .limit(10000)
+            .fetch_decimated()
+            .await;
+        assert_eq!(records.len(), 2);
+
+        let records = FilteredQuery::new()
+            .bounds(bounds)
+            .get_adjacent(true)
+            .limit(10000)
+            .fetch_decimated()
+            .await;
+        assert_eq!(records.len(), 5);
+    }
+
+    #[tokio::test]
     async fn test_records_time_range() {
         test_setup("test_records_time_range/").await;
 
@@ -554,8 +1148,12 @@ mod tests {
         let start = time::OffsetDateTime::from_unix_timestamp(3).unwrap();
         let end = time::OffsetDateTime::from_unix_timestamp(7).unwrap();
         // get the first
-        let records =
-            get_records_time_range(&common::TimeRange { start, end }).await;
+        let records = FilteredQuery::new()
+            .start(start)
+            .end(end)
+            .limit(1_000)
+            .fetch_first_n()
+            .await;
         assert_eq!(records.len(), 1);
         // small integer floats can be exactly compared
         assert!(records[0].latitude == 1.0);
@@ -640,8 +1238,12 @@ mod tests {
 
         let start = time::OffsetDateTime::from_unix_timestamp(0).unwrap();
         let end = time::OffsetDateTime::from_unix_timestamp(20).unwrap();
-        let records =
-            get_records_time_range(&common::TimeRange { start, end }).await;
+        let records = FilteredQuery::new()
+            .start(start)
+            .end(end)
+            .limit(1_000)
+            .fetch_first_n()
+            .await;
 
         assert_eq!(records.len(), 3);
         assert_eq!(

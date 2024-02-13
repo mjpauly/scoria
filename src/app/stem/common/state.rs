@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     cmaps::CmapParams,
+    export_options::ExportOptions,
     filters::{DataStream, Filter, FilterOp},
     map_style::MapStyle,
     time_range::TimeDeltaRange,
@@ -39,6 +40,9 @@ where
 // Missing fields are filled in by the struct returned by the default
 #[serde(default)]
 pub struct BackState {
+    #[serde(deserialize_with = "ok_or_default")]
+    pub app_version: String,
+
     #[serde(deserialize_with = "ok_or_default")]
     pub auto_location_config: AutoConfig,
 
@@ -103,11 +107,15 @@ pub struct FrontState {
     // State of partially-filled problem report
     #[serde(deserialize_with = "ok_or_default")]
     pub problem_report: ProblemReport,
+
+    // Export options for GPX, GeoJSON, CSV, etc
+    #[serde(deserialize_with = "ok_or_default")]
+    pub export_opts: ExportOptions,
 }
 
 /// The page the frontend is on. Only variants that we care to persist between
 /// launches are stored.
-#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub enum PersistedRoute {
     #[default]
     Sense,
@@ -118,13 +126,14 @@ pub enum PersistedRoute {
 }
 
 /// The settings page the frontend is on
-#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub enum PersistedSettingsRoute {
     #[default]
     Root,
     General,
-    Data,
     MapSettings,
+    Export,
+    Data,
     ReportProblem,
 }
 
@@ -173,7 +182,7 @@ pub fn default_accuracy_filter() -> Vec<Filter> {
     }]
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct LastAutomapUpdate(pub time::OffsetDateTime);
 
 impl Default for LastAutomapUpdate {
@@ -182,7 +191,7 @@ impl Default for LastAutomapUpdate {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct MapCachePreference {
     // max cache size in bytes, beyond which eviction happens.
     pub max_size: u64,

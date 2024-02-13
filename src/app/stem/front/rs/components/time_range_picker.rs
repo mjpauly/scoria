@@ -17,7 +17,7 @@ pub fn TimeRangePicker() -> Html {
     let format = format_description!("[year]-[month]-[day]T[hour]:[minute]");
 
     let dispatch = Dispatch::<FrontState>::new();
-    let time_range = use_selector(|s: &FrontState| s.map.time_range.clone());
+    let time_range = use_selector(|s: &FrontState| s.map.time_range);
 
     let start_onchange = dispatch.reduce_mut_callback_with(
         move |s: &mut FrontState, e: Event| {

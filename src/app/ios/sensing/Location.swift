@@ -18,11 +18,20 @@ class MyLocationManager: NSObject, CLLocationManagerDelegate, ObservableObject {
         print("Initializing location manager")
     }
     
+    // Determine if the location services are on so that background updates will arrive.
+    // This boolean is used to update the state of lockscreen widgets.
+    func isOn() -> Bool {
+        let authorizedAlways = locationManager.authorizationStatus == .authorizedAlways
+        let userEnabledLocation = get_location_enabled()
+        return authorizedAlways && userEnabledLocation
+    }
+    
     func updateConfig() {
         setLocationEnabled()
         setSignificantChanges()
         setAccuracyMode()
         setDistanceFilter()
+        setActivityType()
     }
     
     func requestPermissions() {
@@ -79,6 +88,12 @@ class MyLocationManager: NSObject, CLLocationManagerDelegate, ObservableObject {
         }
         //print_and_log(s: "setting accuracy to \(converted)")
         locationManager.desiredAccuracy = converted
+    }
+    
+    // The default activity type of "other" often attempts to adhere to roads like when cycling.
+    // "otherNavigation" indicates that movement doesn't necessarily adhere to roads.
+    func setActivityType() {
+        locationManager.activityType = .other
     }
     
     // The locationManager() method of the CLLocationManagerDelegate protocol is called when the location manager receives new location data
@@ -143,7 +158,7 @@ class MyLocationManager: NSObject, CLLocationManagerDelegate, ObservableObject {
         do {
             try await Task.sleep(nanoseconds: 1_000_000_000 * 60) // one minute
         } catch {
-            print_and_log(s: "failed to sleep")
+            print_and_log_error(s: "failed to sleep")
         }
         // let endTime = DispatchTime.now()
         // let elapsedTime = endTime.uptimeNanoseconds - startTime.uptimeNanoseconds

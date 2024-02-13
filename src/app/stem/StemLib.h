@@ -11,8 +11,12 @@ void set_app_dirs(
     const char* documents_dir,
     const char* library_dir,
     const char* temp_dir,
-    const char* bundle_dir
+    const char* bundle_dir,
+    const char* app_version
 );
+
+// log errors
+void log_error(const char*);
 
 // handle app state changes
 
@@ -70,3 +74,4 @@ bool should_request_when_in_use_authorization(void);
 bool should_export_sqlite_log(void);
 bool should_import_sqlite_log(void);
 void import_from_sqlite_log(const char*);
+bool should_export_track(void);

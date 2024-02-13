@@ -7,6 +7,7 @@
 
 import UIKit
 import Sensing
+import WidgetKit
 
 class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
@@ -66,8 +67,13 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // to restore the scene back to its current state.
         //print_and_log(s: "SceneDelegate: sceneDidEnterBackground")
         handle_background()
+        updateWidget(is_on: is_location_on())
     }
 
 
 }
 
+public func updateWidget(is_on: Bool) {
+    UserDefaults(suiteName: "group.com.aperturebeam.epsilon")!.set(is_on, forKey: "location_on")
+    WidgetCenter.shared.reloadAllTimelines()
+}

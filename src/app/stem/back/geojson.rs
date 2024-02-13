@@ -1,6 +1,20 @@
 //! Builds the geojson data to plot in maplibre.
+//!
+//! To debug slow queries, use the ExplainQuery created by explain_decimate().
+//! ```
+//! // prints the query and the query plan
+//! database::FilteredQuery::new()
+//!     .time_range(map_state.time_range)
+//!     .filters(map_state.filters.clone())
+//!     .bounds(bounds)
+//!     .get_adjacent(make_lines)
+//!     .explain_decimate(DECIMATION_THRESHOLD)
+//!     .explain()
+//!     .await;
+//! ```
 
 use actix_web::{http::header::ContentType, routes, HttpResponse, Responder};
+use common::view_position::LngLatBounds;
 use geojson::{Feature, FeatureCollection, GeoJson, JsonObject, Value};
 
 use crate::map::coords::TileXYZ;
@@ -8,16 +22,22 @@ use crate::server::no_caching_directives;
 use crate::{app_state::AppState, database, ws_session};
 use common::{
     cmaps,
-    filters::apply_filters,
-    float,
     state::{MapState, PersistedRoute},
     units::UnitPreference,
     LngLat, Location, ToFront,
 };
 
 // The maximum number of data points to put into the geojson. If greater, we
-// decimate (select every nth) by a factor large enough to get under 40k points.
-static DECIMATION_THRESHOLD: usize = 20_000;
+// decimate (select every nth) by a factor large enough to get under 10k points.
+// 10k is a sweet spot for fairly low database query and map render times.
+pub static DECIMATION_THRESHOLD: u64 = 10_000;
+
+/// View window expansion factor for fetching from the database. This factor
+/// expands the width and height by this value. 0.04 -> 4%.
+/// We fetch data points outside the window since points can have some width and
+/// it's nice to not have them suddenly-pop in only when their center is inside
+/// the view window.
+pub const BOUND_EXPANSION: f64 = 0.04;
 
 #[routes]
 #[get("/points.geojson")]
@@ -29,10 +49,10 @@ pub async fn points_geojson_route() -> impl Responder {
         .body(
             AppState::global()
                 .map_data
-                .lock()
-                .unwrap()
                 .points_geojson
-                .to_string(),
+                .lock()
+                .await
+                .clone(),
         )
 }
 
@@ -46,10 +66,10 @@ pub async fn lines_geojson_route() -> impl Responder {
         .body(
             AppState::global()
                 .map_data
-                .lock()
-                .unwrap()
                 .lines_geojson
-                .to_string(),
+                .lock()
+                .await
+                .clone(),
         )
 }
 
@@ -70,6 +90,7 @@ fn feature_collection_from_vec(v: Vec<Feature>) -> FeatureCollection {
 fn map_state_is_different(prev: &MapState, curr: &MapState) -> bool {
     prev.time_range != curr.time_range
         || prev.filters != curr.filters
+        || prev.view_pos != curr.view_pos
         || prev.style.colored_datastream != curr.style.colored_datastream
         // If marker of line size were zero previously, the old geojson may not
         // have the data, so we should update. Going from visibile to not
@@ -86,16 +107,17 @@ fn map_state_is_different(prev: &MapState, curr: &MapState) -> bool {
 /// || (the route is on the analyze tab
 ///     && (there is new data in time range
 ///         || the map state/style is different from before))
-fn should_update_geojson(
+async fn should_update_geojson(
     new_data: Option<Location>,
     foregrounded: bool,
 ) -> Option<MapState> {
     // get the map configuration state
     let app_state = AppState::global();
+    let mut prev_map_data_guard =
+        app_state.map_data.prev_map_state.lock().await;
     let persistent_guard = app_state.persistent.lock().unwrap();
     // the '?' operator returns None if the frontend hasn't been initialized yet
     let map_state = &persistent_guard.front.as_ref()?.map;
-    let mut map_data_guard = app_state.map_data.lock().unwrap();
     // Always update when app is foregrounded since data may have come in while
     // we were in the background. We don't update the geojson in the background
     // since it's costly.
@@ -110,12 +132,22 @@ fn should_update_geojson(
             // No frontend, shouldn't happen if foregrounded
             return None;
         }
-        if let Some(prev_map_state) = &map_data_guard.prev_map_state {
+        if let Some(prev_map_state) = &*prev_map_data_guard {
             let new_data_in_time_range = new_data
+                .as_ref()
                 .map(|l| map_state.time_range.contains(&l.timestamp))
                 .unwrap_or(false);
-            if !new_data_in_time_range
-                && !map_state_is_different(prev_map_state, map_state)
+            let new_data_visible = new_data
+                .map(|l| {
+                    map_state
+                        .view_pos
+                        .bounds
+                        .expand(BOUND_EXPANSION)
+                        .contains(&l.lnglat())
+                })
+                .unwrap_or(false);
+            if !((new_data_in_time_range && new_data_visible)
+                || map_state_is_different(prev_map_state, map_state))
             {
                 // same map state and no new data, don't bother updating
                 return None;
@@ -124,24 +156,8 @@ fn should_update_geojson(
     }
     // -> Should update if we get here <-
     // store the current state as the previous state
-    map_data_guard.prev_map_state = Some(map_state.clone());
+    *prev_map_data_guard = Some(map_state.clone());
     Some(map_state.clone())
-}
-
-/// Downsample the records if the number of points is greater than
-/// DECIMATION_THRESHOLD. Downsamples by a number large enough to get below the
-/// threshold. The number of records output will be between half the threshold
-/// and the threshold.
-fn decimate_records<'a>(records: &'a [&Location]) -> Vec<&'a Location> {
-    if records.len() > DECIMATION_THRESHOLD {
-        let decimation_factor = (records.len() as f64
-            / DECIMATION_THRESHOLD as f64)
-            .ceil() as usize;
-        // remove the second reference with .copied()
-        records.iter().step_by(decimation_factor).copied().collect()
-    } else {
-        records.to_vec()
-    }
 }
 
 /// Build both the points and lines geojson. Doesn't necessarily update; that is
@@ -155,44 +171,81 @@ fn decimate_records<'a>(records: &'a [&Location]) -> Vec<&'a Location> {
 ///
 /// 'foregrounded' indicates if this is triggered when the app is foregrounded
 pub async fn update_geojson(new_data: Option<Location>, foregrounded: bool) {
-    let Some(map_state) = should_update_geojson(new_data, foregrounded) else {
-        return
+    // Allow one task to wait on the update lock, turning away any others that
+    // can't acquire the wait_lock immediately. This ensures there's always an
+    // update that happens after map movement finishes.
+    let app_state = AppState::global();
+    let Ok(_wait_guard) = app_state.map_data.geojson_wait_lock.try_lock() else {
+        return;
     };
+    let _update_guard = app_state.map_data.geojson_update_lock.lock().await;
+    drop(_wait_guard);
+
+    let Some(map_state) = should_update_geojson(new_data, foregrounded).await
+        else {
+            return
+        };
     let colored_datastream = &map_state.style.colored_datastream;
 
-    let raw_records =
-        database::get_records_time_range(&map_state.time_range).await;
-    let filtered_records = apply_filters(&map_state.filters, &raw_records);
-    let records = decimate_records(&filtered_records);
+    // The things that take the longest are the queries (this part, up to
+    // 500ms), and stringifying the geojson, which is about 150ms for 10k pts.
+
+    // point sizes can be large so it's worth expanding the viewport bounds
+    // slightly
+    let bounds = map_state.view_pos.bounds.expand(BOUND_EXPANSION);
     let make_points = map_state.style.marker_size > 0;
     let make_lines = map_state.style.line_size > 0;
-    let offset = map_state.time_range.start.offset();
-    let cmap_params = colored_datastream.get_cmap_params(&records, &offset);
 
-    let app_state = AppState::global();
-    let mut persistent_guard = app_state.persistent.lock().unwrap();
-    if records.is_empty() {
-        persistent_guard.back.data_center = None;
-    } else {
-        persistent_guard.back.data_center = Some(get_view_params(&records));
+    // let before = std::time::Instant::now();
+    let records = database::FilteredQuery::new()
+        .time_range(map_state.time_range)
+        .filters(map_state.filters.clone())
+        .bounds(bounds)
+        // only bother with the performance overhead of getting points adjacent
+        // to the viewbounds if lines are actually drawn
+        .get_adjacent(make_lines)
+        .limit(DECIMATION_THRESHOLD)
+        .fetch_decimated()
+        .await;
+    // tracing::info!("Full query took {:.6?}", before.elapsed());
+
+    // filter out points that are not visible and do not create a line segment
+    // that will be visible when calculating the colormap
+    let mut cmap_records = vec![];
+    for i in 0..records.len() {
+        let should_keep = bounds.contains(&records[i].lnglat())
+            || (i < records.len() - 1
+                && bounds.contains(&records[i + 1].lnglat()));
+        if should_keep {
+            cmap_records.push(&records[i]);
+        }
     }
-    persistent_guard.back.cmap_params = cmap_params.clone();
-    drop(persistent_guard);
-    // Send the new back state (cmap params and data center) to the frontend
-    let maybe_addr = AppState::global().ws_addr.lock().unwrap().clone();
-    if let Some(addr) = maybe_addr {
-        addr.do_send(ws_session::SendState);
+    let offset = map_state.time_range.start.offset();
+    let cmap_params =
+        colored_datastream.get_cmap_params(&cmap_records, &offset);
+
+    {
+        // update the cmap parameters
+        let mut persistent_guard = app_state.persistent.lock().unwrap();
+        persistent_guard.back.cmap_params = cmap_params;
+        ws_session::send_back_state_to_front();
     }
 
     let mut points = Vec::new();
     let mut lines = Vec::new();
     for i in 0..records.len() {
+        // Only make a point if it's within our drawing boundary
+        let make_point = make_points && bounds.contains(&records[i].lnglat());
         // With the lines we index one ahead to get the line endpoint, so we
-        // don't want to make the line on the final record
-        let make_line = make_lines && i < records.len() - 1;
+        // don't want to make the line on the final record. We also only draw
+        // lines where one endpoint is within the drawing boundary.
+        let make_line = make_lines
+            && i < records.len() - 1
+            && (bounds.contains(&records[i].lnglat())
+                || bounds.contains(&records[i + 1].lnglat()));
 
         let properties = if colored_datastream.is_some() {
-            let val = colored_datastream.get_stream(records[i], &offset);
+            let val = colored_datastream.get_stream(&records[i], &offset);
             let color = if let Some(known_val) = val {
                 cmaps::get_data_color(known_val, &cmap_params)
             } else {
@@ -207,7 +260,7 @@ pub async fn update_geojson(new_data: Option<Location>, foregrounded: bool) {
         };
 
         let coord1 = records[i].lnglat();
-        if make_points {
+        if make_point {
             add_point(&coord1, &properties, &mut points);
         }
         if make_line {
@@ -221,14 +274,49 @@ pub async fn update_geojson(new_data: Option<Location>, foregrounded: bool) {
     }
     let points_geojson = GeoJson::from(feature_collection_from_vec(points));
     let lines_geojson = GeoJson::from(feature_collection_from_vec(lines));
-    let mut map_data_guard = app_state.map_data.lock().unwrap();
-    map_data_guard.points_geojson = points_geojson;
-    map_data_guard.lines_geojson = lines_geojson;
-
-    let maybe_addr = AppState::global().ws_addr.lock().unwrap().clone();
-    if let Some(addr) = maybe_addr {
-        addr.do_send(ws_session::MsgToFront(ToFront::GeojsonUpdated));
+    // Stringifying the geojson takes a while, so we create two tasks to do it
+    // concurrently. We also spawn a task to determine the all-data view pos.
+    let points_task = tokio::spawn(update_points_geojson(points_geojson));
+    let lines_task = tokio::spawn(update_lines_geojson(lines_geojson));
+    update_zoom_all_data(&map_state);
+    let (points_handle, lines_handle) = tokio::join!(points_task, lines_task);
+    if let Err(e) = points_handle {
+        tracing::error!("Points task join failure: {e}");
     }
+    if let Err(e) = lines_handle {
+        tracing::error!("Lines task join failure: {e}");
+    }
+    ws_session::send_message_to_front(ToFront::GeojsonUpdated);
+}
+
+async fn update_points_geojson(points_geojson: GeoJson) {
+    let points_geojson = points_geojson.to_string();
+    let app_state = AppState::global();
+    *app_state.map_data.points_geojson.lock().await = points_geojson;
+}
+
+async fn update_lines_geojson(lines_geojson: GeoJson) {
+    let lines_geojson = lines_geojson.to_string();
+    let app_state = AppState::global();
+    *app_state.map_data.lines_geojson.lock().await = lines_geojson;
+}
+
+/// Determine the center and zoom level for the `zoom all data` button and
+/// update the frontend.
+fn update_zoom_all_data(map_state: &MapState) {
+    let time_range = map_state.time_range;
+    let filters = map_state.filters.clone();
+    tokio::spawn(async move {
+        let data_bounds = database::FilteredQuery::new()
+            .time_range(time_range)
+            .filters(filters)
+            .fetch_bounds()
+            .await;
+        let app_state = AppState::global();
+        let mut persistent_guard = app_state.persistent.lock().unwrap();
+        persistent_guard.back.data_center = get_view_params(&data_bounds);
+        ws_session::send_back_state_to_front();
+    });
 }
 
 fn add_point(
@@ -319,39 +407,36 @@ fn cut_and_add_lines(
 }
 
 /// Calculate the center of a map. Does not take the map size into account, so
-/// is overly conservative (zooms further out than needed)
-fn get_view_params(records: &[&common::Location]) -> (LngLat, f64) {
-    if records.is_empty() {
-        return Default::default();
-    }
-    let lats: Vec<_> = records.iter().map(|x| x.latitude).collect();
-    let lons: Vec<_> = records.iter().map(|x| x.longitude).collect();
-    let lat_center = (float::max(&lats) + float::min(&lats)) / 2.;
-    let lon_center = (float::max(&lons) + float::min(&lons)) / 2.;
-    let lat_range = float::max(&lats) - float::min(&lats);
-    let lon_range = float::max(&lons) - float::min(&lons);
-    let lat_zoom = (360. / lat_range * lat_center.to_radians().cos()).log2();
-    let lon_zoom = (360. / lon_range).log2();
-    let zoom = if lat_zoom > lon_zoom {
-        lon_zoom
-    } else {
-        lat_zoom
-    };
-    let mut zoom = zoom - 1.;
-    zoom = zoom.clamp(0., 16.);
-    (
-        LngLat {
-            lng: lon_center,
-            lat: lat_center,
-        },
-        zoom,
-    )
+/// is overly conservative (zooms further out than needed).
+fn get_view_params(bounds: &Option<LngLatBounds>) -> Option<(LngLat, f64)> {
+    bounds.as_ref().map(|b| {
+        let lng_center = (b.ne.lng + b.sw.lng) / 2.;
+        let lat_center = (b.ne.lat + b.sw.lat) / 2.;
+        let lng_range = b.ne.lng - b.sw.lng;
+        let lat_range = b.ne.lat - b.sw.lat;
+        let lat_zoom =
+            (360. / lat_range * lat_center.to_radians().cos()).log2();
+        let lng_zoom = (360. / lng_range).log2();
+        let zoom = if lat_zoom > lng_zoom {
+            lng_zoom
+        } else {
+            lat_zoom
+        };
+        let mut zoom = zoom - 1.;
+        zoom = zoom.clamp(0., 16.);
+        (
+            LngLat {
+                lng: lng_center,
+                lat: lat_center,
+            },
+            zoom,
+        )
+    })
 }
 
 /// Get the popup text for a click at a given location. Also takes the point's
 /// color if it exists. Returns the location to put the popup, the text,
 /// and the desired color of the popup's background
-// TODO: ignore data points not in view
 pub async fn get_popup_text(
     lnglat: LngLat,
     data_color: Option<String>,
@@ -360,11 +445,17 @@ pub async fn get_popup_text(
         let state = AppState::global();
         let persistent = state.persistent.lock().unwrap();
         let front = persistent.front.as_ref().unwrap();
-        (front.map.clone(), front.unit_pref.clone())
+        (front.map.clone(), front.unit_pref)
     };
-    let raw_records =
-        database::get_records_time_range(&map_state.time_range).await;
-    let records = apply_filters(&map_state.filters, &raw_records);
+
+    // use the bound expansion so the decimation is identical
+    let records = database::FilteredQuery::new()
+        .time_range(map_state.time_range)
+        .filters(map_state.filters.clone())
+        .bounds(map_state.view_pos.bounds.expand(BOUND_EXPANSION))
+        .limit(DECIMATION_THRESHOLD)
+        .fetch_decimated()
+        .await;
 
     let local_offset = map_state.time_range.start.offset();
 

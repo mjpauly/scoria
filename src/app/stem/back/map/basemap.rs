@@ -371,7 +371,7 @@ pub async fn evict_old_map_data() {
         .unwrap()
         .front
         .as_ref()
-        .map(|f| f.map_cache_pref.clone())
+        .map(|f| f.map_cache_pref)
         .unwrap_or_default();
     let mut files = vec![];
     for entry in WalkDir::new(dir).into_iter().filter_map(|e| e.ok()) {

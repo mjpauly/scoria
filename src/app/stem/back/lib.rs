@@ -15,6 +15,7 @@
 pub mod app_state; // backend state storage
 pub mod core; // high-level app logic that spans multiple modules
 pub mod database; // manages the SQLite database
+pub mod export; // export data to common geo data file formats
 pub mod geojson; // construct the data to display in the frontend
 pub mod location_config; // location logging configuration
 pub mod logs;
@@ -43,6 +44,7 @@ pub extern "C" fn set_app_dirs(
     library_dir: *const c_char,
     temp_dir: *const c_char,
     bundle_dir: *const c_char,
+    app_version: *const c_char,
 ) {
     let paths_to_set = paths::Paths {
         documents_dir: PathBuf::from(cstr_to_string(documents_dir)),
@@ -50,7 +52,9 @@ pub extern "C" fn set_app_dirs(
         temp_dir: PathBuf::from(cstr_to_string(temp_dir)),
         bundle_dir: PathBuf::from(cstr_to_string(bundle_dir)),
     };
-    runtime::get_runtime().block_on(async { init(paths_to_set).await })
+    let app_version = cstr_to_string(app_version);
+    runtime::get_runtime()
+        .block_on(async { init(paths_to_set, app_version).await })
 }
 
 /// Convert a const char* reference from C into an owned Rust String.
@@ -61,7 +65,7 @@ fn cstr_to_string(cstr: *const c_char) -> String {
 
 /// Top app level initialization. Does not start the UI server yet; that is done
 /// when the app enters the foreground and calls `handle_enter_foreground`.
-pub async fn init(init_paths: paths::Paths) {
+pub async fn init(init_paths: paths::Paths, app_version: String) {
     // initialize the tracing infrastructure here, since it's universal to dev
     // and release (this belies how our stem "library" acts in like a binary)
     let subscriber = logs::get_subscriber(&init_paths);
@@ -72,10 +76,18 @@ pub async fn init(init_paths: paths::Paths) {
     let db = database::init_db(paths::get_db_path_helper(&init_paths))
         .await
         .unwrap();
-    app_state::AppState::init(init_paths, db);
+    app_state::AppState::init(init_paths, app_version, db);
     // vacuum and checkpoint the database at startup, so it shrinks to size
     database::checkpoint_db().await;
     tracing::info!("===== App Startup =====");
+}
+
+/// Error logging and handling is handled with tracing, so we have the app
+/// wrapper pass any error strings to Stem to be logged.
+#[no_mangle]
+pub extern "C" fn log_error(msg: *const c_char) {
+    let msg = cstr_to_string(msg);
+    tracing::error!("Swift error: {}", msg);
 }
 
 /// Handle shutdown of the app by saving certain persistent state elements to
@@ -117,6 +129,7 @@ pub extern "C" fn handle_enter_background() {
     tracing::info!("App Backgrounded");
     runtime::get_runtime().block_on(async {
         server::shutdown().await;
+        database::reduce_db_cache_size().await;
     });
     // save the app state to file
     app_state::AppState::save_to_file();
@@ -167,11 +180,13 @@ pub extern "C" fn should_export_sqlite_log() -> bool {
     let should_export = guard.should_export_sqlite_log;
     // unset the setting if it was true
     guard.should_export_sqlite_log = false;
-    // Checkpoint the database so all outstanding transactions move from the WAL
-    // file to the database
-    runtime::get_runtime().block_on(async {
-        database::checkpoint_db().await;
-    });
+    if should_export {
+        // Checkpoint the database so all outstanding transactions move from the
+        // WAL file to the database
+        runtime::get_runtime().block_on(async {
+            database::checkpoint_db().await;
+        });
+    }
     should_export
     // drop the lock guard
 }
@@ -204,6 +219,16 @@ pub extern "C" fn should_request_when_in_use_authorization() -> bool {
     should_request
 }
 
+/// Tell swift to share the generated track_export.{ext} track in a share sheet
+#[no_mangle]
+pub extern "C" fn should_export_track() -> bool {
+    let state = app_state::AppState::global();
+    let mut guard = state.swift_messages.lock().unwrap();
+    let should_export = guard.should_export_track;
+    guard.should_export_track = false;
+    should_export
+}
+
 /// Unit tests for the top-level library interface.
 #[cfg(test)]
 pub mod tests {
@@ -225,12 +250,14 @@ pub mod tests {
             .iter()
             .map(|s| CString::new(&*s.to_string_lossy()).unwrap())
             .collect();
+        let version = CString::new("test").unwrap();
         // call the C-facing set_app_dirs function
         super::set_app_dirs(
             cstrings[0].as_ptr(),
             cstrings[1].as_ptr(),
             cstrings[2].as_ptr(),
             cstrings[3].as_ptr(),
+            version.as_ptr(),
         );
         // test that we can now get the Documents directory as expected
         assert_eq!(super::paths::get_documents_dir(), paths.documents_dir);
@@ -259,7 +286,7 @@ pub mod local {
     /// caller knows this already so we just return the port.
     pub async fn local_setup(dir: &str, port: u16) -> u16 {
         let paths = local_fs_setup(dir);
-        init(paths).await;
+        init(paths, "1.test.0".into()).await;
         server::run(port, false).await.port
     }
 
@@ -270,9 +297,17 @@ pub mod local {
     /// stem/db/data.db.
     /// Returns the actual port used to the caller.
     pub async fn local_setup_with_dev_db(dir: &str, port: u16) -> u16 {
-        let paths = local_fs_setup(dir);
+        // save the previous state to a temp file, then put it back, ignoring
+        // any errors with `let _ =`
+        let state_file =
+            PathBuf::from(dir).join("Library/persistent_state.json");
+        let tmp_file = "persistent_state.json";
+        let _ = std::fs::copy(&state_file, tmp_file);
+        let paths = local_fs_setup(dir); // this clears the previous contents
+        let _ = std::fs::copy(tmp_file, &state_file);
+        let _ = std::fs::remove_file(tmp_file);
         copy_dev_db(paths.documents_dir.clone());
-        init(paths).await;
+        init(paths, "1.test.0".into()).await;
         server::run(port, false).await.port
     }
 

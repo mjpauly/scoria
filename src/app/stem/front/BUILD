@@ -45,6 +45,7 @@ rust_library(
     compile_data = ["//:secrets"],
     crate_features = select({ # crate features used to select desired api keys
         "//:distribution_profile": ["distribution_key"],
+        "//:autoreload_on": ["dev_autoreload"],
         "//conditions:default": [],
     }),
     proc_macro_deps = [
@@ -53,11 +54,13 @@ rust_library(
     deps = [
         "//src/app/stem:common",
         "@stem_crate_index//:humantime",
+        "@stem_crate_index//:itertools",
         "@stem_crate_index//:js-sys",
         "@stem_crate_index//:obfstr",
         "@stem_crate_index//:plotly",
         "@stem_crate_index//:serde_json",
         "@stem_crate_index//:serde-wasm-bindgen",
+        "@stem_crate_index//:strum",
         "@stem_crate_index//:uom",
         "@stem_crate_index//:yew",
         "@stem_crate_index//:yew-hooks",
@@ -82,7 +85,7 @@ rust_library(
 rust_doc(
     name = "front_doc",
     crate = ":front",
-    rustc_flags = ["--document-private-items",],
+    rustdoc_flags = ["--document-private-items",],
 )
 
 genrule(
@@ -91,10 +94,22 @@ genrule(
     outs = ["tailwind.css"],
     cmd = """
 cp $(location tailwind.config.js) .
+
+# We have to tell node where to find the plugin and, since the plugin imports
+# from tailwind, where to find tailwind's code as well. We point node to each
+# of these by adding the node_modules directories to the NODE_PATH envar.
+# For the plugin, we query the plugin's location, then use dirname to go up one
+# level for the node_modules directory.
+# For tailwind, we append the binary path with the right runfiles directory
+export NODE_PATH=$$(dirname $(location @front_npm//:node_modules/tailwindcss-safe-area)):$(location @front_npm//tailwindcss/bin:tailwindcss).runfiles/front_npm/node_modules
+
 $(execpath @front_npm//tailwindcss/bin:tailwindcss) -i $(location styles.css) \
         -o $@
 """,
-    tools = ["@front_npm//tailwindcss/bin:tailwindcss"],
+    tools = [
+        "@front_npm//tailwindcss/bin:tailwindcss",
+        "@front_npm//:node_modules/tailwindcss-safe-area",
+    ],
     visibility = ["//visibility:public"],
 )
 

@@ -3,12 +3,22 @@ import UniformTypeIdentifiers
 
 
 // Ordinary share sheet that shares the file with its existing name
-func shareFile(file: URL, viewController: UIViewController) {
+func shareFile(file: URL, viewController: UIViewController, deleteAfterShare: Bool = false) {
     // Make the activityViewContoller which shows the share-view
     let activityViewController = UIActivityViewController(activityItems: [file], applicationActivities: nil)
 
     // Present the sharing activity view controller
     viewController.present(activityViewController, animated: true, completion: nil)
+    
+    if deleteAfterShare {
+        activityViewController.completionWithItemsHandler = { _, _, _, _ in
+            do {
+                try FileManager.default.removeItem(at: file)
+            } catch {
+                print_and_log_error(s: "Error removing file: \(error)")
+            }
+        }
+    }
 }
 
 // Share sheet which renames the file (as a temporary file) and shares that.
@@ -34,12 +44,12 @@ func shareFileWithDifferentName(originalURL: URL, desiredFilename: String, viewC
             do {
                 try FileManager.default.removeItem(at: temporaryURL)
             } catch {
-                print("Error removing temporary file: \(error)")
+                print_and_log_error(s: "Error removing temporary file: \(error)")
             }
         }
     } catch {
-        print_and_log(s: "Error copying export file: \(error)")
-        print_and_log(s: "Falling back to sharing the unrenamed file.")
+        print_and_log_error(s: "Error copying export file: \(error)")
+        print_and_log_error(s: "Falling back to sharing the unrenamed file.")
         shareFile(file: originalURL, viewController: viewController)
     }
 }

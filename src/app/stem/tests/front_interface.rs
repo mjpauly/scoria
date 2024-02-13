@@ -66,9 +66,8 @@ async fn simple_navigation(
 ) -> Result<(), fantoccini::error::CmdError> {
     sleep(Duration::from_millis(100)).await;
 
-    // Exit the intro (no longer needed now that intro is skipped when
-    // debug_assertions are on, which happens if we compile without opts)
-    // c.find(Locator::Css("#done")).await?.click().await?;
+    // Exit the intro
+    c.find(Locator::Css("#done")).await?.click().await?;
 
     c.find(Locator::Css("#Map")).await?.click().await?;
     assert_url_eq(c, base_url.clone() + "analyze").await;
@@ -108,6 +107,10 @@ async fn location_config_propagates(
         .await?;
 
     let dist_filt_elem = c.find(Locator::Css("#distance_filter")).await?;
+    for _i in 0..10 {
+        // delete contents by sending backspace keys
+        dist_filt_elem.send_keys("\u{e003}").await?;
+    }
     dist_filt_elem.send_keys("4 m").await?;
 
     c.find(Locator::Css("#accuracy_mode"))

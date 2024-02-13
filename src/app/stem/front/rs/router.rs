@@ -39,10 +39,12 @@ pub enum SettingsRoute {
     Root,
     #[at("/settings/general")]
     General,
-    #[at("/settings/data")]
-    Data,
     #[at("/settings/mapsettings")]
     MapSettings,
+    #[at("/settings/export")]
+    Export,
+    #[at("/settings/data")]
+    Data,
     #[at("/settings/reportproblem")]
     ReportProblem,
     #[not_found]
@@ -93,8 +95,9 @@ fn switch_settings(route: SettingsRoute) -> Html {
     match route {
         SettingsRoute::Root => html! { <pages::Settings /> },
         SettingsRoute::General => html! { <pages::General /> },
-        SettingsRoute::Data => html! { <pages::DataSettings /> },
         SettingsRoute::MapSettings => html! { <pages::MapSettings /> },
+        SettingsRoute::Export => html! { <pages::ExportTrack /> },
+        SettingsRoute::Data => html! { <pages::DataSettings /> },
         SettingsRoute::ReportProblem => html! { <pages::ReportProblem /> },
         SettingsRoute::NotFound => html! {
             <Redirect<Route> to={Route::NotFound}/>
@@ -133,8 +136,9 @@ impl SettingsRoute {
         match *r {
             PersistedSettingsRoute::Root => Self::Root,
             PersistedSettingsRoute::General => Self::General,
-            PersistedSettingsRoute::Data => Self::Data,
             PersistedSettingsRoute::MapSettings => Self::MapSettings,
+            PersistedSettingsRoute::Export => Self::Export,
+            PersistedSettingsRoute::Data => Self::Data,
             PersistedSettingsRoute::ReportProblem => Self::ReportProblem,
         }
     }
@@ -143,8 +147,9 @@ impl SettingsRoute {
         match self {
             Self::Root => PersistedSettingsRoute::Root,
             Self::General => PersistedSettingsRoute::General,
-            Self::Data => PersistedSettingsRoute::Data,
             Self::MapSettings => PersistedSettingsRoute::MapSettings,
+            Self::Export => PersistedSettingsRoute::Export,
+            Self::Data => PersistedSettingsRoute::Data,
             Self::ReportProblem => PersistedSettingsRoute::ReportProblem,
             _ => PersistedSettingsRoute::Root,
         }
@@ -157,11 +162,7 @@ pub fn navigate_to_last_page(
     front_state: &Option<common::FrontState>,
     navigator: &yew_router::navigator::Navigator,
 ) {
-    if cfg!(debug_assertions) {
-        // For debug, skip the intro. Also a good spot to change the default
-        // route during development
-        navigator.push(&Route::Sense);
-    } else if let Some(s) = front_state {
+    if let Some(s) = front_state {
         if s.last_viewed_intro_version < INTRO_VERSION {
             // new intro to view -> show intro on startup
             navigator
@@ -193,14 +194,16 @@ pub fn get_scope() -> String {
         .to_string()
 }
 
-/// Retrieve the port from the current url
-pub fn get_port() -> u16 {
+/// Gets the host including the port.
+pub fn get_host() -> String {
     let location = web_sys::window().unwrap().location();
-    location.port().unwrap().parse::<u16>().unwrap()
+    location.host().unwrap()
 }
 
-pub fn get_host() -> String {
-    let port = get_port();
+/// Returns the host with the secret scope key added. Does not include a
+/// protocol.
+pub fn get_scoped_host() -> String {
+    let host = get_host();
     let scope = get_scope();
-    format!("http://127.0.0.1:{port}/{scope}")
+    format!("{host}/{scope}")
 }

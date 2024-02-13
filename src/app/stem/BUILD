@@ -26,7 +26,7 @@ rust_library(
         + static_file_targets,
     rustc_env = static_file_envs,
     rustc_flags = select({ # extra optimizations (stripping must be done later)
-        "//:distribution_profile": ["-C", "lto=y"], # link-time optimization
+        "//:optimized_build": ["-C", "lto=y"], # link-time optimization
         "//conditions:default": [],
     }),
     crate_features = select({
@@ -39,9 +39,12 @@ rust_library(
     deps = [
         ":common",
         ":alloc",
+        "@stem_crate_index//:csv",
         "@stem_crate_index//:geo",
         "@stem_crate_index//:geo-clipper",
         "@stem_crate_index//:geojson",
+        "@stem_crate_index//:gpx",
+        "@stem_crate_index//:itertools",
         "@stem_crate_index//:log-panics",
         "@stem_crate_index//:mvt",
         "@stem_crate_index//:obfstr",
@@ -66,6 +69,7 @@ rust_library(
         "@stem_crate_index//:time",
         "@stem_crate_index//:once_cell",
     ],
+    visibility = [":__subpackages__"],
 )
 
 # definitions common to both the frontend and the backend
@@ -75,6 +79,7 @@ rust_library(
     edition = "2021",
     deps = [
         "@stem_crate_index//:serde",
+        "@stem_crate_index//:strum",
         "@stem_crate_index//:time",
         "@stem_crate_index//:uom",
     ],
@@ -165,4 +170,14 @@ objc_library(
 cc_library(
     name = "alloc",
     srcs = ["alloc.cc"],
+)
+
+
+# Exports to subpackages
+
+# dev database, useful for querying against real data
+filegroup(
+    name = "dev_db",
+    srcs = glob(["db/data.db*"]),
+    visibility = [":__subpackages__"],
 )

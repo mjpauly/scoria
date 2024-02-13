@@ -13,6 +13,7 @@ use common::state::{PersistedRoute, PersistedSettingsRoute};
 use tracing::{info, warn};
 
 use crate::database;
+use crate::export::export_selected;
 use crate::geojson::update_geojson;
 use crate::logs::update_last_logged_error;
 use crate::map::automap::update_automap;
@@ -28,6 +29,24 @@ const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
 /// How long before lack of client response causes a timeout
 #[allow(dead_code)]
 const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
+
+pub fn send_back_state_to_front() {
+    send(|addr| addr.do_send(SendState));
+}
+
+pub fn send_message_to_front(msg: ToFront) {
+    send(|addr| addr.do_send(MsgToFront(msg)));
+}
+
+fn send(f: impl FnOnce(actix::Addr<WsSession>)) {
+    // We first want to get the address, NOT in the "if let" scrutinee, since
+    // the lock will be held for the whole if-block, and we won't be able to
+    // await
+    let maybe_addr = AppState::global().ws_addr.lock().unwrap().clone();
+    if let Some(addr) = maybe_addr {
+        f(addr)
+    }
+}
 
 /// Entry point for our websocket route
 pub async fn ws_route(
@@ -85,8 +104,8 @@ impl WsSession {
                 self.send_back_state(ctx);
             }
             ToBack::SetFrontState(val) => {
-                let main_route = val.route.clone();
-                let settings_route = val.settings_route.clone();
+                let main_route = val.route;
+                let settings_route = val.settings_route;
                 AppState::global().persistent.lock().unwrap().front =
                     Some(*val);
                 AppState::save_to_file();
@@ -114,6 +133,9 @@ impl WsSession {
                         };
                     });
                 }
+            }
+            ToBack::ExportTrack => {
+                get_runtime().spawn(async { export_selected().await });
             }
             ToBack::ExportSqliteLog => {
                 AppState::global()

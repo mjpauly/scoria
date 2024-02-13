@@ -10,10 +10,11 @@ use obfstr::obfstr;
 use web_sys::{HtmlInputElement, HtmlTextAreaElement};
 use yewdux::prelude::*;
 
-use crate::components::buttons::DoneButton;
-use crate::components::TOGGLE_SWITCH_STYLE;
+use crate::components::{
+    BouncyScrollContainer, DoneButton, MainSettingsButton,
+};
 use crate::components::{HomeBarSpacer, TopNav};
-use crate::pages::settings::MainSettingsButton;
+use crate::components::{InfoMessage, TOGGLE_SWITCH_STYLE};
 use crate::ui_state::{BackState, FrontState};
 use crate::websocket::WebsocketService;
 
@@ -135,9 +136,7 @@ pub fn ReportProblem() -> Html {
                 <MainSettingsButton />
                 <DoneButton />
             </TopNav>
-            <div
-                class="grow overflow-scroll h-0 px-4 w-full max-w-prose mx-auto"
-            >
+            <BouncyScrollContainer>
                 <h1 class="font-bold text-3xl text-left my-4 px-2">
                     {"Report a Problem"}
                 </h1>
@@ -156,12 +155,7 @@ pub fn ReportProblem() -> Html {
                 if let Some((_, reviewed)) = &*last_error {
                     if !reviewed {
                     // last error not reviewed
-                    <div class="mt-6 bg-neutral-900 rounded-lg px-4">
-                    <div class="flex items-start justify-start py-2">
-                        <Icon
-                            icon_id={IconId::BootstrapExclamationCircle}
-                            class="mt-2 h-4 w-4 text-yellow-500 mr-3"
-                        />
+                    <InfoMessage>
                         <div class="flex flex-col items-start">
                             <span class="text-left">
                                 {"Errors were found in your app log. Please
@@ -169,14 +163,13 @@ pub fn ReportProblem() -> Html {
                                 description is optional in this case."}
                             </span>
                             <button
-                                class="py-1 pr-4 text-primary"
+                                class="py-1 pr-4 text-primary font-bold"
                                 onclick={dismiss_onclick}
                             >
                                 {"Dismiss"}
                             </button>
                         </div>
-                    </div>
-                    </div>
+                    </InfoMessage>
                     }
                 }
 
@@ -276,7 +269,7 @@ pub fn ReportProblem() -> Html {
                 </button>
                 }
 
-            </div>
+            </BouncyScrollContainer>
 
             <HomeBarSpacer />
         </>

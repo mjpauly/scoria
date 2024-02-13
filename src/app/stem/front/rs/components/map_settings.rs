@@ -4,14 +4,39 @@ use uom::fmt::DisplayStyle;
 use uom::si::information;
 use uom::si::u64::*;
 use uom::str::ParseQuantityError;
-use web_sys::HtmlInputElement;
 use yew::prelude::*;
 use yewdux::prelude::*;
 
-use crate::components::TOGGLE_SWITCH_STYLE;
+use crate::components::{
+    AfterCardParagraph, SettingsCard, SettingsCardInput, SettingsCardToggle,
+};
 use crate::ui_state::{BackState, FrontState};
 
 const MIN_CACHE_SIZE: u64 = 10_000_000;
+
+#[function_component]
+pub fn ShowLastLocationSetting() -> Html {
+    let dispatch = Dispatch::<FrontState>::new();
+    let style = use_selector(|s: &FrontState| s.map.style.clone());
+
+    let show_last_location_on_click = {
+        dispatch.reduce_mut_callback(move |s: &mut FrontState| {
+            s.map.style.show_last_location = !s.map.style.show_last_location;
+        })
+    };
+
+    html! {
+        <>
+            <SettingsCard>
+                <SettingsCardToggle
+                    checked={style.show_last_location}
+                    onclick={show_last_location_on_click}
+                    text={"Show Last Location"}
+                />
+            </SettingsCard>
+        </>
+    }
+}
 
 #[function_component]
 pub fn AutomapSetting() -> Html {
@@ -34,32 +59,23 @@ pub fn AutomapSetting() -> Html {
 
     html! {
         <>
-            // settings card
-            <div class="bg-neutral-900 rounded-lg px-4 mt-2">
-                // settings line
-                <div class="py-2 w-full flex items-center justify-between \
-                    flex-wrap">
-                    <label label="hide_unexplored">
-                        {"Hide Unexplored Area"}
-                    </label>
-                    <div class="relative ml-4 mr-1 h-6">
-                        <input type="checkbox" id="hide_unexplored"
-                            checked={style.automap}
-                            onclick={automap_onclick}
-                            class={TOGGLE_SWITCH_STYLE} />
-                    </div>
-                </div>
-            </div>
-            <p class="text-neutral-500 text-left px-2 pt-1">
+            <SettingsCard>
+                <SettingsCardToggle
+                    checked={style.automap}
+                    onclick={automap_onclick}
+                    text={"Hide Unexplored Area"}
+                />
+            </SettingsCard>
+            <AfterCardParagraph>
                 {"Leaves the map blank where you haven't explored yet. An
                 area is marked as explored if it is within 100 meters of a data
                 point that has a horizontal error better (smaller) than 100
                 meters."}
-            </p>
+            </AfterCardParagraph>
             if style.automap {
-                <p class="text-neutral-500 text-left px-2 pt-1">
+                <AfterCardParagraph>
                     {status_text}
-                </p>
+                </AfterCardParagraph>
             }
         </>
     }
@@ -76,6 +92,7 @@ fn parse_information_to_bytes(val: &str) -> Result<u64, ParseQuantityError> {
     let result =
         Information::from_str(val).map(|x| x.get::<information::byte>());
     if result.is_err() {
+        // Assume MB if it's just a number and retry parsing
         if let Ok(parsed) = val.parse::<f64>() {
             return Ok((parsed * 1_000_000.0).floor() as u64);
         }
@@ -87,23 +104,20 @@ fn parse_information_to_bytes(val: &str) -> Result<u64, ParseQuantityError> {
 pub fn CacheSetting() -> Html {
     let dispatch = Dispatch::<FrontState>::new();
 
-    let cache_pref = use_selector(|s: &FrontState| s.map_cache_pref.clone());
+    let cache_pref = use_selector(|s: &FrontState| s.map_cache_pref);
     let max_cache_size_text = format_bytes_as_megabytes(cache_pref.max_size);
     let max_cache_size_onchange = dispatch.reduce_mut_callback_with(
-        move |s: &mut FrontState, e: Event| {
-            let elem: HtmlInputElement = e.target_dyn_into().unwrap();
-            if let Ok(mut val) = parse_information_to_bytes(&elem.value()) {
+        move |s: &mut FrontState, value: String| {
+            if let Ok(mut val) = parse_information_to_bytes(&value) {
                 // ensure we don't go below the minimum cache size
                 val = val.max(MIN_CACHE_SIZE);
                 s.map_cache_pref.max_size = val;
             }
-            elem.set_value("");
         },
     );
 
     // size of the cache right now
     let curr_cache_size = use_selector(|s: &BackState| s.map_cache_size);
-    // let curr_cache_size_text = format!("Current cache size:
 
     let disable_fetch_onclick = {
         dispatch.reduce_mut_callback(move |s: &mut FrontState| {
@@ -113,60 +127,43 @@ pub fn CacheSetting() -> Html {
 
     html! {
         <>
-            // settings card
-            <div class="bg-neutral-900 rounded-lg px-4 mt-2">
-                // settings line
-                <div class="py-2 w-full flex items-center justify-between \
-                    flex-wrap">
-                    <label for="cache_size">{"Maximum Cache Size"}</label>
-                    <input onchange={max_cache_size_onchange}
-                        id="cache_size"
-                        placeholder={max_cache_size_text}
-                        class="ml-4 w-24 rounded bg-black \
-                        border border-neutral-700 \
-                        placeholder:text-neutral-500" />
-                </div>
-            </div>
-            <p class="text-neutral-500 text-left px-2 pt-1">
+            <SettingsCard>
+                <SettingsCardInput
+                    text="Maximum Cache Size"
+                    value={max_cache_size_text}
+                    onchange={max_cache_size_onchange}
+                    class="w-24"
+                />
+            </SettingsCard>
+            <AfterCardParagraph>
                 {"Maximum amount of map data to cache on-device. Cached data
                 does not need to be fetched from the network, allowing offline
                 access and reduced data use. When the cache size exceeds the
                 maximum, the least recently used data is deleted.
                 100 MB or greater is recommended and 10 MB is the minimum."}
-            </p>
-            <p class="text-neutral-500 text-left px-2 pt-1">
+            </AfterCardParagraph>
+            <AfterCardParagraph>
                 {"Cached data older than seven days is refreshed from the
-                network if the network is available. Map styles are not deleted
-                once cached; only region-specific map data is deleted to keep
-                the cache size within the limit."}
-            </p>
-            <p class="text-neutral-500 text-left px-2 pt-1">
+                network if available."}
+            </AfterCardParagraph>
+            <AfterCardParagraph>
                 {"Current cache size: "}
                 {format_bytes_as_megabytes(*curr_cache_size)}
-            </p>
+            </AfterCardParagraph>
 
-            // settings card
-            <div class="bg-neutral-900 rounded-lg px-4 mt-2">
-                // settings line
-                <div class="py-2 w-full flex items-center justify-between \
-                    flex-wrap">
-                    <label for="disable_fetch">
-                        {"Disable Network Requests"}
-                    </label>
-                    <div class="relative ml-4 mr-1 h-6">
-                        <input type="checkbox" id="disable_fetch"
-                            checked={cache_pref.disable_fetch}
-                            onclick={disable_fetch_onclick}
-                            class={TOGGLE_SWITCH_STYLE} />
-                    </div>
-                </div>
-            </div>
-            <p class="text-neutral-500 text-left px-2 pt-1">
+            <SettingsCard class="mt-4">
+                <SettingsCardToggle
+                    text="Disable Network Requests"
+                    checked={cache_pref.disable_fetch}
+                    onclick={disable_fetch_onclick}
+                />
+            </SettingsCard>
+            <AfterCardParagraph>
                 {"Prevents loading new map data over the internet, making all
                 map data only come from the map cache. Use this to keep the
                 map cache as-is or to prevent unwanted network data use.
                 Map data not found in the cache will appear blank on the map."}
-            </p>
+            </AfterCardParagraph>
 
         </>
     }

@@ -1,14 +1,11 @@
 //! Bindings and data processing for the Maplibre charts.
-//!
-//! TODO: maplibre just stringifies the json sources anyways. Just do this in
-//! backend and link to the geojson source?
 use std::rc::Rc;
 
 use js_sys::{Array, Reflect};
 use serde_json::{json, Value};
 use wasm_bindgen::{prelude::*, JsCast};
 
-use crate::router::get_host;
+use crate::router::get_scoped_host;
 use common::cmaps;
 use common::map_style::{ColoredDataStream, MapStyle, Rgba};
 use common::view_position::ViewPosition;
@@ -20,6 +17,8 @@ extern "C" {
 
     #[wasm_bindgen(constructor, js_namespace = maplibregl, js_name = Map)]
     pub fn new(options: &JsValue) -> Map;
+    #[wasm_bindgen(method)]
+    pub fn remove(this: &Map);
 
     #[wasm_bindgen(method, setter, js_name = showTileBoundaries)]
     pub fn show_tile_boundaries(this: &Map, yes: bool);
@@ -58,6 +57,8 @@ extern "C" {
     pub fn get_bearing(this: &Map) -> f64;
     #[wasm_bindgen(method, js_name = getPitch)]
     pub fn get_pitch(this: &Map) -> f64;
+    #[wasm_bindgen(method, js_name = getBounds)]
+    pub fn get_bounds(this: &Map) -> LngLatBounds;
 
     #[wasm_bindgen(method, js_name = flyTo)]
     pub fn fly_to(this: &Map, options: &JsValue);
@@ -82,6 +83,13 @@ extern "C" {
     #[wasm_bindgen(method, getter)]
     pub fn lat(this: &LngLat) -> f64;
 
+    pub type LngLatBounds;
+
+    #[wasm_bindgen(method, js_name = getSouthWest)]
+    pub fn get_south_west(this: &LngLatBounds) -> LngLat;
+    #[wasm_bindgen(method, js_name = getNorthEast)]
+    pub fn get_north_east(this: &LngLatBounds) -> LngLat;
+
     pub type Popup;
 
     #[wasm_bindgen(constructor, js_namespace = maplibregl, js_name = Popup)]
@@ -102,15 +110,26 @@ static LINES_LAYER_ID: &str = "lines";
 static LINES_SOURCE_URL: &str = "./lines.geojson";
 static UNEXPLORED_SOURCE_ID: &str = "unexplored";
 static UNEXPLORED_LAYER_ID: &str = "unexplored";
+static LAST_LOCATION_SOURCE_ID: &str = "last_location";
+static LAST_LOCATION_LAYER_ID: &str = "last_location";
 
 pub fn view_pos_from_map(map: &Map) -> ViewPosition {
+    let lnglat_convert = |x: &LngLat| common::LngLat {
+        lng: x.lng(),
+        lat: x.lat(),
+    };
     let center = map.get_center();
+    let bounds = map.get_bounds();
+    let bounds = common::view_position::LngLatBounds {
+        sw: lnglat_convert(&bounds.get_south_west()),
+        ne: lnglat_convert(&bounds.get_north_east()),
+    };
     ViewPosition {
-        lng: center.lng(),
-        lat: center.lat(),
+        center: lnglat_convert(&center),
         zoom: map.get_zoom(),
         bearing: map.get_bearing(),
         pitch: map.get_pitch(),
+        bounds,
     }
 }
 
@@ -129,7 +148,7 @@ pub fn new_map(
     let opts = json!({
         "container": plot_id,
         "style": style,
-        "center": [view_position.lng, view_position.lat],
+        "center": [view_position.center.lng, view_position.center.lat],
         "zoom": view_position.zoom,
         "bearing": view_position.bearing,
         "pitch": view_position.pitch,
@@ -171,7 +190,7 @@ pub fn new_map(
         let map = map.clone();
         Box::new(move || on_view_change_callback(view_pos_from_map(&map)))
     };
-    map.on("moveend", &Closure::wrap(on_view_change).into_js_value());
+    map.on("move", &Closure::wrap(on_view_change).into_js_value());
 
     map
 }
@@ -308,7 +327,11 @@ pub fn restyle(map: Rc<Map>, style: &Value) {
 
 /// Modify a serde_json::Value object containing the basemap style to add on
 /// the user data sources and layers.
-pub fn add_source_and_layers_to_style(style: &mut Value, map_style: &MapStyle) {
+pub fn add_source_and_layers_to_style(
+    style: &mut Value,
+    map_style: &MapStyle,
+    last_loc: Option<common::LngLat>,
+) {
     // Sources
     let sources_mut = style["sources"].as_object_mut().unwrap();
     sources_mut.insert(
@@ -319,6 +342,13 @@ pub fn add_source_and_layers_to_style(style: &mut Value, map_style: &MapStyle) {
         LINES_SOURCE_ID.to_string(),
         geojson_source_with_url(LINES_SOURCE_URL),
     );
+    if map_style.show_last_location {
+        // The last location will be added when the map initializes
+        sources_mut.insert(
+            LAST_LOCATION_SOURCE_ID.to_string(),
+            geojson_source_with_value(&geojson_point(last_loc)),
+        );
+    }
     if map_style.automap {
         sources_mut.insert(UNEXPLORED_SOURCE_ID.to_string(), screen_source());
     }
@@ -341,6 +371,9 @@ pub fn add_source_and_layers_to_style(style: &mut Value, map_style: &MapStyle) {
         &map_style.solid_color,
         &map_style.colored_datastream,
     ));
+    if map_style.show_last_location {
+        layers_mut.push(make_last_location_layer());
+    }
 }
 
 fn geojson_source_with_url(url: &str) -> Value {
@@ -351,11 +384,11 @@ fn geojson_source_with_url(url: &str) -> Value {
 }
 
 fn screen_source() -> Value {
-    let host = get_host();
+    let host = get_scoped_host();
     json!({
         "type": "vector",
         "tiles": [
-            format!("{host}/screen/tiles/foo/{{z}}/{{x}}/{{y}}.pbf")
+            format!("http://{host}/screen/tiles/foo/{{z}}/{{x}}/{{y}}.pbf")
         ],
         // max zoom to request tiles from, overzooming if going further in
         "maxzoom": 15,
@@ -468,9 +501,61 @@ fn make_lines_layer(
     })
 }
 
-pub fn fly_to(map: Rc<Map>, lnglat: (f64, f64), zoom: f64) {
+pub fn fly_to(map: Rc<Map>, lnglat: common::LngLat, zoom: f64) {
     map.fly_to(&val_to_jsval(&json!({
-        "center": [lnglat.0, lnglat.1],
+        "center": [lnglat.lng, lnglat.lat],
         "zoom": zoom,
     })));
+}
+
+/// A geojson object containing a single lnglat point
+fn geojson_point(loc: Option<common::LngLat>) -> Value {
+    if let Some(loc) = loc {
+        json!({
+            "type": "FeatureCollection",
+            "features": [{
+                "type": "Feature",
+                "properties": {},
+                "geometry": {
+                     "type": "Point",
+                     "coordinates": [ loc.lng, loc.lat ]
+                }
+            }]
+        })
+    } else {
+        json!({
+            "type": "FeatureCollection",
+            "features": []
+        })
+    }
+}
+
+/// The point that shows the last logged location as a blue circle with a white
+/// ring.
+fn make_last_location_layer() -> Value {
+    json!({
+        "id": LAST_LOCATION_LAYER_ID,
+        "type": "circle",
+        "source": LAST_LOCATION_SOURCE_ID,
+        "paint": {
+            "circle-radius": 5,
+            "circle-color": "#0a84ff",
+            "circle-opacity": 1.,
+            "circle-stroke-width": 3,
+            "circle-stroke-color": "#ffffff",
+            // "circle-stroke-opacity": 1.,
+        }
+    })
+}
+
+pub fn update_last_location(map: Rc<Map>, loc: Option<common::LngLat>) {
+    map.get_source(LAST_LOCATION_SOURCE_ID)
+        .set_data(&val_to_jsval(&geojson_point(loc)));
+}
+
+fn geojson_source_with_value(value: &Value) -> Value {
+    json!({
+        "type": "geojson",
+        "data": value,
+    })
 }

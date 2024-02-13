@@ -18,7 +18,6 @@ use std::sync::{Arc, Mutex};
 
 use actix_web::dev::ServerHandle;
 use common::state::{ok_or_default, MapState};
-use geojson::GeoJson;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
@@ -56,26 +55,34 @@ pub struct AppState {
 
     pub swift_messages: Mutex<SwiftMessages>,
 
-    pub map_data: Mutex<MapData>,
+    pub map_data: MapData,
 }
 
 /// Data to to shown on the map in the analyze tab, and helpers for calculating
 /// it.
 #[derive(Debug)]
 pub struct MapData {
-    // data to plot (gets stringified in the actix route)
-    pub points_geojson: GeoJson,
-    pub lines_geojson: GeoJson,
+    // locks to limit only one task to do update computations and one task to
+    // wait for the previous to finish
+    pub geojson_wait_lock: tokio::sync::Mutex<()>,
+    pub geojson_update_lock: tokio::sync::Mutex<()>,
+    // data to pass to frontend via an actix route
+    pub points_geojson: tokio::sync::Mutex<String>,
+    pub lines_geojson: tokio::sync::Mutex<String>,
     // previous map state to determine if an update is needed
-    pub prev_map_state: Option<MapState>,
+    pub prev_map_state: tokio::sync::Mutex<Option<MapState>>,
 }
 
 impl Default for MapData {
     fn default() -> Self {
         Self {
-            points_geojson: empty_geojson(),
-            lines_geojson: empty_geojson(),
-            prev_map_state: None,
+            geojson_wait_lock: tokio::sync::Mutex::new(()),
+            geojson_update_lock: tokio::sync::Mutex::new(()),
+            points_geojson: tokio::sync::Mutex::new(
+                empty_geojson().to_string(),
+            ),
+            lines_geojson: tokio::sync::Mutex::new(empty_geojson().to_string()),
+            prev_map_state: tokio::sync::Mutex::new(None),
         }
     }
 }
@@ -104,6 +111,7 @@ pub struct SwiftMessages {
     pub should_export_sqlite_log: bool,
     // tell swift to import the SQLite log
     pub should_import_sqlite_log: bool,
+    pub should_export_track: bool,
 }
 
 impl AppState {
@@ -126,22 +134,27 @@ impl AppState {
 
     /// Initialize the AppState
     #[cfg(not(test))]
-    pub fn init(paths: Paths, db: SqlitePool) {
-        Self::do_init(&APP_STATE, paths, db);
+    pub fn init(paths: Paths, app_version: String, db: SqlitePool) {
+        Self::do_init(&APP_STATE, paths, app_version, db);
     }
 
     /// Initialize the AppState
     #[cfg(test)]
-    pub fn init(paths: Paths, db: SqlitePool) {
+    pub fn init(paths: Paths, app_version: String, db: SqlitePool) {
         APP_STATE.with(|state| {
-            Self::do_init(state, paths, db);
+            Self::do_init(state, paths, app_version, db);
         });
     }
 
     /// Actual init implementation shared between both test and non-test cases
-    fn do_init(state: &OnceCell<Arc<AppState>>, paths: Paths, db: SqlitePool) {
+    fn do_init(
+        state: &OnceCell<Arc<AppState>>,
+        paths: Paths,
+        app_version: String,
+        db: SqlitePool,
+    ) {
         let state_file = paths.library_dir.join(STATE_FNAME);
-        let persistent = match fs::read_to_string(state_file) {
+        let mut persistent = match fs::read_to_string(state_file) {
             Ok(input) => match serde_json::from_str(&input) {
                 Ok(parsed) => {
                     #[cfg(extra_debug_logging)]
@@ -173,6 +186,7 @@ impl AppState {
                 PersistentState::default()
             }
         };
+        persistent.back.app_version = app_version; // update app version
         (*state)
             .set(Arc::new(AppState {
                 paths,
@@ -181,7 +195,7 @@ impl AppState {
                 server_handle: tokio::sync::Mutex::new(None),
                 persistent: Mutex::new(persistent),
                 swift_messages: Mutex::new(Default::default()),
-                map_data: Mutex::new(Default::default()),
+                map_data: Default::default(),
             }))
             .expect("Could not initialize AppState");
     }
@@ -234,7 +248,7 @@ mod tests {
         let dir = "state_serialization_works/";
         let paths = local_fs_setup(dir);
         let state_file = paths.library_dir.clone().join(STATE_FNAME);
-        init(paths).await;
+        init(paths, String::default()).await;
 
         // save state to file
         AppState::save_to_file();
@@ -274,7 +288,7 @@ mod tests {
             .unwrap();
         file.write_all(contents.as_bytes()).unwrap();
 
-        init(paths).await;
+        init(paths, String::default()).await;
 
         let parsed = (*AppState::global().persistent.lock().unwrap()).clone();
         assert_eq!(state, parsed);
@@ -300,7 +314,7 @@ mod tests {
             .unwrap();
         file.write_all(contents.as_bytes()).unwrap();
 
-        init(paths).await;
+        init(paths, String::default()).await;
 
         let parsed = (*AppState::global().persistent.lock().unwrap()).clone();
 

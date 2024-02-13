@@ -16,14 +16,10 @@ printf "\nChecking Clippy lints\n\n"
 # extra db_gen so compilation succeeds. Though sometimes this still doesn't fix
 # it, in which case you'll want to run :db_gen from the command line directly.
 bazel run //src/app/stem:db_gen
-bazel build --aspects=@rules_rust//rust:defs.bzl%rust_clippy_aspect --output_groups=clippy_checks //src/app/...
-# need --config=linux_amd64 to build the :image_amd64 target, which isn't
-# perfect, but we do this for now:
-bazel build --aspects=@rules_rust//rust:defs.bzl%rust_clippy_aspect --output_groups=clippy_checks //src/server/... --config=linux_amd64
+bazel build --aspects=@rules_rust//rust:defs.bzl%rust_clippy_aspect --output_groups=clippy_checks //...
 
 printf "\nChecking formatting\n\n"
 
-bazel build --@rules_rust//:rustfmt.toml=//:rustfmt.toml --aspects=@rules_rust//rust:defs.bzl%rustfmt_aspect --output_groups=rustfmt_checks //src/app/...
-bazel build --@rules_rust//:rustfmt.toml=//:rustfmt.toml --aspects=@rules_rust//rust:defs.bzl%rustfmt_aspect --output_groups=rustfmt_checks //src/server/... --config=linux_amd64
+bazel build --@rules_rust//:rustfmt.toml=//:rustfmt.toml --aspects=@rules_rust//rust:defs.bzl%rustfmt_aspect --output_groups=rustfmt_checks //...
 
 printf "\nPrecommit passed ✅\n\n"

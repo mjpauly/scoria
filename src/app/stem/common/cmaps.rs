@@ -2,7 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 
-#[derive(PartialEq, Debug, Default, Clone, Serialize, Deserialize)]
+#[derive(PartialEq, Debug, Default, Copy, Clone, Serialize, Deserialize)]
 pub enum Cmap {
     #[default]
     Plasma,
@@ -25,7 +25,7 @@ impl Cmap {
 /// The set of settings that define how a colormap should be applied to values.
 /// cmin and cmax are the data values at the ends of the colormap. cmap_arr is
 /// a reference to the colormap itself.
-#[derive(PartialEq, Debug, Default, Clone, Serialize, Deserialize)]
+#[derive(PartialEq, Debug, Default, Copy, Clone, Serialize, Deserialize)]
 pub struct CmapParams {
     pub cmin: f64,
     pub cmax: f64,

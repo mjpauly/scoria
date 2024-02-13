@@ -40,7 +40,8 @@ async fn main() -> Result<(), std::io::Error> {
 }
 
 async fn data_generator() {
-    let update_rate: u64 = 1; // seconds between updates
+    // let update_rate: u64 = 1; // seconds between updates
+    let update_rate: u64 = 2; // seconds between updates
     let starting_n = 200;
     // let starting_n = 30;
     // let starting_n = 1;

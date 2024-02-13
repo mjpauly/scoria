@@ -2,25 +2,30 @@
 
 ## To Do
 
+Current: android, pins
+
 - debug-ability
     - [ ] action failure alterts (esp for importing)
     - [ ] have frontend send logs to backend
 - security
-    - [ ] investigate rcgen certificates, extra query parameter frontend key
     - [ ] only allow webView to make network requests to backend
 - features
+    - [ ] self-annotated waypoints, routes, and tracks
+    - [ ] queries/metrics for selected data (distance/time/speed traveled/dwelled, average distanced traveled (mean free path))
     - [ ] what's new section
-    - [ ] release notes
-    - [ ] show latest location
-    - [ ] zoom to current location on first install
-    - [ ] quick time update buttons
-    - [ ] better obfuscating, include\_crypt, etc
-    - [ ] enable running Scoria on iPad and Mac
-- filesystem
+    - [ ] release notes for prior versions
+    - [ ] improve colormap contrast option
+    - [ ] support other activity types in "Custom" location mode
+- bugs
+    - [ ] network timeout too long in airplane mode?
+- housekeeping
     - [ ] switch to Library/Caches for map cache (and cleanup old location)
+- low priority
+    - [ ] quick time update buttons
+    - [ ] enable running Scoria on Mac
+    - [ ] zoom to current location on first install
 - [ ] reset to "today" time range and data-centered view if user is away from
     the app for 1+ hr
-- [ ] export tab on map (csv, maybe image)
 - [ ] notify user when they close the app that keeping it open is required for
     data to be logged
 
@@ -29,9 +34,6 @@
     - [ ] app usage metadata (when app launched, quit, foregrounded, backgrounded)
     - [ ] data viewership (what map data viewed and when)
     - [ ] battery charge (to correlate with location mode) [ref](https://stackoverflow.com/questions/27475506/check-battery-level-ios-swift)
-- [ ] have maps\_ok respond with 204 No Content instead of 404
-- [ ] custom map style that uses more black
-- [ ] arcgis HD satellite maps
 - [ ] follow current location mode on map
 
 - later features
@@ -45,114 +47,6 @@
     - improved map tile api security
         - [ ] generate keys for each new device
         - [ ] or: custom tile server
-
-## Completed
-
-- [x] refactor file tree for extensibility
-- [x] initial barebones yew UI
-- [x] refactor to WebView (storyboard instead of swiftUI base?)
-- [x] build frontend wasm with bazel
-- [x] *reach feature parity with SwiftUI*
-    - [x] wasm artifact building with rules_rust
-    - [x] make navbar buttons bigger
-    - [x] add navbar icons
-    - [x] current location streaming to UI
-    - [x] updates/hr streaming
-    - [x] distance filter configuration
-    - [x] map view with past day's data
-- [x] prevent unwanted scrolling in the WKWebView
-- [x] proper database migrations included in compiled source with `migrate!`
-- [x] OS-assigned server port
-- integration tests
-    - backend only
-        - [x] server health check works
-        - [x] log_location persists data in database
-        - [x] log_location sends new data to the UI
-        - [x] websocket messages behave as expected
-    - backend + frontend
-        - [x] ui interactions produce desired effects (e.g. changing location
-            parameters yields correct values from swift-facing code)
-- map usability / configurability
-    - [x] live map updates
-    - [x] settings hidden by default, can be pulled up
-    - [x] auto zoom and centering
-    - [x] configurable marker color/size, map base layer
-    - [x] marker colormap based on data value
-    - [x] exclude data with x greater/less than x
-- [x] investigate undropped websocket callbacks
-- [x] secrets stored in .env
-- [x] secure the UI from other apps (max 1 connection, random port, authenticate
-        with number passcode)
-- [x] low power modes
-    - [x] reduced accuracy modes
-    - [x] significant changes mode
-- [x] more location diagnostics in sense tab
-- [x] option to enable/disable location recording from within the app
-- [x] disable server on app backgrounding, restart on foregrounding
-- [x] better global UI state with yewdux
-- [x] send location config when sending state from ws_session
-- [x] better checkbox styling, improved location config layout, help tips
-- [x] startup spash page to reduce flicker
-- [x] persists certain app state values across app launches
-- [x] local plotly instead of hitting cdn every app load
-- [x] show data values when clicking on map
-- [x] submit first app to testflight
-- [x] auto location mode (switch between modes based on movement)
-- [x] preserve user zoom/pan/tilt/rotate when restyling plot
-- [x] refactor common code into its own module
-- maplibre
-    - [x] initial investigation
-    - [x] update basemap
-    - [x] re-center button
-    - [x] colorbar
-    - [x] (performance) async map updating on new data
-    - [x] data point popup on click
-    - [x] more clickable data points
-- [x] lines between points
-- [x] fully persist ui state
-- [x] investigate serde default
-- [x] app intoduction/tutorial on first install
-- [x] create geojson in backend, serve via url
-- [x] more persistently cache plotly and maplibre
-- [x] decimate data if more than 50k points
-- [x] ability to export/import log
-- [x] 5m window for going to low accuracy in auto mode
-- [x] all time button
-- [x] persist time delta instead of absolute times
-- [x] time of day colormapping
-- [x] show colormap or not
-- [x] better debug logging
-- [x] Multi-page settings
-- [x] ability to set preferred units
-- [x] prevent horizontal app rotation
-- website
-    - [x] landing/marketing page
-    - [x] privacy policy
-    - [x] feedback/support
-- [x] log: altitude, isProducedByAccessory, and isSimulatedBySoftware;
-    floor, verticalAccuracy, speedAccuracy, courseAccuracy
-- [x] nullable speed and course data
-- [x] rust build for release (use `-c opt`)
-- [x] cargo audit dependencies
-- [x] was\_imported column
-- [x] conditionally compile logging code
-- [x] link to privacy policy and feedback form in app
-- [x] prompt for desired units in introduction (and update introduction)
-- [x] improved startup error handling
-- [x] upgrade maptiler account
-- [x] submit to app store
-- [x] website terms (copyright, liability, App Store trademark notice), link to App Store
-- [x] fix color slider bug by refactoring map code to have everything in the style
-- [x] accessible font sizing for colorbar, attribution
-- [x] custom user agent to restrict api access
-    - [x] also allow only `127.0.0.1` origins
-- website
-    - [x] cross compile website binary
-- [x] automap to occlude unexplored areas
-- [x] fix lines across antimeridian bug
-- [x] native binary stripping
-- [x] ability to submit bug report and export stemlog (log\_panics too)
-    - [x] switch to `tracing`
 
 ## Structure
 
@@ -199,7 +93,12 @@ src
 
 ### Pre-commit checklist
 
-First, verify desired features work in dev with `bazel run //src/app/stem:dev`,
+First, verify desired features work in dev with
+
+```
+RUST_LOG=error,stem=info ibazel run //src/app/stem:dev --//:autoreload=on
+```
+
 then check with the ios app using `bazel run //:iosapp`. Finally, use
 `./precommit.sh` to run tests, lints, and format.
 
@@ -418,8 +317,7 @@ corresponding directory).
 
 ### Map Won't Render, Stays Black Until Full Restart
 
-iOS 17 Safari has a higher rate of "WebGL Context Lost" errors. 17.1 supposedly
-fixes them.
+iOS 17 Safari has a higher rate of "WebGL Context Lost" errors. 17.1 fixes this.
 
 ### `xcode-locator` Fails to Find the Correct Version
 
@@ -431,6 +329,28 @@ Run `bazel clean --expunge` if you update Xcode.
 
 ### Can't Put App Bundle on Device
 
-With iOS 17 and Xcode 15, putting the app bundle directly on the device with
-Xcode doesn't work (either the play button with the device selected or dragging
-the bundle onto the device in the Devices Window). No known fix yet.
+Symptom: putting the app bundle directly on the device with Xcode doesn't work
+(either the play button with the device selected or dragging the bundle onto
+the device in the Devices Window). Restarting fixes the issue with the play
+button, but dragging into the devices window still doesn't work.
+
+### Profiling with Instruments
+
+Need the binary to be signed with the get-task-allow entitlement. Run `dev`
+normally, then take note of the working directory, which ends with
+`dev.runfiles/__main__`. Trim `.runfiles/__main__` from the end to get the
+binary path. Then run this to sign the binary:
+
+```
+codesign -s - -v -f --entitlements =(echo -n '<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com/DTDs/PropertyList-1.0.dtd"\>
+<plist version="1.0">
+    <dict>
+        <key>com.apple.security.get-task-allow</key>
+        <true/>
+    </dict>
+</plist>') THE_BINARY_PATH
+```
+
+The path to the binary and the working directory can be entered into Instruments
+so that it can launch it and log the stack trace from startup.

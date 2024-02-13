@@ -1,21 +1,34 @@
 //! Module for components that are to be reused throughout the design.
 
+pub mod bouncy_scroll;
 pub mod buttons;
 pub mod colorbar;
+pub mod inputs;
 pub mod location_config;
 pub mod location_filter_list;
 pub mod map_settings;
 pub mod map_styler;
 pub mod navbar;
+pub mod select;
+pub mod settings_card;
 pub mod time_range_picker;
+pub mod typography;
 pub mod unit_picker;
+pub mod warning;
 
+pub use bouncy_scroll::*;
+pub use buttons::*;
 pub use colorbar::Colorbar;
+pub use inputs::*;
 pub use location_config::LocationConfigurator;
 pub use location_filter_list::LocationFilterList;
 pub use map_styler::MapStyler;
 pub use navbar::{BottomNav, HomeBarSpacer, TabBar, TopNav};
+pub use select::*;
+pub use settings_card::*;
 pub use time_range_picker::TimeRangePicker;
+pub use typography::*;
+pub use warning::*;
 
 // For text contents, py-1.5 px-3 is good.
 pub static SECONDARY_BUTTON_STYLE: &str =
@@ -26,9 +39,6 @@ pub static PRIMARY_BUTTON_STYLE: &str =
 pub static DATETIME_INPUT_STYLE: &str =
     "rounded-lg whitespace-nowrap py-1.5 px-3 placeholder:text-neutral-200 \
         bg-neutral-800";
-pub static SELECT_STYLE: &str =
-    "rounded-lg whitespace-nowrap py-1.5 px-3 text-neutral-200 bg-neutral-800 \
-        appearance-none";
 pub static RANGE_INPUT_STYLE: &str =
     "appearance-none bg-neutral-800 h-1 rounded-lg w-40 max-w-[75vw]";
 
