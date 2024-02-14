@@ -119,6 +119,12 @@ then check with the ios app using `bazel run //:iosapp`. Finally, use
 - cmark: produces html from markdown
     - `brew install cmark` (v0.30.0 tested)
     - Called by website
+- Android Studio: manages SDK for Android build
+    - Install with defaults, then open the SDK Manager and add the NDK as well.
+    - Install NDK version 25B (second 25.x release)
+    - Make sure to set `ANDROID_HOME` and `ANDROID_NDK_HOME` envars in your
+        .bashrc/.zshrc. Should be `$HOME/Library/Android/sdk` and
+        `$HOME/Library/Android/sdk/ndk/25.1.8937393` (or similar) on Mac.
 
 Secrets are placed in a top-level `.env` file. They are not checked into source
 control; ask for them.
