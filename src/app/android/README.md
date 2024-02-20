@@ -7,12 +7,12 @@ Based on the [Bazel Kotlin example](https://github.com/bazelbuild/examples/tree/
 Build and upload the app to the simulator:
 
 ```
-bazel build :app --fat_apk_cpu=arm64-v8a --android_crosstool_top=@androidndk//:toolchain  --noincompatible_enable_cc_toolchain_resolution
-bazel mobile-install :app --fat_apk_cpu=arm64-v8a --start_app --android_crosstool_top=@androidndk//:toolchain --noincompatible_enable_cc_toolchain_resolution
+bazel build :app --config=android
+bazel mobile-install :app --config=android --start_app
 ```
 
 Build the jni lib on its own:
 
 ```
-bazel build //app/src/main:jni_lib --incompatible_enable_cc_toolchain_resolution --platforms=//app:arm64-v8a
+bazel build shim:jni_lib --platforms=//:android_aarch64
 ```

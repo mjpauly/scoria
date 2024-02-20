@@ -1,5 +1,5 @@
 load("@rules_rust//rust:defs.bzl", "rust_library", "rust_binary", "rust_doc")
-load("@rules_rust//wasm_bindgen:wasm_bindgen.bzl", "rust_wasm_bindgen")
+load("@rules_rust//wasm_bindgen:defs.bzl", "rust_wasm_bindgen")
 load("@bazel_skylib//rules:select_file.bzl", "select_file")
 
 # The generated files to serve (wasm, js launcher)

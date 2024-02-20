@@ -10,27 +10,45 @@
 //!
 //! Docs: https://developer.apple.com/library/archive/documentation/FileManagement/Conceptual/FileSystemProgrammingGuide/FileSystemOverview/FileSystemOverview.html
 //!
-//! CURRENT LAYOUT
+//! CURRENT iOS LAYOUT
 //!
 //! - Documents
-//!     - database
+//!     - data.db{,-wal,-shm}
 //!     - stemlog.txt // no longer in use
 //! - Library
 //!     - persistent_state.json
 //!             - ok to not back up, user can re-input their settings
 //!             - also allows for different settings on different devices
-//!     - unexplored_area
+//!     - unexplored_area/
 //!             - must be tied to persistent_state, since that tracks the last
 //!               update time, also ok to re-derive on each device
-//!     - logs
+//!     - logs/
 //! - tmp
-//!     - map_cache
-//!             - TODO: move to Library/Caches
+//!     - track_export.{csv,gpx}
+//!             - renamed into Documents, then removed
+//!     - map_cache/
 //!
-//! CHANGES
+//! CHANGES TODO
 //!
 //! - map_cache move from tmp -> Library/Caches, which is less greedily cleaned
-//! - clean out stemlog, replace with log directory in Library/
+//! - delete Documents/stemlog.txt?
+//!
+//! ANDROID
+//!
+//! Only have FilesDir and CacheDir on Andriod, so documents_dir and library_dir
+//! both point to FilesDir. It is important to avoid filename conflicts between
+//! these two. The unused bundle_dir also points to FilesDir, and temp_dir
+//! points to CacheDir.
+//!
+//! - FilesDir
+//!     - data.db{,-wal,-shm}
+//!     - persistent_state.json
+//!     - unexplored_area/ (no backup)
+//!     - logs/ (no backup)
+//! - CacheDir
+//!     - track_export.{csv,gpx}
+//!             - rename into FileDir or rename inplace? then remove
+//!     - map_cache/
 //!
 
 use std::path::PathBuf;

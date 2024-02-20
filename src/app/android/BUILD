@@ -1,6 +1,5 @@
-load("@build_bazel_rules_android//android:rules.bzl", "android_binary")
-load("@io_bazel_rules_kotlin//kotlin:android.bzl", "kt_android_library")
-load("@io_bazel_rules_kotlin//kotlin:core.bzl", "kt_compiler_plugin")
+load("@rules_kotlin//kotlin:android.bzl", "kt_android_library")
+load("@rules_kotlin//kotlin:core.bzl", "kt_compiler_plugin")
 
 android_binary(
     name = "app",

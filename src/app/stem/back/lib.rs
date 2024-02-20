@@ -229,6 +229,11 @@ pub extern "C" fn should_export_track() -> bool {
     should_export
 }
 
+#[no_mangle]
+pub extern "C" fn get_bool() -> bool {
+    false
+}
+
 /// Unit tests for the top-level library interface.
 #[cfg(test)]
 pub mod tests {

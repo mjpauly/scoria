@@ -149,22 +149,12 @@ rust_binary(
 )
 
 
-# Objective c and c glue
-
-# This being required is a bug in objc_library, ideally 'StemLib' could depend
-# directly on 'stem'
+# C interface exposed for interop with Swift and Java
 cc_library(
-    name = "stem_shim",
+    name = "stem_cc",
+    hdrs = ["stem.h"],
     deps = [":stem"],
-)
-
-# The objective C library we can import into Swift
-objc_library(
-    name = "StemLib",
-    hdrs = ["StemLib.h"],
-    module_name = "StemLib",
     visibility = ["//visibility:public"],
-    deps = [":stem_shim"],
 )
 
 cc_library(
