@@ -157,13 +157,10 @@ impl AppState {
         let mut persistent = match fs::read_to_string(state_file) {
             Ok(input) => match serde_json::from_str(&input) {
                 Ok(parsed) => {
-                    #[cfg(extra_debug_logging)]
-                    {
-                        tracing::debug!(
-                            "Successfully loaded app state:\n {parsed:?}\n
-                             File contents were \"{input}\"",
-                        );
-                    }
+                    tracing::debug!(
+                        "Successfully loaded app state:\n {parsed:?}\n
+                         File contents were \"{input}\"",
+                    );
                     parsed
                 }
                 Err(e) => {

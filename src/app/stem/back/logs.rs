@@ -64,6 +64,9 @@ pub fn get_subscriber(paths: &Paths) -> impl Subscriber + Send + Sync {
 
     // also send logs to stderr
     let stderr = fmt::Layer::new().with_writer(std::io::stderr).pretty();
+    // stderr sent to Android Studio's logcat, which doesn't support ANSI colors
+    #[cfg(target_os = "android")]
+    let stderr = stderr.with_ansi(false);
 
     tracing_subscriber::registry()
         .with(env_filter)

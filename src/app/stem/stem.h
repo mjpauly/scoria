@@ -35,7 +35,7 @@ typedef struct {
     double ellipsoid_altitude;
     double vertical_accuracy;
 
-    // bool indivates if story data is available
+    // bool indicates if story data is available
     bool story_available;
     int64_t story;
 

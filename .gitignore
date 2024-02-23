@@ -32,3 +32,6 @@ user.bazelrc
 /src/app/stem/front/static/maplibre-gl.css
 /src/app/stem/front/static/maplibre-gl.js
 /src/app/stem/front/static/plotly.min.js
+
+# cached jni_bind header
+/src/app/android/jni/jni_bind_release.h

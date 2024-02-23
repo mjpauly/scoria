@@ -16,3 +16,19 @@ Build the jni lib on its own:
 ```
 bazel build shim:jni_lib --platforms=//:android_aarch64
 ```
+
+## JNI
+
+https://www.baeldung.com/jni
+
+Given the Java function prototypes, the native function prototypes can be
+generated with:
+
+```
+javac -h . *.java
+```
+
+Copy them from the generated .h file into `stem_jni.cpp`.
+
+The compiled `.class` files are also outputted. Use `javap -s Stem.class` to
+inspect the JNI interface descriptors.

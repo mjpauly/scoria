@@ -136,16 +136,20 @@ for `sqlx` to connect to and check queries against. Run the following command:
 bazel run //src/app/stem:db_gen
 ```
 
-This is slightly suboptimal. Ideally it would integrate into the build system
-automatically, getting generated anytime we compile the app. See `db_gen.rs` for
-notes on this issue.
-
 We also explicitly cache our third party javascript libraries in our source
 tree. If we rely on bazel to cache it, we'll periodically need to redownload it
-when unrelated build config settings change.
+when unrelated build config settings change. (You might have to `chmod +x` on
+the `.sh` file).
 
 ```
 bazel run //src/app/stem/front:download_js_libs
+```
+
+To get the [JNI Bind](https://github.com/google/jni-bind) header to build for
+Android, run:
+
+```
+bazel run //src/app/android/jni:download_jni_bind
 ```
 
 ### Running the App in the Simulator

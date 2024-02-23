@@ -4,19 +4,19 @@ load("@rules_kotlin//kotlin:core.bzl", "kt_compiler_plugin")
 android_binary(
     name = "app",
     manifest = "AndroidManifest.xml",
-    manifest_values = {"applicationId": "com.example.android.bazel"},
+    manifest_values = {"applicationId": "info.scoria"},
     deps = [":lib"],
 )
 
 kt_android_library(
     name = "lib",
     srcs = ["kt/MainActivity.kt"],
-    custom_package = "com.example.android.bazel",
+    custom_package = "info.scoria",
     manifest = "LibraryManifest.xml",
     plugins = [":jetpack_compose_compiler_plugin"],
     resource_files = glob(["res/**/*"], exclude = ["**/.DS_Store"]),
     deps = [
-        "//src/app/android/shim:jni_shim",
+        "//src/app/android/jni:stem_java",
         "@maven//:androidx_activity_activity_compose",
         "@maven//:androidx_appcompat_appcompat",
         "@maven//:androidx_compose_foundation_foundation",

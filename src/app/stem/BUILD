@@ -31,7 +31,7 @@ rust_library(
     }),
     crate_features = select({
         "//:distribution_profile": [],
-        "//conditions:default": ["extra_debug_logging"],
+        "//conditions:default": [],
     }),
     proc_macro_deps = [
         "@stem_crate_index//:dotenvy_macro",
@@ -91,7 +91,6 @@ rust_test(
     name = "unit_tests",
     crate = ":stem",
     size = "small",  # 20 MB RAM, 1 min timeout
-    crate_features = ["extra_debug_logging"],
     deps = [
         "@stem_crate_index//:reqwest", # for server health check unit test
         "@stem_crate_index//:futures-core",
