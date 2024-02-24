@@ -6,6 +6,8 @@ android_library(
     deps = [":stem_jni"],
 )
 
+# Build with --platforms=//:android_aarch64 to inspect .so shared library file
+# View symbols with `nm x.so` and `nm -D x.so` (dynamic symbols)
 cc_library(
     name = "stem_jni",
     hdrs = [
@@ -17,6 +19,13 @@ cc_library(
         "logging.cpp"
     ],
     deps = ["//src/app/stem:stem_cc"],
+
+    # Don't export symbols from static lib dependencies as dynamic symbols, and
+    # strip all non-dynamic symbols.
+    linkopts = select({
+        "//:distribution_profile": ["-Wl,--exclude-libs=ALL", "-Wl,-s"],
+        "//conditions:default": [],
+    }),
 )
 
 # Download jni_bind_release.h header v0.9.9
