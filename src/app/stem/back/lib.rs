@@ -46,6 +46,12 @@ pub extern "C" fn set_app_dirs(
     bundle_dir: *const c_char,
     app_version: *const c_char,
 ) {
+    // Android won't necessarily free memory between destruction and recreation
+    // of the main activity, so we guard initialization with whether it has
+    // already happened.
+    if app_state::AppState::is_initialized() {
+        return;
+    }
     let paths_to_set = paths::Paths {
         documents_dir: PathBuf::from(cstr_to_string(documents_dir)),
         library_dir: PathBuf::from(cstr_to_string(library_dir)),
@@ -227,11 +233,6 @@ pub extern "C" fn should_export_track() -> bool {
     let should_export = guard.should_export_track;
     guard.should_export_track = false;
     should_export
-}
-
-#[no_mangle]
-pub extern "C" fn get_bool() -> bool {
-    false
 }
 
 /// Unit tests for the top-level library interface.

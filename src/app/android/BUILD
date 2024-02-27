@@ -10,7 +10,7 @@ android_binary(
 
 kt_android_library(
     name = "lib",
-    srcs = ["kt/MainActivity.kt"],
+    srcs = glob(["kt/*.kt"]),
     custom_package = "info.scoria",
     manifest = "LibraryManifest.xml",
     plugins = [":jetpack_compose_compiler_plugin"],

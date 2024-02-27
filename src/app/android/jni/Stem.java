@@ -6,8 +6,6 @@ public class Stem {
     static {
         System.loadLibrary("app"); // same as name of andriod_binary target
     }
-    public static native String stringFromJNI();
-
     public static native void handleStartup(String filesDir, String cacheDir);
     public static native void handleShutdown();
     public static native ServerConfig handleEnterForeground();

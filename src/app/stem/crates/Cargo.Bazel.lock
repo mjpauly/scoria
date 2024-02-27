@@ -1,5 +1,5 @@
 {
-  "checksum": "768d48272e80bcddbb4d65b0fe53588821e7f139d67aab5e4458b735ef7f2ecb",
+  "checksum": "0203dd4cf2f3d7959dd2c7d66742c23ba441c2d1741dc22ef8052caf600ee0ff",
   "crates": {
     "actix 0.13.0": {
       "name": "actix",
@@ -14755,10 +14755,10 @@
             "gzip",
             "hyper-rustls",
             "rustls",
-            "rustls-native-certs",
-            "rustls-tls-native-roots",
+            "rustls-tls-webpki-roots",
             "tokio-rustls",
-            "tokio-util"
+            "tokio-util",
+            "webpki-roots"
           ],
           "selects": {}
         },
@@ -14860,10 +14860,6 @@
                 "target": "rustls"
               },
               {
-                "id": "rustls-native-certs 0.6.3",
-                "target": "rustls_native_certs"
-              },
-              {
                 "id": "rustls-pemfile 1.0.4",
                 "target": "rustls_pemfile"
               },
@@ -14878,6 +14874,10 @@
               {
                 "id": "tokio-util 0.7.7",
                 "target": "tokio_util"
+              },
+              {
+                "id": "webpki-roots 0.25.4",
+                "target": "webpki_roots"
               }
             ],
             "cfg(target_arch = \"wasm32\")": [
@@ -15645,71 +15645,6 @@
           ],
           "selects": {}
         }
-      },
-      "license": "Apache-2.0 OR ISC OR MIT",
-      "license_ids": [
-        "Apache-2.0",
-        "ISC",
-        "MIT"
-      ],
-      "license_file": null
-    },
-    "rustls-native-certs 0.6.3": {
-      "name": "rustls-native-certs",
-      "version": "0.6.3",
-      "package_url": "https://github.com/ctz/rustls-native-certs",
-      "repository": {
-        "Http": {
-          "url": "https://crates.io/api/v1/crates/rustls-native-certs/0.6.3/download",
-          "sha256": "a9aace74cb666635c918e9c12bc0d348266037aa8eb599b5cba565709a8dff00"
-        }
-      },
-      "targets": [
-        {
-          "Library": {
-            "crate_name": "rustls_native_certs",
-            "crate_root": "src/lib.rs",
-            "srcs": [
-              "**/*.rs"
-            ]
-          }
-        }
-      ],
-      "library_target_name": "rustls_native_certs",
-      "common_attrs": {
-        "compile_data_glob": [
-          "**"
-        ],
-        "deps": {
-          "common": [
-            {
-              "id": "rustls-pemfile 1.0.4",
-              "target": "rustls_pemfile"
-            }
-          ],
-          "selects": {
-            "cfg(all(unix, not(target_os = \"macos\")))": [
-              {
-                "id": "openssl-probe 0.1.5",
-                "target": "openssl_probe"
-              }
-            ],
-            "cfg(target_os = \"macos\")": [
-              {
-                "id": "security-framework 2.8.2",
-                "target": "security_framework"
-              }
-            ],
-            "cfg(windows)": [
-              {
-                "id": "schannel 0.1.21",
-                "target": "schannel"
-              }
-            ]
-          }
-        },
-        "edition": "2021",
-        "version": "0.6.3"
       },
       "license": "Apache-2.0 OR ISC OR MIT",
       "license_ids": [
@@ -22101,6 +22036,41 @@
       ],
       "license_file": null
     },
+    "webpki-roots 0.25.4": {
+      "name": "webpki-roots",
+      "version": "0.25.4",
+      "package_url": "https://github.com/rustls/webpki-roots",
+      "repository": {
+        "Http": {
+          "url": "https://crates.io/api/v1/crates/webpki-roots/0.25.4/download",
+          "sha256": "5f20c57d8d7db6d3b86154206ae5d8fba62dd39573114de97c2cb0578251f8e1"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "webpki_roots",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "webpki_roots",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "edition": "2018",
+        "version": "0.25.4"
+      },
+      "license": "MPL-2.0",
+      "license_ids": [
+        "MPL-2.0"
+      ],
+      "license_file": null
+    },
     "winapi 0.3.9": {
       "name": "winapi",
       "version": "0.3.9",
@@ -24693,29 +24663,6 @@
     ],
     "cfg(all(target_family = \"wasm\", not(any(target_os = \"emscripten\", target_os = \"wasi\"))))": [
       "wasm32-unknown-unknown"
-    ],
-    "cfg(all(unix, not(target_os = \"macos\")))": [
-      "aarch64-apple-ios",
-      "aarch64-apple-ios-sim",
-      "aarch64-fuchsia",
-      "aarch64-linux-android",
-      "aarch64-unknown-linux-gnu",
-      "aarch64-unknown-nixos-gnu",
-      "aarch64-unknown-nto-qnx710",
-      "arm-unknown-linux-gnueabi",
-      "armv7-linux-androideabi",
-      "armv7-unknown-linux-gnueabi",
-      "i686-linux-android",
-      "i686-unknown-freebsd",
-      "i686-unknown-linux-gnu",
-      "powerpc-unknown-linux-gnu",
-      "s390x-unknown-linux-gnu",
-      "x86_64-apple-ios",
-      "x86_64-fuchsia",
-      "x86_64-linux-android",
-      "x86_64-unknown-freebsd",
-      "x86_64-unknown-linux-gnu",
-      "x86_64-unknown-nixos-gnu"
     ],
     "cfg(any(rustix_use_libc, miri, not(all(target_os = \"linux\", any(target_arch = \"x86\", all(target_arch = \"x86_64\", target_pointer_width = \"64\"), all(target_endian = \"little\", any(target_arch = \"arm\", all(target_arch = \"aarch64\", target_pointer_width = \"64\"), target_arch = \"powerpc64\", target_arch = \"riscv64\", target_arch = \"mips\", target_arch = \"mips64\")))))))": [
       "aarch64-apple-darwin",

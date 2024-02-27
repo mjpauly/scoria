@@ -4,6 +4,14 @@
 
 Current: android, pins
 
+- Android
+    - [ ] location logging
+    - [ ] initialize stem only if needed
+    - [ ] configurability of location logging mode
+    - [ ] update location config options
+    - [ ] file importing / exporting
+    - [ ] update permissions images
+    - [ ] handle device rotation without destroy and recreate
 - debug-ability
     - [ ] action failure alterts (esp for importing)
     - [ ] have frontend send logs to backend

@@ -153,7 +153,9 @@ crates_repository(
             # features = ["gzip", "deflate", "brotli"]
             # toggle the prev line and the next 2 lines to use system-provided
             # TLS for iOS (needed to distribute in France until approved)
-            features = ["gzip", "deflate", "brotli", "rustls-tls-native-roots"],
+            # No OpenSSL install or CA certs are easily found on Andriod, so
+            # rustls with webpki roots is used.
+            features = ["gzip", "deflate", "brotli", "rustls-tls-webpki-roots"],
             default_features = False, # disable OpenSSL
         ),
         "sqlx": crate.spec(
@@ -629,6 +631,7 @@ maven_install(
         "androidx.lifecycle:lifecycle-viewmodel-ktx:{}".format(_LIFECYCLE_VERSION),
         "androidx.lifecycle:lifecycle-viewmodel-savedstate:{}".format(_LIFECYCLE_VERSION),
         "androidx.lifecycle:lifecycle-viewmodel:{}".format(_LIFECYCLE_VERSION),
+        "androidx.annotation:annotation:1.7.1",
     ],
     repositories = [
         "https://maven.google.com",

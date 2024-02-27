@@ -121,18 +121,6 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* pjvm, void* reserved) {
     return JNI_VERSION_1_6;
 }
 
-JNIEXPORT jstring JNICALL Java_info_scoria_Stem_stringFromJNI
-  (JNIEnv *, jclass)
-{
-    std::string hello;
-    if (get_bool()) {
-        hello = "C++";
-    } else {
-        hello = "D++";
-    }
-    return LocalString{hello}.Release();
-}
-
 JNIEXPORT void JNICALL Java_info_scoria_Stem_handleStartup
   (JNIEnv *, jclass, jstring filesDir, jstring cacheDir)
 {

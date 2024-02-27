@@ -115,6 +115,13 @@ pub struct SwiftMessages {
 }
 
 impl AppState {
+    /// Whether the app state been initialized already. Initialization can only
+    /// happen once.
+    #[cfg(not(test))]
+    pub fn is_initialized() -> bool {
+        APP_STATE.get().is_some()
+    }
+
     /// Get the global AppState instance
     #[cfg(not(test))]
     pub fn global() -> Arc<AppState> {
