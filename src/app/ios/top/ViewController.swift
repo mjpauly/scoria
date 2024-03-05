@@ -45,8 +45,6 @@ class ViewController: UIViewController, MyViewControllerProtocol, WKNavigationDe
     
     private lazy var webView: WKWebView = {
         let webConfiguration = WKWebViewConfiguration()
-        // innocuous user agent addition to thwart malicious API use
-        webConfiguration.applicationNameForUserAgent = "WebDriver/A118.35 (iPhone)"
         // don't persist any data to disk
         webConfiguration.websiteDataStore = WKWebsiteDataStore.nonPersistent()
         let webView = WKWebView(frame: .zero, configuration: webConfiguration)

@@ -4,7 +4,7 @@ package info.scoria;
 
 public class Stem {
     static {
-        System.loadLibrary("app"); // same as name of andriod_binary target
+        System.loadLibrary("app"); // same as name of android_binary target
     }
     public static native void handleStartup(String filesDir, String cacheDir);
     public static native void handleShutdown();

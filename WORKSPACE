@@ -599,39 +599,20 @@ rules_jvm_external_setup()
 
 load("@rules_jvm_external//:defs.bzl", "maven_install")
 
-_ACTIVITY_VERSION = "1.8.2"
-_COMPOSE_VERSION = "1.2.1"
-_COMPOSE_COMPILER_VERSION = "1.3.2"
-_CORE_VERSION = "1.12.0"
-_SAVEDSTATE_VERSION = "1.2.1"
 _LIFECYCLE_VERSION = "2.7.0"
 
 maven_install(
     artifacts = [
-        "org.jetbrains.kotlin:kotlin-stdlib:{}".format(_KOTLIN_COMPILER_VERSION),
+        "androidx.activity:activity:1.8.2",
+        "androidx.annotation:annotation:1.7.1",
         "androidx.appcompat:appcompat:1.6.1",
-        "androidx.activity:activity:{}".format(_ACTIVITY_VERSION),
-        "androidx.activity:activity-compose:{}".format(_ACTIVITY_VERSION),
-        "androidx.compose.material:material:{}".format(_COMPOSE_VERSION),
-        "androidx.compose.ui:ui:{}".format(_COMPOSE_VERSION),
-        "androidx.compose.ui:ui-tooling:{}".format(_COMPOSE_VERSION),
-        "androidx.compose.compiler:compiler:{}".format(_COMPOSE_COMPILER_VERSION),
-        "androidx.compose.runtime:runtime:{}".format(_COMPOSE_VERSION),
-        "androidx.core:core:{}".format(_CORE_VERSION),
-        "androidx.core:core-ktx:{}".format(_CORE_VERSION),
-        "androidx.savedstate:savedstate-ktx:{}".format(_SAVEDSTATE_VERSION),
-        "androidx.savedstate:savedstate:{}".format(_SAVEDSTATE_VERSION),
-        "androidx.lifecycle:lifecycle-livedata-core-ktx:{}".format(_LIFECYCLE_VERSION),
-        "androidx.lifecycle:lifecycle-livedata-core:{}".format(_LIFECYCLE_VERSION),
-        "androidx.lifecycle:lifecycle-livedata:{}".format(_LIFECYCLE_VERSION),
+        "androidx.core:core-ktx:1.12.0",
+        "androidx.lifecycle:lifecycle-livedata-ktx:{}".format(_LIFECYCLE_VERSION),
         "androidx.lifecycle:lifecycle-process:{}".format(_LIFECYCLE_VERSION),
         "androidx.lifecycle:lifecycle-runtime-ktx:{}".format(_LIFECYCLE_VERSION),
-        "androidx.lifecycle:lifecycle-runtime:{}".format(_LIFECYCLE_VERSION),
         "androidx.lifecycle:lifecycle-service:{}".format(_LIFECYCLE_VERSION),
         "androidx.lifecycle:lifecycle-viewmodel-ktx:{}".format(_LIFECYCLE_VERSION),
         "androidx.lifecycle:lifecycle-viewmodel-savedstate:{}".format(_LIFECYCLE_VERSION),
-        "androidx.lifecycle:lifecycle-viewmodel:{}".format(_LIFECYCLE_VERSION),
-        "androidx.annotation:annotation:1.7.1",
     ],
     repositories = [
         "https://maven.google.com",

@@ -110,6 +110,7 @@ pub struct OSLocationData {
     pub longitude: f64,
     pub horizontal_accuracy: f64,
 
+    // altitudes valid only if vertical_accuracy >= 0
     pub msl_altitude: f64,
     pub ellipsoid_altitude: f64,
     pub vertical_accuracy: f64,

@@ -81,7 +81,7 @@ impl ExportData {
         let time_comment = format!(
             "Time range: {} to {}",
             Self::format_time(&self.time_range.start),
-            Self::format_time(&self.time_range.start)
+            Self::format_time(&self.time_range.end)
         );
         let filter_comment = format!(
             "Excludes points where: [{}]",

@@ -1,99 +1,156 @@
 package info.scoria
 
+import java.util.Base64
+import android.util.Log
 import android.os.Bundle
-import android.view.ViewGroup 
 import android.webkit.WebView 
-import android.webkit.WebViewClient 
-import androidx.activity.ComponentActivity 
-import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material.* 
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.viewinterop.AndroidView
-import info.scoria.CustomWebViewClient
+import android.Manifest
+import androidx.activity.result.contract.ActivityResultContracts
 
 class MainActivity : AppCompatActivity() {
 
-    private var webview: WebView? = null
+    // private var customLocationManager: CustomLocationManager? = null
+
+    private var locationTrack: LocationTrack? = null
+
+    private var foregroundGranted = false
+    private var backgroundGranted = false
+    private val locationPermissionRequest = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        when {
+            permissions.getOrDefault(Manifest.permission.ACCESS_FINE_LOCATION, false) -> {
+                // Precise location access granted.
+                foregroundGranted = true
+            }
+            permissions.getOrDefault(Manifest.permission.ACCESS_COARSE_LOCATION, false) -> {
+                // Only approximate location access granted.
+                foregroundGranted = true
+            }
+            permissions.getOrDefault(Manifest.permission.ACCESS_BACKGROUND_LOCATION, false) -> {
+                // Only approximate location access granted.
+                backgroundGranted = true
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Log.i("info.scoria.lifecycle", "onCreate")
         enableEdgeToEdge()
         Stem.handleStartup(
             getFilesDir().getAbsolutePath(),
             getCacheDir().getAbsolutePath()
         )
-        System.out.println("Startup")
+
+        if (locationTrack == null) {
+            System.out.println("location track didn't exist")
+            locationTrack = LocationTrack(this)
+        }
+        updateLocationConfig()
     }
 
     public override fun onDestroy() {
         super.onDestroy()
-        System.out.println("Shutdown")
+        Log.i("info.scoria.lifecycle", "onDestroy")
+        // TODO: if logging location, stop the listener if we've just down
+        // locationTrack?.stopListener() // prevents rotation?
         Stem.handleShutdown()
     }
 
     public override fun onStart() {
         super.onStart()
-        System.out.println("Foregrounding")
+        Log.i("info.scoria.lifecycle", "onStart")
+
+        setContentView(R.layout.activity_main)
+
         val serverConf = Stem.handleEnterForeground()
         val uscope = serverConf.scope.toULong()
         System.out.println("${serverConf.port}")
         System.out.println("${uscope}")
         val url = "http://127.0.0.1:${serverConf.port}/${uscope}/"
-        setContent { WebViewScreen(url) }
+
+        val wv = findViewById<WebView>(R.id.webview)
+        wv.webViewClient = CustomWebViewClient(this)
+        wv.getSettings().javaScriptEnabled = true
+        wv.addJavascriptInterface(
+            WebAppInterface({ handlePoke() }), "Android"
+        )
+        wv.loadUrl(url)
     }
 
     public override fun onStop() {
         super.onStop()
-        System.out.println("Backgrounding")
+        Log.i("info.scoria.lifecycle", "onStop")
         Stem.handleEnterBackground()
 
-        setContent {}
-
-        // destroy the webview to avoid memory leak
-        webview?.clearHistory();
-        webview?.clearCache(true);
-        webview?.loadUrl("about:blank")
-        webview?.onPause();
-        webview?.removeAllViews();
-        webview?.pauseTimers();
-        // Some lifecycle stuff isn't being handled correctly here, since
-        // we get this warning:
-        // WebView.destroy() called while WebView is still attached to window
-        webview?.destroy();
-        webview = null
+        // free webview resources by loading a blank black page
+        val unencodedHtml: String =
+            "<html><body style=\"background-color: black;\"></body></html>"
+        val encodedHtml = 
+            Base64
+                .getEncoder()
+                .withoutPadding()
+                .encodeToString(unencodedHtml.toByteArray())
+        val wv = findViewById<WebView>(R.id.webview)
+        wv.loadData(encodedHtml, "text/html", "base64");
     }
 
-    @Composable
-    fun WebViewScreen(url: String) {
-        val activity = this
-        AndroidView(
-            factory = { context ->
-                val wv = WebView(context).apply {
-                    webViewClient = CustomWebViewClient(activity)
-                    settings.javaScriptEnabled = true
-                    layoutParams = ViewGroup.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.MATCH_PARENT
-                    )
-                }
-                webview = wv // track our webview, so we can free it later
-                wv
-            },
-            update = { webView ->
-                webView.loadUrl(url)
-            }
-        )
+
+    override fun onRestart() {
+        super.onRestart()
+        Log.i("info.scoria.lifecycle", "onRestart")
+    }
+    override fun onPause() {
+        super.onPause()
+        Log.i("info.scoria.lifecycle", "onPause")
+    }
+    override fun onResume() {
+        super.onResume()
+        Log.i("info.scoria.lifecycle", "onResume")
+    }
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState);
+        Log.i("info.scoria.lifecycle", "onSaveInstanceState")
+    }
+    override fun onDetachedFromWindow() {
+        super.onDetachedFromWindow()
+        Log.i("info.scoria.lifecycle", "onDetachedFromWindow")
+    }
+
+    fun handlePoke() {
+        // WebView callbacks normally run on another thread, and this causes
+        // a SELinux denial when calling into the Stem shared library, so we
+        // make sure we do things on the main UI thread
+        runOnUiThread {
+            System.out.println("got poke!")
+            checkForegroundPermissions()
+            updateLocationConfig()
+            // locationTrack?.startListener()
+            // System.out.println("${locationTrack?.loc?.getLongitude()}, ${locationTrack?.loc?.getLatitude()}")
+        }
+    }
+
+    // If we should request foreground location access, do that
+    fun checkForegroundPermissions() {
+        if (Stem.shouldRequestWhenInUseAuthorization())  {
+            locationPermissionRequest.launch(arrayOf(
+                Manifest.permission.ACCESS_FINE_LOCATION,
+                Manifest.permission.ACCESS_COARSE_LOCATION)
+            )
+        }
+    }
+
+    // Enable/disable location
+    fun updateLocationConfig() {
+        System.out.println("updating config");
+        if (Stem.getLocationEnabled()) {
+            locationTrack?.startListener()
+        } else {
+            locationTrack?.stopListener()
+        }
     }
 }
 

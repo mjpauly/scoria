@@ -4,12 +4,18 @@ Based on the [Bazel Kotlin example](https://github.com/bazelbuild/examples/tree/
 
 ## Building
 
-Build and upload the app to the simulator:
+Build and run the app in the emulator:
 
 ```
 bazel build :app --config=android
-bazel mobile-install :app --config=android --start_app
+bazel run :debug --config=android
 ```
+
+It may be necessary to make the sh binary runnable with `chmod +x debug.sh`.
+
+There are issues with bazel's `mobile-install` command and how it puts
+resources and native libraries in different locations on the device, so install
+is done the "traditional" way with `adb`.
 
 Build the jni lib on its own:
 
@@ -32,3 +38,17 @@ Copy them from the generated .h file into `stem_jni.cpp`.
 
 The compiled `.class` files are also outputted. Use `javap -s Stem.class` to
 inspect the JNI interface descriptors.
+
+## Emulator Locations
+
+Update the location in the emulator with:
+
+```
+bazel run test:emu
+```
+
+or manually with:
+
+```
+$ANDROID_HOME/platform-tools/adb emu geo fix -122.0 35.0
+```

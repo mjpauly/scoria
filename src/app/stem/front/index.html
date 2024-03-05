@@ -17,7 +17,11 @@
                         "message": "poke"
                     });
                 } catch (error) {
-                    console.log("Failed to execute swift poke.");
+                    try {
+                        Android.poke();
+                    } catch (error) {
+                        console.log("Failed to execute poke.");
+                    }
                 }
             }
         </script>

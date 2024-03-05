@@ -12,19 +12,14 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.util.Log
+import android.webkit.JavascriptInterface
 import android.webkit.WebResourceRequest
 import android.webkit.WebView 
 import android.webkit.WebViewClient 
 import androidx.annotation.RequiresApi
 
 
-class CustomWebViewClient(parentActivity: Activity) : WebViewClient() {
-
-    private var activity: Activity
-
-    init {
-        activity = parentActivity
-    }
+class CustomWebViewClient(private val activity: Activity) : WebViewClient() {
 
     @SuppressWarnings("deprecation")
     public override fun shouldOverrideUrlLoading(
@@ -60,3 +55,12 @@ class CustomWebViewClient(parentActivity: Activity) : WebViewClient() {
         }
     }
 }
+
+class WebAppInterface(val callback: () -> Unit) {
+
+    @JavascriptInterface
+    fun poke() {
+        callback()
+    }
+}
+
