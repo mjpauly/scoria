@@ -5,13 +5,13 @@
 Current: android, pins
 
 - Android
-    - [ ] location logging
-    - [ ] initialize stem only if needed
+    - [x] location logging
+    - [x] initialize stem only if needed
+    - [x] handle device rotation without destroy and recreate
     - [ ] configurability of location logging mode
-    - [ ] update location config options
+    - [ ] update location config options in Scoria?
     - [ ] file importing / exporting
     - [ ] update permissions images
-    - [ ] handle device rotation without destroy and recreate
 - debug-ability
     - [ ] action failure alterts (esp for importing)
     - [ ] have frontend send logs to backend

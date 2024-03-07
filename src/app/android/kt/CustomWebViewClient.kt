@@ -21,6 +21,8 @@ import androidx.annotation.RequiresApi
 
 class CustomWebViewClient(private val activity: Activity) : WebViewClient() {
 
+    private val TAG = "WebViewClient"
+
     @SuppressWarnings("deprecation")
     public override fun shouldOverrideUrlLoading(
         view: WebView,
@@ -40,10 +42,10 @@ class CustomWebViewClient(private val activity: Activity) : WebViewClient() {
     }
 
     private fun handleUri(uri: Uri): Boolean {
-        Log.i("scoria.info", "Uri =" + uri)
+        Log.i(TAG, "Uri =" + uri)
         val host: String = uri.getHost()!!
         val scheme: String = uri.getScheme()!!
-        System.out.println("host: ${host}, scheme: ${scheme}")
+        // Log.i(TAG, "host: ${host}, scheme: ${scheme}")
         if (host.startsWith("127.0.0.1")) {
             // load this url in the webView itself
             return false

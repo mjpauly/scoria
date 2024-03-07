@@ -1,76 +1,68 @@
 package info.scoria
 
-import java.util.Base64
-import android.util.Log
+import android.Manifest.permission
+import android.content.Intent
+import android.content.pm.PackageManager.PERMISSION_GRANTED
 import android.os.Bundle
+import android.util.Log
 import android.webkit.WebView 
 import androidx.activity.enableEdgeToEdge
-import androidx.appcompat.app.AppCompatActivity
-import android.Manifest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AppCompatActivity
+import java.util.Base64
 
 class MainActivity : AppCompatActivity() {
 
-    // private var customLocationManager: CustomLocationManager? = null
+    private val TAG = "MainActivity"
 
-    private var locationTrack: LocationTrack? = null
+    private var mServiceIntent: Intent? = null
 
-    private var foregroundGranted = false
-    private var backgroundGranted = false
     private val locationPermissionRequest = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
         when {
-            permissions.getOrDefault(Manifest.permission.ACCESS_FINE_LOCATION, false) -> {
-                // Precise location access granted.
-                foregroundGranted = true
+            permissions.getOrDefault(permission.ACCESS_FINE_LOCATION, false) -> {
+                Log.i(TAG, "foreground fine granted")
             }
-            permissions.getOrDefault(Manifest.permission.ACCESS_COARSE_LOCATION, false) -> {
-                // Only approximate location access granted.
-                foregroundGranted = true
+            permissions.getOrDefault(permission.ACCESS_COARSE_LOCATION, false) -> {
+                Log.i(TAG, "foreground coarse granted")
             }
-            permissions.getOrDefault(Manifest.permission.ACCESS_BACKGROUND_LOCATION, false) -> {
-                // Only approximate location access granted.
-                backgroundGranted = true
+            permissions.getOrDefault(permission.ACCESS_BACKGROUND_LOCATION, false) -> {
+                Log.i(TAG, "background granted")
             }
         }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        Log.i("info.scoria.lifecycle", "onCreate")
+        Log.i(TAG, "onCreate")
         enableEdgeToEdge()
         Stem.handleStartup(
             getFilesDir().getAbsolutePath(),
             getCacheDir().getAbsolutePath()
         )
-
-        if (locationTrack == null) {
-            System.out.println("location track didn't exist")
-            locationTrack = LocationTrack(this)
-        }
         updateLocationConfig()
     }
 
-    public override fun onDestroy() {
+    override fun onDestroy() {
         super.onDestroy()
-        Log.i("info.scoria.lifecycle", "onDestroy")
-        // TODO: if logging location, stop the listener if we've just down
-        // locationTrack?.stopListener() // prevents rotation?
+        Log.i(TAG, "onDestroy")
         Stem.handleShutdown()
     }
 
-    public override fun onStart() {
+    override fun onStart() {
         super.onStart()
-        Log.i("info.scoria.lifecycle", "onStart")
+        Log.i(TAG, "onStart")
+
+        // permissions may change even while in the background
+        updateLocationConfig()
 
         setContentView(R.layout.activity_main)
 
         val serverConf = Stem.handleEnterForeground()
         val uscope = serverConf.scope.toULong()
-        System.out.println("${serverConf.port}")
-        System.out.println("${uscope}")
         val url = "http://127.0.0.1:${serverConf.port}/${uscope}/"
+        // Log.i(TAG, "connecting to ${url}")
 
         val wv = findViewById<WebView>(R.id.webview)
         wv.webViewClient = CustomWebViewClient(this)
@@ -81,9 +73,9 @@ class MainActivity : AppCompatActivity() {
         wv.loadUrl(url)
     }
 
-    public override fun onStop() {
+    override fun onStop() {
         super.onStop()
-        Log.i("info.scoria.lifecycle", "onStop")
+        Log.i(TAG, "onStop")
         Stem.handleEnterBackground()
 
         // free webview resources by loading a blank black page
@@ -98,93 +90,77 @@ class MainActivity : AppCompatActivity() {
         wv.loadData(encodedHtml, "text/html", "base64");
     }
 
-
-    override fun onRestart() {
-        super.onRestart()
-        Log.i("info.scoria.lifecycle", "onRestart")
-    }
-    override fun onPause() {
-        super.onPause()
-        Log.i("info.scoria.lifecycle", "onPause")
-    }
-    override fun onResume() {
-        super.onResume()
-        Log.i("info.scoria.lifecycle", "onResume")
-    }
-    override fun onSaveInstanceState(outState: Bundle) {
-        super.onSaveInstanceState(outState);
-        Log.i("info.scoria.lifecycle", "onSaveInstanceState")
-    }
-    override fun onDetachedFromWindow() {
-        super.onDetachedFromWindow()
-        Log.i("info.scoria.lifecycle", "onDetachedFromWindow")
-    }
-
-    fun handlePoke() {
+    private fun handlePoke() {
         // WebView callbacks normally run on another thread, and this causes
         // a SELinux denial when calling into the Stem shared library, so we
         // make sure we do things on the main UI thread
         runOnUiThread {
-            System.out.println("got poke!")
+            // Log.i(TAG, "got poke!")
             checkForegroundPermissions()
             updateLocationConfig()
-            // locationTrack?.startListener()
-            // System.out.println("${locationTrack?.loc?.getLongitude()}, ${locationTrack?.loc?.getLatitude()}")
         }
     }
 
-    // If we should request foreground location access, do that
-    fun checkForegroundPermissions() {
+    // Request foreground location access if needed. Does not block.
+    private fun checkForegroundPermissions() {
         if (Stem.shouldRequestWhenInUseAuthorization())  {
             locationPermissionRequest.launch(arrayOf(
-                Manifest.permission.ACCESS_FINE_LOCATION,
-                Manifest.permission.ACCESS_COARSE_LOCATION)
-            )
+                permission.ACCESS_FINE_LOCATION,
+                permission.ACCESS_COARSE_LOCATION,
+            ))
         }
     }
 
     // Enable/disable location
-    fun updateLocationConfig() {
-        System.out.println("updating config");
-        if (Stem.getLocationEnabled()) {
-            locationTrack?.startListener()
-        } else {
-            locationTrack?.stopListener()
+    private fun updateLocationConfig() {
+        if (Stem.getLocationEnabled() && foregroundGranted()) {
+            mServiceIntent = Intent(this, LocationService::class.java)
+            // restarted a running service will only cause onStartCommand to be
+            // called again, so no need to guard with a check on the run state
+            startService(mServiceIntent)
+        }
+        if (!Stem.getLocationEnabled()) {
+            mServiceIntent?.let { stopService(it) }
         }
     }
-}
 
-/* Log location:
-val loc = OSLocationData()
-loc.timestamp = 44
-loc.latitude = 1.0;
-loc.longitude = 1.0;
-loc.horizontal_accuracy = 1.0;
-loc.msl_altitude = 1.0;
-loc.ellipsoid_altitude = 1.0;
-loc.vertical_accuracy = 1.0;
-loc.story_available = false;
-loc.story = -1;
-loc.speed = 1.0;
-loc.speed_accuracy = 1.0;
-loc.course = 1.0;
-loc.course_accuracy = 1.0;
-loc.source_info_available = true;
-loc.is_simulated_by_software = false;
-loc.is_produced_by_accessory = false;
-Stem.logLocation(loc)
-
-    @Preview
-    @Composable
-    fun HelloWorld(name: String) = Column(
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(20.dp)) {
-        Text(
-            text = "Hello $name",
-            textAlign = TextAlign.Center
-        )
+    private fun foregroundGranted(): Boolean {
+        return (checkSelfPermission(permission.ACCESS_COARSE_LOCATION)
+            == PERMISSION_GRANTED)
     }
-*/
+
+    // private fun backgroundGranted(): Boolean {
+        // return (checkSelfPermission(permission.ACCESS_BACKGROUND_LOCATION)
+            // == PERMISSION_GRANTED)
+    // }
+
+    // Request background location access if needed. Does not block.
+    // private fun checkBackgroundPermissions() {
+        // if (foregroundGranted() && !backgroundGranted())  {
+            // locationPermissionRequest.launch(arrayOf(
+                // permission.ACCESS_BACKGROUND_LOCATION,
+            // ))
+        // }
+    // }
+
+    override fun onRestart() {
+        super.onRestart()
+        Log.i(TAG, "onRestart")
+    }
+    override fun onPause() {
+        super.onPause()
+        Log.i(TAG, "onPause")
+    }
+    override fun onResume() {
+        super.onResume()
+        Log.i(TAG, "onResume")
+    }
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState);
+        Log.i(TAG, "onSaveInstanceState")
+    }
+    override fun onDetachedFromWindow() {
+        super.onDetachedFromWindow()
+        Log.i(TAG, "onDetachedFromWindow")
+    }
+}

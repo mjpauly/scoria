@@ -6,9 +6,6 @@
 
     <!-- TODO: remove debuggable -->
     <!-- TODO: restrict HTTP to only localhost -->
-    <!-- TODO: handle orientation changes with:
-            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode"
-    -->
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
@@ -18,22 +15,27 @@
         android:theme="@style/AppTheme"
         android:usesCleartextTraffic="true"
         android:debuggable="true"
+    >
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode"
         >
-        <activity android:name=".MainActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 
-        <meta-data android:name="android.webkit.WebView.MetricsOptOut"
-               android:value="true" />
         <service
             android:name="LocationService"
-            android:foregroundServiceType="location">
-        </service>
+            android:foregroundServiceType="location"
+            android:enabled="true"
+            android:exported="false"
+        />
 
+        <meta-data android:name="android.webkit.WebView.MetricsOptOut"
+               android:value="true" />
     </application>
 
 </manifest>
