@@ -6,15 +6,21 @@ import android.content.pm.PackageManager.PERMISSION_GRANTED
 import android.os.Bundle
 import android.util.Log
 import android.webkit.WebView 
+import android.os.IBinder
+import android.content.Context
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import android.content.ComponentName
 import androidx.appcompat.app.AppCompatActivity
 import java.util.Base64
+import android.os.Binder
+import android.content.ServiceConnection
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : AppCompatActivity(), UpdateConfigCallback {
 
     private val TAG = "MainActivity"
 
+    private var mService: LocationService? = null
     private var mServiceIntent: Intent? = null
 
     private val locationPermissionRequest = registerForActivityResult(
@@ -114,13 +120,38 @@ class MainActivity : AppCompatActivity() {
     // Enable/disable location
     private fun updateLocationConfig() {
         if (Stem.getLocationEnabled() && foregroundGranted()) {
-            mServiceIntent = Intent(this, LocationService::class.java)
-            // restarted a running service will only cause onStartCommand to be
-            // called again, so no need to guard with a check on the run state
-            startService(mServiceIntent)
+            Intent(this, LocationService::class.java).also { intent ->
+                bindService(intent, connection, Context.BIND_AUTO_CREATE)
+                startService(intent)
+                mServiceIntent = intent
+            }
         }
         if (!Stem.getLocationEnabled()) {
-            mServiceIntent?.let { stopService(it) }
+            mServiceIntent?.let {
+                unbindService(connection)
+                stopService(it)
+            }
+            mServiceIntent = null
+        }
+    }
+
+    // Callbacks for service binding used by `bindService`
+    private val connection = object : ServiceConnection {
+        override fun onServiceConnected(componentName: ComponentName, service: IBinder) {
+            val binder = service as LocationService.LocalBinder
+            mService = binder.getService()
+            mService?.registerCallback(this@MainActivity) // Register the callback
+        }
+
+        override fun onServiceDisconnected(componentName: ComponentName) {
+            mService = null
+        }
+    }
+
+    public override fun updateConfigCallback() {
+        runOnUiThread {
+            // Log.i(TAG, "updating location config from service")
+            updateLocationConfig()
         }
     }
 
@@ -128,20 +159,6 @@ class MainActivity : AppCompatActivity() {
         return (checkSelfPermission(permission.ACCESS_COARSE_LOCATION)
             == PERMISSION_GRANTED)
     }
-
-    // private fun backgroundGranted(): Boolean {
-        // return (checkSelfPermission(permission.ACCESS_BACKGROUND_LOCATION)
-            // == PERMISSION_GRANTED)
-    // }
-
-    // Request background location access if needed. Does not block.
-    // private fun checkBackgroundPermissions() {
-        // if (foregroundGranted() && !backgroundGranted())  {
-            // locationPermissionRequest.launch(arrayOf(
-                // permission.ACCESS_BACKGROUND_LOCATION,
-            // ))
-        // }
-    // }
 
     override fun onRestart() {
         super.onRestart()
@@ -163,4 +180,9 @@ class MainActivity : AppCompatActivity() {
         super.onDetachedFromWindow()
         Log.i(TAG, "onDetachedFromWindow")
     }
+}
+
+// callback interface for the service
+interface UpdateConfigCallback {
+    fun updateConfigCallback()
 }

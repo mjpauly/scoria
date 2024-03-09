@@ -44,7 +44,7 @@ class CustomWebViewClient(private val activity: Activity) : WebViewClient() {
     private fun handleUri(uri: Uri): Boolean {
         Log.i(TAG, "Uri =" + uri)
         val host: String = uri.getHost()!!
-        val scheme: String = uri.getScheme()!!
+        // val scheme: String = uri.getScheme()!!
         // Log.i(TAG, "host: ${host}, scheme: ${scheme}")
         if (host.startsWith("127.0.0.1")) {
             // load this url in the webView itself

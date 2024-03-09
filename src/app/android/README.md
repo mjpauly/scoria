@@ -55,3 +55,15 @@ or manually with:
 ```
 $ANDROID_HOME/platform-tools/adb emu geo fix -122.0 35.0
 ```
+
+## Common Issues
+
+The Stem shared library can only be accessed from the app's main thread. If we
+try to access it from another thread, we get an SELinux denial and a big red
+stack trace. Notably it will warn `avc:  denied` before the stacktrace. To
+debug, it's useful to see what code is running on what thread, by printing the
+thread names:
+
+```
+Log.d(TAG, "on thread: ${java.lang.Thread.currentThread().getName()}")
+```

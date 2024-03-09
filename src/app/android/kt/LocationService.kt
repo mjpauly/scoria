@@ -17,24 +17,41 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Color
 import android.location.Location
-import android.location.LocationListener
 import android.location.LocationManager
+import android.os.Binder
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
+import androidx.core.location.LocationListenerCompat
+import androidx.core.location.LocationManagerCompat
+import androidx.core.location.LocationRequestCompat
 import java.lang.Runnable
+import java.util.Timer
+import java.util.TimerTask
 import java.util.concurrent.Executor
 
-class LocationService() : Service(), LocationListener {
+class LocationService() : Service(), LocationListenerCompat {
 
     private val TAG = "LocationService"
 
-    private val MIN_TIME_BW_UPDATES: Long = 1000;
+    private val UPDATE_INTERVAL_MS: Long = 1000;
+    private val UPDATE_CONFIG_DELAY_MS: Long = 1000 * 60 * 5; // 5 minutes
+
+    // Binder channel for MainActivity to directly call methods on the service
+    private val binder = LocalBinder()
+    
+    // Callback to MainActivity to update the location config
+    private var callback: UpdateConfigCallback? = null
+
+    // Timer for scheduling delayed location config updates
+    private var timer: Timer? = null
 
     override fun onCreate() {
-        Log.i(TAG, "starting")
+        Log.i(TAG, "starting on thread: ${java.lang.Thread.currentThread().getName()}")
         // Android may start this service without the MainActivity, so we need
         // to ensure stem is initialized
         Stem.handleStartup(
@@ -75,58 +92,83 @@ class LocationService() : Service(), LocationListener {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
+        Log.i(TAG, "onStartCommand")
         requestLocationUpdates()
         return START_STICKY
     }
 
     override fun onDestroy() {
         val locationManager = getSystemService(LOCATION_SERVICE) as LocationManager
-        locationManager.removeUpdates(this)
+        LocationManagerCompat.removeUpdates(locationManager, this)
         super.onDestroy()
         Log.i(TAG, "onDestroy")
     }
 
-    public override fun onBind(intent: Intent): IBinder? {
-        return null;
-    }
-
     private fun requestLocationUpdates() {
-        // get GPS and network location provicer status
         val locationManager = getSystemService(LOCATION_SERVICE) as LocationManager
         val gpsEnabled = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER);
-        // val networkEnabled = locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER);
-
-        // if (!gpsEnabled && !networkEnabled) {
-        if (!gpsEnabled) {
-            Log.w(TAG, "No Service Provider is available")
+        val networkEnabled = locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER);
+        val fusedEnabled = locationManager.isProviderEnabled(LocationManager.FUSED_PROVIDER);
+        Log.i(TAG, "gps: ${gpsEnabled}, network: ${networkEnabled}, fused: ${fusedEnabled}")
+        if (!LocationManagerCompat.isLocationEnabled(locationManager)
+            || !Stem.getLocationEnabled()
+        ) {
+            Log.w(TAG, "Location is not enabled")
             stopSelf()
             return
         }
 
-        // TODO: pick provider based on desired accuracy level
-        val minDistanceChange = Stem.getDistanceFilter();
-        // getLocationAccuracyMode()
-        // getSignificantChanges()
+        Log.i(TAG, "starting location updates")
+        
+        // Our "significant changes" mode will passively listen for location
+        // updates triggered by the rest of the system
 
-        Log.i(TAG, "starting GPS")
-        locationManager.requestLocationUpdates(
-            LocationManager.GPS_PROVIDER,
-            MIN_TIME_BW_UPDATES,
-            minDistanceChange,
-            this
+        // TODO: since every listener/provider pair can be registered, do we
+        // only ever want to use the FUSED provider?
+        // val provider =
+            // if (Stem.getSignificantChanges())
+                // LocationManager.PASSIVE_PROVIDER
+            // else
+                // LocationManager.FUSED_PROVIDER
+        val provider = LocationManager.FUSED_PROVIDER
+        val interval =
+            if (Stem.getSignificantChanges())
+                LocationRequestCompat.PASSIVE_INTERVAL
+            else
+                UPDATE_INTERVAL_MS
+        val minDistanceChange = Stem.getDistanceFilter()
+        val accuracyMode = Stem.getLocationAccuracyMode()
+        val quality = when {
+            accuracyMode < 100.0 -> LocationRequestCompat.QUALITY_HIGH_ACCURACY
+            accuracyMode < 1000.0 -> LocationRequestCompat.QUALITY_BALANCED_POWER_ACCURACY
+            else -> LocationRequestCompat.QUALITY_LOW_POWER
+        }
+        val request = LocationRequestCompat.Builder(interval)
+            .setMinUpdateDistanceMeters(minDistanceChange)
+            .setQuality(quality)
+            .build()
+
+        LocationManagerCompat.requestLocationUpdates(
+            locationManager,
+            provider,
+            request,
+            this,
+            // need to log to Stem on the main thread, or we will get SELinux denials
+            Looper.getMainLooper(),
         )
+    }
 
-        // More refined request:
-        // var request: LocationRequest = ...
-        // requestLocationUpdates(
-        //     LocationManager.FUSED_PROVIDER,
-        //     request,
-        //     DirectExecutor(),
-        //     this
-        // )
+    public override fun onLocationChanged(locations: MutableList<Location>) {
+        for (loc in locations) {
+            logLocation(loc)
+        }
     }
 
     public override fun onLocationChanged(loc: Location) {
+        logLocation(loc)
+    }
+
+    private fun logLocation(loc: Location) {
         Log.d(TAG, "New location: ${loc.getLongitude()}, ${loc.getLatitude()}")
 
         val osloc = OSLocationData()
@@ -136,6 +178,8 @@ class LocationService() : Service(), LocationListener {
         osloc.latitude = loc.getLatitude()
         osloc.longitude = loc.getLongitude()
         osloc.horizontal_accuracy = loc.getAccuracy().toDouble()
+
+        // TODO: use LocationCompat to handle older API levels
 
         // only log altitude when both ellipsoid and msl data is available
         // TODO: handle case where we might have one but not the other?
@@ -170,6 +214,35 @@ class LocationService() : Service(), LocationListener {
         osloc.is_produced_by_accessory = false // no equivalent on Android
 
         Stem.logLocation(osloc)
+
+        callback?.updateConfigCallback()
+        startTimer()
+    }
+
+    // Updates the location config after a delay, in case the device stopped
+    // moving and location updates have stopped abruptly.
+    private fun startTimer() {
+        timer?.let { it.cancel() }
+        timer = Timer()
+        val timerTask = object : TimerTask() {
+            override fun run() {
+                Log.i(TAG, "Timer run")
+                callback?.updateConfigCallback()
+            }
+        }
+        timer!!.schedule(timerTask, UPDATE_CONFIG_DELAY_MS)
+    }
+
+    inner class LocalBinder : Binder() {
+        fun getService(): LocationService = this@LocationService
+    }
+
+    public override fun onBind(intent: Intent): IBinder? {
+        return binder
+    }
+
+    public fun registerCallback(callback: UpdateConfigCallback) {
+        this.callback = callback
     }
 
     public override fun onProviderEnabled(provider: String) {
@@ -179,10 +252,4 @@ class LocationService() : Service(), LocationListener {
     public override fun onProviderDisabled(provider: String) {
         Log.i(TAG, "Provider disabled: ${provider}")
     }
-}
-
-class DirectExecutor : Executor {
-     override fun execute(r: Runnable) {
-        r.run();
-     }
 }
