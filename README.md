@@ -5,13 +5,12 @@
 Current: android, pins
 
 - Android
-    - [x] location logging
-    - [x] initialize stem only if needed
-    - [x] handle device rotation without destroy and recreate
-    - [ ] configurability of location logging mode
     - [ ] update location config options in Scoria?
     - [ ] file importing / exporting
-    - [ ] update permissions images
+    - [ ] proguard
+    - [ ] test location config modes. does passive work?
+    - [ ] build-time config of debug-ability
+    - [ ] update default cache size and re-fetch interval
 - debug-ability
     - [ ] action failure alterts (esp for importing)
     - [ ] have frontend send logs to backend
@@ -312,7 +311,7 @@ developer.apple.com.
 4. Build the app
     4a. Developemnt: `bazel build //:iosapp --ios_multi_cpus=arm64 -c opt`
     4b. Distribution: `bazel build //:iosapp --ios_multi_cpus=arm64 --device_debug_entitlements=false --define profile=distribution -c opt`
-     - or: `bazel bulid //:iosapp --config=app_release`
+     - or: `bazel bulid //:iosapp --config=ios_release`
 5. Locate the `.ipa` archive in `bazel-bin/src/app/ios/top/Scoria.ipa`.
 6. Install/upload the app
     6a. Developemnt: Go to Xcode -> devices and simulators -> [your device] ->

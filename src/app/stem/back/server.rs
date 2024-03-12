@@ -26,6 +26,11 @@ use crate::geojson::{lines_geojson_route, points_geojson_route};
 use crate::map::{automap::screen, basemap::map_data_route};
 use crate::ws_session::ws_route;
 
+#[cfg(not(any(feature = "ios_config", feature = "android_config")))]
+compile_error!(
+    "Either feature \"ios_config\" or \"android_config\" must be enabled."
+);
+
 // static files to serve (env vars are set by bazel and poin to file path)
 static INDEX_FILE: &str = include_str!(env!("INDEX_FILE"));
 static WASM_FILE: &[u8] = include_bytes!(env!("WASM_FILE"));
@@ -34,8 +39,15 @@ static TAILWIND_FILE: &str = include_str!(env!("TAILWIND_FILE"));
 static PLOTLY_FILE: &str = include_str!(env!("PLOTLY_FILE"));
 static MAPLIBRE_FILE: &str = include_str!(env!("MAPLIBRE_FILE"));
 static MAPLIBRE_CSS: &str = include_str!(env!("MAPLIBRE_CSS"));
+
+#[cfg(feature = "ios_config")]
 static WHEN_IN_USE_AUTH_PNG: &[u8] =
-    include_bytes!(env!("WHEN_IN_USE_AUTH_PNG"));
+    include_bytes!(env!("WHEN_IN_USE_AUTH_IOS_PNG"));
+#[cfg(feature = "android_config")]
+static WHEN_IN_USE_AUTH_PNG: &[u8] =
+    include_bytes!(env!("WHEN_IN_USE_AUTH_ANDROID_PNG"));
+
+#[cfg(feature = "ios_config")]
 static ALWAYS_AUTH_PNG: &[u8] = include_bytes!(env!("ALWAYS_AUTH_PNG"));
 
 /// Configuration struct we pass to Swift via C
@@ -238,9 +250,12 @@ async fn when_in_use_auth_png() -> impl Responder {
 #[get("/always_auth.png")]
 #[get("/intro/always_auth.png")]
 async fn always_auth_png() -> impl Responder {
-    HttpResponse::Ok()
+    #[cfg(feature = "ios_config")]
+    return HttpResponse::Ok()
         .content_type(ContentType(mime::IMAGE_PNG))
-        .body(ALWAYS_AUTH_PNG)
+        .body(ALWAYS_AUTH_PNG);
+    #[cfg(feature = "android_config")]
+    return HttpResponse::NotFound().finish();
 }
 
 #[cfg(test)]

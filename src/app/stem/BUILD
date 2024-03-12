@@ -11,7 +11,8 @@ static_file_targets, static_file_envs = files_and_envs({
     "//src/app/stem/front:static/plotly.min.js": "PLOTLY_FILE",
     "//src/app/stem/front:static/maplibre-gl.js": "MAPLIBRE_FILE",
     "//src/app/stem/front:static/maplibre-gl.css": "MAPLIBRE_CSS",
-    "//src/app/stem/front:static/when_in_use_auth.png": "WHEN_IN_USE_AUTH_PNG",
+    "//src/app/stem/front:static/when_in_use_auth_ios.png": "WHEN_IN_USE_AUTH_IOS_PNG",
+    "//src/app/stem/front:static/when_in_use_auth_android.png": "WHEN_IN_USE_AUTH_ANDROID_PNG",
     "//src/app/stem/front:static/always_auth.png": "ALWAYS_AUTH_PNG",
     "//src/app/stem/front:static/blank.png": "BLANK_PNG",
 })
@@ -30,8 +31,11 @@ rust_library(
         "//conditions:default": [],
     }),
     crate_features = select({
-        "//:distribution_profile": [],
+        "//:distribution_profile": ["distribution_key"],
         "//conditions:default": [],
+    }) + select({
+        "//:android_config": ["android_config"],
+        "//conditions:default": ["ios_config"],
     }),
     proc_macro_deps = [
         "@stem_crate_index//:dotenvy_macro",

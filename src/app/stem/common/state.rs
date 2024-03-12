@@ -203,7 +203,7 @@ pub struct MapCachePreference {
 impl Default for MapCachePreference {
     fn default() -> Self {
         Self {
-            max_size: 100 * 1000 * 1000, // 100 MB default
+            max_size: 200 * 1000 * 1000, // 200 MB default
             disable_fetch: false,
         }
     }

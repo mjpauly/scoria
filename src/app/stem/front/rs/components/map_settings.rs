@@ -140,7 +140,7 @@ pub fn CacheSetting() -> Html {
                 does not need to be fetched from the network, allowing offline
                 access and reduced data use. When the cache size exceeds the
                 maximum, the least recently used data is deleted.
-                100 MB or greater is recommended and 10 MB is the minimum."}
+                200 MB or greater is recommended and 10 MB is the minimum."}
             </AfterCardParagraph>
             <AfterCardParagraph>
                 {"Cached data older than seven days is refreshed from the

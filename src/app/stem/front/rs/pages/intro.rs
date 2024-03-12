@@ -23,6 +23,11 @@ use common::ToBack;
 // Bump to indicate the intro should be shown again to users on install
 pub static INTRO_VERSION: u32 = 3;
 
+#[cfg(not(any(feature = "ios_config", feature = "android_config")))]
+compile_error!(
+    "Either feature \"ios_config\" or \"android_config\" must be enabled."
+);
+
 #[function_component]
 pub fn Intro() -> Html {
     // record that the intro was viewed
@@ -311,6 +316,10 @@ fn EnableLocation() -> Html {
         wss.send_msg(ToBack::RequestWhenInUseAuthorization);
         swift_poke::poke();
     });
+    #[cfg(feature = "ios_config")]
+    let tap_prompt = "When prompted, tap \"Allow While Using App\".";
+    #[cfg(feature = "android_config")]
+    let tap_prompt = "When prompted, tap \"While using the app\".";
     html! {
         <>
             <p class="text-primary text-2xl mb-3">
@@ -321,7 +330,7 @@ fn EnableLocation() -> Html {
                 permission."}
             </p>
             <p class="mb-3">
-                {"When prompted, tap \"Allow While Using App\"."}
+                {tap_prompt}
             </p>
             <img src="./when_in_use_auth.png" class="w-36 mx-auto mb-3"/>
             <p class="mb-3">
@@ -356,7 +365,8 @@ fn EnableLocationPartTwo() -> Html {
             swift_poke::poke(); // notify swift to get new value from backend
         })
     };
-    html! {
+    #[cfg(feature = "ios_config")]
+    let text = html! {
         <>
             <p class="mb-3">
                 {"To log location data in the background when
@@ -372,6 +382,19 @@ fn EnableLocationPartTwo() -> Html {
                 {"Tap the slider to grant always access and start logging
                 location data."}
             </p>
+
+        </>
+    };
+    #[cfg(feature = "android_config")]
+    let text = html! {
+        <p class="mb-3">
+            {"Tap the slider to start logging location data. You will be able to
+            pause logging at any time in the app."}
+        </p>
+    };
+    html! {
+        <>
+            {text}
 
             <div class="mt-2 mb-1 flex px-4">
             <div class="grow max-w-prose mx-auto">
