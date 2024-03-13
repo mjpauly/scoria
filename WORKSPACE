@@ -259,6 +259,7 @@ crates_repository(
         ),
         "log": crate.spec(
             version = "0.4.17",
+            features = ["release_max_level_error"],
         ),
         "wasm-logger": crate.spec(
             version = "0.2.0",

@@ -11,6 +11,13 @@
 //! Additional top-level functions are those which are exposed as the API to the
 //! swift wrapper.
 //!
+//! # Exception safety
+//!
+//! Many docs state that unwinding across an FFI boundary is undefined behavior,
+//! and should be avoided by wrapping with catch_unwind. However, Rust by
+//! default will instead abort the program if we attempt to unwind past an
+//! `extern "C"` function, so no `catch_unwind` action is necessary to avoid UB.
+//!
 
 pub mod app_state; // backend state storage
 pub mod core; // high-level app logic that spans multiple modules

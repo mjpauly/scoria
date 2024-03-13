@@ -58,6 +58,8 @@ $ANDROID_HOME/platform-tools/adb emu geo fix -122.0 35.0
 
 ## Common Issues
 
+### Thread Access to Stem
+
 The Stem shared library can only be accessed from the app's main thread. If we
 try to access it from another thread, we get an SELinux denial and a big red
 stack trace. Notably it will warn `avc:  denied` before the stacktrace. To
@@ -67,3 +69,7 @@ thread names:
 ```
 Log.d(TAG, "on thread: ${java.lang.Thread.currentThread().getName()}")
 ```
+
+### jni_bind Errors
+
+Make sure to build with the `--config=android{_release}` flag!

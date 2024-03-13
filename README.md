@@ -10,7 +10,7 @@ Current: android, pins
     - [ ] proguard
     - [ ] test location config modes. does passive work?
     - [ ] build-time config of debug-ability
-    - [ ] update default cache size and re-fetch interval
+    - [ ] prompt user to enable Google Location Accuracy?
 - debug-ability
     - [ ] action failure alterts (esp for importing)
     - [ ] have frontend send logs to backend

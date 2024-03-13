@@ -1,5 +1,5 @@
 {
-  "checksum": "0203dd4cf2f3d7959dd2c7d66742c23ba441c2d1741dc22ef8052caf600ee0ff",
+  "checksum": "0be53d74fa088b56af09d84ad2d2da094ae4b8057b9ab00027c696657c38641b",
   "crates": {
     "actix 0.13.0": {
       "name": "actix",
@@ -11146,6 +11146,7 @@
         ],
         "crate_features": {
           "common": [
+            "release_max_level_error",
             "std"
           ],
           "selects": {}
