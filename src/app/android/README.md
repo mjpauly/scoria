@@ -26,6 +26,19 @@ Build the jni lib on its own:
 bazel build shim:jni_lib --platforms=//:android_aarch64
 ```
 
+## Release
+
+```
+# Build
+bazel build app --config=android_release
+zipalign -v -p 4 bazel-bin/src/app/android/app_unsigned.apk release/app_aligned.apk
+apksigner sign --ks ~/keystores/release_keystore.jks --out release/scoria.apk release/app_aligned.apk
+
+# Check alignment and signature
+zipalign -v -c 4 release/scoria.apk
+apksigner verify -v release/scoria.apk
+```
+
 ## JNI
 
 https://www.baeldung.com/jni
@@ -54,6 +67,14 @@ or manually with:
 
 ```
 $ANDROID_HOME/platform-tools/adb emu geo fix -122.0 35.0
+```
+
+## Inspect Manifest Values
+
+Compiled manifest values can be inspected with:
+
+```
+aapt dump xmltree app_unsigned.apk AndroidManifest.xml
 ```
 
 ## Common Issues
