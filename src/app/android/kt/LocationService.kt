@@ -169,8 +169,25 @@ class LocationService() : Service(), LocationListenerCompat {
         logLocation(loc)
     }
 
+    /* On API levels 29 & 30, requesting location updates always results in
+     * delivery of the last location, creating a continuous feedback loop of
+     * repeated location delivery. To avoid this, we check if the new location
+     * satisfies the distance filter requirement before persisting it and
+     * updating the location config.
+     */
+    private var lastLoc: Location? = null // last persisted location
+
     private fun logLocation(loc: Location) {
         Log.d(TAG, "New location: ${loc.getLongitude()}, ${loc.getLatitude()}")
+
+        lastLoc?.let {
+            if (loc.distanceTo(it) < Stem.getDistanceFilter()) {
+                // new data doesn't satisfy distance filter
+                startTimer()
+                return
+            }
+        }
+        lastLoc = loc
 
         val osloc = OSLocationData()
 

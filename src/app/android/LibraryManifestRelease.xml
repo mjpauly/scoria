@@ -2,7 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="info.scoria">
 
-    <uses-sdk android:minSdkVersion="21" android:targetSdkVersion="34"/>
+    <uses-sdk android:minSdkVersion="29" android:targetSdkVersion="34"/>
 
     <application
         android:allowBackup="true"
