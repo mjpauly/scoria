@@ -8,6 +8,19 @@ use yew_router::prelude::*;
 
 use crate::router::Route;
 
+// Spacing for bottom navigation (tabs or forward/backwards buttons) to not
+// impinge on the homebar. Spacing is automatically set for iOS devices.
+// On Android the system navigation is more configurable, so we instead set the
+// WebView insets to avoid the navigation bar altogether.
+#[cfg(feature = "android_config")]
+const BOTTOM_NAV_SPACE: &str = "";
+#[cfg(feature = "android_config")]
+const TAB_BAR_SPACE: &str = "";
+#[cfg(not(feature = "android_config"))]
+const BOTTOM_NAV_SPACE: &str = "tall:h-[24px]";
+#[cfg(not(feature = "android_config"))]
+const TAB_BAR_SPACE: &str = "tall:pb-[24px]";
+
 /// Top navigation bar, with room for the device's top notch. Buttons are passed
 /// in as props.
 #[function_component]
@@ -40,7 +53,7 @@ pub fn BottomNav(props: &NavProps) -> Html {
             <div class="flex justify-between w-full">
                 { for props.children.iter() }
             </div>
-            <div class="tall:h-[24px]"></div>
+            <div class={BOTTOM_NAV_SPACE}></div>
         </nav>
     }
 }
@@ -81,7 +94,7 @@ pub fn TabBar() -> Html {
         // Extra padding on the bottom to give more room for the home bar
         // bottom padding is not scaled with rem since we don't need it to
         // change with font size
-        let mut style = vec!["pt-2 tall:pb-[24px]"];
+        let mut style = vec!["pt-2", TAB_BAR_SPACE];
         if let Some(r) = &curr_route {
             // Style the current button blue if we are on it
             if *route == *r {

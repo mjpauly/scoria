@@ -11,6 +11,9 @@ Current: android, pins
     - [ ] test location config modes. does passive work?
     - [ ] build-time config of debug-ability
     - [ ] prompt user to enable Google Location Accuracy?
+    - [ ] test SDK levels below 29
+- post Android release
+    - [ ] decouple ellipsoid and msl altitudes, remove story
 - debug-ability
     - [ ] action failure alterts (esp for importing)
     - [ ] have frontend send logs to backend

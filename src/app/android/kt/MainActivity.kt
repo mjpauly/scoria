@@ -1,20 +1,25 @@
 package info.scoria
 
 import android.Manifest.permission
-import android.content.Intent
-import android.content.pm.PackageManager.PERMISSION_GRANTED
-import android.os.Bundle
-import android.util.Log
-import android.webkit.WebView 
-import android.os.IBinder
+import android.content.ComponentName
 import android.content.Context
+import android.content.Intent
+import android.content.ServiceConnection
+import android.content.pm.PackageManager.PERMISSION_GRANTED
+import android.os.Binder
+import android.os.Bundle
+import android.os.IBinder
+import android.util.Log
+import android.view.ViewGroup.MarginLayoutParams
+import android.webkit.WebView 
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
-import android.content.ComponentName
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updateLayoutParams
+import android.view.View
 import java.util.Base64
-import android.os.Binder
-import android.content.ServiceConnection
 
 class MainActivity : AppCompatActivity(), UpdateConfigCallback {
 
@@ -71,12 +76,28 @@ class MainActivity : AppCompatActivity(), UpdateConfigCallback {
         // Log.i(TAG, "connecting to ${url}")
 
         val wv = findViewById<WebView>(R.id.webview)
+        setInsets(wv)
         wv.webViewClient = CustomWebViewClient(this)
         wv.getSettings().javaScriptEnabled = true
         wv.addJavascriptInterface(
             WebAppInterface({ handlePoke() }), "Android"
         )
         wv.loadUrl(url)
+    }
+
+    /* Setup the view with the desired inserts */
+    fun setInsets(view: View) {
+        ViewCompat.setOnApplyWindowInsetsListener(view) { v, windowInsets ->
+            val insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
+            // Apply the insets as a margin to the view.
+            var mlp = v.getLayoutParams() as MarginLayoutParams
+            mlp.leftMargin = insets.left
+            mlp.bottomMargin = insets.bottom
+            mlp.rightMargin = insets.right
+            v.setLayoutParams(mlp)
+            // Don't want the window insets to pass down to descendant views
+            WindowInsetsCompat.CONSUMED
+        }
     }
 
     override fun onStop() {

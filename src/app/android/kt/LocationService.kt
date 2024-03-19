@@ -26,6 +26,7 @@ import android.os.Looper
 import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
+import androidx.core.location.LocationCompat
 import androidx.core.location.LocationListenerCompat
 import androidx.core.location.LocationManagerCompat
 import androidx.core.location.LocationRequestCompat
@@ -179,13 +180,12 @@ class LocationService() : Service(), LocationListenerCompat {
         osloc.longitude = loc.getLongitude()
         osloc.horizontal_accuracy = loc.getAccuracy().toDouble()
 
-        // TODO: use LocationCompat to handle older API levels
-
         // only log altitude when both ellipsoid and msl data is available
         // TODO: handle case where we might have one but not the other?
         if (loc.hasAltitude()
             && loc.hasVerticalAccuracy()
-            && loc.hasMslAltitude()
+            // use LocationCompat to handle older API levels
+            && LocationCompat.hasMslAltitude(loc)  // needed under API level 34
         ) {
             osloc.msl_altitude = loc.getMslAltitudeMeters()
             osloc.ellipsoid_altitude = loc.getAltitude()
@@ -210,7 +210,7 @@ class LocationService() : Service(), LocationListenerCompat {
             loc.getBearingAccuracyDegrees().toDouble() else -1.0
 
         osloc.source_info_available = true
-        osloc.is_simulated_by_software = loc.isMock()
+        osloc.is_simulated_by_software = LocationCompat.isMock(loc) // needed under 31
         osloc.is_produced_by_accessory = false // no equivalent on Android
 
         Stem.logLocation(osloc)
