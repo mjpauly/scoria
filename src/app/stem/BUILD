@@ -17,6 +17,11 @@ static_file_targets, static_file_envs = files_and_envs({
     "//src/app/stem/front:static/blank.png": "BLANK_PNG",
 })
 
+platform_features = select({
+    "//:android_config": ["android_config"],
+    "//conditions:default": ["ios_config"],
+})
+
 rust_library(
     name = "stem",
     srcs = glob(["back/**/*.rs"]),
@@ -33,10 +38,7 @@ rust_library(
     crate_features = select({
         "//:distribution_profile": ["distribution_key"],
         "//conditions:default": [],
-    }) + select({
-        "//:android_config": ["android_config"],
-        "//conditions:default": ["ios_config"],
-    }),
+    }) + platform_features,
     proc_macro_deps = [
         "@stem_crate_index//:dotenvy_macro",
     ],
@@ -95,6 +97,7 @@ rust_test(
     name = "unit_tests",
     crate = ":stem",
     size = "small",  # 20 MB RAM, 1 min timeout
+    crate_features = platform_features,
     deps = [
         "@stem_crate_index//:reqwest", # for server health check unit test
         "@stem_crate_index//:futures-core",
@@ -105,6 +108,7 @@ rust_test(
 rust_test(
     name = "int_tests",
     srcs = glob(["tests/*.rs"]),
+    # crate_features = platform_features,
     deps = [
         ":stem",
         ":common",

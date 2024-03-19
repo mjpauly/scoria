@@ -65,8 +65,10 @@ fn Location() -> Html {
 fn LocationDetails() -> Html {
     let last_loc =
         use_selector(|state: &BackState| state.last_location.clone());
-    let locs_per_hour =
-        use_selector(|state: &BackState| state.locations_past_hour);
+    let locs_per_minute =
+        use_selector(|state: &BackState| state.locations_past_minute);
+    let locs_per_five_minute =
+        use_selector(|state: &BackState| state.locations_past_five_minutes);
     let user_config = use_selector(|s: &FrontState| s.location_config);
     let auto_config = use_selector(|s: &BackState| s.auto_location_config);
     let unit_pref = use_selector(|s: &FrontState| s.unit_pref);
@@ -127,12 +129,14 @@ fn LocationDetails() -> Html {
                 <p> {a} </p>
             }
             <p class="mb-4"> {time_since} </p>
-            if let Some(n_locs) = *locs_per_hour {
+            if let Some(n_locs) = *locs_per_minute {
                 <p>
-                    {format!("Num data points in past hour: {}", n_locs)}
+                    {format!("Num locations in past minute: {}", n_locs)}
                 </p>
+            }
+            if let Some(n_locs) = *locs_per_five_minute {
                 <p class="mb-4">
-                    {format!("{:.2} updates/minute", n_locs as f32 / 60.0)}
+                    {format!("In past five minutes: {}", n_locs)}
                 </p>
             }
 

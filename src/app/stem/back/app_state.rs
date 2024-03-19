@@ -103,6 +103,24 @@ pub struct PersistentState {
     pub back: BackState,
 }
 
+/// Modify the BackState using the provided closure. Can be used to retrieve a
+/// value from the BackState, or the whole back state with a clone(). Since
+/// we're holding a lock, don't block in the body of the closure.
+pub fn set_back_state<T>(f: impl FnOnce(&mut BackState) -> T) -> T {
+    f(&mut AppState::global().persistent.lock().unwrap().back)
+}
+
+/// Retrive values from the BackState. Cannot modify the BackState.
+pub fn get_back_state<T>(f: impl FnOnce(&BackState) -> T) -> T {
+    f(&AppState::global().persistent.lock().unwrap().back)
+}
+
+/// Retrive values from the FrontState, which may or may not be initialized.
+/// Cannot modify the FrontState.
+pub fn get_front_state<T>(f: impl FnOnce(&Option<FrontState>) -> T) -> T {
+    f(&AppState::global().persistent.lock().unwrap().front)
+}
+
 /// Temporary data to communicate to Swift
 #[derive(Debug, Default)]
 pub struct SwiftMessages {
@@ -120,6 +138,11 @@ impl AppState {
     #[cfg(not(test))]
     pub fn is_initialized() -> bool {
         APP_STATE.get().is_some()
+    }
+
+    #[cfg(test)]
+    pub fn is_initialized() -> bool {
+        APP_STATE.with(|s| s.get().is_some())
     }
 
     /// Get the global AppState instance
@@ -309,7 +332,7 @@ mod tests {
         let paths = local_fs_setup(dir);
         let state_file = paths.library_dir.clone().join(STATE_FNAME);
 
-        let contents = r##"{"front":{"last_viewed_intro_version":0,"route":"DefinitelyNotARoute","settings_route":"Root","use_scoria_tile_server":true},"back":{"locations_past_hour":2,"cmap_params":{"cmap":"NotARealCmap"}}}"##;
+        let contents = r##"{"front":{"last_viewed_intro_version":0,"route":"DefinitelyNotARoute","settings_route":"Root","use_scoria_tile_server":true},"back":{"locations_past_minute":2,"cmap_params":{"cmap":"NotARealCmap"}}}"##;
         let mut file = OpenOptions::new()
             .create(true)
             .write(true)
@@ -331,7 +354,7 @@ mod tests {
             parsed.front.as_ref().unwrap().settings_route,
             common::state::PersistedSettingsRoute::Root
         );
-        assert_eq!(parsed.back.locations_past_hour, Some(2));
+        assert_eq!(parsed.back.locations_past_minute, Some(2));
 
         // values that should be the default
         assert_eq!(

@@ -49,7 +49,9 @@ pub struct BackState {
     #[serde(deserialize_with = "ok_or_default")]
     pub last_location: Option<Location>,
     #[serde(deserialize_with = "ok_or_default")]
-    pub locations_past_hour: Option<i32>,
+    pub locations_past_minute: Option<i32>,
+    #[serde(deserialize_with = "ok_or_default")]
+    pub locations_past_five_minutes: Option<i32>,
 
     // data-derived state for the map view
     #[serde(deserialize_with = "ok_or_default")]

@@ -242,41 +242,6 @@ pub extern "C" fn should_export_track() -> bool {
     should_export
 }
 
-/// Unit tests for the top-level library interface.
-#[cfg(test)]
-pub mod tests {
-    use std::ffi::CString;
-
-    /// Test the top level C interface.
-    #[test]
-    fn test_app_dir_update() {
-        // setup the file system
-        let paths = super::local::local_fs_setup("test_app_dir_update/");
-        let subdirs = vec![
-            paths.documents_dir.clone(),
-            paths.library_dir.clone(),
-            paths.temp_dir.clone(),
-            paths.bundle_dir.clone(),
-        ];
-        // construct our cstrings
-        let cstrings: Vec<_> = subdirs
-            .iter()
-            .map(|s| CString::new(&*s.to_string_lossy()).unwrap())
-            .collect();
-        let version = CString::new("test").unwrap();
-        // call the C-facing set_app_dirs function
-        super::set_app_dirs(
-            cstrings[0].as_ptr(),
-            cstrings[1].as_ptr(),
-            cstrings[2].as_ptr(),
-            cstrings[3].as_ptr(),
-            version.as_ptr(),
-        );
-        // test that we can now get the Documents directory as expected
-        assert_eq!(super::paths::get_documents_dir(), paths.documents_dir);
-    }
-}
-
 /// Local setup either for development or testing.
 /// Not used in any production app code. TODO: gate with feature flag
 pub mod local {
@@ -344,7 +309,7 @@ pub mod local {
     /// of the subdirectory paths
     fn create_subdirs(dir: &str) -> Paths {
         let dir = PathBuf::from(dir);
-        let subdirs = vec!["Documents", "Library", "tmp", "Bundle"];
+        let subdirs = ["Documents", "Library", "tmp", "Bundle"];
         let fullsubdirs: Vec<_> =
             subdirs.iter().map(|subdir| dir.join(subdir)).collect();
         for fullsubdir in &fullsubdirs {
@@ -365,5 +330,40 @@ pub mod local {
         let dev_db_path = "src/app/stem/db/data.db";
         let dest = documents_dir.join("data.db");
         fs::copy(dev_db_path, dest).unwrap();
+    }
+}
+
+/// Unit tests for the top-level library interface.
+#[cfg(test)]
+pub mod tests {
+    use std::ffi::CString;
+
+    /// Test the top level C interface.
+    #[test]
+    fn test_app_dir_update() {
+        // setup the file system
+        let paths = super::local::local_fs_setup("test_app_dir_update/");
+        let subdirs = vec![
+            paths.documents_dir.clone(),
+            paths.library_dir.clone(),
+            paths.temp_dir.clone(),
+            paths.bundle_dir.clone(),
+        ];
+        // construct our cstrings
+        let cstrings: Vec<_> = subdirs
+            .iter()
+            .map(|s| CString::new(&*s.to_string_lossy()).unwrap())
+            .collect();
+        let version = CString::new("test").unwrap();
+        // call the C-facing set_app_dirs function
+        super::set_app_dirs(
+            cstrings[0].as_ptr(),
+            cstrings[1].as_ptr(),
+            cstrings[2].as_ptr(),
+            cstrings[3].as_ptr(),
+            version.as_ptr(),
+        );
+        // test that we can now get the Documents directory as expected
+        assert_eq!(super::paths::get_documents_dir(), paths.documents_dir);
     }
 }

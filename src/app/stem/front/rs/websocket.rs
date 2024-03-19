@@ -326,7 +326,7 @@ impl WebsocketService {
             loop {
                 // periodically get the back state (latest location, etc)
                 self.send_msg(ToBack::GetBackState);
-                yew::platform::time::sleep(Duration::from_secs(60)).await;
+                yew::platform::time::sleep(Duration::from_secs(1)).await;
             }
         });
     }

@@ -77,7 +77,7 @@ use walkdir::WalkDir;
 
 use super::automap::{automap_is_on, tile_has_been_visited};
 use super::coords::TileXYZ;
-use crate::app_state::AppState;
+use crate::app_state::{set_back_state, AppState};
 use crate::paths::get_map_cache_dir;
 use crate::server::no_caching_directives;
 
@@ -372,7 +372,9 @@ static EVICT_LOCK: Mutex<()> = Mutex::new(());
 
 pub async fn evict_old_map_data() {
     // only enter eviction if there are no other current attempts to do eviction
-    let Ok(_evict_guard) = EVICT_LOCK.try_lock() else { return };
+    let Ok(_evict_guard) = EVICT_LOCK.try_lock() else {
+        return;
+    };
 
     let now = std::time::Instant::now();
     // consider only tiles for deletion, not map styles
@@ -422,12 +424,7 @@ pub async fn evict_old_map_data() {
     }
     let final_size = cache_size(&files);
     // update the cache size state so it can be displayed in the frontend
-    AppState::global()
-        .persistent
-        .lock()
-        .unwrap()
-        .back
-        .map_cache_size = final_size;
+    set_back_state(|back| back.map_cache_size = final_size);
     let elapsed_time = now.elapsed();
     trace!(
         "Map cache size: {} MB -> {} MB. Took {} ms",

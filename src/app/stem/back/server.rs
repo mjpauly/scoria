@@ -96,7 +96,7 @@ pub async fn run(port: u16, secure: bool) -> ServerConfig {
 
     let server = build(listener, frontend_key.clone());
     let server_handle = server.handle();
-    let _ = tokio::spawn(async move { server.await });
+    tokio::spawn(server);
 
     // Save the server handle so we can stop it later on
     *AppState::global().server_handle.lock().await = Some(server_handle);

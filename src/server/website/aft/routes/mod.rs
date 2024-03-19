@@ -1,3 +1,5 @@
+#![allow(hidden_glob_reexports)]
+
 mod contact;
 mod health_check;
 mod static_files;

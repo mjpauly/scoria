@@ -12,6 +12,7 @@ use actix_web_actors::ws;
 use common::state::{PersistedRoute, PersistedSettingsRoute};
 use tracing::{info, warn};
 
+use crate::app_state::set_back_state;
 use crate::database;
 use crate::export::export_selected;
 use crate::geojson::update_geojson;
@@ -159,15 +160,11 @@ impl WsSession {
                     .should_request_when_in_use_authorization = true;
             }
             ToBack::ReviewedLastError => {
-                if let Some((_, reviewed)) = &mut AppState::global()
-                    .persistent
-                    .lock()
-                    .unwrap()
-                    .back
-                    .last_logged_error
-                {
-                    *reviewed = true;
-                }
+                set_back_state(|back| {
+                    if let Some((_, reviewed)) = &mut back.last_logged_error {
+                        *reviewed = true
+                    }
+                });
             }
             ToBack::GetPopupText((location, data_color)) => {
                 let recipient = ctx.address().recipient();
@@ -201,22 +198,15 @@ impl WsSession {
         get_runtime().spawn(async move {
             // update the last location and number of records in the past hour
             let rec = database::get_last_record().await;
-            AppState::global()
-                .persistent
-                .lock()
-                .unwrap()
-                .back
-                .last_location = rec;
-            let n = database::count_records_past_hour().await;
-            AppState::global()
-                .persistent
-                .lock()
-                .unwrap()
-                .back
-                .locations_past_hour = Some(n);
-            // clone the state and send it
-            let back =
-                AppState::global().persistent.lock().unwrap().back.clone();
+            let n = database::count_records_past_minute().await;
+            let n5 = database::count_records_past_five_minutes().await;
+            // update the back state, then clone it and send it to the front
+            let back = set_back_state(|back| {
+                back.last_location = rec;
+                back.locations_past_minute = Some(n);
+                back.locations_past_five_minutes = Some(n5);
+                back.clone()
+            });
             recipient.do_send(MsgToFront(ToFront::BackState(back)));
         });
     }

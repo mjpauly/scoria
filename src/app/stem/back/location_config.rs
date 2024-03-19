@@ -22,7 +22,7 @@
 //! Since a change in accuracy can trigger a new location update, we set the
 //! hysteresis to 1 record count
 
-use crate::app_state::AppState;
+use crate::app_state::{get_back_state, set_back_state, AppState};
 use crate::database;
 use crate::ws_session;
 use common::UserConfig;
@@ -64,12 +64,7 @@ async fn update_auto_location_config() {
     if !config.auto_standard_on() {
         // shouldn't get here, but if we do we'll set the location mode to
         // the default auto config
-        AppState::global()
-            .persistent
-            .lock()
-            .unwrap()
-            .back
-            .auto_location_config = AutoConfig::default()
+        set_back_state(|back| back.auto_location_config = AutoConfig::default())
     }
     let now = time::OffsetDateTime::now_utc();
     let minute_ago = now - time::Duration::minutes(1);
@@ -104,12 +99,7 @@ fn get_location_config() -> AllLocationConfig {
     } else {
         UserConfig::default()
     };
-    let auto_config = AppState::global()
-        .persistent
-        .lock()
-        .unwrap()
-        .back
-        .auto_location_config;
+    let auto_config = get_back_state(|back| back.auto_location_config);
     AllLocationConfig {
         user: user_config,
         auto: auto_config,
@@ -118,14 +108,9 @@ fn get_location_config() -> AllLocationConfig {
 
 /// Set the accuracy mode of the standard mode config for auto
 fn set_auto_accuracy(accuracy_mode: LocationAccuracyMode) {
-    AppState::global()
-        .persistent
-        .lock()
-        .unwrap()
-        .back
-        .auto_location_config
-        .standard_config
-        .accuracy_mode = accuracy_mode;
+    set_back_state(|back| {
+        back.auto_location_config.standard_config.accuracy_mode = accuracy_mode
+    });
 
     // persist the new state in case we are killed between location updates
     AppState::save_to_file();
