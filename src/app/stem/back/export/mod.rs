@@ -40,7 +40,7 @@ pub async fn export_selected() {
     }
     // notify the app wrapper to share the file
     AppState::global()
-        .swift_messages
+        .wrapper_messages
         .lock()
         .unwrap()
         .should_export_track = true;

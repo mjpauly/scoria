@@ -16,6 +16,7 @@ pub enum ToBack {
     ReviewedLastError,
 
     RequestWhenInUseAuthorization,
+    GoToLocationSettings,
     ExportSqliteLog,
     ImportSqliteLog,
     ExportTrack,

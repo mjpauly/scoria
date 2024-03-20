@@ -140,24 +140,31 @@ impl WsSession {
             }
             ToBack::ExportSqliteLog => {
                 AppState::global()
-                    .swift_messages
+                    .wrapper_messages
                     .lock()
                     .unwrap()
                     .should_export_sqlite_log = true;
             }
             ToBack::ImportSqliteLog => {
                 AppState::global()
-                    .swift_messages
+                    .wrapper_messages
                     .lock()
                     .unwrap()
                     .should_import_sqlite_log = true;
             }
             ToBack::RequestWhenInUseAuthorization => {
                 AppState::global()
-                    .swift_messages
+                    .wrapper_messages
                     .lock()
                     .unwrap()
                     .should_request_when_in_use_authorization = true;
+            }
+            ToBack::GoToLocationSettings => {
+                AppState::global()
+                    .wrapper_messages
+                    .lock()
+                    .unwrap()
+                    .should_go_to_location_settings = true;
             }
             ToBack::ReviewedLastError => {
                 set_back_state(|back| {

@@ -181,7 +181,7 @@ pub fn DataSettings() -> Html {
                     <SettingsCardSimpleButton
                         onclick={export_onclick}
                         text="Export Log"
-                />
+                    />
                 </SettingsCard>
                 <AfterCardParagraph>
                     {"An Exported log can be imported back into Scoria. You can

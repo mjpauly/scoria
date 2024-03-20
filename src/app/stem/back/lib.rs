@@ -189,7 +189,7 @@ pub extern "C" fn get_location_accuracy_mode() -> common::LocationAccuracyMode {
 #[no_mangle]
 pub extern "C" fn should_export_sqlite_log() -> bool {
     let state = app_state::AppState::global();
-    let mut guard = state.swift_messages.lock().unwrap();
+    let mut guard = state.wrapper_messages.lock().unwrap();
     let should_export = guard.should_export_sqlite_log;
     // unset the setting if it was true
     guard.should_export_sqlite_log = false;
@@ -208,7 +208,7 @@ pub extern "C" fn should_export_sqlite_log() -> bool {
 #[no_mangle]
 pub extern "C" fn should_import_sqlite_log() -> bool {
     let state = app_state::AppState::global();
-    let mut guard = state.swift_messages.lock().unwrap();
+    let mut guard = state.wrapper_messages.lock().unwrap();
     let should_import = guard.should_import_sqlite_log;
     guard.should_import_sqlite_log = false;
     should_import
@@ -222,21 +222,31 @@ pub extern "C" fn import_from_sqlite_log(import_path: *const c_char) {
     })
 }
 
-/// Tell swift to share the SQLite log in a share sheet
+/// Tell wrapper to request location when in use authorization
 #[no_mangle]
 pub extern "C" fn should_request_when_in_use_authorization() -> bool {
     let state = app_state::AppState::global();
-    let mut guard = state.swift_messages.lock().unwrap();
+    let mut guard = state.wrapper_messages.lock().unwrap();
     let should_request = guard.should_request_when_in_use_authorization;
     guard.should_request_when_in_use_authorization = false;
     should_request
+}
+
+/// Tell wrapper to go to system location settings
+#[no_mangle]
+pub extern "C" fn should_go_to_location_settings() -> bool {
+    let state = app_state::AppState::global();
+    let mut guard = state.wrapper_messages.lock().unwrap();
+    let should_go = guard.should_go_to_location_settings;
+    guard.should_go_to_location_settings = false;
+    should_go
 }
 
 /// Tell swift to share the generated track_export.{ext} track in a share sheet
 #[no_mangle]
 pub extern "C" fn should_export_track() -> bool {
     let state = app_state::AppState::global();
-    let mut guard = state.swift_messages.lock().unwrap();
+    let mut guard = state.wrapper_messages.lock().unwrap();
     let should_export = guard.should_export_track;
     guard.should_export_track = false;
     should_export

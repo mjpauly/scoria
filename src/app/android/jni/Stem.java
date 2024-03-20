@@ -21,6 +21,7 @@ public class Stem {
     public static native double getLocationAccuracyMode();
 
     public static native boolean shouldRequestWhenInUseAuthorization();
+    public static native boolean shouldGoToLocationSettings();
     public static native boolean shouldExportSqliteLog();
     public static native boolean shouldImportSqliteLog();
     public static native void importFromSqliteLog(String importPath);

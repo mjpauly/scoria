@@ -34,9 +34,10 @@ bazel build app --config=android_release
 zipalign -v -p 4 bazel-bin/src/app/android/app_unsigned.apk release/app_aligned.apk
 apksigner sign --ks ~/keystores/release_keystore.jks --out release/scoria.apk release/app_aligned.apk
 
-# Check alignment and signature
+# Check alignment, signature, and that debug is off (0x0 is off)
 zipalign -v -c 4 release/scoria.apk
 apksigner verify -v release/scoria.apk
+aapt dump xmltree app_unsigned.apk AndroidManifest.xml | grep debug
 ```
 
 ## JNI

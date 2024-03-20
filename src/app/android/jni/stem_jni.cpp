@@ -231,6 +231,13 @@ JNIEXPORT jboolean JNICALL Java_info_scoria_Stem_shouldRequestWhenInUseAuthoriza
 
 }
 
+JNIEXPORT jboolean JNICALL Java_info_scoria_Stem_shouldGoToLocationSettings
+  (JNIEnv *, jclass)
+{
+    return should_go_to_location_settings();
+
+}
+
 JNIEXPORT jboolean JNICALL Java_info_scoria_Stem_shouldExportSqliteLog
   (JNIEnv *, jclass)
 {

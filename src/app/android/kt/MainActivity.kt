@@ -124,6 +124,7 @@ class MainActivity : AppCompatActivity(), UpdateConfigCallback {
         runOnUiThread {
             // Log.i(TAG, "got poke!")
             checkForegroundPermissions()
+            checkLocationSourceSetting()
             updateLocationConfig()
         }
     }
@@ -135,6 +136,16 @@ class MainActivity : AppCompatActivity(), UpdateConfigCallback {
                 permission.ACCESS_FINE_LOCATION,
                 permission.ACCESS_COARSE_LOCATION,
             ))
+        }
+    }
+
+    private fun checkLocationSourceSetting() {
+        if (Stem.shouldGoToLocationSettings()) {
+            startActivity(
+                Intent(
+                    android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS
+                )
+            )
         }
     }
 

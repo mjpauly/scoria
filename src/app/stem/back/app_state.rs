@@ -53,7 +53,7 @@ pub struct AppState {
     // the UI state.
     pub persistent: Mutex<PersistentState>,
 
-    pub swift_messages: Mutex<SwiftMessages>,
+    pub wrapper_messages: Mutex<WrapperMessages>,
 
     pub map_data: MapData,
 }
@@ -123,8 +123,9 @@ pub fn get_front_state<T>(f: impl FnOnce(&Option<FrontState>) -> T) -> T {
 
 /// Temporary data to communicate to Swift
 #[derive(Debug, Default)]
-pub struct SwiftMessages {
+pub struct WrapperMessages {
     pub should_request_when_in_use_authorization: bool,
+    pub should_go_to_location_settings: bool,
     // tell swift to export the SQLite log in a share sheet
     pub should_export_sqlite_log: bool,
     // tell swift to import the SQLite log
@@ -221,7 +222,7 @@ impl AppState {
                 ws_addr: Mutex::new(None),
                 server_handle: tokio::sync::Mutex::new(None),
                 persistent: Mutex::new(persistent),
-                swift_messages: Mutex::new(Default::default()),
+                wrapper_messages: Mutex::new(Default::default()),
                 map_data: Default::default(),
             }))
             .expect("Could not initialize AppState");

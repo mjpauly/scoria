@@ -365,36 +365,9 @@ fn EnableLocationPartTwo() -> Html {
             swift_poke::poke(); // notify swift to get new value from backend
         })
     };
-    #[cfg(feature = "ios_config")]
-    let text = html! {
-        <>
-            <p class="mb-3">
-                {"To log location data in the background when
-                the app is closed, you also need to grant permission to always
-                access your location. You will be able to pause logging at
-                any time in the app."}
-            </p>
-            <p class="mb-3">
-                {"When prompted, tap \"Change to Always Allow\"."}
-            </p>
-            <img src="./always_auth.png" class="w-36 mx-auto mb-3"/>
-            <p class="mb-3">
-                {"Tap the slider to grant always access and start logging
-                location data."}
-            </p>
-
-        </>
-    };
-    #[cfg(feature = "android_config")]
-    let text = html! {
-        <p class="mb-3">
-            {"Tap the slider to start logging location data. You will be able to
-            pause logging at any time in the app."}
-        </p>
-    };
     html! {
         <>
-            {text}
+            <EnableLocationPartTwoHelper />
 
             <div class="mt-2 mb-1 flex px-4">
             <div class="grow max-w-prose mx-auto">
@@ -412,6 +385,82 @@ fn EnableLocationPartTwo() -> Html {
             </div>
             </div>
 
+        </>
+    }
+}
+
+/// iOS-specific text for the second EnableLocation page.
+#[cfg(feature = "ios_config")]
+#[function_component]
+fn EnableLocationPartTwoHelper() -> Html {
+    html! {
+        <>
+            <p class="mb-3">
+                {"To log location data in the background when
+                the app is closed, you also need to grant permission to always
+                access your location. You will be able to pause logging at
+                any time in the app."}
+            </p>
+            <p class="mb-3">
+                {"When prompted, tap \"Change to Always Allow\"."}
+            </p>
+            <img src="./always_auth.png" class="w-36 mx-auto mb-3"/>
+            <p class="mb-3">
+                {"Tap the slider to grant always access and start logging
+                location data."}
+            </p>
+
+        </>
+    }
+}
+
+/// Android-specific text for the second EnableLocation page.
+#[cfg(feature = "android_config")]
+#[function_component]
+fn EnableLocationPartTwoHelper() -> Html {
+    let wss = use_context::<WebsocketService>().unwrap();
+    let go_to_settings_onclick = Callback::from(move |_e: MouseEvent| {
+        wss.send_msg(ToBack::GoToLocationSettings);
+        swift_poke::poke();
+    });
+    html! {
+        <>
+        <p class="mb-1">
+            {"You may need to enable low-power location modes in your phone's
+            settings. Go to"}
+        </p>
+        <p class="font-mono mb-1">
+            {"Settings > Location > Location services > Google Location
+            Accuracy"}
+        </p>
+        <p class="mb-1">
+            {"and enable"}
+        </p>
+        <p class="font-mono mb-3">
+            {"Improve Location Accuracy"}
+        </p>
+        <div class="mt-2 mb-3 flex px-4">
+        <div class="grow max-w-prose mx-auto">
+        <div class="bg-neutral-900 rounded-lg px-4 py-1">
+            <button onclick={go_to_settings_onclick}
+                class="flex items-center justify-between py-2 w-full">
+                <span class="text-primary">
+                    {"Open Location Settings"}
+                </span>
+            </button>
+        </div>
+        </div>
+        </div>
+        <p class="mb-8 text-sm">
+            {"Without this, Scoria can still use high power location modes, but
+            you should watch your battery and pause logging when you want to
+            save power. Use \"Custom\" mode with an accuracy of \"Best\"."}
+        </p>
+
+        <p class="mb-3">
+            {"Tap the slider to start logging location data. You will be able to
+            pause logging at any time in the app."}
+        </p>
         </>
     }
 }
