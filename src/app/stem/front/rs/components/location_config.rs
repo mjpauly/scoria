@@ -47,8 +47,16 @@ pub fn LocationConfigurator() -> Html {
         },
     );
     let mode_choices = LocationMode::iter().collect::<Vec<_>>();
+    #[cfg(not(feature = "android_config"))]
     let accuracy_mode_choices =
         LocationAccuracyMode::iter().collect::<Vec<_>>();
+    // Currently the 10m and 3km accuracy modes don't do anything in Android
+    #[cfg(feature = "android_config")]
+    let accuracy_mode_choices = vec![
+        LocationAccuracyMode::Best,
+        LocationAccuracyMode::HundredMeters,
+        LocationAccuracyMode::Kilometer,
+    ];
 
     let unit_pref = use_selector(|s: &FrontState| s.unit_pref);
     let dist_filt_text = unit_pref.format_small_length(
