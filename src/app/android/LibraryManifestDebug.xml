@@ -32,6 +32,17 @@
             android:exported="false"
         />
 
+        <provider
+            android:name=".ScoriaFileProvider"
+            android:authorities="info.scoria.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true"
+        >
+             <meta-data
+               android:name="android.support.FILE_PROVIDER_PATHS"
+               android:resource="@xml/filepaths" />
+        </provider>
+
         <meta-data android:name="android.webkit.WebView.MetricsOptOut"
                android:value="true" />
     </application>

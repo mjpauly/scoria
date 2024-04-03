@@ -6,7 +6,6 @@ Current: android, pins
 
 - Android
     - [ ] update location config options in Scoria?
-    - [ ] file importing / exporting
     - [ ] proguard
 - post Android release
     - [ ] decouple ellipsoid and msl altitudes, remove story

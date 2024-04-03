@@ -10,6 +10,7 @@ import android.os.Binder
 import android.os.Bundle
 import android.os.IBinder
 import android.util.Log
+import android.view.View
 import android.view.ViewGroup.MarginLayoutParams
 import android.webkit.WebView 
 import androidx.activity.enableEdgeToEdge
@@ -18,8 +19,9 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updateLayoutParams
-import android.view.View
+import java.nio.file.Path
 import java.util.Base64
+import kotlin.io.path.Path
 
 class MainActivity : AppCompatActivity(), UpdateConfigCallback {
 
@@ -53,6 +55,7 @@ class MainActivity : AppCompatActivity(), UpdateConfigCallback {
             getCacheDir().getAbsolutePath()
         )
         updateLocationConfig()
+        cleanupAllSharedFiles(this)
     }
 
     override fun onDestroy() {
@@ -126,6 +129,9 @@ class MainActivity : AppCompatActivity(), UpdateConfigCallback {
             checkForegroundPermissions()
             checkLocationSourceSetting()
             updateLocationConfig()
+            checkExportSqliteLog()
+            checkImportSqliteLog()
+            checkExportTrack()
         }
     }
 
@@ -146,6 +152,52 @@ class MainActivity : AppCompatActivity(), UpdateConfigCallback {
                     android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS
                 )
             )
+        }
+    }
+
+    // Copy data.db to sharable path in the cache dir with a new name, and
+    // share it from there, then delete it
+    private fun checkExportSqliteLog() {
+        if (Stem.shouldExportSqliteLog()) {
+            val db_fname = "data.db"
+            val base = Path(getFilesDir().getAbsolutePath())
+            val srcPath = base.resolve(db_fname)
+            shareWithName(
+                this,
+                srcPath,
+                getDbExportName(),
+            )
+        }
+    }
+
+    // Check if we should import a Sqlite log, and do so
+    private fun checkImportSqliteLog() {
+        if (Stem.shouldImportSqliteLog()) {
+            initiateImport(this)
+        }
+    }
+
+    // Check if a track should be exported, and do it
+    private fun checkExportTrack() {
+        if (Stem.shouldExportTrack()) {
+            exportTrack(this)
+        }
+    }
+
+    public override fun onActivityResult(
+        requestCode: Int,
+        resultCode: Int,
+        returnIntent: Intent?
+    ) {
+        if (requestCode == SHARE_CODE) {
+            cleanupSharedFile()
+        } else if (
+            requestCode == IMPORT_CODE
+            && resultCode == RESULT_OK
+        ) {
+            returnIntent?.data?.also { returnUri ->
+                completeImport(this, returnUri)
+            }
         }
     }
 
