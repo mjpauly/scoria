@@ -8,13 +8,13 @@ Build and run the app in the emulator:
 
 ```
 bazel build :app --config=android
-bazel run :debug --config=android -- -s
+bazel run :run_debug --config=android -- -s
 ```
 
-The debug target can be fed `-s` to start the app after installing, and `-d` to
-delete the previous install and data. They can be combined into `-ds`.
+The run_debug target can be fed `-s` to start the app after installing, and
+`-d` to delete the previous install and data. They can be combined into `-ds`.
 
-It may be necessary to make the sh binary runnable with `chmod +x debug.sh`.
+It may be necessary to make the sh binary runnable with `chmod +x run_debug.sh`.
 
 There are issues with bazel's `mobile-install` command and how it puts
 resources and native libraries in different locations on the device, so install

@@ -1,6 +1,14 @@
 load("@rules_kotlin//kotlin:android.bzl", "kt_android_library")
 load("@rules_kotlin//kotlin:core.bzl", "kt_compiler_plugin")
 
+proguard_specs = select({
+    "//:distribution_profile": [
+        "proguard/proguard-rules.pro",
+        "proguard/proguard-android-optimize.txt-8.2.2",
+    ],
+    "//conditions:default": [],
+})
+
 android_binary(
     name = "app",
     manifest = "AndroidManifest.xml",
@@ -10,6 +18,8 @@ android_binary(
         "versionName": "1.3",
     },
     deps = [":lib"],
+    proguard_specs = proguard_specs,
+    proguard_generate_mapping = True, # create mapping file of obfuscated names
 )
 
 kt_android_library(
@@ -33,7 +43,7 @@ kt_android_library(
 
 # install the debug app (app.apk) with adb and run it
 sh_binary(
-    name = "debug",
-    srcs = ["debug.sh"],
+    name = "run_debug",
+    srcs = ["run_debug.sh"],
     data = [":app"],
 )

@@ -7,7 +7,7 @@ d_flag=''
 s_flag=''
 
 print_usage() {
-  printf "Usage: debug.sh [-d] [-s]
+  printf "Usage: run_debug.sh [-d] [-s]
         -d: delete previous install and data
         -s: start app after install\n"
 }

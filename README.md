@@ -5,8 +5,8 @@
 Current: android, pins
 
 - Android
-    - [ ] update location config options in Scoria?
-    - [ ] proguard
+    - [ ] version numbers
+    - [ ] script to package build outputs
 - post Android release
     - [ ] decouple ellipsoid and msl altitudes, remove story
 - debug-ability
