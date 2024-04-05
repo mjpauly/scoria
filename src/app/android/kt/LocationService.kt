@@ -57,7 +57,8 @@ class LocationService() : Service(), LocationListenerCompat {
         // to ensure stem is initialized
         Stem.handleStartup(
             getFilesDir().getAbsolutePath(),
-            getCacheDir().getAbsolutePath()
+            getCacheDir().getAbsolutePath(),
+            getVersionName(this)
         )
         createNotificationChanel()
         if (Build.VERSION.SDK_INT > Build.VERSION_CODES.O) {

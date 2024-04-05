@@ -29,10 +29,14 @@ bazel build shim:jni_lib --platforms=//:android_aarch64
 ## Release
 
 ```
-# Build
+# Build, zipalign, and sign
 bazel build app --config=android_release
 zipalign -v -p 4 bazel-bin/src/app/android/app_unsigned.apk release/app_aligned.apk
 apksigner sign --ks ~/keystores/release_keystore.jks --out release/scoria.apk release/app_aligned.apk
+
+# Save the unsigned app, proguard mapping, etc for future debug
+bazel build package_release --config=android_release
+cp bazel-bin/src/app/andriod/android_relase_x.y.zip .
 
 # Check alignment, signature, and that debug is off (0x0 is off)
 zipalign -v -c 4 release/scoria.apk

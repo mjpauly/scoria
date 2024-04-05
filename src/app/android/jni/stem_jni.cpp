@@ -122,19 +122,20 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* pjvm, void* reserved) {
 }
 
 JNIEXPORT void JNICALL Java_info_scoria_Stem_handleStartup
-  (JNIEnv *, jclass, jstring filesDir, jstring cacheDir)
+  (JNIEnv *, jclass, jstring filesDir, jstring cacheDir, jstring versionName)
 {
     // start the stdout -> android logging thread
     start_logger("info.scoria.native"); // TODO: only in development
 
     std::string filesDirString{LocalString{filesDir}.Pin().ToString()};
     std::string cacheDirString{LocalString{cacheDir}.Pin().ToString()};
+    std::string versionNameString{LocalString{versionName}.Pin().ToString()};
     set_app_dirs(
         filesDirString.c_str(), // documents
         filesDirString.c_str(), // library
         cacheDirString.c_str(), // tmp
         "", // bundle (unused)
-        "x.y" // TODO
+        versionNameString.c_str()
     );
 }
 

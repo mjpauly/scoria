@@ -52,7 +52,8 @@ class MainActivity : AppCompatActivity(), UpdateConfigCallback {
         enableEdgeToEdge()
         Stem.handleStartup(
             getFilesDir().getAbsolutePath(),
-            getCacheDir().getAbsolutePath()
+            getCacheDir().getAbsolutePath(),
+            getVersionName(this)
         )
         updateLocationConfig()
         cleanupAllSharedFiles(this)
@@ -269,4 +270,15 @@ class MainActivity : AppCompatActivity(), UpdateConfigCallback {
 // callback interface for the service
 interface UpdateConfigCallback {
     fun updateConfigCallback()
+}
+
+fun getVersionName(context: Context): String {
+    return try {
+        context.getPackageManager()
+            .getPackageInfo(context.getPackageName(), 0)
+            .versionName
+    } catch (e: Exception) {
+        e.printStackTrace()
+        "?.?"
+    }
 }
