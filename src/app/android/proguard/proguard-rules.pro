@@ -8,6 +8,14 @@
 # Make sure the JS interface poke() is not optimized out
 -keep class info.scoria.WebAppInterface { void poke(); }
 
+# Remove all Logcat calls by telling proguard they are safe t remove
+-assumenosideeffects class android.util.Log {
+    public static *** d(...);
+    public static *** w(...);
+    public static *** v(...);
+    public static *** i(...);
+}
+
 
 # warning suppression
 

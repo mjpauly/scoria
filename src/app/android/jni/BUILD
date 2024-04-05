@@ -20,6 +20,11 @@ cc_library(
     ],
     deps = ["//src/app/stem:stem_cc"],
 
+    defines = select({
+        "//:distribution_profile": [],
+        "//conditions:default": ["DEBUG_LOGGING"],
+    }),
+
     # Don't export symbols from static lib dependencies as dynamic symbols, and
     # strip all non-dynamic symbols.
     linkopts = select({

@@ -5,8 +5,6 @@
 Current: android, pins
 
 - Android
-    - [ ] version numbers
-    - [ ] script to package build outputs
 - post Android release
     - [ ] decouple ellipsoid and msl altitudes, remove story
 - debug-ability

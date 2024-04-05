@@ -52,7 +52,7 @@ class LocationService() : Service(), LocationListenerCompat {
     private var timer: Timer? = null
 
     override fun onCreate() {
-        Log.i(TAG, "starting on thread: ${java.lang.Thread.currentThread().getName()}")
+        // Log.i(TAG, "starting on thread: ${java.lang.Thread.currentThread().getName()}")
         // Android may start this service without the MainActivity, so we need
         // to ensure stem is initialized
         Stem.handleStartup(
@@ -111,7 +111,7 @@ class LocationService() : Service(), LocationListenerCompat {
         val gpsEnabled = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER);
         val networkEnabled = locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER);
         val fusedEnabled = locationManager.isProviderEnabled(LocationManager.FUSED_PROVIDER);
-        Log.i(TAG, "gps: ${gpsEnabled}, network: ${networkEnabled}, fused: ${fusedEnabled}")
+        Log.i(TAG, "providers - gps: ${gpsEnabled}, network: ${networkEnabled}, fused: ${fusedEnabled}")
         if (!LocationManagerCompat.isLocationEnabled(locationManager)
             || !Stem.getLocationEnabled()
         ) {
@@ -179,7 +179,7 @@ class LocationService() : Service(), LocationListenerCompat {
     private var lastLoc: Location? = null // last persisted location
 
     private fun logLocation(loc: Location) {
-        Log.d(TAG, "New location: ${loc.getLongitude()}, ${loc.getLatitude()}")
+        Log.d(TAG, "New location received")
 
         lastLoc?.let {
             if (loc.distanceTo(it) < Stem.getDistanceFilter()) {

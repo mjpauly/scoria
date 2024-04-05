@@ -124,8 +124,12 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* pjvm, void* reserved) {
 JNIEXPORT void JNICALL Java_info_scoria_Stem_handleStartup
   (JNIEnv *, jclass, jstring filesDir, jstring cacheDir, jstring versionName)
 {
-    // start the stdout -> android logging thread
-    start_logger("info.scoria.native"); // TODO: only in development
+// In release builds we use proguard to remove calls to android's logging
+// functions, but we have this extra layer so we can avoid spawning the thread.
+#ifdef DEBUG_LOGGING
+    // Start the stdout -> android logging thread.
+    start_logger("info.scoria.native");
+#endif
 
     std::string filesDirString{LocalString{filesDir}.Pin().ToString()};
     std::string cacheDirString{LocalString{cacheDir}.Pin().ToString()};
