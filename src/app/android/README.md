@@ -28,6 +28,8 @@ bazel build shim:jni_lib --platforms=//:android_aarch64
 
 ## Release
 
+### Apk
+
 ```
 # Build, zipalign, and sign
 bazel build app --config=android_release
@@ -42,6 +44,27 @@ cp bazel-bin/src/app/andriod/android_relase_x.y.zip .
 zipalign -v -c 4 release/scoria.apk
 apksigner verify -v release/scoria.apk
 aapt dump xmltree app_unsigned.apk AndroidManifest.xml | grep debug
+```
+
+### Bundle
+
+`app.aab` contains the proguard mapping in the bundle metadata, which is not
+put into the apks generated for clients. Perhaps play console helps with
+de-obfuscation of stack traces here, but for now we just upload the version
+without the mapping, `app_deployable.aab`.
+
+```
+bazel build app_deployable --config=android_release
+
+# Save the app_deployable for uploading to play console
+cp bazel-bin/src/app/android/app_deployable.aab .
+
+# Save the unsigned app, proguard mapping, etc for future debug
+bazel build package_release --config=android_release
+cp bazel-bin/src/app/andriod/android_relase_x.y.zip .
+
+# sign the deployable bundle ("upload" is the key alias)
+jarsigner -keystore ~/keystores/upload_keystore.jks app_deployable.aab upload
 ```
 
 ## JNI

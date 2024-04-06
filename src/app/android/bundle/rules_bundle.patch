@@ -1,0 +1,31 @@
+diff --git a/android/android_application.bzl b/android/android_application.bzl
+index a8c9886..c55f88e 100644
+--- a/android/android_application.bzl
++++ b/android/android_application.bzl
+@@ -358,7 +358,7 @@ _generate_apks_and_install = rule(
+ )
+ 
+ # buildifier: disable=unnamed-macro
+-def android_application(name, app_bundle_config_file, proguard_generate_mapping, **kwargs):
++def android_application(target, app_bundle_config_file, proguard_generate_mapping, **kwargs):
+     """
+     Creates an Android App Bundle (AAB) binary with the specified name and arguments.
+ 
+@@ -371,16 +371,11 @@ def android_application(name, app_bundle_config_file, proguard_generate_mapping,
+         **kwargs: additional arguments. See android_binary for the exact arguments that are
+             available.
+     """
+-    binary_name = name
++    binary_name = target
+     module_aab_name = "%s_module_aab" % binary_name
+     module_zip_name = "%s_module_zip" % binary_name
+     deployable_aab_name = "%s_deployable" % binary_name
+     deployable_universal_apks_name = "%s_univeral_apks" % binary_name
+-    native.android_binary(
+-        name = binary_name,
+-        proguard_generate_mapping = proguard_generate_mapping,
+-        **kwargs
+-    )
+     _convert_apk_to_module_aab(
+         name = module_aab_name,
+         input_file = ":%s.apk" % binary_name,

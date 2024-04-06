@@ -620,3 +620,20 @@ maven_install(
         "https://repo1.maven.org/maven2",
     ],
 )
+
+## Android app bundles
+
+http_archive(
+    name = "rules_android_app_bundles",
+    sha256 = "07433c7349c6e6b4f31298886b19206593e75976c7ff916e96e772f3ce34b216",
+    strip_prefix = "rules_android_app_bundles-0.1.1",
+    url = "https://github.com/Bencodes/rules_android_app_bundles/archive/refs/tags/v0.1.1.tar.gz",
+    # Patch removes the `android_binary` target from the macro, so we can define
+    # it ourselves. Created with `git diff > out.patch`
+    patches = ["//src/app/android:bundle/rules_bundle.patch"],
+    patch_args = ["-p1"],
+)
+
+load("//src/app/android:bundle/bundle_deps.bzl", "download_app_bundle_dependencies")
+
+download_app_bundle_dependencies()
