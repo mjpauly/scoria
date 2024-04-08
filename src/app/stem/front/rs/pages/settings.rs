@@ -11,6 +11,7 @@
 
 use yew::prelude::*;
 use yew_icons::{Icon, IconId};
+use yew_router::prelude::*;
 use yewdux::prelude::*;
 
 use crate::components::map_settings::{
@@ -19,14 +20,14 @@ use crate::components::map_settings::{
 use crate::components::unit_picker::UnitPicker;
 use crate::components::{
     AfterCardParagraph, BouncyScrollContainer, DoneButton, MainSettingsButton,
-    SettingsCard, SettingsCardExternalLink, SettingsCardPageButton,
-    SettingsCardPageButtonWithLabel, SettingsCardSimpleButton, WarningMessage,
-    H1, H2,
+    SettingsCard, SettingsCardButtonWithChildren, SettingsCardExternalLink,
+    SettingsCardPageButton, SettingsCardPageButtonWithLabel,
+    SettingsCardSimpleButton, WarningMessage, H1, H2,
 };
 use crate::components::{HomeBarSpacer, TopNav};
 use crate::router::{Route, SettingsRoute};
 use crate::swift_poke;
-use crate::ui_state::BackState;
+use crate::ui_state::{BackState, FrontState};
 use crate::websocket::{ToBack, WebsocketService};
 
 #[function_component]
@@ -35,6 +36,14 @@ pub fn Settings() -> Html {
         s.last_logged_error.as_ref().map(|x| x.1).unwrap_or(true)
     });
     let app_version = use_selector(|s: &BackState| s.app_version.clone());
+
+    let navigator = use_navigator().unwrap();
+    let dispatch = Dispatch::<FrontState>::new();
+    let to_intro_onclick =
+        dispatch.reduce_mut_callback(move |s: &mut FrontState| {
+            s.intro_page = 0;
+            navigator.push(&Route::Intro);
+        });
     html! {
         <>
             <TopNav>
@@ -46,10 +55,11 @@ pub fn Settings() -> Html {
                 <H1> {"Settings"} </H1>
 
                 <SettingsCard>
-                    <SettingsCardPageButton<Route>
-                        text="Introduction"
-                        route={Route::Intro}
-                    />
+                    <SettingsCardButtonWithChildren onclick={to_intro_onclick}>
+                        <label> {"Introduction"} </label>
+                        <Icon icon_id={IconId::BootstrapChevronRight}
+                            class="h-4 w-4 text-neutral-500" />
+                    </SettingsCardButtonWithChildren>
                 </SettingsCard>
 
                 <SettingsCard class="my-4">

@@ -84,6 +84,9 @@ pub struct FrontState {
     // Last version of the introduction/tutorial that was viewed
     #[serde(deserialize_with = "ok_or_default")]
     pub last_viewed_intro_version: u32,
+    // Page of the introduction/tutorial that was viewed
+    #[serde(deserialize_with = "ok_or_default")]
+    pub intro_page: u32,
 
     #[serde(deserialize_with = "ok_or_default")]
     pub route: PersistedRoute,

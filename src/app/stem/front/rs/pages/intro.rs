@@ -35,22 +35,14 @@ pub fn Intro() -> Html {
     dispatch.reduce_mut(|s| s.last_viewed_intro_version = INTRO_VERSION);
 
     // subpage that is being viewed
-    let subpage = use_state(|| 1);
+    let subpage = use_selector(|s: &FrontState| s.intro_page);
 
-    let next_page_onclick = {
-        let subpage = subpage.clone();
-        Callback::from(move |_e: MouseEvent| {
-            subpage.set(*subpage + 1);
-        })
-    };
-    let prev_page_onclick = {
-        let subpage = subpage.clone();
-        Callback::from(move |_e: MouseEvent| {
-            subpage.set(*subpage - 1);
-        })
-    };
+    let next_page_onclick =
+        dispatch.reduce_mut_callback(|s: &mut FrontState| s.intro_page += 1);
+    let prev_page_onclick =
+        dispatch.reduce_mut_callback(|s: &mut FrontState| s.intro_page -= 1);
 
-    const LAST_PAGE: u32 = 9;
+    const LAST_PAGE: u32 = 8;
     html! {
         <>
             <TopNav>
@@ -59,29 +51,29 @@ pub fn Intro() -> Html {
             </TopNav>
             <BouncyScrollContainer class="flex flex-col">
                 <div class="my-auto py-5">
-                    if *subpage == 1 {
+                    if *subpage == 0 {
                         <IntroStart />
-                    } else if *subpage == 2 {
+                    } else if *subpage == 1 {
                         <HowItWorks />
-                    } else if *subpage == 3 {
+                    } else if *subpage == 2 {
                         <HoldUp />
-                    } else if *subpage == 4 {
+                    } else if *subpage == 3 {
                         <SeePrivacyPolicy />
-                    } else if *subpage == 5 {
+                    } else if *subpage == 4 {
                         <LoggingMode />
-                    } else if *subpage == 6 {
+                    } else if *subpage == 5 {
                         <EnableLocation />
-                    } else if *subpage == 7 {
+                    } else if *subpage == 6 {
                         <EnableLocationPartTwo />
-                    } else if *subpage == 8 {
+                    } else if *subpage == 7 {
                         <PickUnits />
-                    } else if *subpage == 9 {
+                    } else if *subpage == 8 {
                         <IntroFinish />
                     }
                 </div>
             </BouncyScrollContainer>
             <BottomNav>
-                if *subpage > 1 {
+                if *subpage > 0 {
                     <button onclick={prev_page_onclick}
                         class="text-primary flex items-center p-2 px-4">
                         <Icon icon_id={IconId::BootstrapChevronLeft}
@@ -178,13 +170,13 @@ fn HowItWorks() -> Html {
                 {"How it Works"}
             </p>
             <p class="mb-3">
-                {"📱 Scoria collects your movement history by logging your location while it's open in the background. It's designed so that you can leave it on all the time."}
+                {"📱 Scoria collects your movement history by logging your location while it's open in the background. It's designed to be left on all the time."}
             </p>
             <p class="mb-3">
-                {"🔋 By default, battery drain is minimized by lowering data accuracy when the app detects that you are stationary."}
+                {"🔋 Battery drain is minimized by lowering data accuracy when the app detects that you are stationary."}
             </p>
             <p class="mb-3">
-                {"🛤️ You can see where you've been, the routes you've taken, time spent at destinations and during travel, and much more. Scoria is an automatic spatial activity journal."}
+                {"🛤️ See where you've been, the routes you've taken, time spent at destinations and during travel, and much more. Scoria is an automatic spatial activity journal."}
             </p>
         </>
     }
@@ -198,13 +190,13 @@ fn HoldUp() -> Html {
                 {"✋ Hold Up"}
             </p>
             <p class="mb-3">
-                {"Let's take a moment to appreciate what we're talking about here. Scoria is designed to help you record detailed location data about your life, "} <span class="italic">{"continuously."}</span>
+                {"Let's take a moment to appreciate the importance of privacy here. Scoria is designed to help you record detailed location data about your life, "} <span class="italic">{"continuously."}</span>
             </p>
             <p class="mb-3">
-                {"This information is deeply personal, private, and sensitive. It reveals a tremendous amount about who you are. We, the developers, do not take this lightly. We created Scoria because we believe everyone deserves privacy, and because we felt there were gaps in the space of personal data tools."}
+                {"This information is deeply personal, private, and sensitive. It reveals a tremendous amount about who you are. We, the developers, approach this matter seriously. We created Scoria because we believe everyone deserves privacy, and because we felt there were gaps in the space of personal data tools."}
             </p>
             <p class="mb-3">
-                {"Data logged by the app is kept on your device and is only accessible to you. We don't automatically collect any information about you or how you use the app. We make no assumptions about what data is sensitive and what data isn't. We do not know if you use the app or not, how much you use the app, or if the app crashes while you're using it. (If it crashes, please consider letting us know via the feedback form so we can fix it.) All data is private by default."}
+                {"Data logged by Scoria is kept on your device and is only accessible to you. We don't automatically collect any information about you or how you use the app. We make no assumptions about what data is sensitive and what data isn't. We do not know if you use the app or not, how you use the app, or if the app crashes while you're using it. (If the app crashes, let us know through the feedback form so we can fix it.) All data is private by default."}
             </p>
 
         </>
@@ -219,17 +211,14 @@ fn SeePrivacyPolicy() -> Html {
                 {"The Privacy Policy"}
             </p>
             <p class="mb-3">
-                {"Our privacy policy is meant to be short and easy to read, and goes into a little more detail than we're dedicating space for in this introduction."}
+                {"The privacy policy is short and easy to read, and goes into more detail."}
             </p>
             <p class="mb-3">
                 {"Check it out "}
                 <a href="https://scoria.info/privacy" class="underline text-blue-500">
                     {"here"}
                 </a>
-                {"."}
-            </p>
-            <p class="mb-3">
-                {"You can find it anytime from the Settings menu."}
+                {", or find it anytime from the Settings menu."}
             </p>
 
         </>
@@ -285,13 +274,13 @@ fn LoggingMode() -> Html {
                 {"Location Logging Mode"}
             </p>
             <p class="mb-3">
-                {"⚡️ Your device's location sensors take power to operate. This power use depends on the accuracy of the data you want to acquire, your device model, and how much time you spend in motion."}
+                {"⚡️ Your device uses power to determine its location. This power use depends on the accuracy of the data you want to acquire, your device model, and how much time you spend in motion."}
             </p>
             <p class="mb-3">
-                {"☀️ \"Automatic\" mode is the default choice for collecting high accuracy data and making detailed visualizations of your movement. Power is conserved when you're stationary."}
+                {"☀️ \"Automatic\" mode is best for collecting high accuracy data and making detailed visualizations of your movement. Power is conserved when you're stationary."}
             </p>
             <p class="mb-3">
-                {"⛅️ \"Reduced\" mode is a good choice if you want a lower level of power draw and don't mind lower accuracy data, have a device model that's a few years old, or spend most of the day in motion without the ability to recharge your device."}
+                {"⛅️ Use \"Reduced\" if you want a lower level of power draw and don't mind lower accuracy data, have an older device model, or spend most of the day in motion without the ability to recharge your device."}
             </p>
             <p class="mb-3">
                 {"🌧️ Choose \"Infrequent\" mode if battery life is critical. Data is logged very rarely with this mode, and is the least detailed. Battery drain is negligible."}
@@ -398,8 +387,8 @@ fn EnableLocationPartTwoHelper() -> Html {
             <p class="mb-3">
                 {"To log location data in the background when
                 the app is closed, you also need to grant permission to always
-                access your location. You will be able to pause logging at
-                any time in the app."}
+                access your location. You can pause logging at any time in the
+                app."}
             </p>
             <p class="mb-3">
                 {"When prompted, tap \"Change to Always Allow\"."}
@@ -451,15 +440,15 @@ fn EnableLocationPartTwoHelper() -> Html {
         </div>
         </div>
         </div>
-        <p class="mb-8 text-sm">
+        <p class="mb-8">
             {"Without this, Scoria can still use high power location modes, but
-            you should watch your battery and pause logging when you want to
-            save power. Use \"Custom\" mode with an accuracy of \"Best\"."}
+            watch your battery and pause logging when you need to save power.
+            Use \"Custom\" mode with an accuracy of \"Best\"."}
         </p>
 
         <p class="mb-3">
-            {"Tap the slider to start logging location data. You will be able to
-            pause logging at any time in the app."}
+            {"Tap the slider to start logging location data. You can pause
+            logging at any time in the app."}
         </p>
         </>
     }
@@ -485,8 +474,8 @@ fn IntroFinish() -> Html {
                 {"That's it! You're all set up. ✅"}
             </p>
             <p class="mb-3">
-                {"Once you've collected some movement data, you can visualize it
-                in the \"Map\" tab."}
+                {"Once you've collected some movement data, visualize it in the
+                \"Map\" tab."}
             </p>
             <p class="mb-3">
                 {"Close this page to finish the introduction."}
