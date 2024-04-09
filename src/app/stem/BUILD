@@ -45,6 +45,7 @@ rust_library(
     deps = [
         ":common",
         ":alloc",
+        "@stem_crate_index//:base64",
         "@stem_crate_index//:csv",
         "@stem_crate_index//:geo",
         "@stem_crate_index//:geo-clipper",

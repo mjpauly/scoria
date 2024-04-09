@@ -65,6 +65,8 @@ cp bazel-bin/src/app/andriod/android_relase_x.y.zip .
 
 # sign the deployable bundle ("upload" is the key alias)
 jarsigner -keystore ~/keystores/upload_keystore.jks app_deployable.aab upload
+# verify
+varsigner -verify app_deployable.aab
 ```
 
 ## JNI

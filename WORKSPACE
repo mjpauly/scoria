@@ -137,6 +137,7 @@ crates_repository(
         )],
     },
     packages = {
+        "base64": crate.spec(version = "0.22.0"),
         "csv": crate.spec(version = "1.3.0"),
         "futures-core": crate.spec(version = "0.3.28"),
         "geo": crate.spec(version = "0.26.0"),

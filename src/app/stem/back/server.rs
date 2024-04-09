@@ -16,9 +16,10 @@ use actix_web::dev::Server;
 use actix_web::http::header::ContentType;
 use actix_web::{get, routes, web, App, HttpServer};
 use actix_web::{
-    http::header::{CacheControl, CacheDirective},
+    http::header::{self, CacheControl, CacheDirective},
     HttpResponse, Responder,
 };
+use base64::{prelude::BASE64_STANDARD, Engine};
 use rand::RngCore;
 
 use crate::app_state::AppState;
@@ -175,12 +176,49 @@ async fn health_check() -> impl Responder {
     HttpResponse::Ok()
 }
 
+/// The index.html route.
+///
+/// The content security policy mitigates cross-site scripting by restricting
+/// where resources can be loaded from. Inline scripts are blocked, except for
+/// the two used in index.html that are authenticated with random nonces.
+/// General use of eval is also blocked.
+///
+/// - 'self' allows loading resources from the same host:post
+/// - nonces match those inserted into the inline scripts in index.html
+/// - wasm-unsafe-eval required to load wasm
+/// - worker-src, child-src, and img-src blobs required by maplibre
+/// - style-src required by plotly
 #[get("/")]
 async fn index() -> impl Responder {
+    // Generate nonces for the two inline scripts we have, and inject them into
+    // the inline script tags.
+    let mut rng = rand::thread_rng();
+    let mut buf = [0; 32]; // 32 bytes = 256 bits
+    let mut nonces = vec![];
+    for _ in 0..2 {
+        rng.fill_bytes(&mut buf);
+        nonces.push(BASE64_STANDARD.encode(buf));
+    }
+    let new_index = INDEX_FILE
+        .replacen("RANDOM_NONCE", &nonces[0], 1)
+        .replacen("RANDOM_NONCE", &nonces[1], 1);
     HttpResponse::Ok()
         .content_type(ContentType::html())
         .insert_header(no_caching_directives())
-        .body(INDEX_FILE)
+        .insert_header((
+            header::CONTENT_SECURITY_POLICY,
+            format!(
+                "default-src 'self' ; \
+                connect-src 'self' https://scoria.info https://*.scoria.info ; \
+                script-src 'self' 'nonce-{}' 'nonce-{}' 'wasm-unsafe-eval' ; \
+                worker-src blob: ; \
+                child-src blob: ; \
+                img-src data: 'self' blob: ; \
+                style-src 'self' 'unsafe-inline'",
+                nonces[0], nonces[1],
+            ),
+        ))
+        .body(new_index)
 }
 
 #[routes]
