@@ -250,11 +250,10 @@ fn FilterEntry(props: &FilterEntryProps) -> Html {
 
             <input onchange={onchange_threshold}
                 id={format!("filt_{}_threshold", filt.id)}
-                placeholder={filt.datastream.format_value(
+                value={filt.datastream.format_value(
                                 &unit_pref, filt.threshold)}
                 class="w-16 flex-grow ml-2 rounded bg-black \
-                border border-neutral-700 \
-                placeholder:text-neutral-500"
+                border border-neutral-700"
             />
 
             <div class="relative h-6 ml-2">

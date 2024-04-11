@@ -19,6 +19,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updateLayoutParams
+import java.lang.Math.max
 import java.nio.file.Path
 import java.util.Base64
 import kotlin.io.path.Path
@@ -92,12 +93,15 @@ class MainActivity : AppCompatActivity(), UpdateConfigCallback {
     /* Setup the view with the desired inserts */
     fun setInsets(view: View) {
         ViewCompat.setOnApplyWindowInsetsListener(view) { v, windowInsets ->
-            val insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
+            val sysBarInsets =
+                windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
+            val keyboardInsets =
+                windowInsets.getInsets(WindowInsetsCompat.Type.ime())
             // Apply the insets as a margin to the view.
             var mlp = v.getLayoutParams() as MarginLayoutParams
-            mlp.leftMargin = insets.left
-            mlp.bottomMargin = insets.bottom
-            mlp.rightMargin = insets.right
+            mlp.leftMargin = sysBarInsets.left
+            mlp.bottomMargin = max(sysBarInsets.bottom, keyboardInsets.bottom)
+            mlp.rightMargin = sysBarInsets.right
             v.setLayoutParams(mlp)
             // Don't want the window insets to pass down to descendant views
             WindowInsetsCompat.CONSUMED
