@@ -6,4 +6,4 @@ VERSION_NAME = "1.3"
 BUILD_VERSION = "1.3.7"
 
 # Monotonic version code for use in Android
-VERSION_CODE = "1"
+VERSION_CODE = "2"

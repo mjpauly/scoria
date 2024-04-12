@@ -46,6 +46,10 @@ apksigner verify -v release/scoria.apk
 aapt dump xmltree app_unsigned.apk AndroidManifest.xml | grep debug
 ```
 
+View the cert with `keytool -printcert -jarfile scoria_1_3_g.apk`. Or for in
+the keystore directy with
+`keytool -v -list -keystore ~/keystores/distribution_keystore.jks`.
+
 ### Bundle
 
 `app.aab` contains the proguard mapping in the bundle metadata, which is not
@@ -66,7 +70,7 @@ cp bazel-bin/src/app/andriod/android_relase_x.y.zip .
 # sign the deployable bundle ("upload" is the key alias)
 jarsigner -keystore ~/keystores/upload_keystore.jks app_deployable.aab upload
 # verify
-varsigner -verify app_deployable.aab
+jarsigner -verify app_deployable.aab
 ```
 
 ## JNI
