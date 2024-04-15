@@ -67,6 +67,8 @@ rust_library(
         "@stem_crate_index//:anyhow",
         "@stem_crate_index//:actix-web",
         "@stem_crate_index//:actix",
+        "@stem_crate_index//:actix-identity",
+        "@stem_crate_index//:actix-session",
         "@stem_crate_index//:actix-web-actors",
         "@stem_crate_index//:actix-files",
         "@stem_crate_index//:mime",

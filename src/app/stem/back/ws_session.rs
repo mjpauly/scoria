@@ -7,6 +7,7 @@
 use std::time::{Duration, Instant};
 
 use actix::prelude::*;
+use actix_identity::Identity;
 use actix_web::{web, Error, HttpRequest, HttpResponse};
 use actix_web_actors::ws;
 use common::state::{PersistedRoute, PersistedSettingsRoute};
@@ -53,6 +54,7 @@ fn send(f: impl FnOnce(actix::Addr<WsSession>)) {
 pub async fn ws_route(
     req: HttpRequest,
     stream: web::Payload,
+    _: Identity,
 ) -> Result<HttpResponse, Error> {
     // Disallow another websocket connection if one is already active
     if AppState::global().ws_addr.lock().unwrap().is_some() {

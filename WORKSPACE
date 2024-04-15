@@ -194,6 +194,11 @@ crates_repository(
         "actix": crate.spec(
             version = "0.13.0",
         ),
+        "actix-identity": crate.spec(version = "0.6.0"),
+        "actix-session": crate.spec(
+            version = "0.8.0",
+            features = ['cookie-session'],
+        ),
         "actix-web-actors": crate.spec(
             version = "4.2.0",
         ),

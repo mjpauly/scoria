@@ -15,6 +15,7 @@ use std::collections::HashSet;
 use std::f64::consts::TAU;
 use std::path::PathBuf;
 
+use actix_identity::Identity;
 use actix_web::http::header::{CacheDirective, ACCESS_CONTROL_ALLOW_ORIGIN};
 use actix_web::{routes, web, HttpResponse, Responder};
 use geo::{
@@ -57,7 +58,7 @@ pub fn automap_is_on() -> bool {
 #[routes]
 #[get("/screen/{path:.*}")]
 #[get("/analyze/screen/{path:.*}")]
-async fn screen(path: web::Path<String>) -> impl Responder {
+async fn screen(path: web::Path<String>, _: Identity) -> impl Responder {
     let tile = match get_screen_tile(&path) {
         Some(t) => t,
         None => return HttpResponse::NotFound().finish(),

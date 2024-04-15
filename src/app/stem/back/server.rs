@@ -1,24 +1,34 @@
 //! App backend server. Serves the frontend's static files and provides a route
 //! for the front<->back websocket connection.
 //!
-//! Access to the backend is protected by hiding it behind a key that
-//! is sent to the frontend via a private side channel. The goal here
-//! is to prevent other low-privilege user programs from connecting
-//! to the backend and retrieving private user data. It does not
-//! protect us from programs with sufficient priviledges to sniff the
-//! packet activity, but a program with such priviledges has other
-//! methods through which it can attack the app's security and user
-//! privacy, so we don't try to protect against those threats.
+//! Access to the backend is protected by a 64-bit nonce that is sent to the
+//! frontend via in-process function calls just before the frontend connects.
+//! When the frontend loads the index, a cookie is set that is required for
+//! further access to backed routes. This extra layer helps minimize risk of
+//! data access by unauthorized programs if the nonce was somehow exposed.
+//!
+//! The goal here is to prevent other low-privilege user programs from
+//! connecting to the backend and retrieving private user data. It does not
+//! protect us from programs with sufficient priviledges to sniff the packet
+//! activity, but a program with such priviledges has other methods through
+//! which it can attack the app's security and user privacy, so we don't try to
+//! protect against those threats.
 
 use std::net::TcpListener;
+use std::sync::Mutex;
 
+use actix_identity::{Identity, IdentityMiddleware};
+use actix_session::{
+    config::BrowserSession, storage::CookieSessionStore, SessionMiddleware,
+};
 use actix_web::dev::Server;
 use actix_web::http::header::ContentType;
-use actix_web::{get, routes, web, App, HttpServer};
 use actix_web::{
+    cookie::{time::Duration, Key},
     http::header::{self, CacheControl, CacheDirective},
-    HttpResponse, Responder,
+    HttpMessage as _, HttpRequest, HttpResponse, Responder,
 };
+use actix_web::{get, routes, web, App, HttpServer};
 use base64::{prelude::BASE64_STANDARD, Engine};
 use rand::RngCore;
 
@@ -26,6 +36,8 @@ use crate::app_state::AppState;
 use crate::geojson::{lines_geojson_route, points_geojson_route};
 use crate::map::{automap::screen, basemap::map_data_route};
 use crate::ws_session::ws_route;
+
+const ONE_DAY: Duration = Duration::days(1);
 
 #[cfg(not(any(feature = "ios_config", feature = "android_config")))]
 compile_error!(
@@ -115,7 +127,16 @@ pub async fn shutdown() {
     *AppState::global().server_handle.lock().await = None;
 }
 
+/// Track whether the frontend has connected to this UI session already. Guards
+/// cookie-based login so it only happens on the first load of the index.
+#[derive(Default)]
+struct FrontendAuth(pub bool);
+
 fn build(listener: TcpListener, frontend_key: FrontendKey) -> Server {
+    // Generate a random secret key to use for signing the auth cookie.
+    let secret_key = Key::generate();
+    let frontend_auth = web::Data::new(Mutex::new(FrontendAuth::default()));
+
     HttpServer::new(move || {
         let scope = format!("{}", frontend_key.clone().expose());
         App::new()
@@ -147,7 +168,22 @@ fn build(listener: TcpListener, frontend_key: FrontendKey) -> Server {
                     .service(web::redirect("/intro", "./"))
                     .service(web::redirect("/sense", "./"))
                     .service(web::redirect("/settings", "./"))
-                    .service(web::redirect("/settings/{subpath}", "../")),
+                    .service(web::redirect("/settings/{subpath}", "../"))
+                    // Cookie-based authentication
+                    .app_data(frontend_auth.clone())
+                    .wrap(IdentityMiddleware::default())
+                    .wrap(
+                        SessionMiddleware::builder(
+                            CookieSessionStore::default(),
+                            secret_key.clone(),
+                        )
+                        .cookie_name("scoria-auth".to_owned())
+                        .cookie_secure(false)
+                        .session_lifecycle(
+                            BrowserSession::default().state_ttl(ONE_DAY),
+                        )
+                        .build(),
+                    ),
             )
     })
     .workers(1)
@@ -178,6 +214,9 @@ async fn health_check() -> impl Responder {
 
 /// The index.html route.
 ///
+/// Logs-in the client with a cookie if this is the first connection since
+/// server startup or if the cookie is still valid in this session (re-login).
+///
 /// The content security policy mitigates cross-site scripting by restricting
 /// where resources can be loaded from. Inline scripts are blocked, except for
 /// the two used in index.html that are authenticated with random nonces.
@@ -189,7 +228,25 @@ async fn health_check() -> impl Responder {
 /// - worker-src, child-src, and img-src blobs required by maplibre
 /// - style-src required by plotly
 #[get("/")]
-async fn index() -> impl Responder {
+async fn index(
+    req: HttpRequest,
+    frontend_auth: web::Data<Mutex<FrontendAuth>>,
+    identity: Option<Identity>,
+) -> impl Responder {
+    if frontend_auth.lock().unwrap().0 {
+        // Frontend already logged in, allow re-login only if cookie is valid.
+        match identity.map(|id| id.id()) {
+            Some(Ok(_)) => (), // valid login from this session, continue
+            None | Some(Err(_)) => {
+                // no valid login, disallow access
+                return HttpResponse::Unauthorized().finish();
+            }
+        }
+    }
+    // Set the session cookie required for further requests to sensitive routes.
+    Identity::login(&req.extensions(), "user".to_owned()).unwrap();
+    frontend_auth.lock().unwrap().0 = true;
+
     // Generate nonces for the two inline scripts we have, and inject them into
     // the inline script tags.
     let mut rng = rand::thread_rng();
@@ -224,7 +281,7 @@ async fn index() -> impl Responder {
 #[routes]
 #[get("/front_wasm_bg.wasm")]
 #[get("/settings/front_wasm_bg.wasm")]
-async fn wasm() -> impl Responder {
+async fn wasm(_: Identity) -> impl Responder {
     HttpResponse::Ok()
         .insert_header(("content-type", "application/wasm"))
         .body(WASM_FILE)
@@ -233,7 +290,7 @@ async fn wasm() -> impl Responder {
 #[routes]
 #[get("/front_wasm.js")]
 #[get("/settings/front_wasm.js")]
-async fn js() -> impl Responder {
+async fn js(_: Identity) -> impl Responder {
     HttpResponse::Ok()
         .content_type(ContentType(mime::APPLICATION_JAVASCRIPT_UTF_8))
         .body(JS_FILE)
@@ -242,7 +299,7 @@ async fn js() -> impl Responder {
 #[routes]
 #[get("/tailwind.css")]
 #[get("/settings/tailwind.css")]
-async fn tailwind() -> impl Responder {
+async fn tailwind(_: Identity) -> impl Responder {
     HttpResponse::Ok()
         .content_type(ContentType(mime::TEXT_CSS_UTF_8))
         .body(TAILWIND_FILE)
@@ -251,7 +308,7 @@ async fn tailwind() -> impl Responder {
 #[routes]
 #[get("/plotly.min.js")]
 #[get("/settings/plotly.min.js")]
-async fn plotly() -> impl Responder {
+async fn plotly(_: Identity) -> impl Responder {
     HttpResponse::Ok()
         .content_type(ContentType(mime::APPLICATION_JAVASCRIPT_UTF_8))
         .body(PLOTLY_FILE)
@@ -260,7 +317,7 @@ async fn plotly() -> impl Responder {
 #[routes]
 #[get("/maplibre-gl.js")]
 #[get("/settings/maplibre-gl.js")]
-async fn maplibre() -> impl Responder {
+async fn maplibre(_: Identity) -> impl Responder {
     HttpResponse::Ok()
         .content_type(ContentType(mime::APPLICATION_JAVASCRIPT_UTF_8))
         .body(MAPLIBRE_FILE)
@@ -269,7 +326,7 @@ async fn maplibre() -> impl Responder {
 #[routes]
 #[get("/maplibre-gl.css")]
 #[get("/settings/maplibre-gl.css")]
-async fn maplibre_css() -> impl Responder {
+async fn maplibre_css(_: Identity) -> impl Responder {
     HttpResponse::Ok()
         .content_type(ContentType(mime::TEXT_CSS_UTF_8))
         .body(MAPLIBRE_CSS)
@@ -278,7 +335,7 @@ async fn maplibre_css() -> impl Responder {
 #[routes]
 #[get("/when_in_use_auth.png")]
 #[get("/intro/when_in_use_auth.png")]
-async fn when_in_use_auth_png() -> impl Responder {
+async fn when_in_use_auth_png(_: Identity) -> impl Responder {
     HttpResponse::Ok()
         .content_type(ContentType(mime::IMAGE_PNG))
         .body(WHEN_IN_USE_AUTH_PNG)
@@ -287,7 +344,7 @@ async fn when_in_use_auth_png() -> impl Responder {
 #[routes]
 #[get("/always_auth.png")]
 #[get("/intro/always_auth.png")]
-async fn always_auth_png() -> impl Responder {
+async fn always_auth_png(_: Identity) -> impl Responder {
     #[cfg(feature = "ios_config")]
     return HttpResponse::Ok()
         .content_type(ContentType(mime::IMAGE_PNG))

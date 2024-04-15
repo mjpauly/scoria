@@ -1,5 +1,9 @@
 //! Builds the geojson data to plot in maplibre.
 //!
+//! These routes are protected both by the scope, and with the session cookie
+//! that is set on initial connection. The `_: Identity` extractor marks the
+//! routes as requiring authentication for access.
+//!
 //! To debug slow queries, use the ExplainQuery created by explain_decimate().
 //! ```
 //! // prints the query and the query plan
@@ -13,6 +17,7 @@
 //!     .await;
 //! ```
 
+use actix_identity::Identity;
 use actix_web::{http::header::ContentType, routes, HttpResponse, Responder};
 use common::view_position::LngLatBounds;
 use geojson::{Feature, FeatureCollection, GeoJson, JsonObject, Value};
@@ -43,7 +48,7 @@ pub const BOUND_EXPANSION: f64 = 0.04;
 #[routes]
 #[get("/points.geojson")]
 #[get("/analyze/points.geojson")]
-pub async fn points_geojson_route() -> impl Responder {
+pub async fn points_geojson_route(_: Identity) -> impl Responder {
     HttpResponse::Ok()
         .content_type(ContentType(mime::APPLICATION_JSON))
         .insert_header(no_caching_directives())
@@ -60,7 +65,7 @@ pub async fn points_geojson_route() -> impl Responder {
 #[routes]
 #[get("/lines.geojson")]
 #[get("/analyze/lines.geojson")]
-pub async fn lines_geojson_route() -> impl Responder {
+pub async fn lines_geojson_route(_: Identity) -> impl Responder {
     HttpResponse::Ok()
         .content_type(ContentType(mime::APPLICATION_JSON))
         .insert_header(no_caching_directives())

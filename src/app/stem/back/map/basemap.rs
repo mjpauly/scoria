@@ -65,6 +65,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::SystemTime;
 
+use actix_identity::Identity;
 use actix_web::http::header::{
     CacheDirective, ACCESS_CONTROL_ALLOW_ORIGIN, CONTENT_TYPE,
 };
@@ -113,6 +114,7 @@ static BLANK_PNG: &[u8] = include_bytes!(env!("BLANK_PNG"));
 pub async fn map_data_route(
     path: web::Path<String>,
     req: HttpRequest,
+    _: Identity,
 ) -> impl Responder {
     if automap_is_on() {
         // if the automap is on and the path matches a tile route, and tile
