@@ -3,7 +3,7 @@ load("@rules_kotlin//kotlin:core.bzl", "kt_compiler_plugin")
 load("@rules_android_app_bundles//android:android_application.bzl",
     "android_application", "deployable_android_application"
 )
-load("//:src/app/version.bzl", "VERSION_NAME", "VERSION_CODE")
+load("//:src/app/version.bzl", "ANDROID_VERSION_NAME", "ANDROID_VERSION_CODE")
 
 proguard_specs = select({
     "//:distribution_profile": [
@@ -19,8 +19,8 @@ android_binary(
     manifest = "AndroidManifest.xml",
     manifest_values = {
         "applicationId": "info.scoria",
-        "versionName": VERSION_NAME,
-        "versionCode": VERSION_CODE,
+        "versionName": ANDROID_VERSION_NAME,
+        "versionCode": ANDROID_VERSION_CODE,
     },
     deps = [":lib"],
     proguard_specs = proguard_specs,
@@ -78,7 +78,7 @@ sh_binary(
 genrule(
     name = "package_release",
     srcs = [":app"],
-    outs = ["android_release_" + VERSION_NAME + ".zip"],
+    outs = ["android_release_" + ANDROID_VERSION_NAME + ".zip"],
     cmd = select({
         "//:distribution_profile": "zip $@ $(locations :app)",
         "//conditions:default": "exit 1", # fail if not doing a release build

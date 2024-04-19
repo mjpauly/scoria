@@ -35,3 +35,6 @@ user.bazelrc
 
 # cached jni_bind header
 /src/app/android/jni/jni_bind_release.h
+
+# release APKs hosted on the website
+/src/server/website/static/apk

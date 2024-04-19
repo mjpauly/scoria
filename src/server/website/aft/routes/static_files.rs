@@ -1,5 +1,5 @@
 use actix_web::http::header::ContentType;
-use actix_web::{get, web, HttpResponse, Responder};
+use actix_web::{dev::HttpServiceFactory, get, web, HttpResponse, Responder};
 
 static INDEX_FILE: &str = include_str!(env!("INDEX_FILE"));
 static FIRST_RELEASE_POST: &str = include_str!(env!("FIRST_RELEASE_POST"));
@@ -18,18 +18,8 @@ static SCREENSHOT3: &[u8] = include_bytes!(env!("SCREENSHOT3"));
 static SCREENSHOT4: &[u8] = include_bytes!(env!("SCREENSHOT4"));
 static APP_STORE_BADGE: &[u8] = include_bytes!(env!("APP_STORE_BADGE"));
 
-pub fn get_static_file_services() -> (
-    index,
-    first_release_post,
-    privacy_policy,
-    contact,
-    terms,
-    tailwind,
-    logo,
-    favicon,
-    screenshots,
-    app_store_badge,
-) {
+/// Max 12 elements can be grouped together
+pub fn get_static_file_services() -> impl HttpServiceFactory {
     (
         index,
         first_release_post,

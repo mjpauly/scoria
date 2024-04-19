@@ -1,3 +1,9 @@
+# For hermetic_cc_toolchain
+common --enable_platform_specific_config
+build:linux --sandbox_add_mount_pair=/tmp
+build:macos --sandbox_add_mount_pair=/var/tmp
+build:windows --sandbox_add_mount_pair=C:\Temp
+
 build --incompatible_enable_cc_toolchain_resolution
 
 build:linux_amd64 --platforms @zig_sdk//platform:linux_amd64

@@ -342,6 +342,7 @@ crates_repository(
         # stable so we use it instead.
         "actix-web": crate.spec( version = "4.3.0", features = ["rustls"]),
         "anyhow": crate.spec( version = "1.0.68",),
+        "futures-util": crate.spec(version = "0.3.27",),
         "mime": crate.spec(version = "0.3.17"),
         "secrecy": crate.spec( version = "0.8.0",),
         "serde": crate.spec( version = "1.0.152",),
@@ -432,13 +433,11 @@ bazel_skylib_workspace()
 
 # === Zig C Compiler === #
 
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-
-HERMETIC_CC_TOOLCHAIN_VERSION = "v2.0.0"
+HERMETIC_CC_TOOLCHAIN_VERSION = "v3.0.1"
 
 http_archive(
     name = "hermetic_cc_toolchain",
-    sha256 = "57f03a6c29793e8add7bd64186fc8066d23b5ffd06fe9cc6b0b8c499914d3a65",
+    sha256 = "3bc6ec127622fdceb4129cb06b6f7ab098c4d539124dde96a6318e7c32a53f7a",
     urls = [
         "https://github.com/uber/hermetic_cc_toolchain/releases/download/{0}/hermetic_cc_toolchain-{0}.tar.gz".format(HERMETIC_CC_TOOLCHAIN_VERSION),
     ],
@@ -454,7 +453,6 @@ zig_toolchains()
 
 # === Rules Pkg === #
 
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
     name = "rules_pkg",
     urls = [

@@ -1,5 +1,5 @@
 {
-  "checksum": "b265c29a38b6d6d0227db4c1e7eca87f151a050fe922dfd637020d6f72f55eac",
+  "checksum": "dc24e5d4a66a0fbd6ad820a33f026742f4a1f93a42912c63eae2c322df585d6c",
   "crates": {
     "actix-codec 0.5.1": {
       "name": "actix-codec",
@@ -2862,6 +2862,10 @@
               "target": "anyhow"
             },
             {
+              "id": "futures-util 0.3.28",
+              "target": "futures_util"
+            },
+            {
               "id": "mime 0.3.17",
               "target": "mime"
             },
@@ -3907,6 +3911,59 @@
       ],
       "license_file": null
     },
+    "futures-macro 0.3.28": {
+      "name": "futures-macro",
+      "version": "0.3.28",
+      "package_url": "https://github.com/rust-lang/futures-rs",
+      "repository": {
+        "Http": {
+          "url": "https://static.crates.io/crates/futures-macro/0.3.28/download",
+          "sha256": "89ca545a94061b6365f2c7355b4b32bd20df3ff95f02da9329b34ccc3bd6ee72"
+        }
+      },
+      "targets": [
+        {
+          "ProcMacro": {
+            "crate_name": "futures_macro",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "futures_macro",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "deps": {
+          "common": [
+            {
+              "id": "proc-macro2 1.0.60",
+              "target": "proc_macro2"
+            },
+            {
+              "id": "quote 1.0.28",
+              "target": "quote"
+            },
+            {
+              "id": "syn 2.0.18",
+              "target": "syn"
+            }
+          ],
+          "selects": {}
+        },
+        "edition": "2018",
+        "version": "0.3.28"
+      },
+      "license": "MIT OR Apache-2.0",
+      "license_ids": [
+        "Apache-2.0",
+        "MIT"
+      ],
+      "license_file": null
+    },
     "futures-sink 0.3.28": {
       "name": "futures-sink",
       "version": "0.3.28",
@@ -3988,7 +4045,8 @@
         ],
         "crate_features": {
           "common": [
-            "alloc"
+            "alloc",
+            "std"
           ],
           "selects": {}
         },
@@ -4054,8 +4112,14 @@
         "crate_features": {
           "common": [
             "alloc",
+            "async-await",
+            "async-await-macro",
+            "default",
+            "futures-macro",
             "futures-sink",
-            "sink"
+            "sink",
+            "slab",
+            "std"
           ],
           "selects": {}
         },
@@ -4084,11 +4148,24 @@
             {
               "id": "pin-utils 0.1.0",
               "target": "pin_utils"
+            },
+            {
+              "id": "slab 0.4.8",
+              "target": "slab"
             }
           ],
           "selects": {}
         },
         "edition": "2018",
+        "proc_macro_deps": {
+          "common": [
+            {
+              "id": "futures-macro 0.3.28",
+              "target": "futures_macro"
+            }
+          ],
+          "selects": {}
+        },
         "version": "0.3.28"
       },
       "build_script_attrs": {
@@ -15746,6 +15823,7 @@
   "direct_deps": [
     "actix-web 4.3.1",
     "anyhow 1.0.71",
+    "futures-util 0.3.28",
     "mime 0.3.17",
     "reqwest 0.11.18",
     "secrecy 0.8.0",

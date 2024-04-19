@@ -56,6 +56,7 @@ static_file_targets, static_file_envs = files_and_envs({
     ":first_release_post": "FIRST_RELEASE_POST",
     ":contact": "CONTACT_FILE",
     ":terms": "TERMS_FILE",
+    ":unavailable": "UNAVAILABLE_FILE",
     ":tailwind": "TAILWIND_FILE",
     "static/scoria.png": "LOGO_FILE",
     "static/favicon.png": "FAVICON_FILE",
@@ -67,6 +68,7 @@ static_file_targets, static_file_envs = files_and_envs({
     "static/screenshots/4.jpeg": "SCREENSHOT4",
     "static/Download_on_the_App_Store_Badge_US-UK_RGB_blk_092917.svg":
         "APP_STORE_BADGE",
+    "static/apk/Scoria_1.3.1.apk": "SCORIA_1_3_1",
 })
 
 rust_binary(
@@ -98,12 +100,14 @@ rust_library(
     deps = [
         "@website_crate_index//:actix-web",
         "@website_crate_index//:anyhow",
+        "@website_crate_index//:futures-util",
         "@website_crate_index//:mime",
         "@website_crate_index//:secrecy",
         "@website_crate_index//:serde",
         "@website_crate_index//:sqlx",
         "@website_crate_index//:time",
         "@website_crate_index//:tokio",
+        "@website_crate_index//:tracing",
         "@website_crate_index//:uuid",
     ],
 )
@@ -148,6 +152,11 @@ html_template(
 md_template(
     name = "terms",
     src = "static/terms.md",
+)
+
+md_template(
+    name = "unavailable",
+    src = "static/unavailable.md",
 )
 
 # provides a convenient shorthand target name for the template files
