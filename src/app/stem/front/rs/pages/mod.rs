@@ -5,6 +5,7 @@ pub mod report_problem;
 pub mod sense;
 pub mod settings;
 pub mod splash;
+pub mod update;
 
 pub use analyze::Analyze;
 pub use export_track::ExportTrack;
@@ -13,3 +14,4 @@ pub use report_problem::ReportProblem;
 pub use sense::Sense;
 pub use settings::{DataSettings, General, MapSettings, Settings};
 pub use splash::Splash;
+pub use update::Update;

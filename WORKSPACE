@@ -285,6 +285,7 @@ crates_repository(
                 "BootstrapChevronDown",
                 "BootstrapChevronLeft",
                 "BootstrapChevronRight",
+                "BootstrapDownload",
                 "BootstrapExclamationCircle",
                 "BootstrapExclamationCircleFill",
                 "BootstrapExclamationTriangle",

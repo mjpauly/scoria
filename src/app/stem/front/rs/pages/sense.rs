@@ -12,6 +12,7 @@ use yew_router::prelude::*;
 use yewdux::prelude::*;
 
 use crate::components::{LocationConfigurator, TabBar, TopNav};
+use crate::pages::update::use_show_update_notification;
 use crate::router::SettingsRoute;
 use crate::ui_state::{BackState, FrontState};
 use common::{LocationAccuracyMode, LocationMode};
@@ -22,6 +23,7 @@ pub fn Sense() -> Html {
     let settings_onclick = Callback::from(move |_e: MouseEvent| {
         navigator.push(&SettingsRoute::Root)
     });
+    let show_update_notification = use_show_update_notification();
     html! {
         <>
             <TopNav>
@@ -30,6 +32,10 @@ pub fn Sense() -> Html {
                     <Icon icon_id={IconId::BootstrapGear}
                         class="h-5 w-5 mr-2" />
                     <label>{"Settings"}</label>
+                    if show_update_notification {
+                        <Icon icon_id={IconId::BootstrapInfoCircleFill}
+                            class="h-5 w-5 ml-4" />
+                    }
                 </button>
             </TopNav>
             <Location />

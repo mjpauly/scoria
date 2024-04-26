@@ -42,6 +42,12 @@ where
 pub struct BackState {
     #[serde(deserialize_with = "ok_or_default")]
     pub app_version: String,
+    // Next two fields only for Android. app_version_code is set at startup, and
+    // available_app_version is Some if an upgrade exists
+    #[serde(deserialize_with = "ok_or_default")]
+    pub app_version_code: Option<i64>,
+    #[serde(deserialize_with = "ok_or_default")]
+    pub available_app_version: Option<(i64, String)>,
 
     #[serde(deserialize_with = "ok_or_default")]
     pub auto_location_config: AutoConfig,
@@ -81,6 +87,10 @@ pub struct BackState {
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct FrontState {
+    // (Android) The latest version code that the user has reviewed for update
+    #[serde(deserialize_with = "ok_or_default")]
+    pub update_version_code_reviewed: i64,
+
     // Last version of the introduction/tutorial that was viewed
     #[serde(deserialize_with = "ok_or_default")]
     pub last_viewed_intro_version: u32,
@@ -140,6 +150,7 @@ pub enum PersistedSettingsRoute {
     Export,
     Data,
     ReportProblem,
+    Update,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

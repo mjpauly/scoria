@@ -5,7 +5,7 @@
 Current: android, pins
 
 - Android
-    - [ ] apk: update checker / reminder
+    - [ ] links to APK and info on main webpage
 - post Android release
     - [ ] decouple ellipsoid and msl altitudes, remove story
 - debug-ability

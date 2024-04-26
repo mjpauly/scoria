@@ -143,6 +143,12 @@ JNIEXPORT void JNICALL Java_info_scoria_Stem_handleStartup
     );
 }
 
+JNIEXPORT void JNICALL Java_info_scoria_Stem_setVersionCode
+  (JNIEnv *, jclass, jlong versionCode)
+{
+    set_app_version_code((int64_t)versionCode);
+}
+
 JNIEXPORT void JNICALL Java_info_scoria_Stem_handleShutdown
   (JNIEnv *, jclass)
 {

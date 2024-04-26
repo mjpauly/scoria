@@ -128,3 +128,5 @@ Log.d(TAG, "on thread: ${java.lang.Thread.currentThread().getName()}")
 ### jni_bind Errors
 
 Make sure to build with the `--config=android{_release}` flag!
+
+`ld.lld: error: undefined symbol`: check presence of `#[no_mangle]

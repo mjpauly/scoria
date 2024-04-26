@@ -12,6 +12,7 @@ void set_app_dirs(
     const char* bundle_dir,
     const char* app_version
 );
+void set_app_version_code(int64_t version_code);
 
 // log errors
 void log_error(const char*);

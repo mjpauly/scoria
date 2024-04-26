@@ -56,6 +56,7 @@ class MainActivity : AppCompatActivity(), UpdateConfigCallback {
             getCacheDir().getAbsolutePath(),
             getVersionName(this)
         )
+        Stem.setVersionCode(getVersionCode(this))
         updateLocationConfig()
         cleanupAllSharedFiles(this)
     }
@@ -277,12 +278,13 @@ interface UpdateConfigCallback {
 }
 
 fun getVersionName(context: Context): String {
-    return try {
-        context.getPackageManager()
-            .getPackageInfo(context.getPackageName(), 0)
-            .versionName
-    } catch (e: Exception) {
-        e.printStackTrace()
-        "?.?"
-    }
+    return context.getPackageManager()
+        .getPackageInfo(context.getPackageName(), 0)
+        .versionName
+}
+
+fun getVersionCode(context: Context): Long {
+    return context.getPackageManager()
+        .getPackageInfo(context.getPackageName(), 0)
+        .getLongVersionCode()
 }

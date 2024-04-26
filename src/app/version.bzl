@@ -16,7 +16,7 @@ IOS_BUILD_VERSION = "1.3.7"
 # Public semver version, only used for display. The patch version increments
 # when android updates are not timed exactly with iOS, allowing slip for
 # synchronizing on the major/minor version numbers.
-ANDROID_VERSION_NAME = "1.3.1"
+ANDROID_VERSION_NAME = "1.3.0"
 
 # Monotonic version code for use in Android. Bump on each release, along with
 # the patch version. Prevents downgrading, but we use semver to indicate when

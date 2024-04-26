@@ -11,6 +11,7 @@ public class Stem {
         String cacheDir,
         String versionName
     );
+    public static native void setVersionCode(long versionCode);
     public static native void handleShutdown();
     public static native ServerConfig handleEnterForeground();
     public static native void handleEnterBackground();

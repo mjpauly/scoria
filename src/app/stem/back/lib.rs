@@ -30,6 +30,8 @@ pub mod map;
 pub mod paths; // stores and retrieve file system paths
 pub mod runtime; // retrieves async runtime for use in the sync C interface
 pub mod server; // server for the UI
+#[cfg(feature = "android_config")]
+pub mod update;
 pub mod ws_session; // websocket actor for the UI
 
 use std::ffi::CStr;
@@ -93,6 +95,24 @@ pub async fn init(init_paths: paths::Paths, app_version: String) {
     // vacuum and checkpoint the database at startup, so it shrinks to size
     database::checkpoint_db().await;
     tracing::info!("===== App Startup =====");
+}
+
+/// Set the app version code at startup (only relevant for Android), and check
+/// if a new version is available.
+#[cfg(feature = "android_config")]
+#[no_mangle]
+pub extern "C" fn set_app_version_code(current_version_code: i64) {
+    runtime::get_runtime().block_on(async {
+        set_app_version_code_helper(current_version_code).await;
+    });
+}
+
+#[cfg(feature = "android_config")]
+async fn set_app_version_code_helper(current_version_code: i64) {
+    app_state::set_back_state(|back| {
+        back.app_version_code = Some(current_version_code)
+    });
+    tokio::spawn(update::check_for_update(current_version_code));
 }
 
 /// Error logging and handling is handled with tracing, so we have the app
@@ -255,9 +275,9 @@ pub extern "C" fn should_export_track() -> bool {
 /// Local setup either for development or testing.
 /// Not used in any production app code. TODO: gate with feature flag
 pub mod local {
-    use super::init;
     use super::paths::Paths;
     use super::server;
+    use super::init;
 
     use std::fs;
     use std::path::PathBuf;
@@ -275,6 +295,8 @@ pub mod local {
     pub async fn local_setup(dir: &str, port: u16) -> u16 {
         let paths = local_fs_setup(dir);
         init(paths, "1.test.0".into()).await;
+        #[cfg(feature = "android_config")]
+        super::set_app_version_code_helper(1).await;
         server::run(port, false).await.port
     }
 
@@ -296,6 +318,8 @@ pub mod local {
         let _ = std::fs::remove_file(tmp_file);
         copy_dev_db(paths.documents_dir.clone());
         init(paths, "1.test.0".into()).await;
+        #[cfg(feature = "android_config")]
+        super::set_app_version_code_helper(1).await;
         server::run(port, false).await.port
     }
 

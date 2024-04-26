@@ -1,5 +1,5 @@
 {
-  "checksum": "01012d547f4d32bc30c5e06b9a8ebde845c9b2ec0d2f00338f61e8d7578fbd28",
+  "checksum": "ddb5e6183e0d2b5e09f0c2b5691c4a4c1ef7df1c3af23fc292b7eafca85cb05d",
   "crates": {
     "actix 0.13.0": {
       "name": "actix",
@@ -25118,6 +25118,7 @@
             "BootstrapChevronDown",
             "BootstrapChevronLeft",
             "BootstrapChevronRight",
+            "BootstrapDownload",
             "BootstrapExclamationCircle",
             "BootstrapExclamationCircleFill",
             "BootstrapExclamationTriangle",

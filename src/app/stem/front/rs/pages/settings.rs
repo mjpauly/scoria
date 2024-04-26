@@ -25,6 +25,9 @@ use crate::components::{
     SettingsCardSimpleButton, WarningMessage, H1, H2,
 };
 use crate::components::{HomeBarSpacer, TopNav};
+use crate::pages::update::{
+    use_show_update_notification, use_update_available, UpdateNotificationBox,
+};
 use crate::router::{Route, SettingsRoute};
 use crate::swift_poke;
 use crate::ui_state::{BackState, FrontState};
@@ -44,6 +47,9 @@ pub fn Settings() -> Html {
             s.intro_page = 0;
             navigator.push(&Route::Intro);
         });
+
+    let show_update_notification = use_show_update_notification();
+    let update_available = use_update_available();
     html! {
         <>
             <TopNav>
@@ -82,6 +88,22 @@ pub fn Settings() -> Html {
                 </SettingsCard>
 
                 <SettingsCard class="my-4">
+                    if cfg!(feature = "android_config") {
+                        <SettingsCardPageButtonWithLabel<SettingsRoute>
+                            route={SettingsRoute::Update}
+                        >
+                            <label class="flex items-center">
+                                {"Update"}
+                                if update_available {
+                                    // show icon if there is an update
+                                    <Icon
+                                        icon_id={IconId::BootstrapInfoCircle}
+                                        class="ml-2 h-4 w-4 text-neutral-500"
+                                    />
+                                }
+                            </label>
+                        </SettingsCardPageButtonWithLabel<SettingsRoute>>
+                    }
                     <SettingsCardPageButtonWithLabel<SettingsRoute>
                         route={SettingsRoute::ReportProblem}
                     >
@@ -102,9 +124,13 @@ pub fn Settings() -> Html {
                     />
                 </SettingsCard>
 
-                <AfterCardParagraph>
-                    {"Scoria v"}{app_version}
+                <AfterCardParagraph class="mb-4">
+                    {"Scoria "}{app_version}
                 </AfterCardParagraph>
+
+                if show_update_notification {
+                    <UpdateNotificationBox />
+                }
 
             </BouncyScrollContainer>
 
