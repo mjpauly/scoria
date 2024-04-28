@@ -18,10 +18,20 @@
     .prose-container > ul {
         @apply mt-4 font-light leading-relaxed;
     }
+    .prose-container > pre {
+        @apply my-6 bg-neutral-800 rounded-lg p-2 overflow-scroll max-w-full;
+        width: calc(100vw - 2rem);
+    }
     .prose-container > ul {
         @apply list-disc pl-4;
     }
-    .prose-container > p > a, .prose-container > p > em > a {
-        @apply text-blue-500 underline
+    .prose-container > p > a:link, .prose-container > p > em > a:link {
+        @apply text-primary underline;
+    }
+    .prose-container > p > a:visited, .prose-container > p > em > a:visited {
+        @apply text-violet-500 underline;
+    }
+    .prose-container > p > a:active, .prose-container > p > em > a:active {
+        @apply text-blue-400 underline;
     }
 }

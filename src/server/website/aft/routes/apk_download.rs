@@ -6,6 +6,7 @@
 //! that prevent distribution are blocked only at this level so a more
 //! informative message can be displayed.
 
+use futures_util::future::LocalBoxFuture;
 use std::future::{ready, Ready};
 
 use actix_web::http::header::ContentType;
@@ -17,10 +18,7 @@ use actix_web::{
     },
     get, web, Error, HttpResponse, Responder,
 };
-use futures_util::future::LocalBoxFuture;
 
-static ANDROID_RELEASE_NOTES_FILE: &str =
-    include_str!(env!("ANDROID_RELEASE_NOTES_FILE"));
 static UNAVAILABLE_FILE: &str = include_str!(env!("UNAVAILABLE_FILE"));
 static SCORIA_1_3_0: &[u8] = include_bytes!(env!("SCORIA_1_3_0"));
 
@@ -30,24 +28,13 @@ const APK_CONTENT_TYPE_HEADER: (&str, &str) =
     ("content-type", "application/vnd.android.package-archive");
 
 pub fn get_apk_file_services() -> impl HttpServiceFactory {
-    (
-        release_notes,
-        web::scope("/download/apk")
-            .wrap(CheckCountry)
-            // NOTE: update this on updates:
-            .service(web::redirect("/latest", "./Scoria_1.3.0.apk"))
-            .service(latest_version)
-            .service(release_notes)
-            // NOTE: on updates, add new route for the new verison here:
-            .service(scoria_1_3_0),
-    )
-}
-
-#[get("/android/release-notes")]
-async fn release_notes() -> impl Responder {
-    HttpResponse::Ok()
-        .content_type(ContentType::html())
-        .body(ANDROID_RELEASE_NOTES_FILE)
+    web::scope("/download/apk")
+        .wrap(CheckCountry)
+        // NOTE: update this on updates:
+        .service(web::redirect("/latest", "./Scoria_1.3.0.apk"))
+        .service(latest_version)
+        // NOTE: on updates, add new route for the new verison here:
+        .service(scoria_1_3_0)
 }
 
 /// Returns the latest version available for download as

@@ -70,6 +70,7 @@ pub fn run(
             .route("/health_check", web::get().to(health_check))
             .service(get_static_file_services())
             .service(contact_form_submitted)
+            .service(get_android_services())
             .service(get_apk_file_services())
             .app_data(db_pool.clone())
             .app_data(base_url.clone())

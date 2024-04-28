@@ -6,4 +6,4 @@
 
 - Initial Android release
 
-[Download .apk](/download/apk/Scoria_1.3.0.apk)
+[Download APK](/download/apk/Scoria_1.3.0.apk)

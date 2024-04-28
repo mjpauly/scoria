@@ -58,6 +58,7 @@ static_file_targets, static_file_envs = files_and_envs({
     ":terms": "TERMS_FILE",
     ":unavailable": "UNAVAILABLE_FILE",
     ":android_release_notes": "ANDROID_RELEASE_NOTES_FILE",
+    ":android_notes": "ANDROID_NOTES_FILE",
     ":tailwind": "TAILWIND_FILE",
     "static/scoria.png": "LOGO_FILE",
     "static/favicon.png": "FAVICON_FILE",
@@ -163,6 +164,12 @@ md_template(
 md_template(
     name = "android_release_notes",
     src = "static/android_release_notes.md",
+)
+
+md_template(
+    name = "android_notes",
+    src = "static/android_notes.md",
+    include_html = True,
 )
 
 # provides a convenient shorthand target name for the template files
