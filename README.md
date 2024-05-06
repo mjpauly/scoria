@@ -4,15 +4,11 @@
 
 Current: android, pins
 
-- Android
-    - [ ] links to APK and info on main webpage
 - post Android release
     - [ ] decouple ellipsoid and msl altitudes, remove story
 - debug-ability
     - [ ] action failure alterts (esp for importing)
     - [ ] have frontend send logs to backend
-- security
-    - [ ] only allow webView to make network requests to backend
 - features
     - [ ] self-annotated waypoints, routes, and tracks
     - [ ] queries/metrics for selected data (distance/time/speed traveled/dwelled, average distanced traveled (mean free path))
