@@ -18,6 +18,13 @@
         }
     }
 
+    /* Remove highlighting of tapped divs in Android */
+    @supports (-webkit-tap-highlight-color: rgba(0, 0, 0, 0)) {
+        html {
+            -webkit-tap-highlight-color: rgba(0, 0, 0, 0)
+        }
+    }
+
     html {
         @apply h-full;
     }

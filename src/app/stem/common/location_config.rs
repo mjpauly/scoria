@@ -150,6 +150,8 @@ pub struct StandardLocationConfig {
 }
 
 /// Accuracy modes for the Standard Mode
+/// NOTE: unsafety if out of sync with //src/app/stem/stem.h
+/// TODO: use cxx.rs to generate safe bindings
 #[repr(C)]
 #[derive(
     Debug,

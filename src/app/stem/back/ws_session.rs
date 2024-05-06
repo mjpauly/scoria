@@ -7,11 +7,13 @@
 use std::time::{Duration, Instant};
 
 use actix::prelude::*;
+use actix_identity::Identity;
 use actix_web::{web, Error, HttpRequest, HttpResponse};
 use actix_web_actors::ws;
 use common::state::{PersistedRoute, PersistedSettingsRoute};
 use tracing::{info, warn};
 
+use crate::app_state::set_back_state;
 use crate::database;
 use crate::export::export_selected;
 use crate::geojson::update_geojson;
@@ -52,6 +54,7 @@ fn send(f: impl FnOnce(actix::Addr<WsSession>)) {
 pub async fn ws_route(
     req: HttpRequest,
     stream: web::Payload,
+    _: Identity,
 ) -> Result<HttpResponse, Error> {
     // Disallow another websocket connection if one is already active
     if AppState::global().ws_addr.lock().unwrap().is_some() {
@@ -139,35 +142,38 @@ impl WsSession {
             }
             ToBack::ExportSqliteLog => {
                 AppState::global()
-                    .swift_messages
+                    .wrapper_messages
                     .lock()
                     .unwrap()
                     .should_export_sqlite_log = true;
             }
             ToBack::ImportSqliteLog => {
                 AppState::global()
-                    .swift_messages
+                    .wrapper_messages
                     .lock()
                     .unwrap()
                     .should_import_sqlite_log = true;
             }
             ToBack::RequestWhenInUseAuthorization => {
                 AppState::global()
-                    .swift_messages
+                    .wrapper_messages
                     .lock()
                     .unwrap()
                     .should_request_when_in_use_authorization = true;
             }
-            ToBack::ReviewedLastError => {
-                if let Some((_, reviewed)) = &mut AppState::global()
-                    .persistent
+            ToBack::GoToLocationSettings => {
+                AppState::global()
+                    .wrapper_messages
                     .lock()
                     .unwrap()
-                    .back
-                    .last_logged_error
-                {
-                    *reviewed = true;
-                }
+                    .should_go_to_location_settings = true;
+            }
+            ToBack::ReviewedLastError => {
+                set_back_state(|back| {
+                    if let Some((_, reviewed)) = &mut back.last_logged_error {
+                        *reviewed = true
+                    }
+                });
             }
             ToBack::GetPopupText((location, data_color)) => {
                 let recipient = ctx.address().recipient();
@@ -201,22 +207,15 @@ impl WsSession {
         get_runtime().spawn(async move {
             // update the last location and number of records in the past hour
             let rec = database::get_last_record().await;
-            AppState::global()
-                .persistent
-                .lock()
-                .unwrap()
-                .back
-                .last_location = rec;
-            let n = database::count_records_past_hour().await;
-            AppState::global()
-                .persistent
-                .lock()
-                .unwrap()
-                .back
-                .locations_past_hour = Some(n);
-            // clone the state and send it
-            let back =
-                AppState::global().persistent.lock().unwrap().back.clone();
+            let n = database::count_records_past_minute().await;
+            let n5 = database::count_records_past_five_minutes().await;
+            // update the back state, then clone it and send it to the front
+            let back = set_back_state(|back| {
+                back.last_location = rec;
+                back.locations_past_minute = Some(n);
+                back.locations_past_five_minutes = Some(n5);
+                back.clone()
+            });
             recipient.do_send(MsgToFront(ToFront::BackState(back)));
         });
     }

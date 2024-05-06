@@ -1,16 +1,50 @@
+# For hermetic_cc_toolchain
+common --enable_platform_specific_config
+build:linux --sandbox_add_mount_pair=/tmp
+build:macos --sandbox_add_mount_pair=/var/tmp
+build:windows --sandbox_add_mount_pair=C:\Temp
+
 build --incompatible_enable_cc_toolchain_resolution
 
 build:linux_amd64 --platforms @zig_sdk//platform:linux_amd64
 build:linux_amd64 --extra_toolchains @zig_sdk//toolchain:linux_amd64_gnu.2.34
 
-build:app_release \
-    -c opt \
-    --objc_enable_binary_stripping \
-    --//:profile=distribution \
-    --device_debug_entitlements=false \
+# Flag ordering: platform type, optimizations, distribution config.
+# See the comment in the BUILD file about how these flags work and what they do.
+
+build:ios \
     --ios_multi_cpus=arm64 \
 
-build:internal_opt \
+build:ios_opt \
+    --ios_multi_cpus=arm64 \
+    \
     -c opt \
     --objc_enable_binary_stripping \
-    --ios_multi_cpus=arm64
+
+build:ios_release \
+    --ios_multi_cpus=arm64 \
+    \
+    -c opt \
+    --objc_enable_binary_stripping \
+    \
+    --//:profile=distribution \
+    --device_debug_entitlements=false \
+
+
+build:android \
+    --//:platform_config=android \
+    --fat_apk_cpu=arm64-v8a \
+
+build:android_opt \
+    --//:platform_config=android \
+    --fat_apk_cpu=arm64-v8a \
+    \
+    -c opt \
+
+build:android_release \
+    --//:platform_config=android \
+    --fat_apk_cpu=arm64-v8a \
+    \
+    -c opt \
+    \
+    --//:profile=distribution \

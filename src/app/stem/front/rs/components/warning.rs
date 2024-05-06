@@ -10,6 +10,9 @@ const CONTAINER_STYLE: &str =
     "flex items-start justify-start px-4 py-2 rounded-xl";
 const ICON_STYLE: &str = "h-4 w-4 mr-5 ml-1 my-auto";
 
+// color of button in an info message
+pub const INFO_BUTTON_BG: &str = "bg-[rgb(10,45,81)]";
+
 #[derive(Properties, PartialEq)]
 pub struct ChildrenAndClasses {
     pub children: Children, // the field name `children` is important!

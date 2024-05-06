@@ -40,7 +40,7 @@ pub async fn export_selected() {
     }
     // notify the app wrapper to share the file
     AppState::global()
-        .swift_messages
+        .wrapper_messages
         .lock()
         .unwrap()
         .should_export_track = true;
@@ -81,7 +81,7 @@ impl ExportData {
         let time_comment = format!(
             "Time range: {} to {}",
             Self::format_time(&self.time_range.start),
-            Self::format_time(&self.time_range.start)
+            Self::format_time(&self.time_range.end)
         );
         let filter_comment = format!(
             "Excludes points where: [{}]",

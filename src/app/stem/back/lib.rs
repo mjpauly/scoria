@@ -11,6 +11,13 @@
 //! Additional top-level functions are those which are exposed as the API to the
 //! swift wrapper.
 //!
+//! # Exception safety
+//!
+//! Many docs state that unwinding across an FFI boundary is undefined behavior,
+//! and should be avoided by wrapping with catch_unwind. However, Rust by
+//! default will instead abort the program if we attempt to unwind past an
+//! `extern "C"` function, so no `catch_unwind` action is necessary to avoid UB.
+//!
 
 pub mod app_state; // backend state storage
 pub mod core; // high-level app logic that spans multiple modules
@@ -23,6 +30,8 @@ pub mod map;
 pub mod paths; // stores and retrieve file system paths
 pub mod runtime; // retrieves async runtime for use in the sync C interface
 pub mod server; // server for the UI
+#[cfg(feature = "android_config")]
+pub mod update;
 pub mod ws_session; // websocket actor for the UI
 
 use std::ffi::CStr;
@@ -46,6 +55,12 @@ pub extern "C" fn set_app_dirs(
     bundle_dir: *const c_char,
     app_version: *const c_char,
 ) {
+    // Android won't necessarily free memory between destruction and recreation
+    // of the main activity, so we guard initialization with whether it has
+    // already happened.
+    if app_state::AppState::is_initialized() {
+        return;
+    }
     let paths_to_set = paths::Paths {
         documents_dir: PathBuf::from(cstr_to_string(documents_dir)),
         library_dir: PathBuf::from(cstr_to_string(library_dir)),
@@ -80,6 +95,24 @@ pub async fn init(init_paths: paths::Paths, app_version: String) {
     // vacuum and checkpoint the database at startup, so it shrinks to size
     database::checkpoint_db().await;
     tracing::info!("===== App Startup =====");
+}
+
+/// Set the app version code at startup (only relevant for Android), and check
+/// if a new version is available.
+#[cfg(feature = "android_config")]
+#[no_mangle]
+pub extern "C" fn set_app_version_code(current_version_code: i64) {
+    runtime::get_runtime().block_on(async {
+        set_app_version_code_helper(current_version_code).await;
+    });
+}
+
+#[cfg(feature = "android_config")]
+async fn set_app_version_code_helper(current_version_code: i64) {
+    app_state::set_back_state(|back| {
+        back.app_version_code = Some(current_version_code)
+    });
+    tokio::spawn(update::check_for_update(current_version_code));
 }
 
 /// Error logging and handling is handled with tracing, so we have the app
@@ -176,7 +209,7 @@ pub extern "C" fn get_location_accuracy_mode() -> common::LocationAccuracyMode {
 #[no_mangle]
 pub extern "C" fn should_export_sqlite_log() -> bool {
     let state = app_state::AppState::global();
-    let mut guard = state.swift_messages.lock().unwrap();
+    let mut guard = state.wrapper_messages.lock().unwrap();
     let should_export = guard.should_export_sqlite_log;
     // unset the setting if it was true
     guard.should_export_sqlite_log = false;
@@ -195,7 +228,7 @@ pub extern "C" fn should_export_sqlite_log() -> bool {
 #[no_mangle]
 pub extern "C" fn should_import_sqlite_log() -> bool {
     let state = app_state::AppState::global();
-    let mut guard = state.swift_messages.lock().unwrap();
+    let mut guard = state.wrapper_messages.lock().unwrap();
     let should_import = guard.should_import_sqlite_log;
     guard.should_import_sqlite_log = false;
     should_import
@@ -209,24 +242,129 @@ pub extern "C" fn import_from_sqlite_log(import_path: *const c_char) {
     })
 }
 
-/// Tell swift to share the SQLite log in a share sheet
+/// Tell wrapper to request location when in use authorization
 #[no_mangle]
 pub extern "C" fn should_request_when_in_use_authorization() -> bool {
     let state = app_state::AppState::global();
-    let mut guard = state.swift_messages.lock().unwrap();
+    let mut guard = state.wrapper_messages.lock().unwrap();
     let should_request = guard.should_request_when_in_use_authorization;
     guard.should_request_when_in_use_authorization = false;
     should_request
+}
+
+/// Tell wrapper to go to system location settings
+#[no_mangle]
+pub extern "C" fn should_go_to_location_settings() -> bool {
+    let state = app_state::AppState::global();
+    let mut guard = state.wrapper_messages.lock().unwrap();
+    let should_go = guard.should_go_to_location_settings;
+    guard.should_go_to_location_settings = false;
+    should_go
 }
 
 /// Tell swift to share the generated track_export.{ext} track in a share sheet
 #[no_mangle]
 pub extern "C" fn should_export_track() -> bool {
     let state = app_state::AppState::global();
-    let mut guard = state.swift_messages.lock().unwrap();
+    let mut guard = state.wrapper_messages.lock().unwrap();
     let should_export = guard.should_export_track;
     guard.should_export_track = false;
     should_export
+}
+
+/// Local setup either for development or testing.
+/// Not used in any production app code. TODO: gate with feature flag
+pub mod local {
+    use super::paths::Paths;
+    use super::server;
+    use super::init;
+
+    use std::fs;
+    use std::path::PathBuf;
+
+    /// Set the directories to use for the test given a top level directory.
+    /// We use an OS-assigned port so the tests can be run in parallel.
+    pub async fn test_setup(dir: &str) -> u16 {
+        local_setup(dir, 0).await
+    }
+
+    /// Sets up a local filesystem and initializes stem with the provided port.
+    /// Returns the actual port used to the caller. Local development is
+    /// insecure; the scope/secret key is always set to "123". Assume the
+    /// caller knows this already so we just return the port.
+    pub async fn local_setup(dir: &str, port: u16) -> u16 {
+        let paths = local_fs_setup(dir);
+        init(paths, "1.test.0".into()).await;
+        #[cfg(feature = "android_config")]
+        super::set_app_version_code_helper(1).await;
+        server::run(port, false).await.port
+    }
+
+    /// Sets up a local filesystem and initializes stem with the provided port,
+    /// but copies the development database over to the new filesystem. This is
+    /// useful for debugging on collected data. Just Take the SQLite database
+    /// from the device, and put it in place of the development database at
+    /// stem/db/data.db.
+    /// Returns the actual port used to the caller.
+    pub async fn local_setup_with_dev_db(dir: &str, port: u16) -> u16 {
+        // save the previous state to a temp file, then put it back, ignoring
+        // any errors with `let _ =`
+        let state_file =
+            PathBuf::from(dir).join("Library/persistent_state.json");
+        let tmp_file = "persistent_state.json";
+        let _ = std::fs::copy(&state_file, tmp_file);
+        let paths = local_fs_setup(dir); // this clears the previous contents
+        let _ = std::fs::copy(tmp_file, &state_file);
+        let _ = std::fs::remove_file(tmp_file);
+        copy_dev_db(paths.documents_dir.clone());
+        init(paths, "1.test.0".into()).await;
+        #[cfg(feature = "android_config")]
+        super::set_app_version_code_helper(1).await;
+        server::run(port, false).await.port
+    }
+
+    /// Set up a directory for local testing. Provided argument is the name of
+    /// the directory to have the filesystem under. This function clears it out
+    /// if it already has contents, recreates it, and returns the paths.
+    pub fn local_fs_setup(dir: &str) -> Paths {
+        clear_directory(dir);
+        create_subdirs(dir)
+    }
+
+    /// Clear the test directory from before if it remains. This gets us to a
+    /// known state for each test
+    fn clear_directory(dir: &str) {
+        if std::fs::metadata(dir).is_ok() {
+            std::fs::remove_dir_all(dir).unwrap();
+        }
+    }
+
+    /// Create the subdirectories needed for testing the app and return a vector
+    /// of the subdirectory paths
+    fn create_subdirs(dir: &str) -> Paths {
+        let dir = PathBuf::from(dir);
+        let subdirs = ["Documents", "Library", "tmp", "Bundle"];
+        let fullsubdirs: Vec<_> =
+            subdirs.iter().map(|subdir| dir.join(subdir)).collect();
+        for fullsubdir in &fullsubdirs {
+            std::fs::create_dir_all(fullsubdir).unwrap();
+        }
+        Paths {
+            documents_dir: fullsubdirs[0].clone(),
+            library_dir: fullsubdirs[1].clone(),
+            temp_dir: fullsubdirs[2].clone(),
+            bundle_dir: fullsubdirs[3].clone(),
+        }
+    }
+
+    /// Copy the development database to the local filesystem being set up. This
+    /// keeps data that was in the database, as opposed to creating a completely
+    /// new one.
+    fn copy_dev_db(documents_dir: std::path::PathBuf) {
+        let dev_db_path = "src/app/stem/db/data.db";
+        let dest = documents_dir.join("data.db");
+        fs::copy(dev_db_path, dest).unwrap();
+    }
 }
 
 /// Unit tests for the top-level library interface.
@@ -261,96 +399,5 @@ pub mod tests {
         );
         // test that we can now get the Documents directory as expected
         assert_eq!(super::paths::get_documents_dir(), paths.documents_dir);
-    }
-}
-
-/// Local setup either for development or testing.
-/// Not used in any production app code. TODO: gate with feature flag
-pub mod local {
-    use super::init;
-    use super::paths::Paths;
-    use super::server;
-
-    use std::fs;
-    use std::path::PathBuf;
-
-    /// Set the directories to use for the test given a top level directory.
-    /// We use an OS-assigned port so the tests can be run in parallel.
-    pub async fn test_setup(dir: &str) -> u16 {
-        local_setup(dir, 0).await
-    }
-
-    /// Sets up a local filesystem and initializes stem with the provided port.
-    /// Returns the actual port used to the caller. Local development is
-    /// insecure; the scope/secret key is always set to "123". Assume the
-    /// caller knows this already so we just return the port.
-    pub async fn local_setup(dir: &str, port: u16) -> u16 {
-        let paths = local_fs_setup(dir);
-        init(paths, "1.test.0".into()).await;
-        server::run(port, false).await.port
-    }
-
-    /// Sets up a local filesystem and initializes stem with the provided port,
-    /// but copies the development database over to the new filesystem. This is
-    /// useful for debugging on collected data. Just Take the SQLite database
-    /// from the device, and put it in place of the development database at
-    /// stem/db/data.db.
-    /// Returns the actual port used to the caller.
-    pub async fn local_setup_with_dev_db(dir: &str, port: u16) -> u16 {
-        // save the previous state to a temp file, then put it back, ignoring
-        // any errors with `let _ =`
-        let state_file =
-            PathBuf::from(dir).join("Library/persistent_state.json");
-        let tmp_file = "persistent_state.json";
-        let _ = std::fs::copy(&state_file, tmp_file);
-        let paths = local_fs_setup(dir); // this clears the previous contents
-        let _ = std::fs::copy(tmp_file, &state_file);
-        let _ = std::fs::remove_file(tmp_file);
-        copy_dev_db(paths.documents_dir.clone());
-        init(paths, "1.test.0".into()).await;
-        server::run(port, false).await.port
-    }
-
-    /// Set up a directory for local testing. Provided argument is the name of
-    /// the directory to have the filesystem under. This function clears it out
-    /// if it already has contents, recreates it, and returns the paths.
-    pub fn local_fs_setup(dir: &str) -> Paths {
-        clear_directory(dir);
-        create_subdirs(dir)
-    }
-
-    /// Clear the test directory from before if it remains. This gets us to a
-    /// known state for each test
-    fn clear_directory(dir: &str) {
-        if std::fs::metadata(dir).is_ok() {
-            std::fs::remove_dir_all(dir).unwrap();
-        }
-    }
-
-    /// Create the subdirectories needed for testing the app and return a vector
-    /// of the subdirectory paths
-    fn create_subdirs(dir: &str) -> Paths {
-        let dir = PathBuf::from(dir);
-        let subdirs = vec!["Documents", "Library", "tmp", "Bundle"];
-        let fullsubdirs: Vec<_> =
-            subdirs.iter().map(|subdir| dir.join(subdir)).collect();
-        for fullsubdir in &fullsubdirs {
-            std::fs::create_dir_all(fullsubdir).unwrap();
-        }
-        Paths {
-            documents_dir: fullsubdirs[0].clone(),
-            library_dir: fullsubdirs[1].clone(),
-            temp_dir: fullsubdirs[2].clone(),
-            bundle_dir: fullsubdirs[3].clone(),
-        }
-    }
-
-    /// Copy the development database to the local filesystem being set up. This
-    /// keeps data that was in the database, as opposed to creating a completely
-    /// new one.
-    fn copy_dev_db(documents_dir: std::path::PathBuf) {
-        let dev_db_path = "src/app/stem/db/data.db";
-        let dest = documents_dir.join("data.db");
-        fs::copy(dev_db_path, dest).unwrap();
     }
 }

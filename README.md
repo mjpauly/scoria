@@ -4,11 +4,11 @@
 
 Current: android, pins
 
+- post Android release
+    - [ ] decouple ellipsoid and msl altitudes, remove story
 - debug-ability
     - [ ] action failure alterts (esp for importing)
     - [ ] have frontend send logs to backend
-- security
-    - [ ] only allow webView to make network requests to backend
 - features
     - [ ] self-annotated waypoints, routes, and tracks
     - [ ] queries/metrics for selected data (distance/time/speed traveled/dwelled, average distanced traveled (mean free path))
@@ -119,6 +119,12 @@ then check with the ios app using `bazel run //:iosapp`. Finally, use
 - cmark: produces html from markdown
     - `brew install cmark` (v0.30.0 tested)
     - Called by website
+- Android Studio: manages SDK for Android build
+    - Install with defaults, then open the SDK Manager and add the NDK as well.
+    - Install NDK version 25B (second 25.x release)
+    - Make sure to set `ANDROID_HOME` and `ANDROID_NDK_HOME` envars in your
+        .bashrc/.zshrc. Should be `$HOME/Library/Android/sdk` and
+        `$HOME/Library/Android/sdk/ndk/25.1.8937393` (or similar) on Mac.
 
 Secrets are placed in a top-level `.env` file. They are not checked into source
 control; ask for them.
@@ -130,16 +136,20 @@ for `sqlx` to connect to and check queries against. Run the following command:
 bazel run //src/app/stem:db_gen
 ```
 
-This is slightly suboptimal. Ideally it would integrate into the build system
-automatically, getting generated anytime we compile the app. See `db_gen.rs` for
-notes on this issue.
-
 We also explicitly cache our third party javascript libraries in our source
 tree. If we rely on bazel to cache it, we'll periodically need to redownload it
-when unrelated build config settings change.
+when unrelated build config settings change. (You might have to `chmod +x` on
+the `.sh` file).
 
 ```
 bazel run //src/app/stem/front:download_js_libs
+```
+
+To get the [JNI Bind](https://github.com/google/jni-bind) header to build for
+Android, run:
+
+```
+bazel run //src/app/android/jni:download_jni_bind
 ```
 
 ### Running the App in the Simulator
@@ -294,7 +304,7 @@ developer.apple.com.
 4. Build the app
     4a. Developemnt: `bazel build //:iosapp --ios_multi_cpus=arm64 -c opt`
     4b. Distribution: `bazel build //:iosapp --ios_multi_cpus=arm64 --device_debug_entitlements=false --define profile=distribution -c opt`
-     - or: `bazel bulid //:iosapp --config=app_release`
+     - or: `bazel bulid //:iosapp --config=ios_release`
 5. Locate the `.ipa` archive in `bazel-bin/src/app/ios/top/Scoria.ipa`.
 6. Install/upload the app
     6a. Developemnt: Go to Xcode -> devices and simulators -> [your device] ->

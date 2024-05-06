@@ -1,5 +1,5 @@
 load("@rules_rust//rust:defs.bzl", "rust_library", "rust_binary", "rust_doc")
-load("@rules_rust//wasm_bindgen:wasm_bindgen.bzl", "rust_wasm_bindgen")
+load("@rules_rust//wasm_bindgen:defs.bzl", "rust_wasm_bindgen")
 load("@bazel_skylib//rules:select_file.bzl", "select_file")
 
 # The generated files to serve (wasm, js launcher)
@@ -43,10 +43,13 @@ rust_library(
     srcs = glob(["rs/**/*.rs"]),
     edition = "2021",
     compile_data = ["//:secrets"],
-    crate_features = select({ # crate features used to select desired api keys
-        "//:distribution_profile": ["distribution_key"],
+    # crate features used to select desired api keys
+    crate_features = select({
         "//:autoreload_on": ["dev_autoreload"],
         "//conditions:default": [],
+    }) + select({
+        "//:android_config": ["android_config"],
+        "//conditions:default": ["ios_config"],
     }),
     proc_macro_deps = [
         "@stem_crate_index//:dotenvy_macro",
@@ -130,7 +133,8 @@ exports_files(
         "static/maplibre-gl.css",
 
         # images showing what location authorizations look like
-        "static/when_in_use_auth.png",
+        "static/when_in_use_auth_ios.png",
+        "static/when_in_use_auth_android.png",
         "static/always_auth.png",
 
         # blank image to show on map if raster data is not to be shown

@@ -11,9 +11,15 @@ static_file_targets, static_file_envs = files_and_envs({
     "//src/app/stem/front:static/plotly.min.js": "PLOTLY_FILE",
     "//src/app/stem/front:static/maplibre-gl.js": "MAPLIBRE_FILE",
     "//src/app/stem/front:static/maplibre-gl.css": "MAPLIBRE_CSS",
-    "//src/app/stem/front:static/when_in_use_auth.png": "WHEN_IN_USE_AUTH_PNG",
+    "//src/app/stem/front:static/when_in_use_auth_ios.png": "WHEN_IN_USE_AUTH_IOS_PNG",
+    "//src/app/stem/front:static/when_in_use_auth_android.png": "WHEN_IN_USE_AUTH_ANDROID_PNG",
     "//src/app/stem/front:static/always_auth.png": "ALWAYS_AUTH_PNG",
     "//src/app/stem/front:static/blank.png": "BLANK_PNG",
+})
+
+platform_features = select({
+    "//:android_config": ["android_config"],
+    "//conditions:default": ["ios_config"],
 })
 
 rust_library(
@@ -30,15 +36,16 @@ rust_library(
         "//conditions:default": [],
     }),
     crate_features = select({
-        "//:distribution_profile": [],
-        "//conditions:default": ["extra_debug_logging"],
-    }),
+        "//:distribution_profile": ["distribution_key"],
+        "//conditions:default": [],
+    }) + platform_features,
     proc_macro_deps = [
         "@stem_crate_index//:dotenvy_macro",
     ],
     deps = [
         ":common",
         ":alloc",
+        "@stem_crate_index//:base64",
         "@stem_crate_index//:csv",
         "@stem_crate_index//:geo",
         "@stem_crate_index//:geo-clipper",
@@ -60,6 +67,8 @@ rust_library(
         "@stem_crate_index//:anyhow",
         "@stem_crate_index//:actix-web",
         "@stem_crate_index//:actix",
+        "@stem_crate_index//:actix-identity",
+        "@stem_crate_index//:actix-session",
         "@stem_crate_index//:actix-web-actors",
         "@stem_crate_index//:actix-files",
         "@stem_crate_index//:mime",
@@ -91,7 +100,7 @@ rust_test(
     name = "unit_tests",
     crate = ":stem",
     size = "small",  # 20 MB RAM, 1 min timeout
-    crate_features = ["extra_debug_logging"],
+    crate_features = platform_features,
     deps = [
         "@stem_crate_index//:reqwest", # for server health check unit test
         "@stem_crate_index//:futures-core",
@@ -102,6 +111,7 @@ rust_test(
 rust_test(
     name = "int_tests",
     srcs = glob(["tests/*.rs"]),
+    # crate_features = platform_features,
     deps = [
         ":stem",
         ":common",
@@ -149,22 +159,12 @@ rust_binary(
 )
 
 
-# Objective c and c glue
-
-# This being required is a bug in objc_library, ideally 'StemLib' could depend
-# directly on 'stem'
+# C interface exposed for interop with Swift and Java
 cc_library(
-    name = "stem_shim",
+    name = "stem_cc",
+    hdrs = ["stem.h"],
     deps = [":stem"],
-)
-
-# The objective C library we can import into Swift
-objc_library(
-    name = "StemLib",
-    hdrs = ["StemLib.h"],
-    module_name = "StemLib",
     visibility = ["//visibility:public"],
-    deps = [":stem_shim"],
 )
 
 cc_library(

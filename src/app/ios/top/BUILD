@@ -1,6 +1,7 @@
 load("@build_bazel_rules_apple//apple:ios.bzl", "ios_application")
 load("@build_bazel_rules_apple//apple:versioning.bzl", "apple_bundle_version")
 load("@build_bazel_rules_swift//swift:swift.bzl", "swift_library")
+load("//:src/app/version.bzl", "IOS_VERSION_NAME", "IOS_BUILD_VERSION")
 
 ios_application(
     name = "Scoria",
@@ -40,8 +41,8 @@ ios_application(
 # the LAST build number matching "7.5.x"
 apple_bundle_version(
     name = "app_version",
-    build_version = "1.3.7",
-    short_version_string = "1.3",
+    build_version = IOS_BUILD_VERSION,
+    short_version_string = IOS_VERSION_NAME,
     visibility = ["//src/app/ios:__subpackages__"],
 )
 

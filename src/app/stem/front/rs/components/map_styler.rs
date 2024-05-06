@@ -16,42 +16,16 @@ use common::map_style::{BasemapStyle, ColoredDataStream};
 
 // BASEMAP STYLES
 
-/// Get the maptiler key. In this case it's the distribution key, which is more
-/// protected than the development key.
-#[cfg(feature = "distribution_key")]
-fn maptiler_key() -> String {
-    obfstr! {
-        let maptiler_key = dotenvy_macro::dotenv!(
-            "IOS_MAPTILER_API_KEY",
-            "Maptiler API key must be placed in top-level .env file as \
-            MAPTILER_API_KEY={key}"
-        );
-    }
-    maptiler_key.to_string()
-}
-
-#[cfg(not(feature = "distribution_key"))]
-fn maptiler_key() -> String {
-    obfstr! {
-        let maptiler_key = dotenvy_macro::dotenv!(
-            "DEV_MAPTILER_API_KEY",
-            "Maptiler API key must be placed in top-level .env file as \
-            MAPTILER_API_KEY={key}"
-        );
-    }
-    maptiler_key.to_string()
-}
-
 fn format_tile_url(style: &str) -> String {
     // get the secrets in the .env file at compile time and obfuscate them
     obfstr! {
+        let scheme = "http://";
         let basemap_path = "mapdata/maps";
-        let style_json = "style.json?key=";
+        let style_json = "style.json";
     }
-    let basemap_url = format!("http://{}/{basemap_path}", get_scoped_host());
-    let maptiler_key = maptiler_key();
-    // should be https://api.url.com/maps/basic-v2/style.json?key=decafbad
-    format!("{basemap_url}/{style}/{style_json}{maptiler_key}")
+    let basemap_url = format!("{scheme}{}/{basemap_path}", get_scoped_host());
+    // should be https://127.0.0.1/mapdata/maps/basic-v2/style.json
+    format!("{basemap_url}/{style}/{style_json}")
 }
 
 pub fn get_basemap_url(style: &BasemapStyle) -> String {

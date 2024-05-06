@@ -110,6 +110,7 @@ pub struct OSLocationData {
     pub longitude: f64,
     pub horizontal_accuracy: f64,
 
+    // altitudes valid only if vertical_accuracy >= 0
     pub msl_altitude: f64,
     pub ellipsoid_altitude: f64,
     pub vertical_accuracy: f64,
@@ -313,8 +314,12 @@ pub async fn get_records_after_with_limit(
 ///
 /// in SQLite, can also do time operations like so:
 ///     WHERE timestamp >= unixepoch('now','-1 hour')"
-pub async fn count_records_past_hour() -> i32 {
-    let hour_ago = time::OffsetDateTime::now_utc() - time::Duration::hours(1);
+pub async fn count_records_past_minute() -> i32 {
+    let hour_ago = time::OffsetDateTime::now_utc() - time::Duration::minutes(1);
+    count_records_since(hour_ago).await
+}
+pub async fn count_records_past_five_minutes() -> i32 {
+    let hour_ago = time::OffsetDateTime::now_utc() - time::Duration::minutes(5);
     count_records_since(hour_ago).await
 }
 
@@ -1098,7 +1103,7 @@ pub mod tests {
     #[tokio::test]
     async fn test_aliased_bounded_query() {
         test_setup("test_aliased_bounded_query/").await;
-        let lnglats = vec![
+        let lnglats = [
             (170., 0.0),
             (179., 0.0), // inside
             (179., 40.0),

@@ -65,20 +65,20 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::SystemTime;
 
+use actix_identity::Identity;
 use actix_web::http::header::{
     CacheDirective, ACCESS_CONTROL_ALLOW_ORIGIN, CONTENT_TYPE,
 };
 use actix_web::HttpRequest;
 use actix_web::{routes, web, HttpResponse, Responder};
 use obfstr::obfstr;
-use serde::Deserialize;
 use tokio::sync::OnceCell;
-use tracing::{debug, error, info, instrument, trace};
+use tracing::{debug, error, info, trace};
 use walkdir::WalkDir;
 
 use super::automap::{automap_is_on, tile_has_been_visited};
 use super::coords::TileXYZ;
-use crate::app_state::AppState;
+use crate::app_state::{set_back_state, AppState};
 use crate::paths::get_map_cache_dir;
 use crate::server::no_caching_directives;
 
@@ -86,25 +86,35 @@ use crate::server::no_caching_directives;
 // tile jsons
 const MAPTILER_URL: &str = "https://api.maptiler.com";
 
-static BLANK_PNG: &[u8] = include_bytes!(env!("BLANK_PNG"));
+#[cfg(not(feature = "distribution_key"))]
+const MAPTILER_KEY: &str = dotenvy_macro::dotenv!(
+    "DEV_MAPTILER_API_KEY",
+    "Missing maptiler API key must be placed in top-level .env file."
+);
+#[cfg(all(feature = "distribution_key", feature = "ios_config"))]
+const MAPTILER_KEY: &str = dotenvy_macro::dotenv!(
+    "IOS_MAPTILER_API_KEY",
+    "Missing maptiler API key must be placed in top-level .env file."
+);
+#[cfg(all(feature = "distribution_key", feature = "android_config"))]
+const MAPTILER_KEY: &str = dotenvy_macro::dotenv!(
+    "ANDROID_MAPTILER_API_KEY",
+    "Missing maptiler API key must be placed in top-level .env file."
+);
 
-#[derive(Deserialize)]
-pub struct Key {
-    pub key: Option<String>,
-}
+static BLANK_PNG: &[u8] = include_bytes!(env!("BLANK_PNG"));
 
 /// Main map data route. Does the following:
 /// - checks if the tile is needed or not (e.g. in an obscured automap region)
 /// - checks if the tile is already cached
 ///     - if the cache is old, attempts to retrieve it, falls back to existing
-#[instrument(skip(key, req))]
 #[routes]
 #[get("/mapdata/{path:.*}")]
 #[get("/analyze/mapdata/{path:.*}")]
 pub async fn map_data_route(
     path: web::Path<String>,
-    key: web::Query<Key>,
     req: HttpRequest,
+    _: Identity,
 ) -> impl Responder {
     if automap_is_on() {
         // if the automap is on and the path matches a tile route, and tile
@@ -118,7 +128,7 @@ pub async fn map_data_route(
         }
     }
 
-    if let Some(cached) = check_map_cache(&path, &key, &req).await {
+    if let Some(cached) = check_map_cache(&path, &req).await {
         return cached;
     }
 
@@ -126,7 +136,7 @@ pub async fn map_data_route(
         return no_content_response(&path);
     }
 
-    let bytes = match fetch_and_cache_from_network(&path, &key).await {
+    let bytes = match fetch_and_cache_from_network(&path).await {
         Some(bytes) => bytes,
         None => return HttpResponse::NotFound().finish(),
     };
@@ -180,7 +190,6 @@ const REFRESH_CACHE_AFTER: u64 = DAY_AS_SECS * 7; // one week
 
 async fn check_map_cache(
     path: &str,
-    key: &web::Query<Key>,
     req: &HttpRequest,
 ) -> Option<HttpResponse> {
     let fullpath = get_map_cache_dir().join(path);
@@ -195,9 +204,7 @@ async fn check_map_cache(
             && !fetch_is_disabled()
         {
             debug!("Refreshing cache with new data");
-            if let Some(new_bytes) =
-                fetch_and_cache_from_network(path, key).await
-            {
+            if let Some(new_bytes) = fetch_and_cache_from_network(path).await {
                 return Some(build_response(
                     &PathBuf::from(path),
                     new_bytes,
@@ -294,30 +301,25 @@ async fn init_client() -> reqwest::Client {
         .unwrap()
 }
 
-async fn fetch_and_cache_from_network(
-    path: &str,
-    key: &web::Query<Key>,
-) -> Option<Vec<u8>> {
+async fn fetch_and_cache_from_network(path: &str) -> Option<Vec<u8>> {
     let now = std::time::Instant::now();
     debug!("retrieving from network: {path}");
 
     // construct the url to fetch the resource from
-    let mut url = format!("{}/{path}", obfstr!(MAPTILER_URL));
-    if let Some(k) = &key.key {
-        url = format!("{url}?key={k}")
-    }
+    let url = format!(
+        "{}/{path}{}{}",
+        obfstr!(MAPTILER_URL),
+        obfstr!("?key="),
+        obfstr!(MAPTILER_KEY)
+    );
 
     let client = CLIENT.get_or_init(init_client).await;
-
-    obfstr! {
-        let origin = "http://127.0.0.1";
-    }
 
     // response from remote
     // return None if we can't execute the request (e.g. no network)
     let response = client
         .get(&url)
-        .header(reqwest::header::ORIGIN, origin)
+        .header(reqwest::header::ORIGIN, obfstr!("http://127.0.0.1"))
         .send()
         .await
         .ok()?;
@@ -335,7 +337,19 @@ async fn fetch_and_cache_from_network(
         return None;
     }
 
-    let body = response.bytes().await.unwrap().to_vec();
+    let mut body = response.bytes().await.unwrap().to_vec();
+    if let Some("json") =
+        PathBuf::from(path).extension().and_then(OsStr::to_str)
+    {
+        // remove instances of the maptiler key before caching
+        body = String::from_utf8(body)
+            .unwrap()
+            .replace(
+                &format!("{}{}", obfstr!("?key="), obfstr!(MAPTILER_KEY)),
+                "",
+            )
+            .into_bytes();
+    }
     std::fs::write(&dest_path, &body).unwrap(); // cache as-is
 
     let elapsed_time = now.elapsed();
@@ -360,7 +374,9 @@ static EVICT_LOCK: Mutex<()> = Mutex::new(());
 
 pub async fn evict_old_map_data() {
     // only enter eviction if there are no other current attempts to do eviction
-    let Ok(_evict_guard) = EVICT_LOCK.try_lock() else { return };
+    let Ok(_evict_guard) = EVICT_LOCK.try_lock() else {
+        return;
+    };
 
     let now = std::time::Instant::now();
     // consider only tiles for deletion, not map styles
@@ -410,12 +426,7 @@ pub async fn evict_old_map_data() {
     }
     let final_size = cache_size(&files);
     // update the cache size state so it can be displayed in the frontend
-    AppState::global()
-        .persistent
-        .lock()
-        .unwrap()
-        .back
-        .map_cache_size = final_size;
+    set_back_state(|back| back.map_cache_size = final_size);
     let elapsed_time = now.elapsed();
     trace!(
         "Map cache size: {} MB -> {} MB. Took {} ms",

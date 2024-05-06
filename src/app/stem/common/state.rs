@@ -42,6 +42,12 @@ where
 pub struct BackState {
     #[serde(deserialize_with = "ok_or_default")]
     pub app_version: String,
+    // Next two fields only for Android. app_version_code is set at startup, and
+    // available_app_version is Some if an upgrade exists
+    #[serde(deserialize_with = "ok_or_default")]
+    pub app_version_code: Option<i64>,
+    #[serde(deserialize_with = "ok_or_default")]
+    pub available_app_version: Option<(i64, String)>,
 
     #[serde(deserialize_with = "ok_or_default")]
     pub auto_location_config: AutoConfig,
@@ -49,7 +55,9 @@ pub struct BackState {
     #[serde(deserialize_with = "ok_or_default")]
     pub last_location: Option<Location>,
     #[serde(deserialize_with = "ok_or_default")]
-    pub locations_past_hour: Option<i32>,
+    pub locations_past_minute: Option<i32>,
+    #[serde(deserialize_with = "ok_or_default")]
+    pub locations_past_five_minutes: Option<i32>,
 
     // data-derived state for the map view
     #[serde(deserialize_with = "ok_or_default")]
@@ -79,9 +87,16 @@ pub struct BackState {
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct FrontState {
+    // (Android) The latest version code that the user has reviewed for update
+    #[serde(deserialize_with = "ok_or_default")]
+    pub update_version_code_reviewed: i64,
+
     // Last version of the introduction/tutorial that was viewed
     #[serde(deserialize_with = "ok_or_default")]
     pub last_viewed_intro_version: u32,
+    // Page of the introduction/tutorial that was viewed
+    #[serde(deserialize_with = "ok_or_default")]
+    pub intro_page: u32,
 
     #[serde(deserialize_with = "ok_or_default")]
     pub route: PersistedRoute,
@@ -135,6 +150,7 @@ pub enum PersistedSettingsRoute {
     Export,
     Data,
     ReportProblem,
+    Update,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -203,7 +219,7 @@ pub struct MapCachePreference {
 impl Default for MapCachePreference {
     fn default() -> Self {
         Self {
-            max_size: 100 * 1000 * 1000, // 100 MB default
+            max_size: 200 * 1000 * 1000, // 200 MB default
             disable_fetch: false,
         }
     }

@@ -39,6 +39,7 @@ docker run -it --entrypoint=/bin/bash website
 ## Pushing the Container
 
 ```
+doctl auth init && doctl registry login
 bazel run --config=linux_amd64 -c opt :push_amd64
 ```
 
@@ -47,3 +48,10 @@ Follow logs:
 doctl apps list # get id of app
 doctl apps logs -f --type build <id>
 ```
+
+## Updating the App
+
+Place the new version in `static/apk/`, then add the files to the
+`files_and_envs` declaration in the BUILD file. Then add a new route to serve
+the file in `aft/routes/apk_download.rs`. Update the `latest` redirect to the
+new version.

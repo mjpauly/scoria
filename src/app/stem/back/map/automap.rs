@@ -15,6 +15,7 @@ use std::collections::HashSet;
 use std::f64::consts::TAU;
 use std::path::PathBuf;
 
+use actix_identity::Identity;
 use actix_web::http::header::{CacheDirective, ACCESS_CONTROL_ALLOW_ORIGIN};
 use actix_web::{routes, web, HttpResponse, Responder};
 use geo::{
@@ -27,7 +28,7 @@ use pointy::Transform;
 use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
 
-use crate::app_state::AppState;
+use crate::app_state::{get_back_state, get_front_state, set_back_state};
 use crate::database;
 use crate::paths::get_unexplored_data_dir;
 use crate::server::no_caching_directives;
@@ -44,14 +45,12 @@ static MAXZOOM: i32 = 15;
 /// Determine if the automap is on or not. Defaults to false if the frontend
 /// hasn't been initialized yet.
 pub fn automap_is_on() -> bool {
-    AppState::global()
-        .persistent
-        .lock()
-        .unwrap()
-        .front
-        .as_ref()
-        .map(|f| f.map.style.automap)
-        .unwrap_or(false)
+    get_front_state(|maybe_front| {
+        maybe_front
+            .as_ref()
+            .map(|f| f.map.style.automap)
+            .unwrap_or(false)
+    })
 }
 
 // ========== Tile Route and Encoding ========== //
@@ -59,7 +58,7 @@ pub fn automap_is_on() -> bool {
 #[routes]
 #[get("/screen/{path:.*}")]
 #[get("/analyze/screen/{path:.*}")]
-async fn screen(path: web::Path<String>) -> impl Responder {
+async fn screen(path: web::Path<String>, _: Identity) -> impl Responder {
     let tile = match get_screen_tile(&path) {
         Some(t) => t,
         None => return HttpResponse::NotFound().finish(),
@@ -170,7 +169,9 @@ static UPDATE_LOCK: Mutex<()> = Mutex::const_new(());
 pub async fn update_automap() {
     if automap_is_on() {
         // Prevent concurrent updating:
-        let Ok(_update_guard) = UPDATE_LOCK.try_lock() else { return };
+        let Ok(_update_guard) = UPDATE_LOCK.try_lock() else {
+            return;
+        };
 
         let mut last_automap_update = get_last_automap_update();
         update_num_automap_records_remaining(&last_automap_update).await;
@@ -210,23 +211,11 @@ async fn get_records_batch(
 }
 
 pub fn get_last_automap_update() -> time::OffsetDateTime {
-    AppState::global()
-        .persistent
-        .lock()
-        .unwrap()
-        .back
-        .last_automap_update
-        .0
+    get_back_state(|back| back.last_automap_update.0)
 }
 
 fn set_last_automap_update(val: &time::OffsetDateTime) {
-    AppState::global()
-        .persistent
-        .lock()
-        .unwrap()
-        .back
-        .last_automap_update
-        .0 = *val;
+    set_back_state(|back| back.last_automap_update.0 = *val)
 }
 
 /// Notifies the frontend how many records remain to show an indication of the
@@ -234,13 +223,8 @@ fn set_last_automap_update(val: &time::OffsetDateTime) {
 async fn update_num_automap_records_remaining(
     last_update: &time::OffsetDateTime,
 ) {
-    AppState::global()
-        .persistent
-        .lock()
-        .unwrap()
-        .back
-        .num_automap_records_remaining =
-        database::count_records_since(*last_update).await as u64;
+    let val = database::count_records_since(*last_update).await as u64;
+    set_back_state(|back| back.num_automap_records_remaining = val);
 }
 
 // radius of the earth (m)

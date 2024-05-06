@@ -1,5 +1,3 @@
-#import <Foundation/Foundation.h>
-
 // app initialization
 
 typedef struct {
@@ -14,6 +12,7 @@ void set_app_dirs(
     const char* bundle_dir,
     const char* app_version
 );
+void set_app_version_code(int64_t version_code);
 
 // log errors
 void log_error(const char*);
@@ -37,7 +36,7 @@ typedef struct {
     double ellipsoid_altitude;
     double vertical_accuracy;
 
-    // bool indivates if story data is available
+    // bool indicates if story data is available
     bool story_available;
     int64_t story;
 
@@ -71,6 +70,7 @@ bool get_significant_changes(void);
 LocAccuracyMode get_location_accuracy_mode(void);
 
 bool should_request_when_in_use_authorization(void);
+bool should_go_to_location_settings(void);
 bool should_export_sqlite_log(void);
 bool should_import_sqlite_log(void);
 void import_from_sqlite_log(const char*);

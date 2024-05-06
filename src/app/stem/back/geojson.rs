@@ -1,5 +1,9 @@
 //! Builds the geojson data to plot in maplibre.
 //!
+//! These routes are protected both by the scope, and with the session cookie
+//! that is set on initial connection. The `_: Identity` extractor marks the
+//! routes as requiring authentication for access.
+//!
 //! To debug slow queries, use the ExplainQuery created by explain_decimate().
 //! ```
 //! // prints the query and the query plan
@@ -13,10 +17,12 @@
 //!     .await;
 //! ```
 
+use actix_identity::Identity;
 use actix_web::{http::header::ContentType, routes, HttpResponse, Responder};
 use common::view_position::LngLatBounds;
 use geojson::{Feature, FeatureCollection, GeoJson, JsonObject, Value};
 
+use crate::app_state::{get_front_state, set_back_state};
 use crate::map::coords::TileXYZ;
 use crate::server::no_caching_directives;
 use crate::{app_state::AppState, database, ws_session};
@@ -42,7 +48,7 @@ pub const BOUND_EXPANSION: f64 = 0.04;
 #[routes]
 #[get("/points.geojson")]
 #[get("/analyze/points.geojson")]
-pub async fn points_geojson_route() -> impl Responder {
+pub async fn points_geojson_route(_: Identity) -> impl Responder {
     HttpResponse::Ok()
         .content_type(ContentType(mime::APPLICATION_JSON))
         .insert_header(no_caching_directives())
@@ -59,7 +65,7 @@ pub async fn points_geojson_route() -> impl Responder {
 #[routes]
 #[get("/lines.geojson")]
 #[get("/analyze/lines.geojson")]
-pub async fn lines_geojson_route() -> impl Responder {
+pub async fn lines_geojson_route(_: Identity) -> impl Responder {
     HttpResponse::Ok()
         .content_type(ContentType(mime::APPLICATION_JSON))
         .insert_header(no_caching_directives())
@@ -175,16 +181,17 @@ pub async fn update_geojson(new_data: Option<Location>, foregrounded: bool) {
     // can't acquire the wait_lock immediately. This ensures there's always an
     // update that happens after map movement finishes.
     let app_state = AppState::global();
-    let Ok(_wait_guard) = app_state.map_data.geojson_wait_lock.try_lock() else {
+    let Ok(_wait_guard) = app_state.map_data.geojson_wait_lock.try_lock()
+    else {
         return;
     };
     let _update_guard = app_state.map_data.geojson_update_lock.lock().await;
     drop(_wait_guard);
 
     let Some(map_state) = should_update_geojson(new_data, foregrounded).await
-        else {
-            return
-        };
+    else {
+        return;
+    };
     let colored_datastream = &map_state.style.colored_datastream;
 
     // The things that take the longest are the queries (this part, up to
@@ -312,9 +319,8 @@ fn update_zoom_all_data(map_state: &MapState) {
             .filters(filters)
             .fetch_bounds()
             .await;
-        let app_state = AppState::global();
-        let mut persistent_guard = app_state.persistent.lock().unwrap();
-        persistent_guard.back.data_center = get_view_params(&data_bounds);
+        let view_params = get_view_params(&data_bounds);
+        set_back_state(|back| back.data_center = view_params);
         ws_session::send_back_state_to_front();
     });
 }
@@ -442,10 +448,10 @@ pub async fn get_popup_text(
     data_color: Option<String>,
 ) -> Option<ToFront> {
     let (map_state, unit_pref) = {
-        let state = AppState::global();
-        let persistent = state.persistent.lock().unwrap();
-        let front = persistent.front.as_ref().unwrap();
-        (front.map.clone(), front.unit_pref)
+        get_front_state(|maybe_front| {
+            let front = maybe_front.as_ref().unwrap();
+            (front.map.clone(), front.unit_pref)
+        })
     };
 
     // use the bound expansion so the decimation is identical
@@ -522,9 +528,7 @@ pub fn location_popup_text(
     if let Some(story) = loc.story {
         alt = alt.map(|alt| format!("{alt}, story {story}"));
     }
-    let alt = alt
-        .map(|alt| format!("{alt}<br>"))
-        .unwrap_or_else(String::new);
+    let alt = alt.map(|alt| format!("{alt}<br>")).unwrap_or_default();
     format!(
         "{}<br>\
         {}<br>\

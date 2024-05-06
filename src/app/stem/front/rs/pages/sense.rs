@@ -12,6 +12,7 @@ use yew_router::prelude::*;
 use yewdux::prelude::*;
 
 use crate::components::{LocationConfigurator, TabBar, TopNav};
+use crate::pages::update::use_show_update_notification;
 use crate::router::SettingsRoute;
 use crate::ui_state::{BackState, FrontState};
 use common::{LocationAccuracyMode, LocationMode};
@@ -22,6 +23,7 @@ pub fn Sense() -> Html {
     let settings_onclick = Callback::from(move |_e: MouseEvent| {
         navigator.push(&SettingsRoute::Root)
     });
+    let show_update_notification = use_show_update_notification();
     html! {
         <>
             <TopNav>
@@ -30,6 +32,10 @@ pub fn Sense() -> Html {
                     <Icon icon_id={IconId::BootstrapGear}
                         class="h-5 w-5 mr-2" />
                     <label>{"Settings"}</label>
+                    if show_update_notification {
+                        <Icon icon_id={IconId::BootstrapInfoCircleFill}
+                            class="h-5 w-5 ml-4" />
+                    }
                 </button>
             </TopNav>
             <Location />
@@ -65,8 +71,10 @@ fn Location() -> Html {
 fn LocationDetails() -> Html {
     let last_loc =
         use_selector(|state: &BackState| state.last_location.clone());
-    let locs_per_hour =
-        use_selector(|state: &BackState| state.locations_past_hour);
+    let locs_per_minute =
+        use_selector(|state: &BackState| state.locations_past_minute);
+    let locs_per_five_minute =
+        use_selector(|state: &BackState| state.locations_past_five_minutes);
     let user_config = use_selector(|s: &FrontState| s.location_config);
     let auto_config = use_selector(|s: &BackState| s.auto_location_config);
     let unit_pref = use_selector(|s: &FrontState| s.unit_pref);
@@ -127,12 +135,14 @@ fn LocationDetails() -> Html {
                 <p> {a} </p>
             }
             <p class="mb-4"> {time_since} </p>
-            if let Some(n_locs) = *locs_per_hour {
+            if let Some(n_locs) = *locs_per_minute {
                 <p>
-                    {format!("Num data points in past hour: {}", n_locs)}
+                    {format!("Num locations in past minute: {}", n_locs)}
                 </p>
+            }
+            if let Some(n_locs) = *locs_per_five_minute {
                 <p class="mb-4">
-                    {format!("{:.2} updates/minute", n_locs as f32 / 60.0)}
+                    {format!("In past five minutes: {}", n_locs)}
                 </p>
             }
 
