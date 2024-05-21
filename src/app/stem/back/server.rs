@@ -33,35 +33,12 @@ use base64::{prelude::BASE64_STANDARD, Engine};
 use rand::RngCore;
 
 use crate::app_state::AppState;
+use crate::files;
 use crate::geojson::{lines_geojson_route, points_geojson_route};
 use crate::map::{automap::screen, basemap::map_data_route};
 use crate::ws_session::ws_route;
 
 const ONE_DAY: Duration = Duration::days(1);
-
-#[cfg(not(any(feature = "ios_config", feature = "android_config")))]
-compile_error!(
-    "Either feature \"ios_config\" or \"android_config\" must be enabled."
-);
-
-// static files to serve (env vars are set by bazel and poin to file path)
-static INDEX_FILE: &str = include_str!(env!("INDEX_FILE"));
-static WASM_FILE: &[u8] = include_bytes!(env!("WASM_FILE"));
-static JS_FILE: &str = include_str!(env!("JS_FILE"));
-static TAILWIND_FILE: &str = include_str!(env!("TAILWIND_FILE"));
-static PLOTLY_FILE: &str = include_str!(env!("PLOTLY_FILE"));
-static MAPLIBRE_FILE: &str = include_str!(env!("MAPLIBRE_FILE"));
-static MAPLIBRE_CSS: &str = include_str!(env!("MAPLIBRE_CSS"));
-
-#[cfg(feature = "ios_config")]
-static WHEN_IN_USE_AUTH_PNG: &[u8] =
-    include_bytes!(env!("WHEN_IN_USE_AUTH_IOS_PNG"));
-#[cfg(feature = "android_config")]
-static WHEN_IN_USE_AUTH_PNG: &[u8] =
-    include_bytes!(env!("WHEN_IN_USE_AUTH_ANDROID_PNG"));
-
-#[cfg(feature = "ios_config")]
-static ALWAYS_AUTH_PNG: &[u8] = include_bytes!(env!("ALWAYS_AUTH_PNG"));
 
 /// Configuration struct we pass to Swift via C
 #[repr(C)]
@@ -256,7 +233,7 @@ async fn index(
         rng.fill_bytes(&mut buf);
         nonces.push(BASE64_STANDARD.encode(buf));
     }
-    let new_index = INDEX_FILE
+    let new_index = files::get_index()
         .replacen("RANDOM_NONCE", &nonces[0], 1)
         .replacen("RANDOM_NONCE", &nonces[1], 1);
     HttpResponse::Ok()
@@ -284,7 +261,7 @@ async fn index(
 async fn wasm(_: Identity) -> impl Responder {
     HttpResponse::Ok()
         .insert_header(("content-type", "application/wasm"))
-        .body(WASM_FILE)
+        .body(files::get_wasm())
 }
 
 #[routes]
@@ -293,7 +270,7 @@ async fn wasm(_: Identity) -> impl Responder {
 async fn js(_: Identity) -> impl Responder {
     HttpResponse::Ok()
         .content_type(ContentType(mime::APPLICATION_JAVASCRIPT_UTF_8))
-        .body(JS_FILE)
+        .body(files::get_js_launcher())
 }
 
 #[routes]
@@ -302,7 +279,7 @@ async fn js(_: Identity) -> impl Responder {
 async fn tailwind(_: Identity) -> impl Responder {
     HttpResponse::Ok()
         .content_type(ContentType(mime::TEXT_CSS_UTF_8))
-        .body(TAILWIND_FILE)
+        .body(files::get_tailwind())
 }
 
 #[routes]
@@ -311,7 +288,7 @@ async fn tailwind(_: Identity) -> impl Responder {
 async fn plotly(_: Identity) -> impl Responder {
     HttpResponse::Ok()
         .content_type(ContentType(mime::APPLICATION_JAVASCRIPT_UTF_8))
-        .body(PLOTLY_FILE)
+        .body(files::get_plotly())
 }
 
 #[routes]
@@ -320,7 +297,7 @@ async fn plotly(_: Identity) -> impl Responder {
 async fn maplibre(_: Identity) -> impl Responder {
     HttpResponse::Ok()
         .content_type(ContentType(mime::APPLICATION_JAVASCRIPT_UTF_8))
-        .body(MAPLIBRE_FILE)
+        .body(files::get_maplibre())
 }
 
 #[routes]
@@ -329,7 +306,7 @@ async fn maplibre(_: Identity) -> impl Responder {
 async fn maplibre_css(_: Identity) -> impl Responder {
     HttpResponse::Ok()
         .content_type(ContentType(mime::TEXT_CSS_UTF_8))
-        .body(MAPLIBRE_CSS)
+        .body(files::get_maplibre_css())
 }
 
 #[routes]
@@ -338,7 +315,7 @@ async fn maplibre_css(_: Identity) -> impl Responder {
 async fn when_in_use_auth_png(_: Identity) -> impl Responder {
     HttpResponse::Ok()
         .content_type(ContentType(mime::IMAGE_PNG))
-        .body(WHEN_IN_USE_AUTH_PNG)
+        .body(files::get_when_in_use_auth())
 }
 
 #[routes]
@@ -348,7 +325,7 @@ async fn always_auth_png(_: Identity) -> impl Responder {
     #[cfg(feature = "ios_config")]
     return HttpResponse::Ok()
         .content_type(ContentType(mime::IMAGE_PNG))
-        .body(ALWAYS_AUTH_PNG);
+        .body(files::get_always_auth());
     #[cfg(feature = "android_config")]
     return HttpResponse::NotFound().finish();
 }

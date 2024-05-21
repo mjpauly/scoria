@@ -74,6 +74,23 @@ impl DerefMut for BackState {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Default, Store)]
+pub struct DerivedState(common::state::DerivedState);
+
+impl Deref for DerivedState {
+    type Target = common::state::DerivedState;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for DerivedState {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
 pub fn get_update_callback() -> Callback {
     let front_dispatch = Dispatch::<FrontState>::new();
     // logic for setting the front state when it's received from the backend
@@ -94,6 +111,7 @@ pub fn get_update_callback() -> Callback {
     };
 
     let back_dispatch = Dispatch::<BackState>::new();
+    let derived_dispatch = Dispatch::<DerivedState>::new();
     let callback = move |msg: &ToFront| match msg {
         ToFront::FrontState(val) => {
             // we get the FrontState at startup
@@ -105,9 +123,13 @@ pub fn get_update_callback() -> Callback {
             // update our known backend state
             back_dispatch.reduce_mut(|s| **s = val.clone())
         }
+        ToFront::DerivedState(val) => {
+            derived_dispatch.reduce_mut(|s| **s = val.clone())
+        }
         // These messages handled by other callbacks, and not stored globally
         ToFront::GeojsonUpdated => (),
         ToFront::PopupText { .. } => (),
+        ToFront::NewPinId(_) => (),
         ToFront::SwiftPoke => swift_poke::poke(),
     };
     Box::new(callback)

@@ -8,8 +8,9 @@ use yew::prelude::*;
 use yew_icons::{Icon, IconId};
 use yewdux::prelude::*;
 
-use crate::plots::maplibre::{self, add_source_and_layers_to_style};
-use crate::ui_state::{BackState, FrontState};
+use crate::components::pin_editor::PinEditor;
+use crate::maplibre::{self, add_source_and_layers_to_style};
+use crate::ui_state::{BackState, DerivedState, FrontState};
 use crate::websocket::{
     use_backend_event_with_deps, ToBack, ToFront, WebsocketService,
 };
@@ -20,8 +21,9 @@ use crate::{
         Colorbar, TabBar, TimeRangePicker, PRIMARY_BUTTON_STYLE,
         SECONDARY_BUTTON_STYLE,
     },
-    plots::maplibre::view_pos_from_map,
+    maplibre::view_pos_from_map,
 };
+use common::state::MapSettingsTab;
 use common::LngLat;
 
 const BLANK_MAP_STYLE: &str = r#"{"version":8,"name":"Blank","sources":{},"layers":[],"center":[0,0],"zoom":1}"#;
@@ -42,7 +44,8 @@ fn AnalyzeLocation() -> Html {
     let map_style = use_selector(|s: &FrontState| s.map.style.clone());
     let filters = use_selector(|s: &FrontState| s.map.filters.clone());
 
-    let settings_tab = use_state(|| SettingsTab::None);
+    let settings_tab =
+        use_selector(|s: &FrontState| s.map.settings_tab.clone());
     // Get the number of filters clamped to the range [0, 2], which is where
     // resizing of the filter list occurs. If the value changes, trigger resize
     let num_filters = (*filters).len().clamp(0, 2);
@@ -64,73 +67,65 @@ fn AnalyzeLocation() -> Html {
     html! {
         <div class="flex-1 flex flex-col">
             <PlotComponent />
-            if *settings_tab == SettingsTab::MapStyle {
+            if *settings_tab == MapSettingsTab::MapStyle {
                 <MapStyler />
             }
-            if *settings_tab == SettingsTab::TimeRange {
+            if *settings_tab == MapSettingsTab::TimeRange {
                 <TimeRangePicker />
             }
-            if *settings_tab == SettingsTab::Filters {
+            if *settings_tab == MapSettingsTab::Filters {
                 <LocationFilterList />
             }
-            <SettingsPicker tab={settings_tab.clone()} />
+            if *settings_tab == MapSettingsTab::PinEditor {
+                <PinEditor />
+            }
+            <SettingsPicker />
         </div>
     }
 }
 
-#[derive(Clone, PartialEq, Debug)]
-enum SettingsTab {
-    None,
-    Filters,
-    MapStyle,
-    TimeRange,
-}
-
-#[derive(Properties, PartialEq)]
-struct SettingsPickerProps {
-    tab: UseStateHandle<SettingsTab>,
-}
-
 #[function_component]
-fn SettingsPicker(SettingsPickerProps { tab }: &SettingsPickerProps) -> Html {
+fn SettingsPicker() -> Html {
+    let tab = use_selector(|s: &FrontState| s.map.settings_tab.clone());
+    let front_dispatch = Dispatch::<FrontState>::new();
     // callback generic to all settings tabs
-    let onclick = {
-        let tab = tab.clone();
-        Callback::from(move |tab_target: SettingsTab| {
-            if *tab == tab_target {
+    let onclick = front_dispatch.reduce_mut_callback_with(
+        |state: &mut FrontState, tab_target: MapSettingsTab| {
+            if state.map.settings_tab == tab_target {
                 // Already on this tab -> close it
-                tab.set(SettingsTab::None);
+                state.map.settings_tab = MapSettingsTab::None;
             } else {
                 // Not on the tab yet -> go to it
-                tab.set(tab_target);
+                state.map.settings_tab = tab_target;
             }
-        })
-    };
+        },
+    );
+    // };
     let time_onclick = {
         let onclick = onclick.clone();
         Callback::from(move |_e: MouseEvent| {
-            onclick.emit(SettingsTab::TimeRange);
+            onclick.emit(MapSettingsTab::TimeRange);
         })
     };
     let style_onclick = {
         let onclick = onclick.clone();
         Callback::from(move |_e: MouseEvent| {
-            onclick.emit(SettingsTab::MapStyle);
+            onclick.emit(MapSettingsTab::MapStyle);
         })
     };
     let filter_onclick = Callback::from(move |_e: MouseEvent| {
-        onclick.emit(SettingsTab::Filters);
+        onclick.emit(MapSettingsTab::Filters);
     });
-    let get_style = move |tab_target: SettingsTab| {
-        if **tab == tab_target {
+    let get_style = move |tab_target: MapSettingsTab| {
+        if *tab == tab_target {
             format!("m-1 p-2 {}", PRIMARY_BUTTON_STYLE)
         } else {
             format!("m-1 p-2 {}", SECONDARY_BUTTON_STYLE)
         }
     };
-    let style_button_style = get_style(SettingsTab::MapStyle);
-    let time_button_style = get_style(SettingsTab::TimeRange);
-    let filter_button_style = get_style(SettingsTab::Filters);
+    let style_button_style = get_style(MapSettingsTab::MapStyle);
+    let time_button_style = get_style(MapSettingsTab::TimeRange);
+    let filter_button_style = get_style(MapSettingsTab::Filters);
     html! {
         <div class="flex">
             <div class="mx-auto">
@@ -157,7 +152,7 @@ fn SettingsPicker(SettingsPickerProps { tab }: &SettingsPickerProps) -> Html {
 #[function_component]
 fn PlotComponent() -> Html {
     // maplibre map handle
-    let map = use_state(|| Option::<Rc<maplibre::Map>>::None);
+    let map = use_state(|| Option::<Rc<maplibre::binds::Map>>::None);
 
     // === Popup Callbacks === //
 
@@ -259,6 +254,25 @@ fn PlotComponent() -> Html {
         let map_initialized = map_initialized.clone();
         let view_position = use_selector(|s: &FrontState| s.map.view_pos);
         let front_dispatch = Dispatch::<FrontState>::new();
+        let pin_onclick = |maybe_id| {
+            Dispatch::<FrontState>::new().reduce_mut(
+                move |state: &mut FrontState| {
+                    state.map.selected_pin_id = maybe_id;
+                    state.map.settings_tab = MapSettingsTab::PinEditor;
+                },
+            )
+        };
+        let on_create_pin = |loc: LngLat| {
+            Dispatch::<FrontState>::new().reduce_mut(
+                move |state: &mut FrontState| {
+                    state.map.selected_pin_id = None;
+                    state.map.current_pin = Default::default();
+                    state.map.current_pin.lnglat = loc;
+                    state.map.settings_tab = MapSettingsTab::PinEditor;
+                    state.map.editable_pin = true;
+                },
+            )
+        };
         use_effect_with_deps(
             move |style| {
                 // only create the map when it's not created yet
@@ -278,6 +292,12 @@ fn PlotComponent() -> Html {
                             on_load,
                             on_view_change,
                             request_popup,
+                        );
+                        // register the callbacks for click/create pin
+                        maplibre::pins::register_callbacks(
+                            &newmap,
+                            pin_onclick,
+                            on_create_pin,
                         );
                         map.set(Some(newmap));
                     }
@@ -344,6 +364,44 @@ fn PlotComponent() -> Html {
             (map_initialized.clone(), last_loc_lnglat),
         )
     };
+
+    // update map pins when backend state changes
+    let pins = use_selector(|state: &DerivedState| state.pins.clone());
+    // on the map the current pin, with in-progress edits, shadows its previous
+    // saved value until it is either discarded or saved. New pins also show up
+    // this way before persisting.
+    let current_pin =
+        use_selector(|state: &FrontState| state.map.current_pin.clone());
+    let editing_pin = use_selector(|state: &FrontState| state.map.editable_pin);
+    {
+        let map = map.clone();
+        use_effect_with_deps(
+            move |(map_initialized, pins, current_pin, editing)| {
+                if **map_initialized {
+                    let mut newpins = pins
+                        .iter()
+                        .filter(|p| p.id != current_pin.id)
+                        .collect::<Vec<_>>();
+                    if **editing || current_pin.id.is_some() {
+                        // not editing the unsaved pin -> don't show it
+                        // (e.g. user canceled after creating a new pin)
+                        newpins.push(&**current_pin);
+                    }
+                    maplibre::pins::update_pins(
+                        &(*map).clone().unwrap(),
+                        &newpins,
+                    )
+                    .unwrap();
+                }
+            },
+            (
+                map_initialized.clone(),
+                pins.clone(),
+                current_pin.clone(),
+                editing_pin,
+            ),
+        );
+    }
 
     // === Restyle map === //
     {

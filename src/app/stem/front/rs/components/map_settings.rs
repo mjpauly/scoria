@@ -15,13 +15,18 @@ use crate::ui_state::{BackState, FrontState};
 const MIN_CACHE_SIZE: u64 = 10_000_000;
 
 #[function_component]
-pub fn ShowLastLocationSetting() -> Html {
+pub fn MiscMapSettings() -> Html {
     let dispatch = Dispatch::<FrontState>::new();
-    let style = use_selector(|s: &FrontState| s.map.style.clone());
+    let map = use_selector(|s: &FrontState| s.map.clone());
 
     let show_last_location_on_click = {
         dispatch.reduce_mut_callback(move |s: &mut FrontState| {
             s.map.style.show_last_location = !s.map.style.show_last_location;
+        })
+    };
+    let open_in_google_maps_onclick = {
+        dispatch.reduce_mut_callback(move |s: &mut FrontState| {
+            s.map.open_in_google_maps = !s.map.open_in_google_maps;
         })
     };
 
@@ -29,10 +34,17 @@ pub fn ShowLastLocationSetting() -> Html {
         <>
             <SettingsCard>
                 <SettingsCardToggle
-                    checked={style.show_last_location}
+                    checked={map.style.show_last_location}
                     onclick={show_last_location_on_click}
                     text={"Show Last Location"}
                 />
+                if cfg!(feature = "ios_config") {
+                    <SettingsCardToggle
+                        checked={map.open_in_google_maps}
+                        onclick={open_in_google_maps_onclick}
+                        text={"Open Links in Google Maps"}
+                    />
+                }
             </SettingsCard>
         </>
     }

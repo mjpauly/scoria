@@ -11,9 +11,10 @@ use actix_identity::Identity;
 use actix_web::{web, Error, HttpRequest, HttpResponse};
 use actix_web_actors::ws;
 use common::state::{PersistedRoute, PersistedSettingsRoute};
+use common::{ToBack, ToFront};
 use tracing::{info, warn};
 
-use crate::app_state::set_back_state;
+use crate::app_state::{get_derived_state, set_back_state};
 use crate::database;
 use crate::export::export_selected;
 use crate::geojson::update_geojson;
@@ -22,7 +23,6 @@ use crate::map::automap::update_automap;
 use crate::map::basemap::evict_old_map_data;
 use crate::runtime::get_runtime;
 use crate::{app_state::AppState, geojson::get_popup_text};
-use common::{ToBack, ToFront};
 
 /// How often heartbeat pings are sent
 #[allow(dead_code)]
@@ -34,6 +34,11 @@ const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
 
 pub fn send_back_state_to_front() {
     send(|addr| addr.do_send(SendState));
+}
+
+pub fn send_derived_state_to_front() {
+    let state = get_derived_state(|state| state.clone());
+    send(move |addr| addr.do_send(MsgToFront(ToFront::DerivedState(state))));
 }
 
 pub fn send_message_to_front(msg: ToFront) {
@@ -105,6 +110,9 @@ impl WsSession {
             }
             ToBack::GetBackState => {
                 self.send_back_state(ctx);
+            }
+            ToBack::GetDerivedState => {
+                send_derived_state_to_front();
             }
             ToBack::SetFrontState(val) => {
                 let main_route = val.route;
@@ -184,6 +192,12 @@ impl WsSession {
                         recipient.do_send(MsgToFront(msg))
                     }
                 });
+            }
+            ToBack::SavePin(pin) => {
+                database::pins::save_pin(pin);
+            }
+            ToBack::DeletePin(db_idx) => {
+                database::pins::delete_pin(db_idx);
             }
         }
     }

@@ -9,6 +9,7 @@ pub mod location_filter_list;
 pub mod map_settings;
 pub mod map_styler;
 pub mod navbar;
+pub mod pin_editor;
 pub mod select;
 pub mod settings_card;
 pub mod time_range_picker;

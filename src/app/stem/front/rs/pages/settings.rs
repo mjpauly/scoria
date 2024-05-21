@@ -15,7 +15,7 @@ use yew_router::prelude::*;
 use yewdux::prelude::*;
 
 use crate::components::map_settings::{
-    AutomapSetting, CacheSetting, ShowLastLocationSetting,
+    AutomapSetting, CacheSetting, MiscMapSettings,
 };
 use crate::components::unit_picker::UnitPicker;
 use crate::components::{
@@ -170,7 +170,7 @@ pub fn MapSettings() -> Html {
             <BouncyScrollContainer class="pb-8">
                 <H1> {"Map"} </H1>
 
-                <ShowLastLocationSetting />
+                <MiscMapSettings />
 
                 <H2> {"Automap"} </H2>
                 <AutomapSetting />

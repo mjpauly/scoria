@@ -4,6 +4,13 @@
 
 Current: android, pins
 
+- [ ] queries/metrics for selected data (distance/time/speed traveled/dwelled, average distanced traveled (mean free path))
+    - [ ] plot datastreams (e.g. speed) or computed values (e.g. distance from
+      a pin)
+- [ ] export track as scoria db for sharing lost sections with friends
+    - [ ] timestamp of imported data points
+    - [ ] ability to delete data points
+        - https://www.sqlite.org/pragma.html#pragma_secure_delete
 - post Android release
     - [ ] decouple ellipsoid and msl altitudes, remove story
 - debug-ability
@@ -11,19 +18,21 @@ Current: android, pins
     - [ ] have frontend send logs to backend
 - features
     - [ ] self-annotated waypoints, routes, and tracks
-    - [ ] queries/metrics for selected data (distance/time/speed traveled/dwelled, average distanced traveled (mean free path))
     - [ ] what's new section
     - [ ] release notes for prior versions
-    - [ ] improve colormap contrast option
+    - [ ] improve colormap contrast option (restrict min/max setting)
     - [ ] support other activity types in "Custom" location mode
 - bugs
     - [ ] network timeout too long in airplane mode?
 - housekeeping
     - [ ] switch to Library/Caches for map cache (and cleanup old location)
 - low priority
+    - [ ] smaller tab bar icons and text
     - [ ] quick time update buttons
     - [ ] enable running Scoria on Mac
     - [ ] zoom to current location on first install
+    - [ ] internationalization
+    - [ ] move pin, and add boundary region
 - [ ] reset to "today" time range and data-centered view if user is away from
     the app for 1+ hr
 - [ ] notify user when they close the app that keeping it open is required for

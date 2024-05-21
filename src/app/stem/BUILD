@@ -29,16 +29,28 @@ rust_library(
     compile_data =
         glob(["migrations/*.sql"])
         + [".env", "//:secrets"]
-        + static_file_targets,
-    rustc_env = static_file_envs,
+        + select({
+            # embed static files if not autoreloading
+            "//:autoreload_on": [],
+            "//conditions:default": static_file_targets,
+        }),
+    rustc_env = select({
+        # embed static files if not autoreloading
+        "//:autoreload_on": {},
+        "//conditions:default": static_file_envs,
+    }),
     rustc_flags = select({ # extra optimizations (stripping must be done later)
         "//:optimized_build": ["-C", "lto=y"], # link-time optimization
         "//conditions:default": [],
     }),
-    crate_features = select({
+    crate_features = platform_features + select({
         "//:distribution_profile": ["distribution_key"],
         "//conditions:default": [],
-    }) + platform_features,
+    }) + select({
+        # compile support for runfiles instead of embedding the static files
+        "//:autoreload_on": ["runfiles"],
+        "//conditions:default": [],
+    }),
     proc_macro_deps = [
         "@stem_crate_index//:dotenvy_macro",
     ],
@@ -104,6 +116,7 @@ rust_test(
     deps = [
         "@stem_crate_index//:reqwest", # for server health check unit test
         "@stem_crate_index//:futures-core",
+        "@stem_crate_index//:pretty_assertions",
     ]
 )
 
@@ -134,7 +147,11 @@ rust_binary(
     edition = "2021",
     data = [
         "db/data.db",
-    ],
+    ] + select({
+        # make the static files available as runfiles
+        "//:autoreload_on": static_file_targets,
+        "//conditions:default": [],
+    }),
     deps = [
         ":stem",
         "@stem_crate_index//:tokio",

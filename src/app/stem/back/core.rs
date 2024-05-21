@@ -30,3 +30,10 @@ pub async fn log_location(loc: OSLocationData) {
         tokio::spawn(update_automap());
     }
 }
+
+/// Update derived state at startup, since it is not peristed between launches.
+pub async fn update_derived_state() {
+    // pins are not persisted in persistent_state.json, but are pulled from the
+    // database when needed into DerivedState
+    database::pins::update_derived_pins().await;
+}

@@ -19,8 +19,8 @@
 //! ```
 
 mod components;
+mod maplibre;
 mod pages;
-mod plots;
 mod router;
 mod swift_poke;
 mod ui_state;

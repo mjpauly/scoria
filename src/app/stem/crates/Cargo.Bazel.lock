@@ -1,5 +1,5 @@
 {
-  "checksum": "ddb5e6183e0d2b5e09f0c2b5691c4a4c1ef7df1c3af23fc292b7eafca85cb05d",
+  "checksum": "02a3ecb5405d96ae44fba0d5698d6febf009b8289d428a6cac523e820c9fc22f",
   "crates": {
     "actix 0.13.0": {
       "name": "actix",
@@ -5560,6 +5560,42 @@
       ],
       "license_file": null
     },
+    "diff 0.1.13": {
+      "name": "diff",
+      "version": "0.1.13",
+      "package_url": "https://github.com/utkarshkukreti/diff.rs",
+      "repository": {
+        "Http": {
+          "url": "https://static.crates.io/crates/diff/0.1.13/download",
+          "sha256": "56254986775e3233ffa9c4d7d3faaf6d36a2c09d30b20687e9f88bc8bafc16c8"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "diff",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "diff",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "edition": "2015",
+        "version": "0.1.13"
+      },
+      "license": "MIT OR Apache-2.0",
+      "license_ids": [
+        "Apache-2.0",
+        "MIT"
+      ],
+      "license_file": null
+    },
     "digest 0.10.6": {
       "name": "digest",
       "version": "0.10.6",
@@ -5771,6 +5807,10 @@
             {
               "id": "pointy 0.4.0",
               "target": "pointy"
+            },
+            {
+              "id": "pretty_assertions 1.4.0",
+              "target": "pretty_assertions"
             },
             {
               "id": "rand 0.8.5",
@@ -14594,6 +14634,62 @@
       ],
       "license_file": null
     },
+    "pretty_assertions 1.4.0": {
+      "name": "pretty_assertions",
+      "version": "1.4.0",
+      "package_url": "https://github.com/rust-pretty-assertions/rust-pretty-assertions",
+      "repository": {
+        "Http": {
+          "url": "https://static.crates.io/crates/pretty_assertions/1.4.0/download",
+          "sha256": "af7cee1a6c8a5b9208b3cb1061f10c0cb689087b3d8ce85fb9d2dd7a29b6ba66"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "pretty_assertions",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "pretty_assertions",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "crate_features": {
+          "common": [
+            "default",
+            "std"
+          ],
+          "selects": {}
+        },
+        "deps": {
+          "common": [
+            {
+              "id": "diff 0.1.13",
+              "target": "diff"
+            },
+            {
+              "id": "yansi 0.5.1",
+              "target": "yansi"
+            }
+          ],
+          "selects": {}
+        },
+        "edition": "2018",
+        "version": "1.4.0"
+      },
+      "license": "MIT OR Apache-2.0",
+      "license_ids": [
+        "Apache-2.0",
+        "MIT"
+      ],
+      "license_file": null
+    },
     "prettyplease 0.1.23": {
       "name": "prettyplease",
       "version": "0.1.23",
@@ -22698,6 +22794,7 @@
             "BinaryType",
             "Blob",
             "BlobPropertyBag",
+            "CanvasRenderingContext2d",
             "CharacterData",
             "CloseEvent",
             "CloseEventInit",
@@ -22730,15 +22827,18 @@
             "Headers",
             "History",
             "HtmlBaseElement",
+            "HtmlCanvasElement",
             "HtmlCollection",
             "HtmlElement",
             "HtmlHeadElement",
+            "HtmlImageElement",
             "HtmlInputElement",
             "HtmlLinkElement",
             "HtmlMediaElement",
             "HtmlScriptElement",
             "HtmlSelectElement",
             "HtmlTextAreaElement",
+            "ImageData",
             "InputEvent",
             "InputEventInit",
             "KeyboardEvent",
@@ -24673,6 +24773,42 @@
       ],
       "license_file": null
     },
+    "yansi 0.5.1": {
+      "name": "yansi",
+      "version": "0.5.1",
+      "package_url": "https://github.com/SergioBenitez/yansi",
+      "repository": {
+        "Http": {
+          "url": "https://static.crates.io/crates/yansi/0.5.1/download",
+          "sha256": "09041cd90cf85f7f8b2df60c646f853b7f535ce68f85244eb6731cf89fa498ec"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "yansi",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "yansi",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "edition": "2015",
+        "version": "0.5.1"
+      },
+      "license": "MIT/Apache-2.0",
+      "license_ids": [
+        "Apache-2.0",
+        "MIT"
+      ],
+      "license_file": null
+    },
     "yew 0.20.0": {
       "name": "yew",
       "version": "0.20.0",
@@ -25131,11 +25267,14 @@
             "BootstrapInfoCircleFill",
             "BootstrapJournalText",
             "BootstrapList",
+            "BootstrapPlus",
             "BootstrapPlusLg",
             "BootstrapQuestionCircle",
+            "BootstrapTrash",
             "BootstrapX",
             "BootstrapXCircle",
             "BootstrapXCircleFill",
+            "BootstrapXLg",
             "FontAwesomeSolidLocationArrow",
             "data_uri",
             "default"
@@ -26268,6 +26407,7 @@
     "once_cell 1.17.1",
     "plotly 0.8.3",
     "pointy 0.4.0",
+    "pretty_assertions 1.4.0",
     "rand 0.8.5",
     "reqwest 0.11.24",
     "rusty-fork 0.3.0",

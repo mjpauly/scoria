@@ -16,11 +16,22 @@ use crate::{
     export_options::ExportOptions,
     filters::{DataStream, Filter, FilterOp},
     map_style::MapStyle,
+    pin::Pin,
     time_range::TimeDeltaRange,
     units::UnitPreference,
     view_position::ViewPosition,
     AutoConfig, LngLat, Location, TimeRange, UserConfig,
 };
+
+/// State driven by the backend which is derived from other state, like the
+/// database.
+///
+/// Does not get persisted between app restarts.
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+pub struct DerivedState {
+    // User-created map pins.
+    pub pins: Vec<Pin>,
+}
 
 /// Pick the type's default if it fails to deserialize. This ensures that an
 /// error during deserialization doesn't cause the whole thing to fail.
@@ -156,6 +167,9 @@ pub enum PersistedSettingsRoute {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct MapState {
+    // Map settings tab that's open (if any)
+    #[serde(deserialize_with = "ok_or_default")]
+    pub settings_tab: MapSettingsTab,
     // time_delta_range is the persisted source of truth on the time range to
     // display, but time-fixed time_range is used to get data to plot, and is
     // updated only on particular actions, like an explicit time update, or when
@@ -171,6 +185,28 @@ pub struct MapState {
     pub filters: Vec<Filter>,
     #[serde(deserialize_with = "ok_or_default")]
     pub view_pos: ViewPosition,
+    // Pin that's being viewed/edited, but might not be saved.
+    #[serde(deserialize_with = "ok_or_default")]
+    pub current_pin: Pin,
+    // Whether we're in edit mode for the pin or not
+    #[serde(deserialize_with = "ok_or_default")]
+    pub editable_pin: bool,
+    // id of the pin that was last selected on the map (may not be the same as
+    // the current pin in the PinEditor)
+    #[serde(deserialize_with = "ok_or_default")]
+    pub selected_pin_id: Option<i64>,
+    #[serde(deserialize_with = "ok_or_default")]
+    pub open_in_google_maps: bool,
+}
+
+#[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize)]
+pub enum MapSettingsTab {
+    #[default]
+    None,
+    Filters,
+    MapStyle,
+    TimeRange,
+    PinEditor,
 }
 
 /// Default for the backend to use if deserializing from file fails. The
@@ -179,11 +215,16 @@ pub struct MapState {
 impl Default for MapState {
     fn default() -> Self {
         Self {
+            settings_tab: Default::default(),
             time_delta_range: Default::default(),
             time_range: Default::default(),
             style: Default::default(),
             filters: default_accuracy_filter(),
             view_pos: Default::default(),
+            current_pin: Default::default(),
+            editable_pin: Default::default(),
+            selected_pin_id: Default::default(),
+            open_in_google_maps: Default::default(),
         }
     }
 }

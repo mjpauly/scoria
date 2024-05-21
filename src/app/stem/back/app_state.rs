@@ -17,7 +17,7 @@ use std::io::Write;
 use std::sync::{Arc, Mutex};
 
 use actix_web::dev::ServerHandle;
-use common::state::{ok_or_default, MapState};
+use common::state::{ok_or_default, DerivedState, MapState};
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
@@ -25,7 +25,7 @@ use tracing::error;
 
 use crate::geojson::empty_geojson;
 use crate::paths::{get_library_dir, Paths};
-use crate::ws_session;
+use crate::ws_session::{self, send_derived_state_to_front};
 use common::{BackState, FrontState};
 
 /// File where persistent state is stored (joined to library_dir)
@@ -52,6 +52,8 @@ pub struct AppState {
     // State persisted between app launches. It is almost exactly the same as
     // the UI state.
     pub persistent: Mutex<PersistentState>,
+    // Non-persistent backend state that is derived from other sources
+    pub derived: Mutex<DerivedState>,
 
     pub wrapper_messages: Mutex<WrapperMessages>,
 
@@ -119,6 +121,15 @@ pub fn get_back_state<T>(f: impl FnOnce(&BackState) -> T) -> T {
 /// Cannot modify the FrontState.
 pub fn get_front_state<T>(f: impl FnOnce(&Option<FrontState>) -> T) -> T {
     f(&AppState::global().persistent.lock().unwrap().front)
+}
+
+pub fn set_derived_state<T>(f: impl FnOnce(&mut DerivedState) -> T) -> T {
+    let res = f(&mut AppState::global().derived.lock().unwrap());
+    send_derived_state_to_front();
+    res
+}
+pub fn get_derived_state<T>(f: impl FnOnce(&DerivedState) -> T) -> T {
+    f(&AppState::global().derived.lock().unwrap())
 }
 
 /// Temporary data to communicate to Swift
@@ -222,6 +233,7 @@ impl AppState {
                 ws_addr: Mutex::new(None),
                 server_handle: tokio::sync::Mutex::new(None),
                 persistent: Mutex::new(persistent),
+                derived: Mutex::new(Default::default()),
                 wrapper_messages: Mutex::new(Default::default()),
                 map_data: Default::default(),
             }))

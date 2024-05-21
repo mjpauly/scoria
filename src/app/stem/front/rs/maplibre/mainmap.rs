@@ -5,102 +5,11 @@ use js_sys::{Array, Reflect};
 use serde_json::{json, Value};
 use wasm_bindgen::{prelude::*, JsCast};
 
+use crate::maplibre::{binds::*, pins};
 use crate::router::get_scoped_host;
 use common::cmaps;
 use common::map_style::{ColoredDataStream, MapStyle, Rgba};
 use common::view_position::ViewPosition;
-
-#[wasm_bindgen]
-extern "C" {
-    #[derive(Debug, PartialEq)]
-    pub type Map;
-
-    #[wasm_bindgen(constructor, js_namespace = maplibregl, js_name = Map)]
-    pub fn new(options: &JsValue) -> Map;
-    #[wasm_bindgen(method)]
-    pub fn remove(this: &Map);
-
-    #[wasm_bindgen(method, setter, js_name = showTileBoundaries)]
-    pub fn show_tile_boundaries(this: &Map, yes: bool);
-
-    #[wasm_bindgen(method)]
-    pub fn on(this: &Map, event: &str, listener: &JsValue);
-    #[wasm_bindgen(method, js_name = on)]
-    pub fn on_layer(this: &Map, event: &str, layer: &str, listener: &JsValue);
-    #[wasm_bindgen(method)]
-    pub fn once(this: &Map, event: &str, listener: &JsValue);
-    #[wasm_bindgen(method, js_name = once)]
-    pub fn once_layer(this: &Map, event: &str, layer: &str, listener: &JsValue);
-    #[wasm_bindgen(method)]
-    pub fn off(this: &Map, event: &str);
-    #[wasm_bindgen(method, js_name = isSourceLoaded)]
-    pub fn is_source_loaded(this: &Map, source: &str) -> bool;
-
-    #[wasm_bindgen(method, js_name = getSource)]
-    pub fn get_source(this: &Map, id: &str) -> Source;
-
-    #[wasm_bindgen(method, js_name = setStyle)]
-    pub fn set_style(this: &Map, style: &JsValue);
-
-    #[wasm_bindgen(method, js_name = addControl)]
-    pub fn add_navigation_control(
-        this: &Map,
-        control: NavigationControl,
-        position: &str,
-    );
-
-    #[wasm_bindgen(method, js_name = getCenter)]
-    pub fn get_center(this: &Map) -> LngLat;
-    #[wasm_bindgen(method, js_name = getZoom)]
-    pub fn get_zoom(this: &Map) -> f64;
-    #[wasm_bindgen(method, js_name = getBearing)]
-    pub fn get_bearing(this: &Map) -> f64;
-    #[wasm_bindgen(method, js_name = getPitch)]
-    pub fn get_pitch(this: &Map) -> f64;
-    #[wasm_bindgen(method, js_name = getBounds)]
-    pub fn get_bounds(this: &Map) -> LngLatBounds;
-
-    #[wasm_bindgen(method, js_name = flyTo)]
-    pub fn fly_to(this: &Map, options: &JsValue);
-    #[wasm_bindgen(method, js_name = easeTo)]
-    pub fn ease_to(this: &Map, options: &JsValue);
-
-    pub type Source;
-
-    #[wasm_bindgen(method, js_name = setData)]
-    pub fn set_data(this: &Source, data: &JsValue) -> JsValue;
-
-    pub type NavigationControl;
-
-    #[wasm_bindgen(constructor, js_namespace = maplibregl,
-                   js_name = NavigationControl)]
-    pub fn new(options: &JsValue) -> NavigationControl;
-
-    pub type LngLat;
-
-    #[wasm_bindgen(method, getter)]
-    pub fn lng(this: &LngLat) -> f64;
-    #[wasm_bindgen(method, getter)]
-    pub fn lat(this: &LngLat) -> f64;
-
-    pub type LngLatBounds;
-
-    #[wasm_bindgen(method, js_name = getSouthWest)]
-    pub fn get_south_west(this: &LngLatBounds) -> LngLat;
-    #[wasm_bindgen(method, js_name = getNorthEast)]
-    pub fn get_north_east(this: &LngLatBounds) -> LngLat;
-
-    pub type Popup;
-
-    #[wasm_bindgen(constructor, js_namespace = maplibregl, js_name = Popup)]
-    pub fn new(options: &JsValue) -> Popup;
-    #[wasm_bindgen(method, js_name = setLngLat)]
-    pub fn set_lng_lat(this: &Popup, coordinates: &JsValue);
-    #[wasm_bindgen(method, js_name = setHTML)]
-    pub fn set_html(this: &Popup, description: &JsValue);
-    #[wasm_bindgen(method, js_name = addTo)]
-    pub fn add_to(this: &Popup, map: &Map);
-}
 
 static POINTS_SOURCE_ID: &str = "points";
 static POINTS_LAYER_ID: &str = "points";
@@ -112,6 +21,8 @@ static UNEXPLORED_SOURCE_ID: &str = "unexplored";
 static UNEXPLORED_LAYER_ID: &str = "unexplored";
 static LAST_LOCATION_SOURCE_ID: &str = "last_location";
 static LAST_LOCATION_LAYER_ID: &str = "last_location";
+pub static PINS_SOURCE_ID: &str = "pins";
+pub static PINS_LAYER_ID: &str = "pins";
 
 pub fn view_pos_from_map(map: &Map) -> ViewPosition {
     let lnglat_convert = |x: &LngLat| common::LngLat {
@@ -335,6 +246,10 @@ pub fn add_source_and_layers_to_style(
     // Sources
     let sources_mut = style["sources"].as_object_mut().unwrap();
     sources_mut.insert(
+        PINS_SOURCE_ID.to_string(),
+        geojson_source_with_value(&empty_geojson()),
+    );
+    sources_mut.insert(
         POINTS_SOURCE_ID.to_string(),
         geojson_source_with_url(POINTS_SOURCE_URL),
     );
@@ -361,6 +276,7 @@ pub fn add_source_and_layers_to_style(
         style["layers"].as_array_mut().unwrap().push(screen);
     }
     let layers_mut = style["layers"].as_array_mut().unwrap();
+    layers_mut.push(pins::make_pins_layer());
     layers_mut.push(make_lines_layer(
         map_style.line_size,
         &map_style.solid_color,
@@ -427,7 +343,7 @@ fn get_background_color(style: &Value) -> Value {
 
 /// Convert from a serde_json::Value (loosely-typed object) to a json JsValue
 /// owned by javascript.
-fn val_to_jsval(v: &Value) -> JsValue {
+pub fn val_to_jsval(v: &Value) -> JsValue {
     js_sys::JSON::parse(&serde_json::to_string(v).unwrap())
         .expect("Invalid JSON")
 }
@@ -523,11 +439,15 @@ fn geojson_point(loc: Option<common::LngLat>) -> Value {
             }]
         })
     } else {
-        json!({
-            "type": "FeatureCollection",
-            "features": []
-        })
+        empty_geojson()
     }
+}
+
+pub fn empty_geojson() -> Value {
+    json!({
+        "type": "FeatureCollection",
+        "features": []
+    })
 }
 
 /// The point that shows the last logged location as a blue circle with a white

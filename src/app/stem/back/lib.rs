@@ -23,6 +23,7 @@ pub mod app_state; // backend state storage
 pub mod core; // high-level app logic that spans multiple modules
 pub mod database; // manages the SQLite database
 pub mod export; // export data to common geo data file formats
+pub mod files; // static files served to frontend
 pub mod geojson; // construct the data to display in the frontend
 pub mod location_config; // location logging configuration
 pub mod logs;
@@ -94,6 +95,7 @@ pub async fn init(init_paths: paths::Paths, app_version: String) {
     app_state::AppState::init(init_paths, app_version, db);
     // vacuum and checkpoint the database at startup, so it shrinks to size
     database::checkpoint_db().await;
+    core::update_derived_state().await;
     tracing::info!("===== App Startup =====");
 }
 
@@ -275,9 +277,9 @@ pub extern "C" fn should_export_track() -> bool {
 /// Local setup either for development or testing.
 /// Not used in any production app code. TODO: gate with feature flag
 pub mod local {
+    use super::init;
     use super::paths::Paths;
     use super::server;
-    use super::init;
 
     use std::fs;
     use std::path::PathBuf;
