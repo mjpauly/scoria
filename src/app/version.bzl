@@ -1,27 +1,28 @@
-# - Major version increments on backwards-incompatible changes, such as
-# database migrations. Forwards-incompatible changes don't happen, so we don't
-# use the major version number for that.
-# 
-# - Minor version increments for compatible changes.
+# Version numbers follow semver semantics.
+#
+# The build version is the pre-release identifier. If the version name is "1.4"
+# and the build version is "2", then that's the same as "1.4.0-beta.2". All
+# build versions are assumed to be beta releases; we don't currently worry
+# about alpha releases or release candidates. The build version preceeds the
+# main version string ("1.4.0-beta.2" is a beta build for the "1.4.0" release.)
 #
 # Version bumps between iOS and Android should happen in tandem to keep things
 # synced, even if a release is not created.
 
+# Public version used in iOS. TODO: for 1.5, explicitly specify as 1.5.0
+IOS_VERSION_NAME = "1.4" # implicitly "1.4.0"
 
-# Public semver version use in iOS
-IOS_VERSION_NAME = "1.4"
-
-# Build version used in iOS testing. See comment in //src/app/ios/top/BUILD for
-# more info.
-IOS_BUILD_VERSION = "1.4.0"
+# Beta/build version used in iOS testing. Can add more number segments
+# separated by dots to further distinguish build versions.
+IOS_BUILD_VERSION = "2"
 
 
 # Public semver version, only used for display. The patch version increments
 # when android updates are not timed exactly with iOS, allowing slip for
 # synchronizing on the major/minor version numbers.
-ANDROID_VERSION_NAME = "1.4.0"
+ANDROID_VERSION_NAME = "1.4.0-beta.2" # set to "1.4.0" for public release
 
-# Monotonic version code for use in Android. Bump on each release, along with
-# the patch version. Prevents downgrading, but we use semver to indicate when
-# downgrades are possible with a database export/import.
+# Monotonic version code for use in Android. Bump on each release (if
+# distributing on Play Store, since it's requried), or just on
+# backwards-incompatible changes. Increases prevent downgrading.
 ANDROID_VERSION_CODE = "3"

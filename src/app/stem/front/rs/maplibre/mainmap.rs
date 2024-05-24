@@ -276,7 +276,9 @@ pub fn add_source_and_layers_to_style(
         style["layers"].as_array_mut().unwrap().push(screen);
     }
     let layers_mut = style["layers"].as_array_mut().unwrap();
-    layers_mut.push(pins::make_pins_layer());
+    if map_style.pins_below_data {
+        layers_mut.push(pins::make_pins_layer());
+    }
     layers_mut.push(make_lines_layer(
         map_style.line_size,
         &map_style.solid_color,
@@ -287,6 +289,9 @@ pub fn add_source_and_layers_to_style(
         &map_style.solid_color,
         &map_style.colored_datastream,
     ));
+    if !map_style.pins_below_data {
+        layers_mut.push(pins::make_pins_layer());
+    }
     if map_style.show_last_location {
         layers_mut.push(make_last_location_layer());
     }

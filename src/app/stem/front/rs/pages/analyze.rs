@@ -8,7 +8,7 @@ use yew::prelude::*;
 use yew_icons::{Icon, IconId};
 use yewdux::prelude::*;
 
-use crate::components::pin_editor::PinEditor;
+use crate::components::pin_editor::PinDetails;
 use crate::maplibre::{self, add_source_and_layers_to_style};
 use crate::ui_state::{BackState, DerivedState, FrontState};
 use crate::websocket::{
@@ -76,8 +76,8 @@ fn AnalyzeLocation() -> Html {
             if *settings_tab == MapSettingsTab::Filters {
                 <LocationFilterList />
             }
-            if *settings_tab == MapSettingsTab::PinEditor {
-                <PinEditor />
+            if *settings_tab == MapSettingsTab::PinDetails {
+                <PinDetails />
             }
             <SettingsPicker />
         </div>
@@ -258,7 +258,7 @@ fn PlotComponent() -> Html {
             Dispatch::<FrontState>::new().reduce_mut(
                 move |state: &mut FrontState| {
                     state.map.selected_pin_id = maybe_id;
-                    state.map.settings_tab = MapSettingsTab::PinEditor;
+                    state.map.settings_tab = MapSettingsTab::PinDetails;
                 },
             )
         };
@@ -268,7 +268,7 @@ fn PlotComponent() -> Html {
                     state.map.selected_pin_id = None;
                     state.map.current_pin = Default::default();
                     state.map.current_pin.lnglat = loc;
-                    state.map.settings_tab = MapSettingsTab::PinEditor;
+                    state.map.settings_tab = MapSettingsTab::PinDetails;
                     state.map.editable_pin = true;
                 },
             )
@@ -365,43 +365,41 @@ fn PlotComponent() -> Html {
         )
     };
 
-    // update map pins when backend state changes
+    // update the visible pins to include unsaved edits
     let pins = use_selector(|state: &DerivedState| state.pins.clone());
-    // on the map the current pin, with in-progress edits, shadows its previous
-    // saved value until it is either discarded or saved. New pins also show up
-    // this way before persisting.
     let current_pin =
         use_selector(|state: &FrontState| state.map.current_pin.clone());
     let editing_pin = use_selector(|state: &FrontState| state.map.editable_pin);
+    let visible_pins = use_state(Vec::<common::pin::Pin>::new);
+    {
+        let visible_pins = visible_pins.clone();
+        use_effect_with_deps(
+            move |(pins, current_pin, editing)| {
+                visible_pins.set(maplibre::pins::get_visible_pins(
+                    (**pins).clone(),
+                    (**current_pin).clone(),
+                    **editing,
+                ));
+            },
+            (pins.clone(), current_pin.clone(), editing_pin),
+        );
+    }
+    // update pins when the map initializes, or the pins change
     {
         let map = map.clone();
         use_effect_with_deps(
-            move |(map_initialized, pins, current_pin, editing)| {
+            move |(map_initialized, visible_pins)| {
                 if **map_initialized {
-                    let mut newpins = pins
-                        .iter()
-                        .filter(|p| p.id != current_pin.id)
-                        .collect::<Vec<_>>();
-                    if **editing || current_pin.id.is_some() {
-                        // not editing the unsaved pin -> don't show it
-                        // (e.g. user canceled after creating a new pin)
-                        newpins.push(&**current_pin);
-                    }
                     maplibre::pins::update_pins(
                         &(*map).clone().unwrap(),
-                        &newpins,
+                        visible_pins,
                     )
                     .unwrap();
                 }
             },
-            (
-                map_initialized.clone(),
-                pins.clone(),
-                current_pin.clone(),
-                editing_pin,
-            ),
-        );
-    }
+            (map_initialized.clone(), visible_pins.clone()),
+        )
+    };
 
     // === Restyle map === //
     {
@@ -410,7 +408,13 @@ fn PlotComponent() -> Html {
             move |style| {
                 if *map_initialized {
                     if let Some(style) = &**style {
-                        maplibre::restyle((*map).clone().unwrap(), style)
+                        maplibre::restyle((*map).clone().unwrap(), style);
+                        // also update pins, since the style object clears the
+                        // data
+                        maplibre::pins::update_pins_after_restyle(
+                            (*map).clone().unwrap(),
+                            (*visible_pins).clone(),
+                        );
                     }
                 }
             },

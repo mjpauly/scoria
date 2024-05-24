@@ -206,7 +206,7 @@ pub enum MapSettingsTab {
     Filters,
     MapStyle,
     TimeRange,
-    PinEditor,
+    PinDetails,
 }
 
 /// Default for the backend to use if deserializing from file fails. The

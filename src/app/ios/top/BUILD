@@ -28,17 +28,6 @@ ios_application(
     deps = [":App.library"],
 )
 
-# Bump the build_version when submitting a new build to App Store Connect
-# 
-# Convention: short version string is the first part of the build version. When
-# working towards a new release, bump the minor version number for both,
-# resetting the patch number on the build version. E.g.:
-# 
-# Builds leading up to release "7.5" would be "7.5.0", "7.5.1", "7.5.2", ...
-# Once "7.5" is released publicly, the next build versions should become "7.6.0"
-#
-# NOTE: The public 7.5 release does NOT necessarily correspond to 7.5.0, but to
-# the LAST build number matching "7.5.x"
 apple_bundle_version(
     name = "app_version",
     build_version = IOS_BUILD_VERSION,

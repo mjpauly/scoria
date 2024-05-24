@@ -225,6 +225,7 @@ crates_repository(
         ),
         "serde_json": crate.spec(version = "1.0.94",),
         "serde-wasm-bindgen": crate.spec(version = "0.5.0",),
+        "unicode-segmentation": crate.spec(version = "1.11.0"),
         "uom": crate.spec(
             version = "0.34.0",
             features = ["u64"],
@@ -262,7 +263,7 @@ crates_repository(
                 "HtmlSelectElement", "Document", "Element", "CssStyleSheet",
                 "StyleSheetList", "CssRuleList", "CssStyleDeclaration",
                 "HtmlImageElement", "HtmlCanvasElement",
-                "CanvasRenderingContext2d", "ImageData",
+                "CanvasRenderingContext2d", "ImageData", "HtmlTextAreaElement",
             ],
         ),
         "log": crate.spec(

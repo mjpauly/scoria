@@ -24,6 +24,8 @@ pub struct MapStyle {
     pub automap: bool, // hide unexplored map regions
     #[serde(deserialize_with = "ok_or_default")]
     pub show_last_location: bool,
+    #[serde(deserialize_with = "ok_or_default")]
+    pub pins_below_data: bool, // display pins below log data
 }
 
 impl MapStyle {
@@ -48,6 +50,7 @@ impl Default for MapStyle {
             show_colorbar: true,
             automap: false,
             show_last_location: true,
+            pins_below_data: false,
         }
     }
 }

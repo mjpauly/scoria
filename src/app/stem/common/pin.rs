@@ -19,7 +19,7 @@ impl Default for Pin {
         Self {
             id: Default::default(),
             lnglat: Default::default(),
-            name: "Untitled".into(),
+            name: "".into(),
             icon: "⭐️".into(),
             lists: Default::default(),
             tags: Default::default(),

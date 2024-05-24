@@ -24,6 +24,11 @@ pub fn MiscMapSettings() -> Html {
             s.map.style.show_last_location = !s.map.style.show_last_location;
         })
     };
+    let pins_below_data_onclick = {
+        dispatch.reduce_mut_callback(move |s: &mut FrontState| {
+            s.map.style.pins_below_data = !s.map.style.pins_below_data;
+        })
+    };
     let open_in_google_maps_onclick = {
         dispatch.reduce_mut_callback(move |s: &mut FrontState| {
             s.map.open_in_google_maps = !s.map.open_in_google_maps;
@@ -37,6 +42,11 @@ pub fn MiscMapSettings() -> Html {
                     checked={map.style.show_last_location}
                     onclick={show_last_location_on_click}
                     text={"Show Last Location"}
+                />
+                <SettingsCardToggle
+                    checked={map.style.pins_below_data}
+                    onclick={pins_below_data_onclick}
+                    text={"Display Pins Below Log Data"}
                 />
                 if cfg!(feature = "ios_config") {
                     <SettingsCardToggle
