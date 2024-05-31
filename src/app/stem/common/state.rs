@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     cmaps::CmapParams,
+    dashboard_metrics::DashboardMetrics,
     export_options::ExportOptions,
     filters::{DataStream, Filter, FilterOp},
     map_style::MapStyle,
@@ -31,6 +32,7 @@ use crate::{
 pub struct DerivedState {
     // User-created map pins.
     pub pins: Vec<Pin>,
+    pub dashboard_metrics: DashboardMetrics,
 }
 
 /// Pick the type's default if it fails to deserialize. This ensures that an
@@ -146,6 +148,7 @@ pub enum PersistedRoute {
     #[default]
     Sense,
     Analyze,
+    Metrics,
     SettingsRoot,
     SettingsSubpage,
     Intro,

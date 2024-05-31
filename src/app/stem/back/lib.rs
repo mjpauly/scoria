@@ -28,6 +28,7 @@ pub mod geojson; // construct the data to display in the frontend
 pub mod location_config; // location logging configuration
 pub mod logs;
 pub mod map;
+pub mod metrics;
 pub mod paths; // stores and retrieve file system paths
 pub mod runtime; // retrieves async runtime for use in the sync C interface
 pub mod server; // server for the UI
@@ -95,7 +96,6 @@ pub async fn init(init_paths: paths::Paths, app_version: String) {
     app_state::AppState::init(init_paths, app_version, db);
     // vacuum and checkpoint the database at startup, so it shrinks to size
     database::checkpoint_db().await;
-    core::update_derived_state().await;
     tracing::info!("===== App Startup =====");
 }
 
@@ -150,6 +150,7 @@ pub extern "C" fn handle_enter_foreground() -> server::ServerConfig {
                 );
             };
         });
+        core::update_derived_state().await;
         server::run(0, true).await
     })
 }

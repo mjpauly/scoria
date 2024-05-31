@@ -21,6 +21,7 @@ use crate::geojson::update_geojson;
 use crate::logs::update_last_logged_error;
 use crate::map::automap::update_automap;
 use crate::map::basemap::evict_old_map_data;
+use crate::metrics::dashboard::update_dashboard_on_navigate;
 use crate::runtime::get_runtime;
 use crate::{app_state::AppState, geojson::get_popup_text};
 
@@ -115,6 +116,13 @@ impl WsSession {
                 send_derived_state_to_front();
             }
             ToBack::SetFrontState(val) => {
+                let prev_routes = AppState::global()
+                    .persistent
+                    .lock()
+                    .unwrap()
+                    .front
+                    .as_ref()
+                    .map(|s| (s.route, s.settings_route));
                 let main_route = val.route;
                 let settings_route = val.settings_route;
                 AppState::global().persistent.lock().unwrap().front =
@@ -144,6 +152,10 @@ impl WsSession {
                         };
                     });
                 }
+                update_dashboard_on_navigate(
+                    prev_routes.map(|r| r.0),
+                    main_route,
+                );
             }
             ToBack::ExportTrack => {
                 get_runtime().spawn(async { export_selected().await });

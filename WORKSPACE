@@ -138,15 +138,17 @@ crates_repository(
     },
     packages = {
         "base64": crate.spec(version = "0.22.0"),
+        "coord_transforms": crate.spec(version = "1.4.0"),
         "csv": crate.spec(version = "1.3.0"),
         "futures-core": crate.spec(version = "0.3.28"),
         "geo": crate.spec(version = "0.26.0"),
         "geo-clipper": crate.spec(version = "0.7.3"),
         "geojson": crate.spec(version = "0.24.1", features = ["geo-types"]),
         "gpx": crate.spec(version = "0.9.1"),
-        "itertools": crate.spec(version = "0.12.0"),
+        "itertools": crate.spec(version = "0.13.0"),
         "log-panics": crate.spec(version = "2.1.0"),
         "mvt": crate.spec(version = "0.8.1"),
+        "nalgebra": crate.spec(version = "0.31.4"), # for coord_transforms
         "pointy": crate.spec(version = "0.4.0"),
         "rand": crate.spec(version = "0.8.5"),
         "reqwest": crate.spec(
@@ -297,6 +299,7 @@ crates_repository(
                 "BootstrapFunnel",
                 "BootstrapGear",
                 "BootstrapGlobeAmericas",
+                "BootstrapGraphUp",
                 "BootstrapInfoCircle",
                 "BootstrapInfoCircleFill",
                 "BootstrapJournalText",

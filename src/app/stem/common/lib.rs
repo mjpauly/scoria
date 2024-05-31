@@ -3,6 +3,7 @@
 //! Messages are serialized with bincode.
 
 pub mod cmaps;
+pub mod dashboard_metrics;
 pub mod export_options;
 pub mod filters;
 pub mod float;

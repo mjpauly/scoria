@@ -73,13 +73,14 @@ pub fn TabBar() -> Html {
     // is sometimes different.
     let view_routes = vec![
         // (route, label, icon, icon_scale)
-        (Route::Sense, "Log", IconId::BootstrapJournalText, "h-6 w-6"),
+        (Route::Sense, "Log", IconId::BootstrapJournalText, "h-5 w-5"),
         (
             Route::Analyze,
             "Map",
             IconId::BootstrapGlobeAmericas,
-            "h-6 w-6",
+            "h-5 w-5",
         ),
+        (Route::Metrics, "Stats", IconId::BootstrapGraphUp, "h-5 w-5"),
     ];
 
     // Construct each button to display in the navbar
@@ -101,19 +102,19 @@ pub fn TabBar() -> Html {
                 style.push("text-primary");
             }
         }
-        let icon_style: String = format!("mx-auto mb-1 {}", icon_scale);
+        let icon_style: String = format!("mx-auto mb-px {}", icon_scale);
         html! {
             // id makes it easier to automatically select the buttons in
             // integration testing
             <button {onclick} class={style} id={label.to_string()}>
                 <Icon icon_id={*icon} class={classes!(icon_style)} />
-                { label }
+                <span class="text-sm"> { label } </span>
             </button>
         }
     });
     html! {
         <nav class="sticky bottom-0 backdrop-blur-xl bg-black/20 z-20 \
-            grid grid-cols-2 justify-items-stretch">
+            grid grid-cols-3 justify-items-stretch">
             {for items}
         </nav>
     }

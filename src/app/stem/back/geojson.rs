@@ -23,6 +23,7 @@ use common::view_position::LngLatBounds;
 use geojson::{Feature, FeatureCollection, GeoJson, JsonObject, Value};
 
 use crate::app_state::{get_front_state, set_back_state};
+use crate::core::new_data_is_visible;
 use crate::map::coords::TileXYZ;
 use crate::server::no_caching_directives;
 use crate::{app_state::AppState, database, ws_session};
@@ -138,26 +139,17 @@ async fn should_update_geojson(
             // No frontend, shouldn't happen if foregrounded
             return None;
         }
-        if let Some(prev_map_state) = &*prev_map_data_guard {
-            let new_data_in_time_range = new_data
-                .as_ref()
-                .map(|l| map_state.time_range.contains(&l.timestamp))
-                .unwrap_or(false);
-            let new_data_visible = new_data
-                .map(|l| {
-                    map_state
-                        .view_pos
-                        .bounds
-                        .expand(BOUND_EXPANSION)
-                        .contains(&l.lnglat())
-                })
-                .unwrap_or(false);
-            if !((new_data_in_time_range && new_data_visible)
-                || map_state_is_different(prev_map_state, map_state))
-            {
-                // same map state and no new data, don't bother updating
-                return None;
-            }
+        let new_data_visible = new_data
+            .map(|l| new_data_is_visible(&l, map_state, true))
+            .unwrap_or(false); // if no new data, it's not going to be visible
+        let map_state_different = prev_map_data_guard
+            .as_ref()
+            .map(|prev_state| map_state_is_different(prev_state, map_state))
+            .unwrap_or(true); // if no prev map data, assume map stat is
+                              // different
+        if !(new_data_visible || map_state_different) {
+            // same map state and no new data, don't bother updating
+            return None;
         }
     }
     // -> Should update if we get here <-

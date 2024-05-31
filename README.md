@@ -17,11 +17,16 @@ Current: android, pins
     - [ ] action failure alterts (esp for importing)
     - [ ] have frontend send logs to backend
 - features
+    - [ ] find local timezone with `tzf-rs`, then convert with `time-tz`
     - [ ] self-annotated waypoints, routes, and tracks
     - [ ] what's new section
     - [ ] release notes for prior versions
     - [ ] improve colormap contrast option (restrict min/max setting)
     - [ ] support other activity types in "Custom" location mode
+    - [ ] test Sqlite R\*Tree index for faster spatial search
+        - while "virtual", it is stored on disk. rows are manually entered,
+          potentially with triggers. minimum bounding rectangles must be
+          specified, even for points (min=max=point)
 - bugs
     - [ ] network timeout too long in airplane mode?
 - housekeeping
