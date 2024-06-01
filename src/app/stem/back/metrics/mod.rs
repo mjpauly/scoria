@@ -11,6 +11,8 @@ pub mod stats; // sum, mean, count, stddev, etc
 pub mod distance; // Computing distance between data points
 pub mod speed;
 
+pub mod color; // calculate colormaps for data
+
 #[cfg(test)]
 pub mod tests {
     pub fn new_empty_location() -> common::Location {

@@ -41,7 +41,13 @@ pub async fn update_dashboard(new_loc: Option<Location>) {
         .limit(DECIMATION_THRESHOLD)
         .fetch_decimated()
         .await;
+    update_stats(&records);
+    // update_plot(&records, &map_state);
+}
 
+/// Update the scalar statistics.
+fn update_stats(records: &[Location]) {
+    let count = records.len();
     let total_distance: f64 = records
         .iter()
         .tuple_windows::<(_, _)>()
@@ -62,6 +68,7 @@ pub async fn update_dashboard(new_loc: Option<Location>) {
 
     set_derived_state(|s| {
         s.dashboard_metrics = DashboardMetrics {
+            count: count as u64,
             total_distance: Some(total_distance),
             start_time,
             end_time,
@@ -73,6 +80,14 @@ pub async fn update_dashboard(new_loc: Option<Location>) {
         };
     });
 }
+
+/// Update the plotly plot showing the current datastream.
+// fn update_plot(records: &[Location], map_state: &MapState) {
+// let colored_datastream = map_state.style.colored_datastream;
+// let offset = map_state.time_range.start.offset();
+// let records = records.iter().collect::<Vec<_>>();
+// let cmap_params = colored_datastream.get_cmap_params(&records, &offset);
+// }
 
 /// Calculates whether to update, as described in the `update_dashboard`
 /// docstring.

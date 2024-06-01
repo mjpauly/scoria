@@ -25,6 +25,7 @@ use geojson::{Feature, FeatureCollection, GeoJson, JsonObject, Value};
 use crate::app_state::{get_front_state, set_back_state};
 use crate::core::new_data_is_visible;
 use crate::map::coords::TileXYZ;
+use crate::metrics::color::get_cmap_params;
 use crate::server::no_caching_directives;
 use crate::{app_state::AppState, database, ws_session};
 use common::{
@@ -215,15 +216,13 @@ pub async fn update_geojson(new_data: Option<Location>, foregrounded: bool) {
         let should_keep = bounds.contains(&records[i].lnglat())
             || (i < records.len() - 1
                 && bounds.contains(&records[i + 1].lnglat()));
-        if should_keep {
-            cmap_records.push(&records[i]);
-        }
+        cmap_records.push((&records[i], should_keep));
     }
     let offset = map_state.time_range.start.offset();
-    let cmap_params =
-        colored_datastream.get_cmap_params(&cmap_records, &offset);
+    let maybe_cmap_params =
+        get_cmap_params(colored_datastream, &cmap_records, &offset);
 
-    {
+    if let Some((cmap_params, _)) = maybe_cmap_params {
         // update the cmap parameters
         let mut persistent_guard = app_state.persistent.lock().unwrap();
         persistent_guard.back.cmap_params = cmap_params;
@@ -243,20 +242,15 @@ pub async fn update_geojson(new_data: Option<Location>, foregrounded: bool) {
             && (bounds.contains(&records[i].lnglat())
                 || bounds.contains(&records[i + 1].lnglat()));
 
-        let properties = if colored_datastream.is_some() {
-            let val = colored_datastream.get_stream(&records[i], &offset);
-            let color = if let Some(known_val) = val {
-                cmaps::get_data_color(known_val, &cmap_params)
-            } else {
-                // if data in this dimension not known, use a neutral gray color
-                "#808080"
-            };
-            let mut props = JsonObject::new();
-            props.insert("color".to_string(), color.into());
-            Some(props)
-        } else {
-            None
-        };
+        let properties =
+            maybe_cmap_params.as_ref().map(|(cmap_params, datavals)| {
+                let color = datavals[i]
+                    .map(|v| cmaps::get_data_color(v, cmap_params))
+                    .unwrap_or("#808080"); // if data not known, use grey color
+                let mut props = JsonObject::new();
+                props.insert("color".into(), color.into());
+                props
+            });
 
         let coord1 = records[i].lnglat();
         if make_point {

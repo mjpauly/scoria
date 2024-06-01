@@ -3,13 +3,7 @@
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumIter, EnumString};
 
-use crate::{
-    cmaps::{Cmap, CmapParams},
-    float,
-    state::ok_or_default,
-    units::UnitPreference,
-    Location,
-};
+use crate::{state::ok_or_default, units::UnitPreference, Location};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
@@ -145,8 +139,6 @@ pub enum ColoredDataStream {
     Altitude,
     #[strum(serialize = "Altitude Error")]
     VertAccuracy,
-    #[strum(serialize = "Building Story")]
-    Story,
     Speed,
     #[strum(serialize = "Speed Error")]
     SpeedAccuracy,
@@ -156,15 +148,41 @@ pub enum ColoredDataStream {
     Time,
     #[strum(serialize = "Time of Day")]
     TimeOfDay,
+
+    // These colors are based on adjacent pairs of points
+    #[strum(serialize = "Distance Delta")]
+    DistanceDelta,
+    #[strum(serialize = "Time Delta")]
+    TimeDelta,
+    #[strum(serialize = "Average Speed")]
+    AvgSpeed,
 }
 
 impl ColoredDataStream {
+    /// Returns whether the coloring is based on the value of a single location
+    /// data point.
+    pub fn is_point_coloring(&self) -> bool {
+        match self {
+            Self::None => false,
+            Self::HorizAccuracy
+            | Self::Altitude
+            | Self::VertAccuracy
+            | Self::Speed
+            | Self::SpeedAccuracy
+            | Self::Course
+            | Self::CourseAccuracy
+            | Self::Time
+            | Self::TimeOfDay => true,
+            Self::DistanceDelta | Self::TimeDelta | Self::AvgSpeed => false,
+        }
+    }
     /// Selects the right data stream from a common::Location struct
     pub fn get_stream(
         &self,
         loc: &Location,
         offset: &time::UtcOffset,
     ) -> Option<f64> {
+        // TODO: convert to utc offset at the data point's location
         let time_of_day_to_seconds = |timestamp: &time::OffsetDateTime| {
             let hms = timestamp.to_offset(*offset).time().as_hms();
             (hms.0 as f64) * 60. * 60. + (hms.1 as f64) * 60. + (hms.2 as f64)
@@ -174,7 +192,6 @@ impl ColoredDataStream {
             ColoredDataStream::HorizAccuracy => Some(loc.horizontal_accuracy),
             ColoredDataStream::Altitude => loc.msl_altitude,
             ColoredDataStream::VertAccuracy => loc.vertical_accuracy,
-            ColoredDataStream::Story => loc.story.map(|s| s as f64),
             ColoredDataStream::Speed => loc.speed,
             ColoredDataStream::SpeedAccuracy => loc.speed_accuracy,
             ColoredDataStream::Course => loc.course,
@@ -185,6 +202,10 @@ impl ColoredDataStream {
             ColoredDataStream::TimeOfDay => {
                 Some(time_of_day_to_seconds(&loc.timestamp))
             }
+            // computed on pairs of locations, not on a single point
+            ColoredDataStream::DistanceDelta
+            | ColoredDataStream::TimeDelta
+            | ColoredDataStream::AvgSpeed => None,
         }
     }
 
@@ -198,8 +219,7 @@ impl ColoredDataStream {
             // No units, just display name
             ColoredDataStream::None
             | ColoredDataStream::Time
-            | ColoredDataStream::TimeOfDay
-            | ColoredDataStream::Story => format!("{}", self),
+            | ColoredDataStream::TimeOfDay => format!("{}", self),
             // Degree units
             ColoredDataStream::Course | ColoredDataStream::CourseAccuracy => {
                 format!("{} (º)", self)
@@ -207,46 +227,17 @@ impl ColoredDataStream {
             // Small lengths
             ColoredDataStream::HorizAccuracy
             | ColoredDataStream::Altitude
-            | ColoredDataStream::VertAccuracy => {
+            | ColoredDataStream::VertAccuracy
+            | ColoredDataStream::DistanceDelta => {
                 format!("{} ({})", self, unit_pref.small_length.abbreviation())
             }
             // Speeds
-            ColoredDataStream::Speed | ColoredDataStream::SpeedAccuracy => {
+            ColoredDataStream::Speed
+            | ColoredDataStream::SpeedAccuracy
+            | ColoredDataStream::AvgSpeed => {
                 format!("{} ({})", self, unit_pref.velocity.abbreviation())
             }
+            ColoredDataStream::TimeDelta => format!("{self} (s)"),
         }
-    }
-
-    /// Calculate the cmin and cmax and return colormap the for a datastream
-    /// given a vec of locations
-    pub fn get_cmap_params(
-        &self,
-        records: &[&Location],
-        offset: &time::UtcOffset,
-    ) -> CmapParams {
-        let mut params = CmapParams {
-            cmin: 0.,
-            cmax: 0.,
-            cmap: Cmap::Plasma,
-        };
-        if !self.is_some() {
-            // no data-based color mapping, just short circuit
-            return params;
-        }
-        if *self == ColoredDataStream::Course {
-            params.cmax = 360.;
-            params.cmap = Cmap::Twilight;
-        } else if *self == ColoredDataStream::TimeOfDay {
-            params.cmax = 24. * 60. * 60.;
-            params.cmap = Cmap::TwilightShifted;
-        } else {
-            let colorvals: Vec<_> = records
-                .iter()
-                .filter_map(|x| self.get_stream(x, offset))
-                .collect();
-            params.cmin = float::min(&colorvals);
-            params.cmax = float::max(&colorvals);
-        }
-        params
     }
 }

@@ -27,9 +27,10 @@ fn Metrics() -> Html {
 
     let unit_pref = use_selector(|s: &FrontState| s.unit_pref);
 
+    let f_count = format!("{} points", metrics.count);
     let unwrap_or_na =
         |maybe_x: Option<String>| maybe_x.unwrap_or_else(|| "N/A".into());
-    let distance_formatted = unwrap_or_na(metrics.total_distance.map(|d| {
+    let f_distance = unwrap_or_na(metrics.total_distance.map(|d| {
         if d > 1000. {
             unit_pref.format_large_length(d, Some(3))
         } else {
@@ -58,7 +59,8 @@ fn Metrics() -> Html {
             </p>
 
             <div class="grid grid-cols-3 gap-4">
-                <ScalarMetric title="Distance" value={distance_formatted} />
+                <ScalarMetric title="Count" value={f_count} />
+                <ScalarMetric title="Distance" value={f_distance} />
                 <ScalarMetric title="Time Span" value={f_duration} />
                 <ScalarMetric title="Average Speed" value={f_avg_speed} />
                 <ScalarMetric title="Min Speed" value={f_min_speed} />

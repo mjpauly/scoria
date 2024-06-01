@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct DashboardMetrics {
+    pub count: u64,
     pub total_distance: Option<f64>,
     pub start_time: Option<time::OffsetDateTime>,
     pub end_time: Option<time::OffsetDateTime>,
