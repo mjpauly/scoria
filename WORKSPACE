@@ -181,7 +181,7 @@ crates_repository(
             # for release builds
             features = ["release_max_level_error"],
         ),
-        "tracing-appender": crate.spec(version = "0.2.2"),
+        "tracing-appender": crate.spec(version = "0.2.3"),
         "tracing-subscriber": crate.spec(
             version = "0.3.17",
             features = ["env-filter", "tracing-log"],

@@ -294,6 +294,8 @@ in a separate variable first before putting it into the scrutinee if it's
 something like an option behind the Mutex.
 - To format text to a certain width with hard linebreaks, set textwidth=80,
   highlight the text, then do `gq`
+- Highlight a particular span with
+  `RUST_LOG=error,stem=info,stem::metrics::color[delta_color_vals]=trace`
 
 ### Security / Obfuscation
 

@@ -40,6 +40,7 @@
 use std::cmp::Ordering;
 
 use tracing::Subscriber;
+use tracing_appender::rolling::{RollingFileAppender, Rotation};
 use tracing_subscriber::{
     fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter,
 };
@@ -53,17 +54,24 @@ use crate::{
 pub fn get_subscriber(paths: &Paths) -> impl Subscriber + Send + Sync {
     let logdir = get_logs_dir_helper(paths);
     // blocking log to file: directory/log.YYYY-MM-DD-HH
-    let log_file = tracing_appender::rolling::hourly(logdir, "log");
-    let log = fmt::Layer::new().with_writer(log_file).with_ansi(false);
-    // TODO: when deletion of old log files becomes an option with the rolling
-    // log, update it to delete old log files (keep, say a week)
-    // https://github.com/tokio-rs/tracing/issues/2685
+    let file_appender = RollingFileAppender::builder()
+        .rotation(Rotation::HOURLY)
+        .filename_prefix("log")
+        .max_log_files(10) // keep only a couple hours worth of error logs
+        .build(logdir)
+        .unwrap();
+    let log = fmt::Layer::new()
+        .with_writer(file_appender)
+        .with_ansi(false);
 
     // set level directive with RUST_LOG, or default to just pass errors
     let env_filter = EnvFilter::from_default_env();
 
     // also send logs to stderr
-    let stderr = fmt::Layer::new().with_writer(std::io::stderr).pretty();
+    let stderr = fmt::Layer::new()
+        .with_writer(std::io::stderr)
+        .pretty()
+        .with_span_events(fmt::format::FmtSpan::CLOSE);
     // stderr sent to Android Studio's logcat, which doesn't support ANSI colors
     #[cfg(feature = "android_config")]
     let stderr = stderr.with_ansi(false);
