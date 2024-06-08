@@ -18,6 +18,7 @@ use crate::{
     filters::{DataStream, Filter, FilterOp},
     map_style::MapStyle,
     pin::Pin,
+    plot_data::TimeSeriesPlot,
     time_range::TimeDeltaRange,
     units::UnitPreference,
     view_position::ViewPosition,
@@ -33,6 +34,7 @@ pub struct DerivedState {
     // User-created map pins.
     pub pins: Vec<Pin>,
     pub dashboard_metrics: DashboardMetrics,
+    pub colored_timeseries_plot: TimeSeriesPlot,
 }
 
 /// Pick the type's default if it fails to deserialize. This ensures that an
@@ -210,6 +212,7 @@ pub enum MapSettingsTab {
     MapStyle,
     TimeRange,
     PinDetails,
+    TimeSeriesPlot,
 }
 
 /// Default for the backend to use if deserializing from file fails. The

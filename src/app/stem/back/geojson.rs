@@ -25,7 +25,7 @@ use geojson::{Feature, FeatureCollection, GeoJson, JsonObject, Value};
 use crate::app_state::{get_front_state, set_back_state};
 use crate::core::new_data_is_visible;
 use crate::map::coords::TileXYZ;
-use crate::metrics::color::get_cmap_params;
+use crate::metrics::color::get_cmap_data;
 use crate::server::no_caching_directives;
 use crate::{app_state::AppState, database, ws_session};
 use common::{
@@ -219,10 +219,9 @@ pub async fn update_geojson(new_data: Option<Location>, foregrounded: bool) {
         cmap_records.push((&records[i], should_keep));
     }
     let offset = map_state.time_range.start.offset();
-    let maybe_cmap_params =
-        get_cmap_params(colored_datastream, &cmap_records, &offset);
+    let cmap_data = get_cmap_data(colored_datastream, &cmap_records, &offset);
 
-    if let Some((cmap_params, _)) = maybe_cmap_params {
+    if let Some((cmap_params, _)) = cmap_data {
         // update the cmap parameters
         let mut persistent_guard = app_state.persistent.lock().unwrap();
         persistent_guard.back.cmap_params = cmap_params;
@@ -242,15 +241,14 @@ pub async fn update_geojson(new_data: Option<Location>, foregrounded: bool) {
             && (bounds.contains(&records[i].lnglat())
                 || bounds.contains(&records[i + 1].lnglat()));
 
-        let properties =
-            maybe_cmap_params.as_ref().map(|(cmap_params, datavals)| {
-                let color = datavals[i]
-                    .map(|v| cmaps::get_data_color(v, cmap_params))
-                    .unwrap_or("#808080"); // if data not known, use grey color
-                let mut props = JsonObject::new();
-                props.insert("color".into(), color.into());
-                props
-            });
+        let properties = cmap_data.as_ref().map(|(cmap_params, cmap_vals)| {
+            let color = cmap_vals[i]
+                .map(|v| cmaps::get_data_color(v, cmap_params))
+                .unwrap_or("#808080"); // if data not known, use grey color
+            let mut props = JsonObject::new();
+            props.insert("color".into(), color.into());
+            props
+        });
 
         let coord1 = records[i].lnglat();
         if make_point {

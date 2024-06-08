@@ -13,7 +13,16 @@ pub struct BouncyScrollContainerProps {
 /// to the container, then wrap content in a "my-auto" div.
 #[function_component]
 pub fn BouncyScrollContainer(p: &BouncyScrollContainerProps) -> Html {
-    // let _big_list = (1..41).map(|i| html! { <div>{format!("{}", i)}</div> });
+    html! {
+        <BouncyScrollContainerBase class="px-4">
+            { for p.children.iter() }
+        </BouncyScrollContainerBase>
+    }
+}
+
+/// Boundy scroll container without the default px-4 padding.
+#[function_component]
+pub fn BouncyScrollContainerBase(p: &BouncyScrollContainerProps) -> Html {
     html! {
         // Centered, width-limited content container.
         //
@@ -26,7 +35,7 @@ pub fn BouncyScrollContainer(p: &BouncyScrollContainerProps) -> Html {
         // elements that are supposed to by fixed/sticky (though it is the
         // norm for all mobile websites).
         <div class={classes!(
-            Classes::from("grow overflow-scroll h-0 px-4 w-full max-w-prose \
+            Classes::from("grow overflow-scroll h-0 w-full max-w-prose \
                           mx-auto"),
             p.class.clone()
         )}>

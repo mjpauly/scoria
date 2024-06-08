@@ -5,6 +5,9 @@ use strum::{Display, EnumIter, EnumString};
 
 use crate::{state::ok_or_default, units::UnitPreference, Location};
 
+pub const MARKER_SIZE_MIN: usize = 0;
+pub const MARKER_SIZE_MAX: usize = 10;
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct MapStyle {
@@ -27,6 +30,8 @@ impl MapStyle {
         self.show_colorbar
             && self.colored_datastream.is_some()
             && self.colored_datastream != ColoredDataStream::Time
+            && self.colored_datastream != ColoredDataStream::ShortDwellDetection
+            && self.colored_datastream != ColoredDataStream::LongDwellDetection
     }
 }
 
@@ -156,6 +161,10 @@ pub enum ColoredDataStream {
     TimeDelta,
     #[strum(serialize = "Average Speed")]
     AvgSpeed,
+    #[strum(serialize = "Short Dwell Detection")]
+    ShortDwellDetection,
+    #[strum(serialize = "Long Dwell Detection")]
+    LongDwellDetection,
 }
 
 impl ColoredDataStream {
@@ -173,7 +182,11 @@ impl ColoredDataStream {
             | Self::CourseAccuracy
             | Self::Time
             | Self::TimeOfDay => true,
-            Self::DistanceDelta | Self::TimeDelta | Self::AvgSpeed => false,
+            Self::DistanceDelta
+            | Self::TimeDelta
+            | Self::AvgSpeed
+            | Self::ShortDwellDetection
+            | Self::LongDwellDetection => false,
         }
     }
     /// Selects the right data stream from a common::Location struct
@@ -188,24 +201,22 @@ impl ColoredDataStream {
             (hms.0 as f64) * 60. * 60. + (hms.1 as f64) * 60. + (hms.2 as f64)
         };
         match self {
-            ColoredDataStream::None => None,
-            ColoredDataStream::HorizAccuracy => Some(loc.horizontal_accuracy),
-            ColoredDataStream::Altitude => loc.msl_altitude,
-            ColoredDataStream::VertAccuracy => loc.vertical_accuracy,
-            ColoredDataStream::Speed => loc.speed,
-            ColoredDataStream::SpeedAccuracy => loc.speed_accuracy,
-            ColoredDataStream::Course => loc.course,
-            ColoredDataStream::CourseAccuracy => loc.course_accuracy,
-            ColoredDataStream::Time => {
-                Some(loc.timestamp.unix_timestamp() as f64)
-            }
-            ColoredDataStream::TimeOfDay => {
-                Some(time_of_day_to_seconds(&loc.timestamp))
-            }
+            Self::None => None,
+            Self::HorizAccuracy => Some(loc.horizontal_accuracy),
+            Self::Altitude => loc.msl_altitude,
+            Self::VertAccuracy => loc.vertical_accuracy,
+            Self::Speed => loc.speed,
+            Self::SpeedAccuracy => loc.speed_accuracy,
+            Self::Course => loc.course,
+            Self::CourseAccuracy => loc.course_accuracy,
+            Self::Time => Some(loc.timestamp.unix_timestamp() as f64),
+            Self::TimeOfDay => Some(time_of_day_to_seconds(&loc.timestamp)),
             // computed on pairs of locations, not on a single point
-            ColoredDataStream::DistanceDelta
-            | ColoredDataStream::TimeDelta
-            | ColoredDataStream::AvgSpeed => None,
+            Self::DistanceDelta
+            | Self::TimeDelta
+            | Self::AvgSpeed
+            | Self::ShortDwellDetection
+            | Self::LongDwellDetection => None,
         }
     }
 
@@ -217,27 +228,45 @@ impl ColoredDataStream {
     pub fn name_with_unit(&self, unit_pref: &UnitPreference) -> String {
         match *self {
             // No units, just display name
-            ColoredDataStream::None
-            | ColoredDataStream::Time
-            | ColoredDataStream::TimeOfDay => format!("{}", self),
+            Self::None
+            | Self::Time
+            | Self::TimeOfDay
+            | Self::ShortDwellDetection
+            | Self::LongDwellDetection => format!("{}", self),
             // Degree units
-            ColoredDataStream::Course | ColoredDataStream::CourseAccuracy => {
+            Self::Course | Self::CourseAccuracy => {
                 format!("{} (º)", self)
             }
             // Small lengths
-            ColoredDataStream::HorizAccuracy
-            | ColoredDataStream::Altitude
-            | ColoredDataStream::VertAccuracy
-            | ColoredDataStream::DistanceDelta => {
+            Self::HorizAccuracy
+            | Self::Altitude
+            | Self::VertAccuracy
+            | Self::DistanceDelta => {
                 format!("{} ({})", self, unit_pref.small_length.abbreviation())
             }
             // Speeds
-            ColoredDataStream::Speed
-            | ColoredDataStream::SpeedAccuracy
-            | ColoredDataStream::AvgSpeed => {
+            Self::Speed | Self::SpeedAccuracy | Self::AvgSpeed => {
                 format!("{} ({})", self, unit_pref.velocity.abbreviation())
             }
-            ColoredDataStream::TimeDelta => format!("{self} (s)"),
+            Self::TimeDelta => format!("{self} (s)"),
+        }
+    }
+
+    pub fn to_preferred_units(
+        &self,
+        unit_pref: &UnitPreference,
+        val: f64,
+    ) -> f64 {
+        match *self {
+            // Small lengths
+            Self::HorizAccuracy
+            | Self::Altitude
+            | Self::VertAccuracy
+            | Self::DistanceDelta => unit_pref.small_length.from_base_unit(val),
+            Self::Speed | Self::SpeedAccuracy | Self::AvgSpeed => {
+                unit_pref.velocity.from_base_unit(val)
+            }
+            _ => val,
         }
     }
 }

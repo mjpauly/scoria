@@ -242,7 +242,7 @@ crates_repository(
         ),
         "yewdux": crate.spec( version = "0.9.2",),
         "time": crate.spec(
-            version = "0.3.20",
+            version = "0.3.36",
             features = ["local-offset", "wasm-bindgen", "formatting", "parsing",
                         "serde", "std",
             ],

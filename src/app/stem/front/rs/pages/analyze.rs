@@ -10,6 +10,7 @@ use yewdux::prelude::*;
 
 use crate::components::pin_editor::PinDetails;
 use crate::maplibre::{self, add_source_and_layers_to_style};
+use crate::pages::metrics_dashboard::ColoredTimeSeriesPlot;
 use crate::ui_state::{BackState, DerivedState, FrontState};
 use crate::websocket::{
     use_backend_event_with_deps, ToBack, ToFront, WebsocketService,
@@ -79,6 +80,9 @@ fn AnalyzeLocation() -> Html {
             if *settings_tab == MapSettingsTab::PinDetails {
                 <PinDetails />
             }
+            if *settings_tab == MapSettingsTab::TimeSeriesPlot {
+                <ColoredTimeSeriesPlot />
+            }
             <SettingsPicker />
         </div>
     }
@@ -113,8 +117,14 @@ fn SettingsPicker() -> Html {
             onclick.emit(MapSettingsTab::MapStyle);
         })
     };
-    let filter_onclick = Callback::from(move |_e: MouseEvent| {
-        onclick.emit(MapSettingsTab::Filters);
+    let filter_onclick = {
+        let onclick = onclick.clone();
+        Callback::from(move |_e: MouseEvent| {
+            onclick.emit(MapSettingsTab::Filters);
+        })
+    };
+    let plot_onclick = Callback::from(move |_e: MouseEvent| {
+        onclick.emit(MapSettingsTab::TimeSeriesPlot);
     });
     let get_style = move |tab_target: MapSettingsTab| {
         if *tab == tab_target {
@@ -126,9 +136,15 @@ fn SettingsPicker() -> Html {
     let style_button_style = get_style(MapSettingsTab::MapStyle);
     let time_button_style = get_style(MapSettingsTab::TimeRange);
     let filter_button_style = get_style(MapSettingsTab::Filters);
+    let plot_button_style = get_style(MapSettingsTab::TimeSeriesPlot);
     html! {
         <div class="flex">
             <div class="mx-auto">
+                <button onclick={plot_onclick} id="filter_list_btn"
+                    class={plot_button_style}>
+                        <Icon icon_id={IconId::BootstrapGraphUp}
+                            class="h-6 w-6" />
+                </button>
                 <button onclick={filter_onclick} id="filter_list_btn"
                     class={filter_button_style}>
                         <Icon icon_id={IconId::BootstrapFunnel}

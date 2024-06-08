@@ -12,7 +12,7 @@ use yewdux::prelude::*;
 use crate::components::{RANGE_INPUT_STYLE, SELECT_STYLE, TOGGLE_SWITCH_STYLE};
 use crate::router::get_scoped_host;
 use crate::ui_state::FrontState;
-use common::map_style::{BasemapStyle, ColoredDataStream};
+use common::map_style::{BasemapStyle, ColoredDataStream, MARKER_SIZE_MAX, MARKER_SIZE_MIN};
 
 // BASEMAP STYLES
 
@@ -131,7 +131,8 @@ pub fn MapStyler() -> Html {
                 <label for="marker_size">{"Point Size"}</label>
                 <input type="range" id="marker_size"
                     value={format!("{}", style.marker_size)}
-                    min="0" max="10"
+                    min={MARKER_SIZE_MIN.to_string()}
+                    max={MARKER_SIZE_MAX.to_string()}
                     class={format!("m-1 ml-6 {}", RANGE_INPUT_STYLE)}
                     oninput={marker_size_onchange} />
             </div>

@@ -139,20 +139,7 @@ pub extern "C" fn handle_shutdown() {
 #[no_mangle]
 pub extern "C" fn handle_enter_foreground() -> server::ServerConfig {
     tracing::info!("App Foregrounded");
-    runtime::get_runtime().block_on(async {
-        // We may have received new data while in the background
-        tokio::spawn(geojson::update_geojson(None, true));
-        tokio::spawn(map::automap::update_automap());
-        tokio::spawn(async {
-            if let Err(e) = logs::update_last_logged_error().await {
-                tracing::error!(
-                    "IO failure when updating last logged error: {e}"
-                );
-            };
-        });
-        core::update_derived_state().await;
-        server::run(0, true).await
-    })
+    runtime::get_runtime().block_on(server::run(0, true))
 }
 
 /// When the app goes the background we stop the server. This way we release

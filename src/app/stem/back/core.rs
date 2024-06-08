@@ -14,7 +14,7 @@ use crate::database::{self, OSLocationData};
 use crate::geojson::{update_geojson, BOUND_EXPANSION};
 use crate::map::automap::update_automap;
 use crate::metrics::dashboard::update_dashboard;
-use crate::ws_session;
+use crate::{logs, ws_session};
 
 pub async fn log_location(loc: OSLocationData) {
     // Log the location in our database
@@ -35,10 +35,16 @@ pub async fn log_location(loc: OSLocationData) {
     }
 }
 
-/// Update derived state at startup, since it is not peristed between launches.
-pub async fn update_derived_state() {
-    // pins are not persisted in persistent_state.json, but are pulled from the
-    // database when needed into DerivedState
+/// When the frontend connects, update state we want to display with new data
+/// that may have come in when backgrounded.
+pub fn update_on_foregrounding() {
+    tokio::spawn(update_geojson(None, true));
+    tokio::spawn(update_automap());
+    tokio::spawn(async {
+        if let Err(e) = logs::update_last_logged_error().await {
+            tracing::error!("IO failure when updating last logged error: {e}");
+        };
+    });
     tokio::spawn(database::pins::update_derived_pins());
     tokio::spawn(update_dashboard(None));
 }

@@ -27,6 +27,7 @@ Current: android, pins
         - while "virtual", it is stored on disk. rows are manually entered,
           potentially with triggers. minimum bounding rectangles must be
           specified, even for points (min=max=point)
+    - [ ] notification if Scoria is closed
 - bugs
     - [ ] network timeout too long in airplane mode?
 - housekeeping

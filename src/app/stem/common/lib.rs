@@ -12,6 +12,7 @@ pub mod location;
 pub mod location_config;
 pub mod map_style;
 pub mod pin;
+pub mod plot_data;
 pub mod state;
 pub mod time_range;
 pub mod units;

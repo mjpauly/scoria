@@ -4,10 +4,13 @@ use std::cmp::Ordering;
 
 use common::{
     dashboard_metrics::DashboardMetrics,
+    map_style::ColoredDataStream,
+    plot_data::TimeSeriesPlot,
     state::{MapState, PersistedRoute},
     Location,
 };
 use itertools::Itertools;
+use tracing::{instrument, Level};
 
 use crate::{
     app_state::{get_front_state, set_derived_state},
@@ -17,7 +20,9 @@ use crate::{
     runtime::get_runtime,
 };
 
-use super::distance::distance_between_locations;
+use super::{
+    color::get_colored_data_vals, distance::distance_between_locations,
+};
 
 /// Update the dashboard, but only under certian conditions.
 ///
@@ -42,7 +47,7 @@ pub async fn update_dashboard(new_loc: Option<Location>) {
         .fetch_decimated()
         .await;
     update_stats(&records);
-    // update_plot(&records, &map_state);
+    update_plot(&records, &map_state);
 }
 
 /// Update the scalar statistics.
@@ -81,14 +86,6 @@ fn update_stats(records: &[Location]) {
     });
 }
 
-/// Update the plotly plot showing the current datastream.
-// fn update_plot(records: &[Location], map_state: &MapState) {
-// let colored_datastream = map_state.style.colored_datastream;
-// let offset = map_state.time_range.start.offset();
-// let records = records.iter().collect::<Vec<_>>();
-// let cmap_params = colored_datastream.get_cmap_params(&records, &offset);
-// }
-
 /// Calculates whether to update, as described in the `update_dashboard`
 /// docstring.
 fn should_update(new_loc: &Option<Location>, map_state: &MapState) -> bool {
@@ -117,4 +114,36 @@ pub fn update_dashboard_on_navigate(
             update_dashboard(None).await;
         });
     }
+}
+
+#[instrument(skip_all, level = Level::TRACE)]
+pub fn update_plot(records: &[Location], map_state: &MapState) {
+    let colored_datastream = &map_state.style.colored_datastream;
+    let recs = records.iter().map(|l| (l, true)).collect::<Vec<_>>();
+    let offset = map_state.time_range.start.offset();
+    let cmap_vals = get_colored_data_vals(&colored_datastream, &recs, &offset);
+
+    update_timeseries_plot_data(records.iter(), &cmap_vals, colored_datastream);
+}
+
+/// Update timeseries plot data with the current data stream coloring.
+///
+/// Only points with a valid colorval are included.
+#[instrument(skip_all, level = Level::TRACE)]
+pub fn update_timeseries_plot_data<'a>(
+    records: impl Iterator<Item = &'a Location>,
+    cmap_vals: &[Option<f64>],
+    colored_datastream: &ColoredDataStream,
+) {
+    let (t, y): (Vec<_>, Vec<_>) = records
+        .zip(cmap_vals.iter())
+        .filter_map(|(l, cval)| cval.map(|v| (l.timestamp.clone(), v)))
+        .unzip();
+    let ylabel = get_front_state(|maybe_front| {
+        maybe_front.as_ref().map(|f| f.unit_pref).clone()
+    })
+    .map(|unit_pref| colored_datastream.name_with_unit(&unit_pref))
+    .unwrap_or_else(|| colored_datastream.to_string());
+    let timeseries_plot = TimeSeriesPlot { t, y, ylabel };
+    set_derived_state(|state| state.colored_timeseries_plot = timeseries_plot);
 }

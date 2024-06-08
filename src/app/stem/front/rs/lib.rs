@@ -21,6 +21,7 @@
 mod components;
 mod maplibre;
 mod pages;
+mod plotly;
 mod router;
 mod swift_poke;
 mod ui_state;

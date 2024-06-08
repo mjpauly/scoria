@@ -15,6 +15,7 @@ use common::{ToBack, ToFront};
 use tracing::{info, warn};
 
 use crate::app_state::{get_derived_state, set_back_state};
+use crate::core::update_on_foregrounding;
 use crate::database;
 use crate::export::export_selected;
 use crate::geojson::update_geojson;
@@ -69,6 +70,7 @@ pub async fn ws_route(
             .body("Only one UI connection allowed."));
     }
     info!("Frontend Websocket Connected");
+    update_on_foregrounding();
     ws::start(WsSession { hb: Instant::now() }, &req, stream)
 }
 
