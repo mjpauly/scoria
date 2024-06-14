@@ -33,8 +33,9 @@ use super::{
 /// Should only be called if the app is foregrounded or will be foregrounded
 /// soon.
 pub async fn update_dashboard(new_loc: Option<Location>) {
-    let map_state =
-        get_front_state(|front| front.as_ref().unwrap().map.clone());
+    let Some(map_state) = get_front_state(|front| front.map.clone()) else {
+        return;
+    };
     if !should_update(&new_loc, &map_state) {
         return;
     };
@@ -89,7 +90,7 @@ fn update_stats(records: &[Location]) {
 /// Calculates whether to update, as described in the `update_dashboard`
 /// docstring.
 fn should_update(new_loc: &Option<Location>, map_state: &MapState) -> bool {
-    let route = get_front_state(|front| front.as_ref().map(|f| f.route));
+    let route = get_front_state(|front| front.route);
     if route != Some(PersistedRoute::Metrics) {
         // not viewing the dashboard -> don't update
         return false;
@@ -119,6 +120,9 @@ pub fn update_dashboard_on_navigate(
 #[instrument(skip_all, level = Level::TRACE)]
 pub fn update_plot(records: &[Location], map_state: &MapState) {
     let colored_datastream = &map_state.style.colored_datastream;
+    if !colored_datastream.is_some() {
+        return;
+    }
     let recs = records.iter().map(|l| (l, true)).collect::<Vec<_>>();
     let offset = map_state.time_range.start.offset();
     let cmap_vals = get_colored_data_vals(&colored_datastream, &recs, &offset);
@@ -139,11 +143,9 @@ pub fn update_timeseries_plot_data<'a>(
         .zip(cmap_vals.iter())
         .filter_map(|(l, cval)| cval.map(|v| (l.timestamp.clone(), v)))
         .unzip();
-    let ylabel = get_front_state(|maybe_front| {
-        maybe_front.as_ref().map(|f| f.unit_pref).clone()
-    })
-    .map(|unit_pref| colored_datastream.name_with_unit(&unit_pref))
-    .unwrap_or_else(|| colored_datastream.to_string());
+    let ylabel = get_front_state(|front| front.unit_pref)
+        .map(|unit_pref| colored_datastream.name_with_unit(&unit_pref))
+        .unwrap_or_else(|| colored_datastream.to_string());
     let timeseries_plot = TimeSeriesPlot { t, y, ylabel };
     set_derived_state(|state| state.colored_timeseries_plot = timeseries_plot);
 }

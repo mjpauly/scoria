@@ -119,8 +119,14 @@ pub fn get_back_state<T>(f: impl FnOnce(&BackState) -> T) -> T {
 
 /// Retrive values from the FrontState, which may or may not be initialized.
 /// Cannot modify the FrontState.
-pub fn get_front_state<T>(f: impl FnOnce(&Option<FrontState>) -> T) -> T {
-    f(&AppState::global().persistent.lock().unwrap().front)
+pub fn get_front_state<T>(f: impl FnOnce(&FrontState) -> T) -> Option<T> {
+    AppState::global()
+        .persistent
+        .lock()
+        .unwrap()
+        .front
+        .as_ref()
+        .map(f)
 }
 
 pub fn set_derived_state<T>(f: impl FnOnce(&mut DerivedState) -> T) -> T {

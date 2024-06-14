@@ -37,6 +37,9 @@ pub async fn log_location(loc: OSLocationData) {
 
 /// When the frontend connects, update state we want to display with new data
 /// that may have come in when backgrounded.
+///
+/// Note that if this is the first time opening the app, we might not have the
+/// front state yet!
 pub fn update_on_foregrounding() {
     tokio::spawn(update_geojson(None, true));
     tokio::spawn(update_automap());

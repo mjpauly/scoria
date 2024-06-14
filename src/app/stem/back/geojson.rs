@@ -431,12 +431,8 @@ pub async fn get_popup_text(
     lnglat: LngLat,
     data_color: Option<String>,
 ) -> Option<ToFront> {
-    let (map_state, unit_pref) = {
-        get_front_state(|maybe_front| {
-            let front = maybe_front.as_ref().unwrap();
-            (front.map.clone(), front.unit_pref)
-        })
-    };
+    let (map_state, unit_pref) =
+        get_front_state(|front| (front.map.clone(), front.unit_pref))?;
 
     // use the bound expansion so the decimation is identical
     let records = database::FilteredQuery::new()

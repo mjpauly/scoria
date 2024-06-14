@@ -14,7 +14,10 @@ pub struct BouncyScrollContainerProps {
 #[function_component]
 pub fn BouncyScrollContainer(p: &BouncyScrollContainerProps) -> Html {
     html! {
-        <BouncyScrollContainerBase class="px-4">
+        <BouncyScrollContainerBase class={classes!(
+            Classes::from("px-4"),
+            p.class.clone()
+        )}>
             { for p.children.iter() }
         </BouncyScrollContainerBase>
     }
@@ -40,7 +43,6 @@ pub fn BouncyScrollContainerBase(p: &BouncyScrollContainerProps) -> Html {
             p.class.clone()
         )}>
             { for p.children.iter() }
-            // {for _big_list}
         </div>
     }
 }

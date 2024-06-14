@@ -45,12 +45,7 @@ static MAXZOOM: i32 = 15;
 /// Determine if the automap is on or not. Defaults to false if the frontend
 /// hasn't been initialized yet.
 pub fn automap_is_on() -> bool {
-    get_front_state(|maybe_front| {
-        maybe_front
-            .as_ref()
-            .map(|f| f.map.style.automap)
-            .unwrap_or(false)
-    })
+    get_front_state(|front| front.map.style.automap).unwrap_or(false)
 }
 
 // ========== Tile Route and Encoding ========== //
