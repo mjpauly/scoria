@@ -165,6 +165,8 @@ pub enum ColoredDataStream {
     ShortDwellDetection,
     #[strum(serialize = "Long Dwell Detection")]
     LongDwellDetection,
+    #[strum(serialize = "Dwell Score")]
+    DwellScore,
 }
 
 impl ColoredDataStream {
@@ -186,7 +188,8 @@ impl ColoredDataStream {
             | Self::TimeDelta
             | Self::AvgSpeed
             | Self::ShortDwellDetection
-            | Self::LongDwellDetection => false,
+            | Self::LongDwellDetection
+            | Self::DwellScore => false,
         }
     }
     /// Selects the right data stream from a common::Location struct
@@ -216,7 +219,8 @@ impl ColoredDataStream {
             | Self::TimeDelta
             | Self::AvgSpeed
             | Self::ShortDwellDetection
-            | Self::LongDwellDetection => None,
+            | Self::LongDwellDetection
+            | Self::DwellScore => None,
         }
     }
 
@@ -232,7 +236,8 @@ impl ColoredDataStream {
             | Self::Time
             | Self::TimeOfDay
             | Self::ShortDwellDetection
-            | Self::LongDwellDetection => format!("{}", self),
+            | Self::LongDwellDetection
+            | Self::DwellScore => format!("{}", self),
             // Degree units
             Self::Course | Self::CourseAccuracy => {
                 format!("{} (º)", self)

@@ -9,6 +9,7 @@ pub mod segmentation;
 pub mod stats; // sum, mean, count, stddev, etc
 
 pub mod distance; // Computing distance between data points
+pub mod dwells;
 pub mod speed;
 
 pub mod color; // calculate colormaps for data

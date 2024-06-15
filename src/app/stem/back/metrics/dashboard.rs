@@ -48,7 +48,7 @@ pub async fn update_dashboard(new_loc: Option<Location>) {
         .fetch_decimated()
         .await;
     update_stats(&records);
-    update_plot(&records, &map_state);
+    // update_plot(&records, &map_state);
 }
 
 /// Update the scalar statistics.
@@ -117,15 +117,22 @@ pub fn update_dashboard_on_navigate(
     }
 }
 
+// #[instrument(skip_all, level = Level::TRACE)]
+// fn update_timeline(records: &[Location]) {
+// let recs = records.iter().map(|l| (l, true)).collect::<Vec<_>>();
+// let is_dwell = long_dwell_detect(&recs);
+// let zipped = records.iter().zip(is_dwell.into_iter()).collect::<Vec<_>>();
+// }
+
 #[instrument(skip_all, level = Level::TRACE)]
-pub fn update_plot(records: &[Location], map_state: &MapState) {
+fn update_plot(records: &[Location], map_state: &MapState) {
     let colored_datastream = &map_state.style.colored_datastream;
     if !colored_datastream.is_some() {
         return;
     }
     let recs = records.iter().map(|l| (l, true)).collect::<Vec<_>>();
     let offset = map_state.time_range.start.offset();
-    let cmap_vals = get_colored_data_vals(&colored_datastream, &recs, &offset);
+    let cmap_vals = get_colored_data_vals(colored_datastream, &recs, &offset);
 
     update_timeseries_plot_data(records.iter(), &cmap_vals, colored_datastream);
 }
@@ -141,7 +148,7 @@ pub fn update_timeseries_plot_data<'a>(
 ) {
     let (t, y): (Vec<_>, Vec<_>) = records
         .zip(cmap_vals.iter())
-        .filter_map(|(l, cval)| cval.map(|v| (l.timestamp.clone(), v)))
+        .filter_map(|(l, cval)| cval.map(|v| (l.timestamp, v)))
         .unzip();
     let ylabel = get_front_state(|front| front.unit_pref)
         .map(|unit_pref| colored_datastream.name_with_unit(&unit_pref))

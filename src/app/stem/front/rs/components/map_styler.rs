@@ -12,7 +12,9 @@ use yewdux::prelude::*;
 use crate::components::{RANGE_INPUT_STYLE, SELECT_STYLE, TOGGLE_SWITCH_STYLE};
 use crate::router::get_scoped_host;
 use crate::ui_state::FrontState;
-use common::map_style::{BasemapStyle, ColoredDataStream, MARKER_SIZE_MAX, MARKER_SIZE_MIN};
+use common::map_style::{
+    BasemapStyle, ColoredDataStream, MARKER_SIZE_MAX, MARKER_SIZE_MIN,
+};
 
 // BASEMAP STYLES
 

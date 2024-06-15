@@ -22,7 +22,7 @@ pub fn MetricsDashboard() -> Html {
             </TopNav>
             <BouncyScrollContainerBase class="text-left">
                 <DefaultMetrics />
-                <ColoredTimeSeriesPlot />
+                // <ColoredTimeSeriesPlot />
             </BouncyScrollContainerBase>
             <TabBar />
         </>
@@ -133,7 +133,7 @@ pub fn ColoredTimeSeriesPlot() -> Html {
         json!(raw_data
             .y
             .iter()
-            .map(|x| colored_datastream.to_preferred_units(&*unit_pref, *x))
+            .map(|x| colored_datastream.to_preferred_units(&unit_pref, *x))
             .collect::<Vec<_>>())
     };
     let data = json!([{
@@ -141,13 +141,14 @@ pub fn ColoredTimeSeriesPlot() -> Html {
         "y": y,
         "type": "scatter",
         "mode": "markers",
+        // "mode": "lines+markers",
     }]);
     let layout = json!({
         "ylabel": {
             "text": raw_data.ylabel,
         },
         "yaxis": {
-            "tickformat": plotly::tickformat(&*colored_datastream),
+            "tickformat": plotly::tickformat(&colored_datastream),
         },
         "height": 300,
         "margin": {
@@ -171,7 +172,7 @@ pub fn ColoredTimeSeriesPlot() -> Html {
             // log::debug!("a");
             plotly::react(
                 plot_id,
-                &val_to_jsval(&d),
+                &val_to_jsval(d),
                 &val_to_jsval(&layout),
                 &val_to_jsval(&config),
             );

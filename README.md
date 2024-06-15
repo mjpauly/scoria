@@ -4,10 +4,13 @@
 
 Current: android, pins
 
+- [ ] improve dwell detection
+- [ ] remove dwells from distance calculation
 - [ ] queries/metrics for selected data (distance/time/speed traveled/dwelled, average distanced traveled (mean free path))
     - [ ] plot datastreams (e.g. speed) or computed values (e.g. distance from
       a pin)
 - [ ] export track as scoria db for sharing lost sections with friends
+    - [ ] mount external db temporarily
     - [ ] timestamp of imported data points
     - [ ] ability to delete data points
         - https://www.sqlite.org/pragma.html#pragma_secure_delete

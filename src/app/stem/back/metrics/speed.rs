@@ -31,11 +31,11 @@ pub fn speed_segmentation<'a, I>(
 where
     I: Iterator<Item = &'a Location>,
 {
-    threshold_segmentation(records, |(a, b)| line_speed(a, b), threshold)
+    threshold_segmentation(records, |(a, b)| avg_speed(a, b), threshold)
 }
 
 /// Return the average speed between two location records in m/s
-pub fn line_speed(first: &Location, second: &Location) -> f64 {
+pub fn avg_speed(first: &Location, second: &Location) -> f64 {
     let distance = distance_between_locations(first, second); // m
     let dt = (second.timestamp - first.timestamp).abs(); // s
     distance / dt.as_seconds_f64() // m/s

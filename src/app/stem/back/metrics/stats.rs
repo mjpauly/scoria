@@ -1,4 +1,4 @@
-//! Statistics on contiguous LineStrings.
+//! Statistics on iterators of f64.
 
 use itertools::Itertools;
 
@@ -14,50 +14,70 @@ where
     records.tuple_windows::<(_, _)>().map(stat_fn).collect()
 }
 
-/// Total of a slice of values
-pub fn stat_sum(data: &[f64]) -> f64 {
-    data.iter().sum()
-}
-
-/// Count of a slice of values
-pub fn stat_count(data: &[f64]) -> usize {
-    data.len()
-}
-
 /// Mean of a slice of values
-pub fn stat_mean(data: &[f64]) -> Option<f64> {
-    let s = stat_sum(data);
-    let c = stat_count(data);
-    match c {
-        positive if positive > 0 => Some(s / c as f64),
+pub fn mean(data: impl Iterator<Item = f64> + Clone) -> Option<f64> {
+    let sum: f64 = data.clone().sum();
+    let count = data.count();
+    match count {
+        positive if positive > 0 => Some(sum / count as f64),
         _ => None,
     }
 }
 
-/// Standard deviation of a slice of values
-#[allow(unused)]
-fn stat_std(data: &[f64]) -> Option<f64> {
-    match (stat_mean(data), data.len()) {
-        (Some(data_mean), count) if count > 0 => {
+/// Weighted mean, where items are passed as (value, weight)
+pub fn weighted_mean(
+    data: impl Iterator<Item = (f64, f64)> + Clone,
+) -> Option<f64> {
+    let weighted_sum: f64 = data.clone().map(|(v, w)| v * w).sum();
+    let sum_of_weights: f64 = data.map(|(_, w)| w).sum();
+    if sum_of_weights > 0.0 {
+        Some(weighted_sum / sum_of_weights)
+    } else {
+        None
+    }
+}
+
+/// Standard deviation of an iterator of floats.
+///
+/// This is a baised estimator, since the sample mean covaries with each data
+/// point, and so the stddev is smaller than it should be for small N.
+pub fn stddev(data: impl Iterator<Item = f64> + Clone) -> Option<f64> {
+    match mean(data.clone()) {
+        Some(x_bar) => {
+            let n = data.clone().count() as f64;
             let variance = data
-                .iter()
-                .map(|value| {
-                    let diff = data_mean - value;
+                .map(|v| {
+                    let diff = v - x_bar;
                     diff * diff
                 })
                 .sum::<f64>()
-                / count as f64;
+                / n;
             Some(variance.sqrt())
         }
         _ => None,
     }
 }
 
+/// Weighted standard deviation.
+pub fn weighted_stddev(
+    data: impl Iterator<Item = (f64, f64)> + Clone,
+) -> Option<f64> {
+    match weighted_mean(data.clone()) {
+        Some(x_bar) => {
+            weighted_mean(data.map(|(v, w)| ((v - x_bar).powi(2), w)))
+                .map(|variance| variance.sqrt())
+        }
+        None => None,
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{compute_stat, stat_mean, stat_std, stat_sum};
-    use crate::metrics::tests::new_empty_location;
+    use approx::assert_relative_eq;
     use common::Location;
+
+    use super::*;
+    use crate::metrics::tests::new_empty_location;
 
     #[test]
     fn stat_test() {
@@ -83,14 +103,29 @@ mod tests {
         let expected_mean = 48.;
         let expected_std = 47.8609;
 
-        let sum = stat_sum(&stat_vals);
+        let sum: f64 = stat_vals.iter().sum();
         assert_eq!(expected_sum, sum);
 
-        let mean = stat_mean(&stat_vals);
+        let mean = mean(stat_vals.iter().copied());
         assert_eq!(Some(expected_mean), mean);
 
-        let std = stat_std(&stat_vals);
+        let std = stddev(stat_vals.iter().copied());
         let diff = (std.unwrap() - expected_std).abs();
         assert!(diff < 0.001);
+    }
+
+    #[test]
+    fn weighted_stat_test() {
+        let vals = [2.0, 28.0, 114.0];
+        let weights = [0.6, 0.3, 0.1];
+
+        let expected_weighted_mean = 21.0;
+        let expected_weighted_stddev = 33.10891118717135;
+
+        let zipped = vals.iter().copied().zip(weights.iter().copied());
+        let w_mean = weighted_mean(zipped.clone()).unwrap();
+        let w_stddev = weighted_stddev(zipped).unwrap();
+        assert_relative_eq!(expected_weighted_mean, w_mean);
+        assert_relative_eq!(expected_weighted_stddev, w_stddev);
     }
 }

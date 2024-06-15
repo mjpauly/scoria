@@ -68,6 +68,7 @@ rust_library(
         "@stem_crate_index//:log-panics",
         "@stem_crate_index//:mvt",
         "@stem_crate_index//:nalgebra",
+        "@stem_crate_index//:nav-types",
         "@stem_crate_index//:obfstr",
         "@stem_crate_index//:pointy",
         "@stem_crate_index//:rand",
@@ -116,6 +117,7 @@ rust_test(
     size = "small",  # 20 MB RAM, 1 min timeout
     crate_features = platform_features,
     deps = [
+        "@stem_crate_index//:approx",
         "@stem_crate_index//:reqwest", # for server health check unit test
         "@stem_crate_index//:futures-core",
         "@stem_crate_index//:pretty_assertions",

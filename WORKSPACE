@@ -137,6 +137,7 @@ crates_repository(
         )],
     },
     packages = {
+        "approx": crate.spec(version = "0.5.1"),
         "base64": crate.spec(version = "0.22.0"),
         "coord_transforms": crate.spec(version = "1.4.0"),
         "csv": crate.spec(version = "1.3.0"),
@@ -149,6 +150,7 @@ crates_repository(
         "log-panics": crate.spec(version = "2.1.0"),
         "mvt": crate.spec(version = "0.8.1"),
         "nalgebra": crate.spec(version = "0.31.4"), # for coord_transforms
+        "nav-types": crate.spec(version = "0.5.2"),
         "pointy": crate.spec(version = "0.4.0"),
         "rand": crate.spec(version = "0.8.5"),
         "reqwest": crate.spec(
