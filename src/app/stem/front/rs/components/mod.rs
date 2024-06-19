@@ -41,7 +41,7 @@ pub static DATETIME_INPUT_STYLE: &str =
     "rounded-lg whitespace-nowrap py-1.5 px-3 placeholder:text-neutral-200 \
         bg-neutral-800";
 pub static RANGE_INPUT_STYLE: &str =
-    "appearance-none bg-neutral-800 h-1 rounded-lg w-40 max-w-[75vw]";
+    "appearance-none bg-neutral-700 h-1 rounded-lg w-40 max-w-[75vw]";
 
 // The `after:` pseudo-element is the dot on the switch that moves back and
 // forth.

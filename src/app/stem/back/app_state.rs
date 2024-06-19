@@ -393,4 +393,13 @@ mod tests {
             common::cmaps::Cmap::default()
         );
     }
+
+    #[tokio::test]
+    async fn state_failure_case() {
+        // An unexpected enum value can cause "trailing character" errors when
+        // parsing, unless annotated with `DefaultOnerror`.
+        let s = r##"{"front":{"map":{"style":{"colored_datastream":"Unexpected","show_colorbar":false}}}}"##;
+        let p: PersistentState = serde_json::from_str(s).unwrap();
+        assert!(!p.front.unwrap().map.style.show_colorbar);
+    }
 }

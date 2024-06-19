@@ -76,7 +76,7 @@ use tokio::sync::OnceCell;
 use tracing::{debug, error, info, trace};
 use walkdir::WalkDir;
 
-use super::automap::{automap_is_on, tile_has_been_visited};
+use super::automap::{automap_is_opaque, tile_has_been_visited};
 use super::coords::TileXYZ;
 use crate::app_state::{set_back_state, AppState};
 use crate::files::get_blank_png;
@@ -115,13 +115,11 @@ pub async fn map_data_route(
     req: HttpRequest,
     _: Identity,
 ) -> impl Responder {
-    if automap_is_on() {
+    if automap_is_opaque() {
         // if the automap is on and the path matches a tile route, and tile
         // hasn't been visited, prevent the map data from loading
         if let Ok(tilepos) = TileXYZ::try_from(&path) {
             if !tile_has_been_visited(&tilepos) {
-                // TODO: figure out how to not get errors for webp (204 doesn't
-                // work)
                 return no_content_response(&path);
             }
         }

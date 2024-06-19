@@ -14,14 +14,14 @@ pub struct MapStyle {
     pub solid_color: Rgba,
     pub marker_size: usize,
     pub line_size: usize,
+    #[serde(deserialize_with = "ok_or_default")]
     pub basemap_style: BasemapStyle,
+    #[serde(deserialize_with = "ok_or_default")]
     pub colored_datastream: ColoredDataStream,
     pub show_colorbar: bool,
-    #[serde(deserialize_with = "ok_or_default")]
     pub automap: bool, // hide unexplored map regions
-    #[serde(deserialize_with = "ok_or_default")]
+    pub automap_opacity: f64,
     pub show_last_location: bool,
-    #[serde(deserialize_with = "ok_or_default")]
     pub pins_below_data: bool, // display pins below log data
 }
 
@@ -47,7 +47,8 @@ impl Default for MapStyle {
             basemap_style: Default::default(),
             colored_datastream: Default::default(),
             show_colorbar: true,
-            automap: false,
+            automap: true,
+            automap_opacity: 0.5,
             show_last_location: true,
             pins_below_data: false,
         }
@@ -154,13 +155,7 @@ pub enum ColoredDataStream {
     #[strum(serialize = "Time of Day")]
     TimeOfDay,
 
-    // These colors are based on adjacent pairs of points
-    #[strum(serialize = "Distance Delta")]
-    DistanceDelta,
-    #[strum(serialize = "Time Delta")]
-    TimeDelta,
-    #[strum(serialize = "Average Speed")]
-    AvgSpeed,
+    // These colors are based o data from multiple points
     #[strum(serialize = "Short Dwell Detection")]
     ShortDwellDetection,
     #[strum(serialize = "Long Dwell Detection")]
@@ -184,10 +179,7 @@ impl ColoredDataStream {
             | Self::CourseAccuracy
             | Self::Time
             | Self::TimeOfDay => true,
-            Self::DistanceDelta
-            | Self::TimeDelta
-            | Self::AvgSpeed
-            | Self::ShortDwellDetection
+            Self::ShortDwellDetection
             | Self::LongDwellDetection
             | Self::DwellScore => false,
         }
@@ -214,11 +206,8 @@ impl ColoredDataStream {
             Self::CourseAccuracy => loc.course_accuracy,
             Self::Time => Some(loc.timestamp.unix_timestamp() as f64),
             Self::TimeOfDay => Some(time_of_day_to_seconds(&loc.timestamp)),
-            // computed on pairs of locations, not on a single point
-            Self::DistanceDelta
-            | Self::TimeDelta
-            | Self::AvgSpeed
-            | Self::ShortDwellDetection
+            // computed on multiple locations, not on a single point
+            Self::ShortDwellDetection
             | Self::LongDwellDetection
             | Self::DwellScore => None,
         }
@@ -243,17 +232,13 @@ impl ColoredDataStream {
                 format!("{} (º)", self)
             }
             // Small lengths
-            Self::HorizAccuracy
-            | Self::Altitude
-            | Self::VertAccuracy
-            | Self::DistanceDelta => {
+            Self::HorizAccuracy | Self::Altitude | Self::VertAccuracy => {
                 format!("{} ({})", self, unit_pref.small_length.abbreviation())
             }
             // Speeds
-            Self::Speed | Self::SpeedAccuracy | Self::AvgSpeed => {
+            Self::Speed | Self::SpeedAccuracy => {
                 format!("{} ({})", self, unit_pref.velocity.abbreviation())
             }
-            Self::TimeDelta => format!("{self} (s)"),
         }
     }
 
@@ -264,11 +249,10 @@ impl ColoredDataStream {
     ) -> f64 {
         match *self {
             // Small lengths
-            Self::HorizAccuracy
-            | Self::Altitude
-            | Self::VertAccuracy
-            | Self::DistanceDelta => unit_pref.small_length.from_base_unit(val),
-            Self::Speed | Self::SpeedAccuracy | Self::AvgSpeed => {
+            Self::HorizAccuracy | Self::Altitude | Self::VertAccuracy => {
+                unit_pref.small_length.from_base_unit(val)
+            }
+            Self::Speed | Self::SpeedAccuracy => {
                 unit_pref.velocity.from_base_unit(val)
             }
             _ => val,

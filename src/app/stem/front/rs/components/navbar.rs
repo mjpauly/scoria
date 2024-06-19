@@ -73,14 +73,19 @@ pub fn TabBar() -> Html {
     // is sometimes different.
     let view_routes = vec![
         // (route, label, icon, icon_scale)
-        (Route::Sense, "Log", IconId::BootstrapJournalText, "h-5 w-5"),
+        (Route::Sense, "Log", IconId::BootstrapJoystick, "h-5 w-5"),
         (
             Route::Analyze,
             "Map",
             IconId::BootstrapGlobeAmericas,
             "h-5 w-5",
         ),
-        (Route::Metrics, "Stats", IconId::BootstrapGraphUp, "h-5 w-5"),
+        (
+            Route::Metrics,
+            "Stats",
+            IconId::BootstrapClipboard2Pulse,
+            "h-5 w-5",
+        ),
     ];
 
     // Construct each button to display in the navbar

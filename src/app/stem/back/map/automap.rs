@@ -42,9 +42,18 @@ use super::coords::TileXYZ;
 // If going beyond the maxzoom, the lower zoom levels can be overzoomed
 static MAXZOOM: i32 = 15;
 
+/// Determine if the automap is fully opaque, and thus if unexplored tiles can
+/// be prevented from loading.
+pub fn automap_is_opaque() -> bool {
+    get_front_state(|front| {
+        front.map.style.automap && front.map.style.automap_opacity == 1.0
+    })
+    .unwrap_or(false)
+}
+
 /// Determine if the automap is on or not. Defaults to false if the frontend
 /// hasn't been initialized yet.
-pub fn automap_is_on() -> bool {
+fn automap_is_on() -> bool {
     get_front_state(|front| front.map.style.automap).unwrap_or(false)
 }
 

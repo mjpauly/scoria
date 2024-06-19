@@ -4,9 +4,13 @@ use uom::fmt::DisplayStyle;
 use uom::si::information;
 use uom::si::u64::*;
 use uom::str::ParseQuantityError;
+use web_sys::HtmlInputElement;
 use yew::prelude::*;
+use yew_icons::Icon;
+use yew_icons::IconId;
 use yewdux::prelude::*;
 
+use crate::components::RANGE_INPUT_STYLE;
 use crate::components::{
     AfterCardParagraph, SettingsCard, SettingsCardInput, SettingsCardToggle,
 };
@@ -70,6 +74,25 @@ pub fn AutomapSetting() -> Html {
             s.map.style.automap = !s.map.style.automap;
         })
     };
+    let opacity_onchange = dispatch.reduce_mut_callback_with(
+        move |s: &mut FrontState, e: InputEvent| -> Option<()> {
+            let elem: HtmlInputElement = e.target_dyn_into()?;
+            let val: &str = &elem.value();
+            let new_opacity = val.to_string().parse::<f64>().ok()?;
+            s.map.style.automap_opacity = new_opacity;
+            None
+        },
+    );
+    let zero_opacity_icon_color = if style.automap_opacity == 0.0 {
+        "text-primary"
+    } else {
+        "test-neutral-500"
+    };
+    let one_opacity_icon_color = if style.automap_opacity == 1.0 {
+        "text-primary"
+    } else {
+        "test-neutral-500"
+    };
 
     let num_remaining =
         use_selector(|state: &BackState| state.num_automap_records_remaining);
@@ -85,14 +108,35 @@ pub fn AutomapSetting() -> Html {
                 <SettingsCardToggle
                     checked={style.automap}
                     onclick={automap_onclick}
-                    text={"Hide Unexplored Area"}
+                    text={"Use Automap"}
                 />
+                <div class="flex items-center justify-between py-2 px-4 w-full \
+                    active:bg-neutral-800">
+                    <label for="opacity">{"Opacity"}</label>
+                    <div class="flex items-center gap-2">
+                        <Icon icon_id={IconId::BootstrapSquare}
+                            class={classes!(
+                                "h-4 w-4".to_string(),
+                                zero_opacity_icon_color
+                            )} />
+                        <input type="range" id="opacity"
+                            value={format!("{}", style.automap_opacity)}
+                            min="0.0" max="1.0" step="0.01"
+                            class={format!("m-1 {}", RANGE_INPUT_STYLE)}
+                            oninput={opacity_onchange} />
+                        <Icon icon_id={IconId::BootstrapSquareFill}
+                            class={classes!(
+                                "h-4 w-4".to_string(),
+                                one_opacity_icon_color,
+                            )} />
+                    </div>
+                </div>
             </SettingsCard>
             <AfterCardParagraph>
-                {"Leaves the map blank where you haven't explored yet. An
-                area is marked as explored if it is within 100 meters of a data
-                point that has a horizontal error better (smaller) than 100
-                meters."}
+                {"The automap obscures the parts of the map where you haven't
+                explored yet. An area is marked as explored if it is within 100
+                meters of a data point that has a horizontal error better
+                (smaller) than 100 meters."}
             </AfterCardParagraph>
             if style.automap {
                 <AfterCardParagraph>

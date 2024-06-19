@@ -25,6 +25,23 @@ use crate::{
     AutoConfig, LngLat, Location, TimeRange, UserConfig,
 };
 
+/// Pick the type's default if it fails to deserialize.
+///
+/// This ensures that an error deserializing an inner field value doesn't cause
+/// the whole deserialization to fail. This is useful, for example, when the
+/// name of an enum variant has changed, but the app is reading old data.
+///
+/// Warning: it is not sufficient only annotate an outer type. Each enum must be
+/// annotated with `ok_or_default`, since an annotation on the containing struct
+/// will fail to catch the error and cause the entire deserialization to fail.
+pub fn ok_or_default<'de, D, T>(d: D) -> Result<T, D::Error>
+where
+    T: Deserialize<'de> + Default,
+    D: serde::Deserializer<'de>,
+{
+    Ok(T::deserialize(d).unwrap_or_default())
+}
+
 /// State driven by the backend which is derived from other state, like the
 /// database.
 ///
@@ -37,22 +54,8 @@ pub struct DerivedState {
     pub colored_timeseries_plot: TimeSeriesPlot,
 }
 
-/// Pick the type's default if it fails to deserialize. This ensures that an
-/// error during deserialization doesn't cause the whole thing to fail.
-/// `#[serde(default)]` on containers only picks the default if a field is
-/// missing, not if there's an error deserializing. This is important for cases
-/// when, for example, the name of an enum variant changes between app versions.
-pub fn ok_or_default<'de, D, T>(d: D) -> Result<T, D::Error>
-where
-    T: Deserialize<'de> + Default,
-    D: serde::Deserializer<'de>,
-{
-    T::deserialize(d).or_else(|_| Ok(T::default()))
-}
-
 /// Driven by backend
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
-// Missing fields are filled in by the struct returned by the default
 #[serde(default)]
 pub struct BackState {
     #[serde(deserialize_with = "ok_or_default")]

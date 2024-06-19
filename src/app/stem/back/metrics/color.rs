@@ -11,11 +11,7 @@ use tracing::{instrument, Level};
 
 use crate::metrics::dashboard::update_timeseries_plot_data;
 
-use super::{
-    distance::distance_between_locations,
-    dwells::{dwell_score, short_dwell_detect},
-    speed::avg_speed,
-};
+use super::dwells::{dwell_score, short_dwell_detect};
 
 /// Calculate the cmap parameters and the data values that determine the color
 /// given a slice of locations.
@@ -38,7 +34,6 @@ pub fn get_cmap_data(
         params.cmap = Cmap::TwilightShifted;
     } else if *colored_datastream == ColoredDataStream::ShortDwellDetection
         || *colored_datastream == ColoredDataStream::LongDwellDetection
-        || *colored_datastream == ColoredDataStream::DwellScore
     {
         params.cmax = 1.0
     } else {
@@ -62,17 +57,7 @@ pub fn get_colored_data_vals(
     records: &[(&Location, bool)],
     offset: &time::UtcOffset,
 ) -> Vec<Option<f64>> {
-    if *colored_datastream == ColoredDataStream::DistanceDelta {
-        delta_color_vals(records, |(a, b)| {
-            Some(distance_between_locations(a, b))
-        })
-    } else if *colored_datastream == ColoredDataStream::TimeDelta {
-        delta_color_vals(records, |(a, b)| {
-            Some((b.timestamp - a.timestamp).as_seconds_f64())
-        })
-    } else if *colored_datastream == ColoredDataStream::AvgSpeed {
-        delta_color_vals(records, |(a, b)| Some(avg_speed(a, b)))
-    } else if *colored_datastream == ColoredDataStream::ShortDwellDetection {
+    if *colored_datastream == ColoredDataStream::ShortDwellDetection {
         delta_color_vals(records, |(a, b)| {
             Some(dwell_to_colorval(short_dwell_detect(a, b)))
         })

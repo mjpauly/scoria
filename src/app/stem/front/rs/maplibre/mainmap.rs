@@ -332,6 +332,7 @@ fn make_screen_layer(style: &Value, map_style: &MapStyle) -> Value {
         "paint": {
             "fill-color": get_background_color(style),
             "fill-outline-color": outline_color,
+            "fill-opacity": map_style.automap_opacity,
         },
     })
 }

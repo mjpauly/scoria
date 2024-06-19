@@ -1,5 +1,5 @@
 {
-  "checksum": "3da9b66a90524f4f7f637249b7e9b28221f9c7944f3c7135b7bff8df5e002677",
+  "checksum": "4714fe5302c79181ced6e00796363a3738063ae92ea74ab5b76f9d11e670ed99",
   "crates": {
     "actix 0.13.0": {
       "name": "actix",
@@ -26285,6 +26285,7 @@
             "BootstrapChevronDown",
             "BootstrapChevronLeft",
             "BootstrapChevronRight",
+            "BootstrapClipboard2Pulse",
             "BootstrapDownload",
             "BootstrapExclamationCircle",
             "BootstrapExclamationCircleFill",
@@ -26298,10 +26299,13 @@
             "BootstrapInfoCircle",
             "BootstrapInfoCircleFill",
             "BootstrapJournalText",
+            "BootstrapJoystick",
             "BootstrapList",
             "BootstrapPlus",
             "BootstrapPlusLg",
             "BootstrapQuestionCircle",
+            "BootstrapSquare",
+            "BootstrapSquareFill",
             "BootstrapTrash",
             "BootstrapX",
             "BootstrapXCircle",
