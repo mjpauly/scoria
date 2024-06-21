@@ -1,10 +1,10 @@
-//! Deeper app settings, such as data log exporting
+//! Deeper app settings, such as database exporting
 //!
 //! Introduction
 //!
 //! General
 //! Map
-//! Data Log
+//! Database
 //!
 //! Report a problem
 //! Privacy
@@ -81,8 +81,11 @@ pub fn Settings() -> Html {
                         text="Export Track"
                         route={SettingsRoute::Export}
                     />
+                </SettingsCard>
+
+                <SettingsCard class="my-4">
                     <SettingsCardPageButton<SettingsRoute>
-                        text="Data Log"
+                        text="Database"
                         route={SettingsRoute::Data}
                     />
                 </SettingsCard>
@@ -206,40 +209,41 @@ pub fn DataSettings() -> Html {
             </TopNav>
 
             <BouncyScrollContainer class="pb-8">
-                <H1> {"Data Log"} </H1>
+                <H1> {"Database"} </H1>
 
                 <WarningMessage class="mb-6 mt-2" >
-                    {"Your log contains your complete location history.
+                    {"Your database contains your complete location history.
                     For privacy, avoid sharing it with others."}
                 </WarningMessage>
 
                 <SettingsCard>
                     <SettingsCardSimpleButton
                         onclick={export_onclick}
-                        text="Export Log"
+                        text="Export Database"
                     />
                 </SettingsCard>
                 <AfterCardParagraph>
-                    {"An Exported log can be imported back into Scoria. You can
-                    use this to backup your data or migrate between devices."}
+                    {"An exported database can be imported back into Scoria. You
+                    can use this function to backup your data or migrate between
+                    devices."}
                 </AfterCardParagraph>
 
                 <SettingsCard class="mt-4">
                     <SettingsCardSimpleButton
                         onclick={import_onclick}
-                        text="Import Log">
+                        text="Import Database">
                     </SettingsCardSimpleButton>
                 </SettingsCard>
                 <AfterCardParagraph>
-                    {"Import a Scoria log that was previously exported.
-                    The data will be added to your current log. Duplicate data
-                    points are determined by timestamp, and are not imported."}
+                    {"Import a Scoria database that was previously exported.
+                    The data will be added to your current database. Duplicate
+                    data points are determined by timestamp, and are not
+                    imported."}
                 </AfterCardParagraph>
                 <AfterCardParagraph>
-                    {"Since imported data is irreversibly added to your log,
-                    using this feature for looking at data that is not your own
-                    is not recommended. Let us know if you want this kind of
-                    feature."}
+                    {"Since imported data is irreversibly added to your
+                    database, using this feature for looking at data that is not
+                    your own is not recommended."}
                 </AfterCardParagraph>
 
             </BouncyScrollContainer>

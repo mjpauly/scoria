@@ -67,7 +67,7 @@ use sqlx::{
 };
 use tracing::{error, info};
 
-use crate::app_state::AppState;
+use crate::{app_state::AppState, database::pins::update_derived_pins};
 
 // Embed our migrations from "migrations/" into our binary at compile time
 pub static MIGRATOR: Migrator = sqlx::migrate!();
@@ -416,6 +416,7 @@ pub async fn import_database_records(import_db_path: PathBuf) {
     let result = sqlx::query(&format!(
         "ATTACH '{}' as toMerge;
         BEGIN;
+
         INSERT OR IGNORE INTO location (
             timestamp,
             latitude, longitude, horizontal_accuracy,
@@ -438,6 +439,14 @@ pub async fn import_database_records(import_db_path: PathBuf) {
             is_simulated_by_software, is_produced_by_accessory,
             was_imported
         FROM toMerge.location;
+
+        INSERT INTO pins (
+            lng, lat, name, icon, lists, tags, boundary
+        )
+        SELECT 
+            lng, lat, name, icon, lists, tags, boundary
+        FROM toMerge.pins;
+
         COMMIT;
         DETACH toMerge;",
         import_db_path.display()
@@ -453,6 +462,8 @@ pub async fn import_database_records(import_db_path: PathBuf) {
     let n_imported = n_final - n_initial;
 
     reset_last_automap_update(&first_import_timestamp);
+
+    update_derived_pins().await;
 
     info!(
         "Successfully imported {n_imported} records. ({} duplicates ignored.)",
@@ -1035,6 +1046,10 @@ fn stream_column_name(filter: &Filter) -> &str {
 
 #[cfg(test)]
 pub mod tests {
+    use common::pin::Pin;
+    use pretty_assertions::assert_eq;
+
+    use crate::app_state::get_derived_state;
     use crate::map::automap::{get_last_automap_update, update_automap};
     use crate::{local::test_setup, paths::get_documents_dir};
 
@@ -1236,6 +1251,24 @@ pub mod tests {
         .execute(&import_conn)
         .await
         .unwrap();
+
+        sqlx::query(
+            "INSERT INTO pins (
+                lng, lat, name, icon, lists, tags
+            )
+            VALUES
+                (?,?,?,?,?,?)",
+        )
+        .bind(-120.0)
+        .bind(37.0)
+        .bind("My Pin")
+        .bind("a")
+        .bind("[]")
+        .bind("[]")
+        .execute(&import_conn)
+        .await
+        .unwrap();
+
         import_conn.close().await;
 
         // import records
@@ -1280,6 +1313,24 @@ pub mod tests {
         assert_eq!(get_last_automap_update().unix_timestamp(), 8);
         update_automap().await;
         assert_eq!(get_last_automap_update().unix_timestamp(), 10);
+
+        // check pins were imported
+        let pins = get_derived_state(|s| s.pins.clone());
+        assert_eq!(
+            pins,
+            vec![Pin {
+                id: Some(1),
+                lnglat: LngLat {
+                    lng: -120.0,
+                    lat: 37.0,
+                },
+                name: "My Pin".into(),
+                icon: "a".into(),
+                lists: vec![],
+                tags: vec![],
+                boundary: None,
+            }]
+        );
     }
 
     /// Test that migrating the database works, and that the data persists.

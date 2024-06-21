@@ -6,7 +6,8 @@ Current: android, pins
 
 - [ ] improve dwell detection
 - [ ] remove dwells from distance calculation
-- [ ] ability to import pins
+- [ ] in-app guide
+- [ ] release binary for desktop scoria
 - [ ] queries/metrics for selected data (distance/time/speed traveled/dwelled, average distanced traveled (mean free path))
     - [ ] plot datastreams (e.g. speed) or computed values (e.g. distance from
       a pin)
