@@ -11,7 +11,7 @@ use tracing::{instrument, Level};
 
 use crate::metrics::dashboard::update_timeseries_plot_data;
 
-use super::dwells::{dwell_score, short_dwell_detect};
+use super::dwells::{dwell_score, long_dwell_threshold, short_dwell_detect};
 
 /// Calculate the cmap parameters and the data values that determine the color
 /// given a slice of locations.
@@ -107,25 +107,19 @@ fn dwell_to_colorval(val: bool) -> f64 {
     }
 }
 
-const LONG_DWELL_THRESHOLD: f64 = 10.0;
-
 fn long_dwell_colors(records: &[(&Location, bool)]) -> Vec<Option<f64>> {
-    let dwell_scores = dwell_score(records);
-    let chunker = dwell_scores
-        .iter()
-        .map(|d| d.map(|v| v < LONG_DWELL_THRESHOLD))
-        .chunk_by(|t| *t);
+    let is_dwells = long_dwell_threshold(records);
+    let chunker = is_dwells.iter().chunk_by(|is_dwell| *is_dwell);
     let mut out = vec![];
     let mut c = 0;
     for (k, chunk) in chunker.into_iter() {
         match k {
-            Some(true) => {
+            true => {
                 let cval = c as f64 / 10.0 + 0.5;
                 out.extend(chunk.map(|_| Some(cval)));
                 c = (c + 1) % 6;
             }
-            Some(false) => out.extend(chunk.map(|_| Some(0.0))),
-            None => out.extend(chunk.map(|_| None)),
+            false => out.extend(chunk.map(|_| Some(0.0))),
         }
     }
     out

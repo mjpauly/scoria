@@ -4,13 +4,17 @@
 
 Current: android, pins
 
-- [ ] improve dwell detection
+- data organization and sharing
+    - [ ] view subset of pins
+    - [ ] share pins with others
+- [ ] timeline view of dwells
 - [ ] remove dwells from distance calculation
 - [ ] in-app guide
 - [ ] release binary for desktop scoria
 - [ ] queries/metrics for selected data (distance/time/speed traveled/dwelled, average distanced traveled (mean free path))
-    - [ ] plot datastreams (e.g. speed) or computed values (e.g. distance from
-      a pin)
+- [ ] icloud backups
+- [ ] plot datastreams (e.g. speed) or computed values (e.g. distance from
+  a pin)
 - [ ] export track as scoria db for sharing lost sections with friends
     - [ ] mount external db temporarily
     - [ ] timestamp of imported data points

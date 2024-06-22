@@ -196,14 +196,18 @@ pub async fn update_geojson(new_data: Option<Location>, foregrounded: bool) {
     let make_points = map_state.style.marker_size > 0;
     let make_lines = map_state.style.line_size > 0;
 
+    // only bother with the performance overhead of getting points adjacent
+    // to the viewbounds if lines are actually drawn
+    // OR if the colormapping relies on the existence of out-of-bounds points to
+    // improve colormapping (as is the case for dwells)
+    let get_adjacent = make_lines || colored_datastream.should_get_adjacent();
+
     // let before = std::time::Instant::now();
     let records = database::FilteredQuery::new()
         .time_range(map_state.time_range)
         .filters(map_state.filters.clone())
         .bounds(bounds)
-        // only bother with the performance overhead of getting points adjacent
-        // to the viewbounds if lines are actually drawn
-        .get_adjacent(make_lines)
+        .get_adjacent(get_adjacent)
         .limit(DECIMATION_THRESHOLD)
         .fetch_decimated()
         .await;

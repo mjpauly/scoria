@@ -184,6 +184,20 @@ impl ColoredDataStream {
             | Self::DwellScore => false,
         }
     }
+
+    /// Return true if the coloring relies on "adjacent" points that are the
+    /// next point just outside the view bounds wherever the track goes outside.
+    ///
+    /// These adjacent points are marked as not being used for the colormapping,
+    /// and this marking helps certain colormapping schemes better associate
+    /// related points and produce an accurate colormap.
+    pub fn should_get_adjacent(&self) -> bool {
+        match self {
+            Self::LongDwellDetection | Self::DwellScore => true,
+            _ => false,
+        }
+    }
+
     /// Selects the right data stream from a common::Location struct
     pub fn get_stream(
         &self,

@@ -40,6 +40,11 @@ pub fn dwell_score(records: &[(&Location, bool)]) -> Vec<Option<f64>> {
             // at the end; sliding window is no longer larger than min size
             break;
         }
+        if records[si..ei + 1].iter().any(|(_, visible)| !visible) {
+            // an "adjacent" (non-visible, out-of-view-bounds) point is in this
+            // segment -> don't consider a dwell as possibly spanning this gap
+            continue;
+        }
         // TODO: only contiguous segments
         // weights are the time spent at the point (duration until next point)
         let lnglats_and_weights = records[si..ei + 1]
@@ -81,6 +86,16 @@ pub fn dwell_score(records: &[(&Location, bool)]) -> Vec<Option<f64>> {
     min_stds
 }
 
+const LONG_DWELL_THRESHOLD: f64 = 10.0;
+
+/// Returns true for records that are part of a dwell.
+pub fn long_dwell_threshold(records: &[(&Location, bool)]) -> Vec<bool> {
+    let dwell_scores = dwell_score(records);
+    dwell_score(records)
+        .iter()
+        .map(|ds| ds.map(|v| v <= LONG_DWELL_THRESHOLD).unwrap_or(false))
+        .collect()
+}
 /*
 #[instrument(skip_all, level = Level::TRACE)]
 pub fn merge_close_dwells(records: &mut [(&Location, Option<bool>)]) {
