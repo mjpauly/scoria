@@ -38,18 +38,17 @@ fn DefaultMetrics() -> Html {
     let f_count = format!("{} points", metrics.count);
     let unwrap_or_na =
         |maybe_x: Option<String>| maybe_x.unwrap_or_else(|| "N/A".into());
-    let f_distance = unwrap_or_na(metrics.total_distance.map(|d| {
-        if d > 1000. {
-            unit_pref.format_large_length(d, Some(3))
-        } else {
-            unit_pref.format_small_length(d, Some(3))
-        }
-    }));
-    let f_duration = unwrap_or_na(
-        metrics
-            .duration
-            .map(|x| humantime::format_duration(x.unsigned_abs()).to_string()),
-    );
+    let f_distance = if metrics.total_distance > 1000. {
+        unit_pref.format_large_length(metrics.total_distance, Some(3))
+    } else {
+        unit_pref.format_small_length(metrics.total_distance, Some(3))
+    };
+    let f_dwell_time =
+        humantime::format_duration(metrics.dwell_time.unsigned_abs())
+            .to_string();
+    let f_movement_time =
+        humantime::format_duration(metrics.movement_time.unsigned_abs())
+            .to_string();
     let format_speed = |speed: Option<f64>| {
         unwrap_or_na(speed.map(|s| unit_pref.format_velocity(s, Some(2))))
     };
@@ -67,12 +66,13 @@ fn DefaultMetrics() -> Html {
             </p>
 
             <div class="grid grid-cols-3 gap-4 mb-4">
-                <ScalarMetric title="Count" value={f_count} />
                 <ScalarMetric title="Distance" value={f_distance} />
-                <ScalarMetric title="Time Span" value={f_duration} />
-                <ScalarMetric title="Average Speed" value={f_avg_speed} />
+                <ScalarMetric title="Dwell Time" value={f_dwell_time} />
+                <ScalarMetric title="Movement Time" value={f_movement_time} />
                 <ScalarMetric title="Min Speed" value={f_min_speed} />
                 <ScalarMetric title="Max Speed" value={f_max_speed} />
+                <ScalarMetric title="Average Speed" value={f_avg_speed} />
+                <ScalarMetric title="Count" value={f_count} />
             </div>
         </div>
     }

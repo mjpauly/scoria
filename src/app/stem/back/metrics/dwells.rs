@@ -15,13 +15,45 @@ pub fn short_dwell_detect(a: &Location, b: &Location) -> bool {
     avg_speed(a, b) < SHORT_DWELL_SPEED_THRESH_MPS
 }
 
+/// Segment a string of locations into a the continous segments without jumps at
+/// the edge of the map view bounds.
+///
+/// bool is if the point is visible.
+pub fn segment_on_visibility<'a>(
+    records: &[(&'a Location, bool)],
+) -> Vec<(bool, Vec<&'a Location>)> {
+    let chunker = records.iter().chunk_by(|(_, d)| *d);
+    chunker
+        .into_iter()
+        .map(|(k, c)| (k, c.map(|(l, _)| *l).collect::<Vec<_>>()))
+        .collect::<Vec<_>>()
+}
+
+/// Score dwells after doing visibility segmentation.
+pub fn segmented_dwell_scores(
+    segments: &[(bool, Vec<&Location>)],
+) -> Vec<Option<f64>> {
+    let mut out = vec![];
+    for (visible, seg) in segments.iter() {
+        if *visible {
+            out.extend_from_slice(&dwell_score(&seg));
+        } else {
+            out.extend((0..seg.len()).map(|_| None));
+        }
+    }
+    out
+}
+
 const LONG_DWELL_WIDTH_SECS: u64 = 120;
 const OUTLIER_Z_SCORE: f64 = 2.5;
 
 /// Slide a window at least 2 minutes long, and count all points a dwell if
 /// standard deviation is small enough.
+///
+/// Must be a continuous segment of data points (no jumps due to view bounds
+/// edges).
 #[instrument(skip_all, level = Level::TRACE)]
-pub fn dwell_score(records: &[(&Location, bool)]) -> Vec<Option<f64>> {
+pub fn dwell_score(records: &[&Location]) -> Vec<Option<f64>> {
     let mut min_stds = vec![Option::<f64>::None; records.len()];
     let mut ei = 0; // end index
     let dur_gte_big_thresh = |start: &Location, end: &Location| {
@@ -31,25 +63,18 @@ pub fn dwell_score(records: &[(&Location, bool)]) -> Vec<Option<f64>> {
     for si in 0..records.len() {
         // println!("{si}");
         while ei < records.len() - 1
-            && !dur_gte_big_thresh(records[si].0, records[ei].0)
+            && !dur_gte_big_thresh(records[si], records[ei])
         {
             // while window is not larger than threshold size, advance end index
             ei += 1;
         }
-        if !dur_gte_big_thresh(records[si].0, records[ei].0) {
+        if !dur_gte_big_thresh(records[si], records[ei]) {
             // at the end; sliding window is no longer larger than min size
             break;
         }
-        if records[si..ei + 1].iter().any(|(_, visible)| !visible) {
-            // an "adjacent" (non-visible, out-of-view-bounds) point is in this
-            // segment -> don't consider a dwell as possibly spanning this gap
-            continue;
-        }
-        // TODO: only contiguous segments
         // weights are the time spent at the point (duration until next point)
         let lnglats_and_weights = records[si..ei + 1]
             .iter()
-            .map(|(l, _)| l)
             .tuple_windows::<(_, _)>()
             .map(|(a, b)| {
                 (a.lnglat(), (b.timestamp - a.timestamp).as_seconds_f64())
@@ -89,10 +114,10 @@ pub fn dwell_score(records: &[(&Location, bool)]) -> Vec<Option<f64>> {
 const LONG_DWELL_THRESHOLD: f64 = 10.0;
 
 /// Returns true for records that are part of a dwell.
-pub fn long_dwell_threshold(records: &[(&Location, bool)]) -> Vec<bool> {
-    let dwell_scores = dwell_score(records);
-    dwell_score(records)
-        .iter()
+pub fn long_dwell_threshold<'a>(
+    scores: impl Iterator<Item = &'a Option<f64>>,
+) -> Vec<bool> {
+    scores
         .map(|ds| ds.map(|v| v <= LONG_DWELL_THRESHOLD).unwrap_or(false))
         .collect()
 }

@@ -21,7 +21,9 @@ use crate::{
 };
 
 use super::{
-    color::get_colored_data_vals, distance::distance_between_locations,
+    color::get_colored_data_vals,
+    distance::distance_between_locations,
+    dwells::{dwell_score, long_dwell_threshold, segment_on_visibility},
 };
 
 /// Update the dashboard, but only under certian conditions.
@@ -44,47 +46,94 @@ pub async fn update_dashboard(new_loc: Option<Location>) {
         .time_range(map_state.time_range)
         .filters(map_state.filters.clone())
         .bounds(map_state.view_pos.bounds.expand(BOUND_EXPANSION))
+        .get_adjacent(true)
         .limit(DECIMATION_THRESHOLD)
         .fetch_decimated()
         .await;
-    update_stats(&records);
+
+    // use info about whether a point is inside the visible view bounds to
+    // segment point into continuous pieces
+    let records_and_inbounds = records
+        .iter()
+        .map(|loc| (loc, map_state.view_pos.bounds.contains(&loc.lnglat())))
+        .collect::<Vec<_>>();
+    let segments = segment_on_visibility(&records_and_inbounds);
+    update_stats(&segments);
     // update_plot(&records, &map_state);
 }
 
-/// Update the scalar statistics.
-fn update_stats(records: &[Location]) {
+/// Update the dashboard stats for all segments visible in the map view.
+fn update_stats(segments: &[(bool, Vec<&Location>)]) {
+    let mut total_stats = DashboardMetrics::default();
+    for (visible, seg) in segments.iter() {
+        if *visible {
+            let is_dwell = long_dwell_threshold(dwell_score(&seg).iter());
+            let records_and_isdwell = seg
+                .iter()
+                .map(|l| *l)
+                .zip(is_dwell.into_iter())
+                .collect::<Vec<_>>();
+            total_stats = total_stats
+                .merge_other(&get_segment_stats(&records_and_isdwell));
+        }
+    }
+    set_derived_state(|s| {
+        s.dashboard_metrics = total_stats;
+    });
+}
+
+/// Items are locations and whether the location is part of a dwell, where
+/// distances are not calculated due to excess dithering.
+fn get_segment_stats(records: &[(&Location, bool)]) -> DashboardMetrics {
     let count = records.len();
     let total_distance: f64 = records
         .iter()
+        .filter(|(_, dwell)| !dwell) // don't consider points in dwells
         .tuple_windows::<(_, _)>()
-        .map(|(a, b)| distance_between_locations(a, b))
+        .map(|((a, _), (b, _))| distance_between_locations(a, b))
         .sum();
-    let start_time = records.first().map(|l| l.timestamp);
-    let end_time = records.last().map(|l| l.timestamp);
-    let duration = start_time.zip(end_time).map(|(start, end)| end - start);
+    let mut dwell_time = time::Duration::ZERO;
+    let mut movement_time = time::Duration::ZERO;
+    for ((a, adwell), (b, bdwell)) in records.iter().tuple_windows::<(_, _)>() {
+        let dur = b.timestamp - a.timestamp;
+        if *adwell || *bdwell {
+            // count transitions between dwells and non-dwells as part of the
+            // dwells, since there's often a long delay between the end of the
+            // dwell and the beginning of the next movement
+            dwell_time += dur;
+        } else {
+            movement_time += dur;
+        }
+    }
 
-    let avg_speed = duration.map(|d| total_distance / d.as_seconds_f64());
+    let start_time = records.first().map(|(l, _)| l.timestamp);
+    let end_time = records.last().map(|(l, _)| l.timestamp);
 
-    let only_speeds = records.iter().filter_map(|l| l.speed);
+    let avg_speed = (movement_time > time::Duration::ZERO)
+        .then(|| total_distance / movement_time.as_seconds_f64());
+
+    let only_speeds =
+        records
+            .iter()
+            .filter_map(|(l, isdwell)| if !isdwell { l.speed } else { None });
+    // TODO: throw out outliers?
     let min_speed = only_speeds
         .clone()
         .min_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
     let max_speed =
         only_speeds.max_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
 
-    set_derived_state(|s| {
-        s.dashboard_metrics = DashboardMetrics {
-            count: count as u64,
-            total_distance: Some(total_distance),
-            start_time,
-            end_time,
-            duration,
-            min_speed,
-            max_speed,
-            avg_speed,
-            // ..s.dashboard_metrics
-        };
-    });
+    DashboardMetrics {
+        count: count as u64,
+        total_distance,
+        start_time,
+        end_time,
+        dwell_time,
+        movement_time,
+        min_speed,
+        max_speed,
+        avg_speed,
+    }
 }
 
 /// Calculates whether to update, as described in the `update_dashboard`

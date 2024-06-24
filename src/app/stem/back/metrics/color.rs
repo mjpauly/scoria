@@ -11,7 +11,10 @@ use tracing::{instrument, Level};
 
 use crate::metrics::dashboard::update_timeseries_plot_data;
 
-use super::dwells::{dwell_score, long_dwell_threshold, short_dwell_detect};
+use super::dwells::{
+    long_dwell_threshold, segment_on_visibility, segmented_dwell_scores,
+    short_dwell_detect,
+};
 
 /// Calculate the cmap parameters and the data values that determine the color
 /// given a slice of locations.
@@ -64,7 +67,7 @@ pub fn get_colored_data_vals(
     } else if *colored_datastream == ColoredDataStream::LongDwellDetection {
         long_dwell_colors(records)
     } else if *colored_datastream == ColoredDataStream::DwellScore {
-        dwell_score(records)
+        segmented_dwell_scores(&segment_on_visibility(records))
     } else {
         debug_assert!(colored_datastream.is_point_coloring());
         records
@@ -108,7 +111,9 @@ fn dwell_to_colorval(val: bool) -> f64 {
 }
 
 fn long_dwell_colors(records: &[(&Location, bool)]) -> Vec<Option<f64>> {
-    let is_dwells = long_dwell_threshold(records);
+    let is_dwells = long_dwell_threshold(
+        segmented_dwell_scores(&segment_on_visibility(records)).iter(),
+    );
     let chunker = is_dwells.iter().chunk_by(|is_dwell| *is_dwell);
     let mut out = vec![];
     let mut c = 0;
