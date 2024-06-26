@@ -15,6 +15,7 @@ pub mod pin;
 pub mod plot_data;
 pub mod state;
 pub mod time_range;
+pub mod timeline;
 pub mod units;
 pub mod view_position;
 pub mod ws_messages;

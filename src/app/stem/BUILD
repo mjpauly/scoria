@@ -96,10 +96,24 @@ rust_library(
     visibility = [":__subpackages__"],
 )
 
+# Unit tests embedded within the stem crate.
+rust_test(
+    name = "unit_tests",
+    crate = ":stem",
+    size = "small",  # 20 MB RAM, 1 min timeout
+    crate_features = platform_features,
+    deps = [
+        "@stem_crate_index//:approx",
+        "@stem_crate_index//:reqwest", # for server health check unit test
+        "@stem_crate_index//:futures-core",
+        "@stem_crate_index//:pretty_assertions",
+    ]
+)
+
 # definitions common to both the frontend and the backend
 rust_library(
     name = "common",
-    srcs = glob(["common/*.rs"]),
+    srcs = glob(["common/**/*.rs"]),
     edition = "2021",
     deps = [
         "@stem_crate_index//:serde",
@@ -110,16 +124,12 @@ rust_library(
     visibility = ["//visibility:public"],
 )
 
-# Unit tests embedded within the library.
+# Unit tests for the common crate.
 rust_test(
-    name = "unit_tests",
-    crate = ":stem",
-    size = "small",  # 20 MB RAM, 1 min timeout
-    crate_features = platform_features,
+    name = "common_tests",
+    crate = ":common",
+    size = "small",
     deps = [
-        "@stem_crate_index//:approx",
-        "@stem_crate_index//:reqwest", # for server health check unit test
-        "@stem_crate_index//:futures-core",
         "@stem_crate_index//:pretty_assertions",
     ]
 )

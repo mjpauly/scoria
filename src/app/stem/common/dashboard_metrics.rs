@@ -3,7 +3,6 @@ use serde::{Deserialize, Serialize};
 /// Metrics for the stats dashboard that are computed from the data visible on
 /// the map.
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
-#[serde(default)]
 pub struct DashboardMetrics {
     pub count: u64,
     pub total_distance: f64, // (skips dwell dithering)

@@ -1,23 +1,24 @@
 use serde::{Deserialize, Serialize};
+use time::OffsetDateTime;
 
 /// A range of times.
 /// Encoding as a struct helps ensure `start` and `end` are not accidentally
 /// swapped.
 #[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct TimeRange {
-    pub start: time::OffsetDateTime,
-    pub end: time::OffsetDateTime,
+    pub start: OffsetDateTime,
+    pub end: OffsetDateTime,
 }
 
 impl TimeRange {
-    pub fn contains(&self, timestamp: &time::OffsetDateTime) -> bool {
+    pub fn contains(&self, timestamp: &OffsetDateTime) -> bool {
         &self.start <= timestamp && timestamp < &self.end
     }
 }
 
 impl From<&TimeDeltaRange> for TimeRange {
     fn from(td_range: &TimeDeltaRange) -> Self {
-        let mut now = time::OffsetDateTime::now_utc();
+        let mut now = OffsetDateTime::now_utc();
         if let Some(offset) = td_range.offset {
             now = now.to_offset(offset);
         }

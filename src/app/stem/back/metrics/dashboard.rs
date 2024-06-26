@@ -5,15 +5,18 @@ use std::cmp::Ordering;
 use common::{
     dashboard_metrics::DashboardMetrics,
     map_style::ColoredDataStream,
+    pin::Pin,
     plot_data::TimeSeriesPlot,
     state::{MapState, PersistedRoute},
-    Location,
+    timeline::{Dwell, Movement, Period, Timeline},
+    LngLat, Location, TimeRange,
 };
 use itertools::Itertools;
+use nav_types::WGS84;
 use tracing::{instrument, Level};
 
 use crate::{
-    app_state::{get_front_state, set_derived_state},
+    app_state::{get_derived_state, get_front_state, set_derived_state},
     core::new_data_is_visible,
     database,
     geojson::{BOUND_EXPANSION, DECIMATION_THRESHOLD},
@@ -23,8 +26,25 @@ use crate::{
 use super::{
     color::get_colored_data_vals,
     distance::distance_between_locations,
-    dwells::{dwell_score, long_dwell_threshold, segment_on_visibility},
+    dwells::{
+        dwell_score, long_dwell_threshold, segment_on_visibility,
+        weighted_lnglat_mean_and_stddev_without_outliers,
+    },
 };
+
+/// Update the dashboard statistics on navigation to the page.
+pub fn update_dashboard_on_navigate(
+    prev_route: Option<PersistedRoute>,
+    new_route: PersistedRoute,
+) {
+    if new_route == PersistedRoute::Metrics
+        && prev_route != Some(PersistedRoute::Metrics)
+    {
+        get_runtime().spawn(async move {
+            update_dashboard(None).await;
+        });
+    }
+}
 
 /// Update the dashboard, but only under certian conditions.
 ///
@@ -62,23 +82,49 @@ pub async fn update_dashboard(new_loc: Option<Location>) {
     // update_plot(&records, &map_state);
 }
 
+/// Calculates whether to update, as described in the `update_dashboard`
+/// docstring.
+fn should_update(new_loc: &Option<Location>, map_state: &MapState) -> bool {
+    let route = get_front_state(|front| front.route);
+    if route != Some(PersistedRoute::Metrics) {
+        // not viewing the dashboard -> don't update
+        return false;
+    }
+    if let Some(loc) = new_loc {
+        if !new_data_is_visible(loc, map_state, true) {
+            return false;
+        }
+    }
+    true
+}
+
 /// Update the dashboard stats for all segments visible in the map view.
 fn update_stats(segments: &[(bool, Vec<&Location>)]) {
     let mut total_stats = DashboardMetrics::default();
+    let mut timeline = Timeline::new();
+    let pins = get_derived_state(|s| s.pins.clone());
     for (visible, seg) in segments.iter() {
         if *visible {
-            let is_dwell = long_dwell_threshold(dwell_score(&seg).iter());
+            let is_dwell = long_dwell_threshold(dwell_score(seg).iter());
             let records_and_isdwell = seg
                 .iter()
-                .map(|l| *l)
+                .copied()
                 .zip(is_dwell.into_iter())
                 .collect::<Vec<_>>();
             total_stats = total_stats
                 .merge_other(&get_segment_stats(&records_and_isdwell));
+            if !timeline.is_empty() {
+                timeline.push(Period::Unknown);
+            }
+            timeline.extend_from_slice(&resolve_timeline_activities(
+                &records_and_isdwell,
+                &pins,
+            ));
         }
     }
     set_derived_state(|s| {
         s.dashboard_metrics = total_stats;
+        s.timeline = timeline;
     });
 }
 
@@ -136,34 +182,68 @@ fn get_segment_stats(records: &[(&Location, bool)]) -> DashboardMetrics {
     }
 }
 
-/// Calculates whether to update, as described in the `update_dashboard`
-/// docstring.
-fn should_update(new_loc: &Option<Location>, map_state: &MapState) -> bool {
-    let route = get_front_state(|front| front.route);
-    if route != Some(PersistedRoute::Metrics) {
-        // not viewing the dashboard -> don't update
-        return false;
-    }
-    if let Some(loc) = new_loc {
-        if !new_data_is_visible(loc, map_state, true) {
-            return false;
+#[allow(unused)]
+fn resolve_timeline_activities(
+    records: &[(&Location, bool)],
+    pins: &[Pin],
+) -> Timeline {
+    let mut timeline = Timeline::new();
+    let chunker = records
+        .iter()
+        .tuple_windows::<(_, _)>()
+        .chunk_by(|((_, da), (_, db))| *da || *db);
+    for (isdwell, chunk) in chunker.into_iter() {
+        let chunk = chunk.map(|((a, _), (b, _))| (a, b)).collect::<Vec<_>>();
+        let first_span = chunk.first().unwrap(); // should exist
+        let start = first_span.0.timestamp;
+        let end = chunk
+            .last()
+            .map(|(_, b)| b.timestamp)
+            .unwrap_or(first_span.1.timestamp);
+        if isdwell {
+            let lnglats_and_weights = chunk.iter().map(|(a, b)| {
+                (a.lnglat(), (b.timestamp - a.timestamp).as_seconds_f64())
+            });
+            let (lnglat, _stddev) =
+                weighted_lnglat_mean_and_stddev_without_outliers(
+                    lnglats_and_weights,
+                    None,
+                );
+            timeline.push(Period::Dwell(Dwell {
+                time: TimeRange { start, end },
+                lnglat,
+            }));
+        } else {
+            let distance: f64 = chunk
+                .iter()
+                .map(|(a, b)| distance_between_locations(a, b))
+                .sum();
+            timeline.push(Period::Movement(Movement {
+                time: TimeRange { start, end },
+                distance,
+            }));
         }
     }
-    true
+    timeline
 }
 
-/// Update the dashboard statistics on navigation to the page.
-pub fn update_dashboard_on_navigate(
-    prev_route: Option<PersistedRoute>,
-    new_route: PersistedRoute,
-) {
-    if new_route == PersistedRoute::Metrics
-        && prev_route != Some(PersistedRoute::Metrics)
-    {
-        get_runtime().spawn(async move {
-            update_dashboard(None).await;
-        });
-    }
+/// Given the mean and stddev of the dwell location, find the pin that
+/// corresponds to the location, if there is a good candidate.
+#[allow(unused)]
+fn find_nearest_pin(
+    location: &LngLat,
+    stddev: f64,
+    pins: &[Pin],
+) -> Option<Pin> {
+    let center =
+        WGS84::from_degrees_and_meters(location.lat, location.lng, 0.0);
+    /*
+    let closest = pins.iter().min_by_key(|p| {
+        // p_loc = WGS84::from_degrees_and_meters(p.
+    });
+    */
+
+    todo!()
 }
 
 // #[instrument(skip_all, level = Level::TRACE)]

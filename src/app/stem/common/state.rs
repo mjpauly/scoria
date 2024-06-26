@@ -20,6 +20,7 @@ use crate::{
     pin::Pin,
     plot_data::TimeSeriesPlot,
     time_range::TimeDeltaRange,
+    timeline::Timeline,
     units::UnitPreference,
     view_position::ViewPosition,
     AutoConfig, LngLat, Location, TimeRange, UserConfig,
@@ -52,6 +53,7 @@ pub struct DerivedState {
     pub pins: Vec<Pin>,
     pub dashboard_metrics: DashboardMetrics,
     pub colored_timeseries_plot: TimeSeriesPlot,
+    pub timeline: Timeline,
 }
 
 /// Driven by backend

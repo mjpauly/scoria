@@ -1,4 +1,14 @@
-use common::Location;
+//! Dwell detection
+//!
+//! Individual location points are annotated with whether they are part of a
+//! dwell. When considering inter-point spans, a span is still considered part
+//! of the dwell if just one of its two bounding points is part of the dwell.
+//!
+//! dwell               x   x       x
+//! non-dwell   x   x                     x   x
+//! all times   |   |                     |   |   (segmentation)
+//!
+use common::{LngLat, Location};
 use itertools::Itertools;
 use nav_types::WGS84;
 use tracing::{instrument, Level};
@@ -36,7 +46,7 @@ pub fn segmented_dwell_scores(
     let mut out = vec![];
     for (visible, seg) in segments.iter() {
         if *visible {
-            out.extend_from_slice(&dwell_score(&seg));
+            out.extend_from_slice(&dwell_score(seg));
         } else {
             out.extend((0..seg.len()).map(|_| None));
         }
@@ -79,26 +89,10 @@ pub fn dwell_score(records: &[&Location]) -> Vec<Option<f64>> {
             .map(|(a, b)| {
                 (a.lnglat(), (b.timestamp - a.timestamp).as_seconds_f64())
             });
-        let lng_mean = weighted_mean(
-            lnglats_and_weights.clone().map(|(ll, w)| (ll.lng, w)),
-        )
-        .unwrap_or(0.0);
-        let lat_mean = weighted_mean(
-            lnglats_and_weights.clone().map(|(ll, w)| (ll.lat, w)),
-        )
-        .unwrap_or(0.0);
-        let center = WGS84::from_degrees_and_meters(lat_mean, lng_mean, 0.0);
-        let squared_distances_and_weights =
-            lnglats_and_weights.clone().map(|(ll, w)| {
-                let pos = WGS84::from_degrees_and_meters(ll.lat, ll.lng, 0.0);
-                (straight_distance(&center, &pos).powi(2), w)
-            });
-        let mut stddev = weighted_mean(squared_distances_and_weights.clone())
-            .unwrap_or(0.0)
-            .sqrt();
-        let without_outliers = squared_distances_and_weights
-            .filter(|(d, _)| d.sqrt() / stddev < OUTLIER_Z_SCORE);
-        stddev = weighted_mean(without_outliers).unwrap_or(0.0).sqrt();
+        let (_, stddev) = weighted_lnglat_mean_and_stddev_without_outliers(
+            lnglats_and_weights.clone(),
+            Some(OUTLIER_Z_SCORE),
+        );
         for min_std in min_stds.iter_mut().take(ei).skip(si) {
             // index the range si..ei
             if let Some(prev) = min_std {
@@ -109,6 +103,53 @@ pub fn dwell_score(records: &[&Location]) -> Vec<Option<f64>> {
         }
     }
     min_stds
+}
+
+/// The outlier z score determines which points should be removed from the mean
+/// and std calculation.
+pub fn weighted_lnglat_mean_and_stddev_without_outliers(
+    lnglats_and_weights: impl Iterator<Item = (LngLat, f64)> + Clone,
+    outlier_z_score: Option<f64>,
+) -> (LngLat, f64) {
+    let (mut center, mut stddev, z_scores) =
+        weighted_lnglat_mean_and_stddev(lnglats_and_weights.clone());
+    if let Some(outlier_threshold) = outlier_z_score {
+        let (newcenter, newstddev, _) = weighted_lnglat_mean_and_stddev(
+            lnglats_and_weights
+                .zip(z_scores)
+                .filter_map(|(llw, z)| (z < outlier_threshold).then_some(llw)),
+        );
+        center = newcenter;
+        stddev = newstddev;
+    }
+    (center, stddev)
+}
+
+/// Get the weighted mean location and the standard deviation of the distances
+/// to that location.
+///
+/// Also returns an iterator over the the z scores for each location.
+pub fn weighted_lnglat_mean_and_stddev(
+    lnglats_and_weights: impl Iterator<Item = (LngLat, f64)> + Clone,
+) -> (LngLat, f64, impl Iterator<Item = f64> + Clone) {
+    let lng =
+        weighted_mean(lnglats_and_weights.clone().map(|(ll, w)| (ll.lng, w)))
+            .unwrap_or(0.0);
+    let lat =
+        weighted_mean(lnglats_and_weights.clone().map(|(ll, w)| (ll.lat, w)))
+            .unwrap_or(0.0);
+    let center = WGS84::from_degrees_and_meters(lat, lng, 0.0);
+    let squared_distances_and_weights =
+        lnglats_and_weights.map(move |(ll, w)| {
+            let pos = WGS84::from_degrees_and_meters(ll.lat, ll.lng, 0.0);
+            (straight_distance(&center, &pos).powi(2), w)
+        });
+    let stddev = weighted_mean(squared_distances_and_weights.clone())
+        .unwrap_or(0.0)
+        .sqrt();
+    let z_scores =
+        squared_distances_and_weights.map(move |(d, _)| d.sqrt() / stddev);
+    (LngLat { lng, lat }, stddev, z_scores)
 }
 
 const LONG_DWELL_THRESHOLD: f64 = 10.0;

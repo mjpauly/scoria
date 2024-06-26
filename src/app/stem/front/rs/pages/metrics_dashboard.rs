@@ -2,6 +2,8 @@
 //! covered, min/max speeds, and starting and ending times.
 
 use common::map_style::ColoredDataStream;
+use common::timeline::Period;
+use common::units::time::format_datetime;
 use serde_json::json;
 use yew::prelude::*;
 use yewdux::prelude::*;
@@ -23,6 +25,7 @@ pub fn MetricsDashboard() -> Html {
             <BouncyScrollContainerBase class="text-left">
                 <DefaultMetrics />
                 // <ColoredTimeSeriesPlot />
+                <Timeline />
             </BouncyScrollContainerBase>
             <TabBar />
         </>
@@ -35,14 +38,10 @@ fn DefaultMetrics() -> Html {
 
     let unit_pref = use_selector(|s: &FrontState| s.unit_pref);
 
-    let f_count = format!("{} points", metrics.count);
+    // let f_count = format!("{} points", metrics.count);
     let unwrap_or_na =
         |maybe_x: Option<String>| maybe_x.unwrap_or_else(|| "N/A".into());
-    let f_distance = if metrics.total_distance > 1000. {
-        unit_pref.format_large_length(metrics.total_distance, Some(3))
-    } else {
-        unit_pref.format_small_length(metrics.total_distance, Some(3))
-    };
+    let f_distance = unit_pref.format_length(metrics.total_distance, Some(3));
     let f_dwell_time =
         humantime::format_duration(metrics.dwell_time.unsigned_abs())
             .to_string();
@@ -72,7 +71,7 @@ fn DefaultMetrics() -> Html {
                 <ScalarMetric title="Min Speed" value={f_min_speed} />
                 <ScalarMetric title="Max Speed" value={f_max_speed} />
                 <ScalarMetric title="Average Speed" value={f_avg_speed} />
-                <ScalarMetric title="Count" value={f_count} />
+                // <ScalarMetric title="Count" value={f_count} />
             </div>
         </div>
     }
@@ -99,6 +98,87 @@ fn ScalarMetric(p: &ScalarMetricProps) -> Html {
             <div class="my-auto">
                 <p class="text-neutral-400 text-sm"> { p.title.clone() } </p>
                 <p class=""> { p.value.clone() } </p>
+            </div>
+        </div>
+    }
+}
+
+#[function_component]
+fn Timeline() -> Html {
+    let timeline = use_selector(|s: &DerivedState| s.timeline.clone());
+    let unit_pref = use_selector(|s: &FrontState| s.unit_pref);
+
+    let format_dur = |dur: time::Duration| {
+        humantime::format_duration(dur.unsigned_abs()).to_string()
+    };
+
+    let elems = timeline.iter().scan(None, |prev_date, period| Some(match period {
+        Period::Dwell(dwell) => {
+            let offset = local_offset();
+            let mut format_time = |t: time::OffsetDateTime| {
+                let with_offset = t.to_offset(offset);
+                let formatted = format_datetime(
+                    &with_offset, prev_date, true)
+                    .unwrap_or_else(|_| "?".to_string());
+                *prev_date = Some(with_offset);
+                formatted
+            };
+            let start_time = format_time(dwell.time.start);
+            let end_time = format_time(dwell.time.end);
+            let f_dur = format_dur(dwell.time.start - dwell.time.end);
+            html! {
+                <div class="flex flex-col gap-1 bg-neutral-900 rounded-lg \
+                    py-2 px-4"
+                >
+                    <div class="text-sm text-neutral-500 flex justify-between">
+                        <span>{ start_time }</span>
+                        <span>{ f_dur }</span>
+                    </div>
+                    <p class="text-lg">
+                        <span class="text-primary">
+                            { unit_pref
+                                .format_angle(dwell.lnglat.lat, Some(5))
+                            }
+                            {", "}
+                            { unit_pref
+                                .format_angle(dwell.lnglat.lng, Some(5))
+                            }
+                        </span>
+                    </p>
+                    <div class="text-sm text-neutral-500"> {end_time} </div>
+                </div>
+            }
+        }
+        Period::Movement(movement) => {
+            let f_dur = format_dur(movement.time.start - movement.time.end);
+            let f_distance =
+                unit_pref.format_length(movement.distance, Some(3));
+            html! {
+                <div class="flex gap-4 px-2 text-neutral-500">
+                    <span class="bg-neutral-500 w-1 rounded-full" />
+                    <span>
+                        { f_distance }
+                    </span>
+                    <span class="flex-grow" />
+                    <span class="text-sm"> { f_dur } </span>
+                </div>
+            }
+        }
+        Period::Unknown => {
+            html! {
+                <hr class="border border-dashed border-neutral-500 mx-2" />
+            }
+        }
+    }));
+
+    html! {
+        <div class="px-4">
+            <h1 class="text-primary text-3xl my-6 text-center">
+                {"Timeline"}
+            </h1>
+
+            <div class="flex flex-col gap-2 mb-4">
+                { for elems }
             </div>
         </div>
     }

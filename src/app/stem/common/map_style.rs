@@ -192,10 +192,7 @@ impl ColoredDataStream {
     /// and this marking helps certain colormapping schemes better associate
     /// related points and produce an accurate colormap.
     pub fn should_get_adjacent(&self) -> bool {
-        match self {
-            Self::LongDwellDetection | Self::DwellScore => true,
-            _ => false,
-        }
+        matches!(self, Self::LongDwellDetection | Self::DwellScore)
     }
 
     /// Selects the right data stream from a common::Location struct
