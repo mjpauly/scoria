@@ -2,11 +2,11 @@
 //!
 //! Individual location points are annotated with whether they are part of a
 //! dwell. When considering inter-point spans, a span is still considered part
-//! of the dwell if just one of its two bounding points is part of the dwell.
+//! of the dwell if its first bounding point is part of the dwell.
 //!
 //! dwell               x   x       x
 //! non-dwell   x   x                     x   x
-//! all times   |   |                     |   |   (segmentation)
+//! all times           |                 |       (segmentation)
 //!
 use common::{LngLat, Location};
 use itertools::Itertools;

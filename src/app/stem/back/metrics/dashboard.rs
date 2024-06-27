@@ -20,6 +20,7 @@ use crate::{
     core::new_data_is_visible,
     database,
     geojson::{BOUND_EXPANSION, DECIMATION_THRESHOLD},
+    metrics::distance::straight_distance,
     runtime::get_runtime,
 };
 
@@ -182,7 +183,6 @@ fn get_segment_stats(records: &[(&Location, bool)]) -> DashboardMetrics {
     }
 }
 
-#[allow(unused)]
 fn resolve_timeline_activities(
     records: &[(&Location, bool)],
     pins: &[Pin],
@@ -191,7 +191,7 @@ fn resolve_timeline_activities(
     let chunker = records
         .iter()
         .tuple_windows::<(_, _)>()
-        .chunk_by(|((_, da), (_, db))| *da || *db);
+        .chunk_by(|((_, da), _)| *da);
     for (isdwell, chunk) in chunker.into_iter() {
         let chunk = chunk.map(|((a, _), (b, _))| (a, b)).collect::<Vec<_>>();
         let first_span = chunk.first().unwrap(); // should exist
@@ -204,14 +204,17 @@ fn resolve_timeline_activities(
             let lnglats_and_weights = chunk.iter().map(|(a, b)| {
                 (a.lnglat(), (b.timestamp - a.timestamp).as_seconds_f64())
             });
-            let (lnglat, _stddev) =
+            let (lnglat, deviation) =
                 weighted_lnglat_mean_and_stddev_without_outliers(
                     lnglats_and_weights,
                     None,
                 );
+            let detected_pin = detect_pin(&lnglat, deviation, pins);
             timeline.push(Period::Dwell(Dwell {
                 time: TimeRange { start, end },
                 lnglat,
+                deviation,
+                detected_pin,
             }));
         } else {
             let distance: f64 = chunk
@@ -227,23 +230,33 @@ fn resolve_timeline_activities(
     timeline
 }
 
-/// Given the mean and stddev of the dwell location, find the pin that
+// The nearest pin must be within 3 standard deviations of the center of the
+// dwell cluster.
+const PIN_THRESH_Z_SCORE: f64 = 3.0;
+
+/// Given the mean and deviation of the dwell location, find the pin that
 /// corresponds to the location, if there is a good candidate.
-#[allow(unused)]
-fn find_nearest_pin(
+///
+/// Returns the pin and the distance to the pin. A pin is returned only if the
+/// closest one is within PIN_THRESH_Z_SCORE standard deviations away from the
+/// dwell cluster.
+fn detect_pin(
     location: &LngLat,
-    stddev: f64,
+    deviation: f64,
     pins: &[Pin],
-) -> Option<Pin> {
+) -> Option<(Pin, f64)> {
     let center =
         WGS84::from_degrees_and_meters(location.lat, location.lng, 0.0);
-    /*
-    let closest = pins.iter().min_by_key(|p| {
-        // p_loc = WGS84::from_degrees_and_meters(p.
-    });
-    */
-
-    todo!()
+    pins.iter()
+        .map(|p| {
+            let pos =
+                WGS84::from_degrees_and_meters(p.lnglat.lat, p.lnglat.lng, 0.0);
+            (p, straight_distance(&center, &pos))
+        })
+        .min_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Equal))
+        .and_then(|(p, dist)| {
+            (dist / deviation < PIN_THRESH_Z_SCORE).then_some((p.clone(), dist))
+        })
 }
 
 // #[instrument(skip_all, level = Level::TRACE)]

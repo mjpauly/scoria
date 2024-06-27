@@ -2,7 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::{LngLat, TimeRange};
+use crate::{pin::Pin, LngLat, TimeRange};
 
 pub type Timeline = Vec<Period>;
 
@@ -23,4 +23,6 @@ pub struct Movement {
 pub struct Dwell {
     pub time: TimeRange,
     pub lnglat: LngLat,
+    pub deviation: f64, // standard deviation of distances to lnglat
+    pub detected_pin: Option<(Pin, f64)>, // detected pin and distance to lnglat
 }

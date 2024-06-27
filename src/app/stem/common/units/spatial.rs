@@ -107,12 +107,18 @@ impl UnitPreference {
 
     /// Format a length either as small or large units, depending on the
     /// magnitude.
-    pub fn format_length(&self, val: f64, prec: Option<usize>) -> String {
-        const LARGE_LENGTH_FORMAT_THRESHOLD: f64 = 1000.0; // meters
+    pub fn format_length(
+        &self,
+        val: f64,
+        small_prec: Option<usize>,
+        large_prec: Option<usize>,
+    ) -> String {
+        // 500 meters is about a quarter mile, which is a good break point
+        const LARGE_LENGTH_FORMAT_THRESHOLD: f64 = 500.0; // meters
         if val > LARGE_LENGTH_FORMAT_THRESHOLD {
-            self.format_large_length(val, prec)
+            self.format_large_length(val, large_prec)
         } else {
-            self.format_small_length(val, prec)
+            self.format_small_length(val, small_prec)
         }
     }
 
