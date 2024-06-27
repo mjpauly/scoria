@@ -23,21 +23,18 @@ pub fn MiscMapSettings() -> Html {
     let dispatch = Dispatch::<FrontState>::new();
     let map = use_selector(|s: &FrontState| s.map.clone());
 
-    let show_last_location_on_click = {
+    let show_last_location_on_click =
         dispatch.reduce_mut_callback(move |s: &mut FrontState| {
             s.map.style.show_last_location = !s.map.style.show_last_location;
-        })
-    };
-    let pins_below_data_onclick = {
+        });
+    let pins_below_data_onclick =
         dispatch.reduce_mut_callback(move |s: &mut FrontState| {
             s.map.style.pins_below_data = !s.map.style.pins_below_data;
-        })
-    };
-    let open_in_google_maps_onclick = {
+        });
+    let open_in_google_maps_onclick =
         dispatch.reduce_mut_callback(move |s: &mut FrontState| {
             s.map.open_in_google_maps = !s.map.open_in_google_maps;
-        })
-    };
+        });
 
     html! {
         <>
@@ -69,11 +66,10 @@ pub fn AutomapSetting() -> Html {
     let dispatch = Dispatch::<FrontState>::new();
     let style = use_selector(|s: &FrontState| s.map.style.clone());
 
-    let automap_onclick = {
+    let automap_onclick =
         dispatch.reduce_mut_callback(move |s: &mut FrontState| {
             s.map.style.automap = !s.map.style.automap;
-        })
-    };
+        });
     let opacity_onchange = dispatch.reduce_mut_callback_with(
         move |s: &mut FrontState, e: InputEvent| -> Option<()> {
             let elem: HtmlInputElement = e.target_dyn_into()?;
@@ -185,11 +181,10 @@ pub fn CacheSetting() -> Html {
     // size of the cache right now
     let curr_cache_size = use_selector(|s: &BackState| s.map_cache_size);
 
-    let disable_fetch_onclick = {
+    let disable_fetch_onclick =
         dispatch.reduce_mut_callback(move |s: &mut FrontState| {
             s.map_cache_pref.disable_fetch = !s.map_cache_pref.disable_fetch;
-        })
-    };
+        });
 
     html! {
         <>

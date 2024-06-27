@@ -283,6 +283,7 @@ mod tests {
     use crate::init;
     use crate::local::local_fs_setup;
     use common::{LocationAccuracyMode, LocationMode, StandardLocationConfig};
+    use pretty_assertions::assert_eq;
 
     use super::{
         fs, AppState, BackState, FrontState, OpenOptions, PersistentState,
@@ -394,12 +395,24 @@ mod tests {
         );
     }
 
+    /// An unexpected enum value can cause "trailing character" errors when
+    /// parsing, unless annotated with `ok_or_default` for enum fields.
     #[tokio::test]
     async fn state_failure_case() {
-        // An unexpected enum value can cause "trailing character" errors when
-        // parsing, unless annotated with `DefaultOnerror`.
         let s = r##"{"front":{"map":{"style":{"colored_datastream":"Unexpected","show_colorbar":false}}}}"##;
         let p: PersistentState = serde_json::from_str(s).unwrap();
         assert!(!p.front.unwrap().map.style.show_colorbar);
+    }
+
+    /// Other field types don't seem to have propagating errors like enums do.
+    #[tokio::test]
+    async fn another_state_failure_case() {
+        let s = r##"{"time_pref":{"twelve_hour_clock":true}}"##;
+        let p: FrontState = serde_json::from_str(s).unwrap();
+        assert_eq!(p.time_pref.twelve_hour_clock, true);
+
+        let s = r##"{"time_pref":{"twelve_hour_clock":"string"}}"##;
+        let p: FrontState = serde_json::from_str(s).unwrap();
+        assert_eq!(p.time_pref.twelve_hour_clock, false);
     }
 }

@@ -12,6 +12,7 @@ pub mod navbar;
 pub mod pin_editor;
 pub mod select;
 pub mod settings_card;
+pub mod time_preference;
 pub mod time_range_picker;
 pub mod typography;
 pub mod unit_picker;

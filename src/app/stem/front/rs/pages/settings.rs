@@ -17,6 +17,7 @@ use yewdux::prelude::*;
 use crate::components::map_settings::{
     AutomapSetting, CacheSetting, MiscMapSettings,
 };
+use crate::components::time_preference::TwelveHourPreference;
 use crate::components::unit_picker::UnitPicker;
 use crate::components::{
     AfterCardParagraph, BouncyScrollContainer, DoneButton, MainSettingsButton,
@@ -155,6 +156,8 @@ pub fn General() -> Html {
                 <H1> {"General"} </H1>
                 <H2> {"Units"} </H2>
                 <UnitPicker />
+                <H2> {"Time"} </H2>
+                <TwelveHourPreference />
             </BouncyScrollContainer>
 
             <HomeBarSpacer />

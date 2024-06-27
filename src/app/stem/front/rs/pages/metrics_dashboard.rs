@@ -4,7 +4,6 @@
 use common::map_style::ColoredDataStream;
 use common::state::MapSettingsTab;
 use common::timeline::Period;
-use common::units::time::format_datetime;
 use common::LngLat;
 use serde_json::json;
 use yew::prelude::*;
@@ -113,6 +112,7 @@ fn ScalarMetric(p: &ScalarMetricProps) -> Html {
 fn Timeline() -> Html {
     let timeline = use_selector(|s: &DerivedState| s.timeline.clone());
     let unit_pref = use_selector(|s: &FrontState| s.unit_pref);
+    let time_pref = use_selector(|s: &FrontState| s.time_pref);
 
     let format_dur = |dur: time::Duration| {
         humantime::format_duration(dur.unsigned_abs()).to_string()
@@ -143,8 +143,8 @@ fn Timeline() -> Html {
             let offset = local_offset();
             let mut format_time = |t: time::OffsetDateTime| {
                 let with_offset = t.to_offset(offset);
-                let formatted = format_datetime(
-                    &with_offset, prev_date, false)
+                let formatted = time_pref
+                    .format_time_with_previous(with_offset, *prev_date)
                     .unwrap_or_else(|_| "?".to_string());
                 *prev_date = Some(with_offset);
                 formatted
@@ -189,13 +189,13 @@ fn Timeline() -> Html {
                     <div class="text-sm text-neutral-500 flex justify-between \
                         w-full"
                     >
-                        <span>{ start_time }</span>
-                        <span>{ f_dur }</span>
+                        <span class="test-left">{ start_time }</span>
+                        <span class="test-right">{ f_dur }</span>
                     </div>
                     // main details
                     <div class="flex flex-col gap-1 w-full">
                         <div class="flex justify-between items-center w-full">
-                            <span>
+                            <span class="text-left">
                                 if let Some((pin, _)) = &dwell.detected_pin {
                                     { format!("{} {}", pin.icon, pin.name) }
                                 } else {
@@ -261,7 +261,7 @@ fn Timeline() -> Html {
                     <div class="text-sm text-neutral-500 flex justify-between \
                         w-full"
                     >
-                        <span>{ end_time }</span>
+                        <span class="text-left">{ end_time }</span>
                         <span></span>
                     </div>
                 </button>

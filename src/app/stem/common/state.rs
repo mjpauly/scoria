@@ -21,7 +21,7 @@ use crate::{
     plot_data::TimeSeriesPlot,
     time_range::TimeDeltaRange,
     timeline::Timeline,
-    units::UnitPreference,
+    units::{time::TimePreference, UnitPreference},
     view_position::ViewPosition,
     AutoConfig, LngLat, Location, TimeRange, UserConfig,
 };
@@ -134,6 +134,10 @@ pub struct FrontState {
     // User's preferred display units
     #[serde(deserialize_with = "ok_or_default")]
     pub unit_pref: UnitPreference,
+
+    // User's preferred display units
+    #[serde(deserialize_with = "ok_or_default")]
+    pub time_pref: TimePreference,
 
     // Map data cache preferences
     #[serde(deserialize_with = "ok_or_default")]

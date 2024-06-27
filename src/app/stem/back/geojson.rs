@@ -19,6 +19,7 @@
 
 use actix_identity::Identity;
 use actix_web::{http::header::ContentType, routes, HttpResponse, Responder};
+use common::units::time::TimePreference;
 use common::view_position::LngLatBounds;
 use geojson::{Feature, FeatureCollection, GeoJson, JsonObject, Value};
 
@@ -435,8 +436,9 @@ pub async fn get_popup_text(
     lnglat: LngLat,
     data_color: Option<String>,
 ) -> Option<ToFront> {
-    let (map_state, unit_pref) =
-        get_front_state(|front| (front.map.clone(), front.unit_pref))?;
+    let (map_state, unit_pref, time_pref) = get_front_state(|front| {
+        (front.map.clone(), front.unit_pref, front.time_pref)
+    })?;
 
     // use the bound expansion so the decimation is identical
     let records = database::FilteredQuery::new()
@@ -463,7 +465,7 @@ pub async fn get_popup_text(
     }
     // get() safely indexes into records so we return None if no data
     records.get(argmin).map(|loc| {
-        let text = location_popup_text(local_offset, &unit_pref, loc);
+        let text = location_popup_text(local_offset, unit_pref, time_pref, loc);
         let bg_color = data_color
             .unwrap_or_else(|| map_state.style.solid_color.rgb.clone());
         ToFront::PopupText {
@@ -479,7 +481,8 @@ pub async fn get_popup_text(
 
 pub fn location_popup_text(
     local_offset: time::UtcOffset,
-    unit_pref: &UnitPreference,
+    unit_pref: UnitPreference,
+    time_pref: TimePreference,
     loc: &common::Location,
 ) -> String {
     let latlon = format!(
@@ -521,9 +524,8 @@ pub fn location_popup_text(
         latlon,
         accuracy_speed_course,
         alt,
-        loc.timestamp
-            .to_offset(local_offset)
-            .format(&time::format_description::well_known::Rfc2822)
-            .unwrap_or_else(|_| "Timestamp unavailable".to_string())
+        time_pref
+            .format_time(loc.timestamp.to_offset(local_offset))
+            .unwrap_or_else(|_| "Time ?".to_string())
     )
 }
