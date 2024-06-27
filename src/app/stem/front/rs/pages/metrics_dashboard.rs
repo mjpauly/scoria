@@ -186,14 +186,16 @@ fn Timeline() -> Html {
                     py-2 px-4"
                 >
                     // header
-                    <div class="text-sm text-neutral-500 flex justify-between">
+                    <div class="text-sm text-neutral-500 flex justify-between \
+                        w-full"
+                    >
                         <span>{ start_time }</span>
                         <span>{ f_dur }</span>
                     </div>
                     // main details
-                    <div class="flex flex-col gap-1">
-                        <div class="flex justify-between items-center">
-                            <span class="text-lg">
+                    <div class="flex flex-col gap-1 w-full">
+                        <div class="flex justify-between items-center w-full">
+                            <span>
                                 if let Some((pin, _)) = &dwell.detected_pin {
                                     { format!("{} {}", pin.icon, pin.name) }
                                 } else {
@@ -212,7 +214,9 @@ fn Timeline() -> Html {
                             />
                         </div>
                         if *show_details == Some(i) {
-                            <div class="flex justify-between items-center">
+                            <div class="flex justify-between items-center \
+                                w-full"
+                            >
                                 <div class="flex flex-col text-neutral-500 \
                                     text-left text-sm"
                                 >
@@ -248,13 +252,15 @@ fn Timeline() -> Html {
                                     )}
                                     onclick={create_pin_onclick}
                                 >
-                                    { "Create New Pin" }
+                                    { "New Pin" }
                                 </button>
                             </div>
                         }
                     </div>
                     // footer
-                    <div class="text-sm text-neutral-500 flex justify-between">
+                    <div class="text-sm text-neutral-500 flex justify-between \
+                        w-full"
+                    >
                         <span>{ end_time }</span>
                         <span></span>
                     </div>

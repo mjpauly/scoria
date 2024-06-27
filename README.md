@@ -4,12 +4,15 @@
 
 Current: android, pins
 
-- data organization and sharing
+- 1.4 release
+    - [ ] am/pm
     - [ ] view subset of pins
+    - [ ] in-app guide
+    - [ ] cleanup plotly element
+    - [ ] option to manually delete outlier data points
+    - [ ] remove tails from dwells?
+- data organization and sharing
     - [ ] share pins with others
-- [ ] timeline view of dwells
-- [ ] remove dwells from distance calculation
-- [ ] in-app guide
 - [ ] release binary for desktop scoria
 - [ ] queries/metrics for selected data (distance/time/speed traveled/dwelled, average distanced traveled (mean free path))
 - [ ] icloud backups
