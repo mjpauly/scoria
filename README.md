@@ -11,6 +11,7 @@ Current: android, pins
         - discuss how entering low power mode stops data, need to reopen
         - also after update
         - discuss power use factors
+        - use filters to make timeline good (30m / 100ft)
     - [ ] cleanup plotly element
     - [ ] option to manually delete outlier data points
     - [ ] remove tails from dwells?

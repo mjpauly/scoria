@@ -12,7 +12,7 @@ use tracing::{instrument, Level};
 use crate::metrics::dashboard::update_timeseries_plot_data;
 
 use super::dwells::{
-    long_dwell_threshold, segment_on_visibility, segmented_dwell_scores,
+    dwell_score_segment, long_dwell_threshold, segment_on_visibility,
     short_dwell_detect,
 };
 
@@ -67,7 +67,10 @@ pub fn get_colored_data_vals(
     } else if *colored_datastream == ColoredDataStream::LongDwellDetection {
         long_dwell_colors(records)
     } else if *colored_datastream == ColoredDataStream::DwellScore {
-        segmented_dwell_scores(&segment_on_visibility(records))
+        segment_on_visibility(records)
+            .iter()
+            .flat_map(|s| dwell_score_segment(s))
+            .collect()
     } else {
         debug_assert!(colored_datastream.is_point_coloring());
         records
@@ -110,11 +113,13 @@ fn dwell_to_colorval(val: bool) -> f64 {
     }
 }
 
+#[instrument(skip_all, level = Level::TRACE)]
 fn long_dwell_colors(records: &[(&Location, bool)]) -> Vec<Option<f64>> {
-    let is_dwells = long_dwell_threshold(
-        segmented_dwell_scores(&segment_on_visibility(records)).iter(),
-    );
-    let chunker = is_dwells.iter().chunk_by(|is_dwell| *is_dwell);
+    let segmented = segment_on_visibility(records);
+    let is_dwells = segmented
+        .iter()
+        .flat_map(|s| long_dwell_threshold(dwell_score_segment(s).into_iter()));
+    let chunker = is_dwells.chunk_by(|is_dwell| *is_dwell);
     let mut out = vec![];
     let mut c = 0;
     for (k, chunk) in chunker.into_iter() {

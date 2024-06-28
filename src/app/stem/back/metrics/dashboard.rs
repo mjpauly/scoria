@@ -106,7 +106,7 @@ fn update_stats(segments: &[(bool, Vec<&Location>)]) {
     let pins = get_derived_state(|s| s.pins.clone());
     for (visible, seg) in segments.iter() {
         if *visible {
-            let is_dwell = long_dwell_threshold(dwell_score(seg).iter());
+            let is_dwell = long_dwell_threshold(dwell_score(seg).into_iter());
             let records_and_isdwell = seg
                 .iter()
                 .copied()

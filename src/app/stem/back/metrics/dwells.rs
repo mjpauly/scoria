@@ -25,8 +25,8 @@ pub fn short_dwell_detect(a: &Location, b: &Location) -> bool {
     avg_speed(a, b) < SHORT_DWELL_SPEED_THRESH_MPS
 }
 
-/// Segment a string of locations into a the continous segments without jumps at
-/// the edge of the map view bounds.
+/// Segment a string of locations into continous segments without jumps at the
+/// edge of the map view bounds.
 ///
 /// bool is if the point is visible.
 pub fn segment_on_visibility<'a>(
@@ -39,29 +39,38 @@ pub fn segment_on_visibility<'a>(
         .collect::<Vec<_>>()
 }
 
-/// Score dwells after doing visibility segmentation.
-pub fn segmented_dwell_scores(
-    segments: &[(bool, Vec<&Location>)],
+// The dwell score threshold in m.
+const LONG_DWELL_THRESHOLD: f64 = 10.0;
+
+/// Returns true for records that are part of a dwell.
+///
+/// Attempts to merge adjacent dwells that should be together, so should be
+/// called on each visible segment separately.
+pub fn long_dwell_threshold(
+    scores: impl Iterator<Item = Option<f64>>,
+) -> impl Iterator<Item = bool> {
+    scores.map(|ds| ds.map(|v| v <= LONG_DWELL_THRESHOLD).unwrap_or(false))
+}
+
+/// Score dwells on a visible/non-visible segment.
+pub fn dwell_score_segment(
+    (visible, seg): &(bool, Vec<&Location>),
 ) -> Vec<Option<f64>> {
-    let mut out = vec![];
-    for (visible, seg) in segments.iter() {
-        if *visible {
-            out.extend_from_slice(&dwell_score(seg));
-        } else {
-            out.extend((0..seg.len()).map(|_| None));
-        }
+    if *visible {
+        dwell_score(seg)
+    } else {
+        (0..seg.len()).map(|_| None).collect()
     }
-    out
 }
 
 const LONG_DWELL_WIDTH_SECS: u64 = 120;
 const OUTLIER_Z_SCORE: f64 = 2.5;
 
-/// Slide a window at least 2 minutes long, and count all points a dwell if
-/// standard deviation is small enough.
+/// Slide a window at least 2 minutes long, and score each point as the minimum
+/// deviation from the center point for the window.
 ///
-/// Must be a continuous segment of data points (no jumps due to view bounds
-/// edges).
+/// Center points and deviations are weighted by time spent at the point. Must
+/// be a continuous segment of data points (no jumps due to view bounds edges).
 #[instrument(skip_all, level = Level::TRACE)]
 pub fn dwell_score(records: &[&Location]) -> Vec<Option<f64>> {
     let mut min_stds = vec![Option::<f64>::None; records.len()];
@@ -152,16 +161,6 @@ pub fn weighted_lnglat_mean_and_stddev(
     (LngLat { lng, lat }, stddev, z_scores)
 }
 
-const LONG_DWELL_THRESHOLD: f64 = 10.0;
-
-/// Returns true for records that are part of a dwell.
-pub fn long_dwell_threshold<'a>(
-    scores: impl Iterator<Item = &'a Option<f64>>,
-) -> Vec<bool> {
-    scores
-        .map(|ds| ds.map(|v| v <= LONG_DWELL_THRESHOLD).unwrap_or(false))
-        .collect()
-}
 /*
 #[instrument(skip_all, level = Level::TRACE)]
 pub fn merge_close_dwells(records: &mut [(&Location, Option<bool>)]) {
