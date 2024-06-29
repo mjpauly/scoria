@@ -80,6 +80,7 @@ pub fn TabBar() -> Html {
             IconId::BootstrapGlobeAmericas,
             "h-5 w-5",
         ),
+        (Route::Places, "Places", IconId::BootstrapShop, "h-5 w-5"),
         (
             Route::Metrics,
             "Stats",
@@ -119,7 +120,7 @@ pub fn TabBar() -> Html {
     });
     html! {
         <nav class="sticky bottom-0 backdrop-blur-xl bg-black/20 z-20 \
-            grid grid-cols-3 justify-items-stretch">
+            grid grid-cols-4 justify-items-stretch">
             {for items}
         </nav>
     }

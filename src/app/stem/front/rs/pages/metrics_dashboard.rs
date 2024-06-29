@@ -4,6 +4,7 @@
 use common::map_style::ColoredDataStream;
 use common::state::MapSettingsTab;
 use common::timeline::Period;
+use common::units::time::format_day_of_week;
 use common::LngLat;
 use serde_json::json;
 use yew::prelude::*;
@@ -120,18 +121,36 @@ fn Timeline() -> Html {
 
     let navigator = use_navigator().unwrap();
     let front_dispatch = Dispatch::<FrontState>::new();
-    let create_pin = front_dispatch.reduce_mut_callback_with(
+    let create_pin = {
+        let navigator = navigator.clone();
+        front_dispatch.reduce_mut_callback_with(
+            move |state: &mut FrontState, lnglat: LngLat| {
+                state.map.selected_pin_id = None;
+                state.map.current_pin = Default::default();
+                state.map.current_pin.lnglat = lnglat;
+                state.map.settings_tab = MapSettingsTab::PinDetails;
+                state.map.editable_pin = true;
+                navigator.push(&Route::Analyze)
+            },
+        )
+    };
+    let goto_location = front_dispatch.reduce_mut_callback_with(
         move |state: &mut FrontState, lnglat: LngLat| {
-            state.map.selected_pin_id = None;
-            state.map.current_pin = Default::default();
-            state.map.current_pin.lnglat = lnglat;
-            state.map.settings_tab = MapSettingsTab::PinDetails;
-            state.map.editable_pin = true;
+            state.map.view_pos.center = lnglat;
+            state.map.view_pos.zoom = 16.0;
             navigator.push(&Route::Analyze)
         },
     );
 
     let show_details = use_state(|| Option::<usize>::None);
+
+    let new_day_html = |day: String| {
+        html! {
+            <div class="text-left text-neutral-500">
+                {"🗓️ "}{day}
+            </div>
+        }
+    };
 
     // `scan` lets us carry the previous date forward as state
     let elems = timeline.iter().enumerate().scan(
@@ -141,21 +160,31 @@ fn Timeline() -> Html {
         // indent omitted
         Period::Dwell(dwell) => {
             let offset = local_offset();
-            let mut format_time = |t: time::OffsetDateTime| {
-                let with_offset = t.to_offset(offset);
+            let mut format_time = |raw_date: time::OffsetDateTime| {
+                let current = raw_date.to_offset(offset);
                 let formatted = time_pref
-                    .format_time_with_previous(with_offset, *prev_date)
+                    .format_time_with_previous(current, *prev_date)
                     .unwrap_or_else(|_| "?".to_string());
-                *prev_date = Some(with_offset);
-                formatted
+                let new_day = prev_date
+                    .map(|p| (p.date() != current.date())
+                        .then(|| format_day_of_week(current)
+                            .unwrap_or_else(|_| "New Day".to_string())))
+                    .flatten();
+                *prev_date = Some(current);
+                (formatted, new_day)
             };
-            let start_time = format_time(dwell.time.start);
-            let end_time = format_time(dwell.time.end);
+            // display a new day marker after the element where the day changed
+            let (start_time, new_day_before) = format_time(dwell.time.start);
+            let (end_time, new_day_after) = format_time(dwell.time.end);
             let f_dur = format_dur(dwell.time.start - dwell.time.end);
+            let lnglat = dwell.lnglat;
             let create_pin_onclick = {
                 let create_pin = create_pin.clone();
-                let lnglat = dwell.lnglat; // don't want to move dwell reference
                 Callback::from(move |_e: MouseEvent| create_pin.emit(lnglat))
+            };
+            let goto_location_onclick = {
+                let goto_location = goto_location.clone();
+                Callback::from(move |_e: MouseEvent| goto_location.emit(lnglat))
             };
             let show_details_onclick = {
                 let show_details = show_details.clone();
@@ -167,19 +196,29 @@ fn Timeline() -> Html {
                     }
                 })
             };
-            let f_lnglat = format!(
-                "{}, {}",
-                unit_pref.format_angle(dwell.lnglat.lat, Some(5)),
-                unit_pref.format_angle(dwell.lnglat.lng, Some(5))
-            );
+            let f_lnglat = html!{
+                <>
+                    // preserve whitespace but also wrap
+                    <span class="inline-block whitespace-pre-wrap">
+                        {format!(
+                            "{}, ",
+                            unit_pref.format_angle(lnglat.lat, Some(5))
+                        )}
+                    </span>
+                    <span class="inline-block">
+                        {unit_pref.format_angle(lnglat.lng, Some(5))}
+                    </span>
+                </>
+            };
             let f_deviation = format!(
                 "±{}",
-                unit_pref.format_small_length(
-                    dwell.deviation,
-                    Some(2),
-                ),
+                unit_pref.format_small_length(dwell.deviation, Some(2)),
             );
             html! {
+                <>
+                if let Some(day) = new_day_before {
+                    {new_day_html(day)}
+                }
                 <button
                     onclick={show_details_onclick}
                     class="flex flex-col gap-1 bg-neutral-900 rounded-lg \
@@ -187,14 +226,19 @@ fn Timeline() -> Html {
                 >
                     // header
                     <div class="text-sm text-neutral-500 flex justify-between \
-                        w-full"
+                        w-full gap-4"
                     >
-                        <span class="test-left">{ start_time }</span>
-                        <span class="test-right">{ f_dur }</span>
+                        // grow, but have a short basis to preferentially wrap
+                        <span class="text-left basis-1/2 grow">
+                            { start_time }
+                        </span>
+                        <span class="text-right">{ f_dur }</span>
                     </div>
                     // main details
                     <div class="flex flex-col gap-1 w-full">
-                        <div class="flex justify-between items-center w-full">
+                        <div class="flex justify-between items-center w-full \
+                            gap-2"
+                        >
                             <span class="text-left">
                                 if let Some((pin, _)) = &dwell.detected_pin {
                                     { format!("{} {}", pin.icon, pin.name) }
@@ -214,30 +258,38 @@ fn Timeline() -> Html {
                             />
                         </div>
                         if *show_details == Some(i) {
-                            <div class="flex justify-between items-center \
-                                w-full"
+                            <div class="flex justify-between items-start \
+                                w-full gap-4"
                             >
                                 <div class="flex flex-col text-neutral-500 \
-                                    text-left text-sm"
+                                    text-left text-sm justify-start"
                                 >
                                     if let Some((_pin, dist)) =
                                         &dwell.detected_pin
                                     {
                                         <span>
-                                            {format!(
-                                                "{} {}",
-                                                f_lnglat,
-                                                f_deviation,
-                                            )}
+                                            <span
+                                                class="inline-block"
+                                            >
+                                                {f_lnglat}
+                                            </span>
+                                            {" "}
+                                            <span
+                                                class="inline-block"
+                                            >
+                                                {f_deviation}
+                                            </span>
                                         </span>
                                         <span>
-                                            {format!(
-                                                "Distance to pin: {}",
-                                                unit_pref.format_small_length(
+                                            <span class="whitespace-pre-wrap">
+                                                {"Distance to place: "}
+                                            </span>
+                                            <span class="inline-block">
+                                                {unit_pref.format_small_length(
                                                     *dist,
                                                     Some(2)
-                                                ),
-                                            )}
+                                                )}
+                                            </span>
                                         </span>
                                     } else {
                                         <span>
@@ -245,15 +297,28 @@ fn Timeline() -> Html {
                                         </span>
                                     }
                                 </div>
-                                <button
-                                    class={classes!(
-                                        SECONDARY_BUTTON_STYLE.to_string(),
-                                        "text-base px-2 py-1".to_string(),
-                                    )}
-                                    onclick={create_pin_onclick}
+                                <div class="flex flex-col justify-end \
+                                    items-end gap-2 flex-wrap"
                                 >
-                                    { "New Pin" }
-                                </button>
+                                    <button
+                                        class={classes!(
+                                            SECONDARY_BUTTON_STYLE.to_string(),
+                                            "text-base px-2 py-1".to_string(),
+                                        )}
+                                        onclick={goto_location_onclick}
+                                    >
+                                        { "Show on Map" }
+                                    </button>
+                                    <button
+                                        class={classes!(
+                                            SECONDARY_BUTTON_STYLE.to_string(),
+                                            "text-base px-2 py-1".to_string(),
+                                        )}
+                                        onclick={create_pin_onclick}
+                                    >
+                                        { "New Place" }
+                                    </button>
+                                </div>
                             </div>
                         }
                     </div>
@@ -265,6 +330,13 @@ fn Timeline() -> Html {
                         <span></span>
                     </div>
                 </button>
+                // if new_day_after {
+                    // {new_day_html.clone()}
+                // }
+                if let Some(day) = new_day_after {
+                    {new_day_html(day)}
+                }
+                </>
             }
         }
         Period::Movement(movement) => {

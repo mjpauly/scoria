@@ -86,6 +86,12 @@ pub fn format_datetime(
     Ok(out)
 }
 
+pub fn format_day_of_week(
+    t: OffsetDateTime,
+) -> Result<String, time::error::Format> {
+    t.format(&format_description!("[weekday repr:long]"))
+}
+
 #[cfg(test)]
 mod tests {
     use pretty_assertions::assert_eq;

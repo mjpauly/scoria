@@ -311,6 +311,7 @@ crates_repository(
                 "BootstrapPlus",
                 "BootstrapPlusLg",
                 "BootstrapQuestionCircle",
+                "BootstrapShop",
                 "BootstrapSquare",
                 "BootstrapSquareFill",
                 "BootstrapTrash",

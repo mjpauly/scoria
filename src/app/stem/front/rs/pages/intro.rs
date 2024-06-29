@@ -147,9 +147,6 @@ fn IntroStart() -> Html {
             <p class="text-primary text-2xl mb-6">
                 {"Introduction"}
             </p>
-            <p class="mb-6 italic">
-                {"Updated Aug 2, 2023"}
-            </p>
             <p class="mb-3">
                 {"🗺️ Scoria is your toolkit for privately logging and analyzing
                 your location history."}

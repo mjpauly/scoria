@@ -144,6 +144,7 @@ fn build(listener: TcpListener, frontend_key: FrontendKey) -> Server {
                     .service(web::redirect("/analyze", "./"))
                     .service(web::redirect("/intro", "./"))
                     .service(web::redirect("/sense", "./"))
+                    .service(web::redirect("/places", "./"))
                     .service(web::redirect("/metrics", "./"))
                     .service(web::redirect("/settings", "./"))
                     .service(web::redirect("/settings/{subpath}", "../"))

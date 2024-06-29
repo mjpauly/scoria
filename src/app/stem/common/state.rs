@@ -159,6 +159,7 @@ pub enum PersistedRoute {
     #[default]
     Sense,
     Analyze,
+    Places,
     Metrics,
     SettingsRoot,
     SettingsSubpage,

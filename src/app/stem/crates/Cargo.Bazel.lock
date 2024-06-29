@@ -1,5 +1,5 @@
 {
-  "checksum": "4714fe5302c79181ced6e00796363a3738063ae92ea74ab5b76f9d11e670ed99",
+  "checksum": "6aa41e0d83c1e2d67a7b566855eba98949c811d5c0a75b5dda7d7e7badb23435",
   "crates": {
     "actix 0.13.0": {
       "name": "actix",
@@ -26304,6 +26304,7 @@
             "BootstrapPlus",
             "BootstrapPlusLg",
             "BootstrapQuestionCircle",
+            "BootstrapShop",
             "BootstrapSquare",
             "BootstrapSquareFill",
             "BootstrapTrash",

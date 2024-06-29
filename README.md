@@ -2,17 +2,17 @@
 
 ## To Do
 
-Current: android, pins
+Current: day demarcation in timeline
+Then: show/hide pins
 
 - 1.4 release
-    - [ ] am/pm
     - [ ] view subset of pins
     - [ ] in-app guide
         - discuss how entering low power mode stops data, need to reopen
         - also after update
         - discuss power use factors
         - use filters to make timeline good (30m / 100ft)
-    - [ ] cleanup plotly element
+    - [ ] cleanup plotly element buttons
     - [ ] option to manually delete outlier data points
     - [ ] remove tails from dwells?
 - data organization and sharing

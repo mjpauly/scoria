@@ -22,6 +22,8 @@ pub enum Route {
     Sense,
     #[at("/analyze")]
     Analyze,
+    #[at("/places")]
+    Places,
     #[at("/metrics")]
     Metrics,
     #[at("/settings")]
@@ -73,6 +75,7 @@ pub fn switch(route: Route) -> Html {
         Route::Sense => html! { <pages::Sense /> },
         Route::Splash => html! { <pages::Splash /> },
         Route::Analyze => html! { <pages::Analyze /> },
+        Route::Places => html! { <pages::Places /> },
         Route::Metrics => html! { <pages::MetricsDashboard /> },
         Route::SettingsRoot | Route::SettingsSubpage => html! {
             <Switch<SettingsRoute> render={switch_settings} />
@@ -118,6 +121,7 @@ impl Route {
         match *r {
             PersistedRoute::Sense => Self::Sense,
             PersistedRoute::Analyze => Self::Analyze,
+            PersistedRoute::Places => Self::Places,
             PersistedRoute::Metrics => Self::Metrics,
             PersistedRoute::SettingsRoot => Self::SettingsRoot,
             PersistedRoute::SettingsSubpage => Self::SettingsSubpage,
@@ -129,6 +133,7 @@ impl Route {
         match self {
             Self::Sense => PersistedRoute::Sense,
             Self::Analyze => PersistedRoute::Analyze,
+            Self::Places => PersistedRoute::Places,
             Self::Metrics => PersistedRoute::Metrics,
             Self::SettingsRoot => PersistedRoute::SettingsRoot,
             Self::SettingsSubpage => PersistedRoute::SettingsSubpage,
