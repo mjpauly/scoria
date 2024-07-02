@@ -114,13 +114,23 @@ fn update_stats(segments: &[(bool, Vec<&Location>)]) {
                 .collect::<Vec<_>>();
             total_stats = total_stats
                 .merge_other(&get_segment_stats(&records_and_isdwell));
+            let new_timeline_part =
+                resolve_timeline_activities(&records_and_isdwell, &pins);
+            if !new_timeline_part
+                .iter()
+                .any(|a| matches!(a, Period::Dwell(_)))
+            {
+                // skip any contiguous regions without dwell data, e.g. if the
+                // map edge slices through some activity that gets detected as
+                // a bunch of short movement-only segments.
+                continue;
+            }
             if !timeline.is_empty() {
+                // anytime the location track leaves the view bounds we have a
+                // Period::Unknown
                 timeline.push(Period::Unknown);
             }
-            timeline.extend_from_slice(&resolve_timeline_activities(
-                &records_and_isdwell,
-                &pins,
-            ));
+            timeline.extend_from_slice(&new_timeline_part);
         }
     }
     set_derived_state(|s| {
@@ -183,8 +193,11 @@ fn get_segment_stats(records: &[(&Location, bool)]) -> DashboardMetrics {
     }
 }
 
+/// Given a contiguous segment of activity marked with whether a dwell occurs,
+/// and given a list of the pins to consider, extract a timeline of the
+/// activities.
 fn resolve_timeline_activities(
-    records: &[(&Location, bool)],
+    records: &[(&Location, bool)], // bool is whether it's a dwell
     pins: &[Pin],
 ) -> Timeline {
     let mut timeline = Timeline::new();

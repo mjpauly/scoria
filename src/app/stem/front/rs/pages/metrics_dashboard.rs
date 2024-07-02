@@ -130,17 +130,13 @@ fn Timeline() -> Html {
                 state.map.current_pin.lnglat = lnglat;
                 state.map.settings_tab = MapSettingsTab::PinDetails;
                 state.map.editable_pin = true;
+                // center view on the new pin
+                state.map.view_pos.center = lnglat;
+                state.map.view_pos.zoom = 16.0;
                 navigator.push(&Route::Analyze)
             },
         )
     };
-    let goto_location = front_dispatch.reduce_mut_callback_with(
-        move |state: &mut FrontState, lnglat: LngLat| {
-            state.map.view_pos.center = lnglat;
-            state.map.view_pos.zoom = 16.0;
-            navigator.push(&Route::Analyze)
-        },
-    );
 
     let show_details = use_state(|| Option::<usize>::None);
 
@@ -181,10 +177,6 @@ fn Timeline() -> Html {
             let create_pin_onclick = {
                 let create_pin = create_pin.clone();
                 Callback::from(move |_e: MouseEvent| create_pin.emit(lnglat))
-            };
-            let goto_location_onclick = {
-                let goto_location = goto_location.clone();
-                Callback::from(move |_e: MouseEvent| goto_location.emit(lnglat))
             };
             let show_details_onclick = {
                 let show_details = show_details.clone();
@@ -305,15 +297,6 @@ fn Timeline() -> Html {
                                             SECONDARY_BUTTON_STYLE.to_string(),
                                             "text-base px-2 py-1".to_string(),
                                         )}
-                                        onclick={goto_location_onclick}
-                                    >
-                                        { "Show on Map" }
-                                    </button>
-                                    <button
-                                        class={classes!(
-                                            SECONDARY_BUTTON_STYLE.to_string(),
-                                            "text-base px-2 py-1".to_string(),
-                                        )}
                                         onclick={create_pin_onclick}
                                     >
                                         { "New Place" }
@@ -330,9 +313,6 @@ fn Timeline() -> Html {
                         <span></span>
                     </div>
                 </button>
-                // if new_day_after {
-                    // {new_day_html.clone()}
-                // }
                 if let Some(day) = new_day_after {
                     {new_day_html(day)}
                 }
