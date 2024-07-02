@@ -1,5 +1,5 @@
 {
-  "checksum": "6aa41e0d83c1e2d67a7b566855eba98949c811d5c0a75b5dda7d7e7badb23435",
+  "checksum": "0bb924c5c5df00500df7e55a52d7a96f744fb4cdc911542c0b36ee7dfe074309",
   "crates": {
     "actix 0.13.0": {
       "name": "actix",
@@ -26294,7 +26294,12 @@
             "BootstrapFullscreen",
             "BootstrapFunnel",
             "BootstrapGear",
+            "BootstrapGearWideConnected",
+            "BootstrapGeoAlt",
             "BootstrapGlobeAmericas",
+            "BootstrapGlobeAsiaAustralia",
+            "BootstrapGlobeCentralSouthAsia",
+            "BootstrapGlobeEuropeAfrica",
             "BootstrapGraphUp",
             "BootstrapInfoCircle",
             "BootstrapInfoCircleFill",

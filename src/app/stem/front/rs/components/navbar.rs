@@ -5,8 +5,10 @@ use yew::prelude::*;
 use yew::MouseEvent;
 use yew_icons::{Icon, IconId};
 use yew_router::prelude::*;
+use yewdux::prelude::*;
 
 use crate::router::Route;
+use crate::ui_state::FrontState;
 
 // Spacing for bottom navigation (tabs or forward/backwards buttons) to not
 // impinge on the homebar. Spacing is automatically set for iOS devices.
@@ -69,23 +71,36 @@ pub fn TabBar() -> Html {
     let navigator = use_navigator().unwrap();
     let curr_route: Option<Route> = use_route();
 
+    // set globe icon irientation to current map view position
+    let viewing_lng = use_selector(|s: &FrontState| s.map.view_pos.center.lng);
+    let globe_icon = if *viewing_lng < -27.0 {
+        IconId::BootstrapGlobeAmericas
+    } else if *viewing_lng < 51.0 {
+        IconId::BootstrapGlobeEuropeAfrica
+    } else if *viewing_lng < 89.0 {
+        IconId::BootstrapGlobeCentralSouthAsia
+    } else {
+        IconId::BootstrapGlobeAsiaAustralia
+    };
+
     // We scale the icons differently since their visual size for the same width
     // is sometimes different.
+    let default_hw = "h-5 w-5";
     let view_routes = vec![
         // (route, label, icon, icon_scale)
-        (Route::Sense, "Log", IconId::BootstrapJoystick, "h-5 w-5"),
         (
-            Route::Analyze,
-            "Map",
-            IconId::BootstrapGlobeAmericas,
-            "h-5 w-5",
+            Route::Sense,
+            "Log",
+            IconId::BootstrapGearWideConnected,
+            default_hw,
         ),
-        (Route::Places, "Places", IconId::BootstrapShop, "h-5 w-5"),
+        (Route::Analyze, "Map", globe_icon, default_hw),
+        (Route::Places, "Places", IconId::BootstrapGeoAlt, default_hw),
         (
             Route::Metrics,
             "Stats",
             IconId::BootstrapClipboard2Pulse,
-            "h-5 w-5",
+            default_hw,
         ),
     ];
 

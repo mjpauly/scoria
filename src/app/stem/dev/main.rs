@@ -47,7 +47,7 @@ async fn data_generator() {
     // let starting_n = 1;
     let mut data = stem::database::OSLocationData {
         timestamp: time::OffsetDateTime::now_utc().unix_timestamp()
-            - starting_n,
+            - (starting_n * update_rate as i64),
         latitude: 35.68697,
         longitude: 139.70140,
         horizontal_accuracy: random::<f64>() * 3.0 + 2.0,
