@@ -823,16 +823,22 @@ impl<'a> FilteredQuery {
         let mut q = self.get_bounds_query(false);
         let query_as = q.build_query_as::<LngLatBoundsResult>();
         match query_as.fetch_one(&get_db_pool()).await {
-            Ok(res) => Some(LngLatBounds {
+            Ok(LngLatBoundsResult(
+                Some(swlng),
+                Some(swlat),
+                Some(nelng),
+                Some(nelat),
+            )) => Some(LngLatBounds {
                 sw: LngLat {
-                    lng: res.0,
-                    lat: res.1,
+                    lng: swlng,
+                    lat: swlat,
                 },
                 ne: LngLat {
-                    lng: res.2,
-                    lat: res.3,
+                    lng: nelng,
+                    lat: nelat,
                 },
             }),
+            Ok(_) => None,
             Err(e) => {
                 error!("Failed to get bounds for filtered query: {e}");
                 None
@@ -841,8 +847,9 @@ impl<'a> FilteredQuery {
     }
 }
 
+/// Results from Sqlite MIN/MAX functions can be NULL.
 #[derive(FromRow)]
-struct LngLatBoundsResult(f64, f64, f64, f64);
+struct LngLatBoundsResult(Option<f64>, Option<f64>, Option<f64>, Option<f64>);
 
 fn to_common_locations(recs: Vec<LocationRow>) -> Vec<common::Location> {
     recs.into_iter().map(|l| l.into()).collect()
