@@ -3,16 +3,19 @@
 
 use common::map_style::ColoredDataStream;
 use common::state::MapSettingsTab;
-use common::timeline::Period;
-use common::units::time::format_day_of_week;
+use common::timeline::PeriodKind;
+use common::units::time::LONG_DAY_OF_WEEK_AND_DATE;
 use common::LngLat;
 use serde_json::json;
+use time::OffsetDateTime;
 use yew::prelude::*;
 use yew_icons::{Icon, IconId};
 use yew_router::prelude::*;
 use yewdux::prelude::*;
 
-use crate::components::time_range_picker::local_offset;
+use crate::components::time_range_picker::{
+    local_offset, time_delta_range_date,
+};
 use crate::components::{BouncyScrollContainerBase, SECONDARY_BUTTON_STYLE};
 use crate::components::{TabBar, TopNav};
 use crate::maplibre::val_to_jsval;
@@ -140,39 +143,61 @@ fn Timeline() -> Html {
 
     let show_details = use_state(|| Option::<usize>::None);
 
-    let new_day_html = |day: String| {
+    let new_day_html = |date: time::Date| {
+        let day = date
+            .format(LONG_DAY_OF_WEEK_AND_DATE)
+            .unwrap_or_else(|_| "New Day".to_string());
+        let day_onclick =
+            front_dispatch.reduce_mut_callback(move |s: &mut FrontState| {
+                s.map.time_delta_range = time_delta_range_date(date);
+                s.map.time_range = (&s.map.time_delta_range).into();
+            });
         html! {
-            <div class="text-left text-neutral-500">
+            <button
+                class="text-left text-neutral-500 mt-2 mb-1"
+                onclick={day_onclick}
+            >
                 {"🗓️ "}{day}
-            </div>
+            </button>
         }
     };
 
     // `scan` lets us carry the previous date forward as state
     let elems = timeline.iter().enumerate().scan(
-        None,
-        move |prev_date, (i, period)| Some(match period
-    {
-        // indent omitted
-        Period::Dwell(dwell) => {
+        (None, None),
+        // prev_date is the date when the date was last displayed
+        // prev_time_formatted is the last formatted time, used to determine if
+        // the UTC offset has changed and should thus be displayed.
+        move |(prev_date, prev_time_formatted), (i, period)| {
             let offset = local_offset();
-            let mut format_time = |raw_date: time::OffsetDateTime| {
-                let current = raw_date.to_offset(offset);
-                let formatted = time_pref
-                    .format_time_with_previous(current, *prev_date)
-                    .unwrap_or_else(|_| "?".to_string());
-                let new_day = prev_date
-                    .map(|p| (p.date() != current.date())
-                        .then(|| format_day_of_week(current)
-                            .unwrap_or_else(|_| "New Day".to_string())))
-                    .flatten();
-                *prev_date = Some(current);
-                (formatted, new_day)
+            let start = period.time.start.to_offset(offset);
+            let end = period.time.end.to_offset(offset);
+            // whether to display the new day
+            let new_day = prev_date
+                .map(|p: OffsetDateTime| (p.date() != start.date()))
+                .unwrap_or(true)
+                .then(|| start.date())
+                .map(new_day_html);
+            if new_day.is_some() {
+                *prev_date = Some(start);
+            }
+            let mut format_time = |t: time::OffsetDateTime| {
+                let offset_different = prev_time_formatted
+                    .map(|p: OffsetDateTime| p.offset() != t.offset())
+                    .unwrap_or(true);
+                *prev_time_formatted = Some(t);
+                time_pref
+                    .format_time_with_previous(t, *prev_date, offset_different)
+                    .unwrap_or_else(|_| "?".to_string())
             };
+
+            Some(match &period.kind
+    {
+        PeriodKind::Dwell(dwell) => {
             // display a new day marker after the element where the day changed
-            let (start_time, new_day_before) = format_time(dwell.time.start);
-            let (end_time, new_day_after) = format_time(dwell.time.end);
-            let f_dur = format_dur(dwell.time.start - dwell.time.end);
+            let start_time = format_time(start);
+            let end_time = format_time(end);
+            let f_dur = format_dur(start - end);
             let lnglat = dwell.lnglat;
             let create_pin_onclick = {
                 let create_pin = create_pin.clone();
@@ -208,9 +233,7 @@ fn Timeline() -> Html {
             );
             html! {
                 <>
-                if let Some(day) = new_day_before {
-                    {new_day_html(day)}
-                }
+                {new_day}
                 <button
                     onclick={show_details_onclick}
                     class="flex flex-col gap-1 bg-neutral-900 rounded-lg \
@@ -218,7 +241,7 @@ fn Timeline() -> Html {
                 >
                     // header
                     <div class="text-sm text-neutral-500 flex justify-between \
-                        w-full gap-4"
+                        w-full gap-4 font-medium"
                     >
                         // grow, but have a short basis to preferentially wrap
                         <span class="text-left basis-1/2 grow">
@@ -307,39 +330,42 @@ fn Timeline() -> Html {
                     </div>
                     // footer
                     <div class="text-sm text-neutral-500 flex justify-between \
-                        w-full"
+                        w-full font-medium"
                     >
                         <span class="text-left">{ end_time }</span>
                         <span></span>
                     </div>
                 </button>
-                if let Some(day) = new_day_after {
-                    {new_day_html(day)}
-                }
                 </>
             }
         }
-        Period::Movement(movement) => {
-            let f_dur = format_dur(movement.time.start - movement.time.end);
+        PeriodKind::Movement(movement) => {
+            let f_dur = format_dur(start - end);
             let f_distance =
                 unit_pref.format_length(movement.distance, Some(0), Some(2));
             html! {
-                <div class="flex gap-4 px-2 text-neutral-500">
-                    <span class="bg-neutral-500 w-1 rounded-full" />
-                    <span>
-                        { f_distance }
-                    </span>
-                    <span class="flex-grow" />
-                    <span class="text-sm"> { f_dur } </span>
-                </div>
+                <>
+                    {new_day}
+                    <div class="flex gap-4 px-2 text-neutral-500">
+                        <span class="bg-neutral-500 w-1 rounded-full" />
+                        <span>
+                            { f_distance }
+                        </span>
+                        <span class="flex-grow" />
+                        <span class="text-sm"> { f_dur } </span>
+                    </div>
+                </>
             }
         }
-        Period::Unknown => {
+        PeriodKind::Unknown => {
             html! {
-                <hr class="border border-dashed border-neutral-500 mx-2" />
+                <>
+                    {new_day}
+                    <hr class="border border-dashed border-neutral-500 mx-2" />
+                </>
             }
         }
-    }));
+    })});
 
     html! {
         <div class="px-4">

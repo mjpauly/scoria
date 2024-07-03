@@ -73,6 +73,8 @@ pub struct MapData {
     pub lines_geojson: tokio::sync::Mutex<String>,
     // previous map state to determine if an update is needed
     pub prev_map_state: tokio::sync::Mutex<Option<MapState>>,
+    // previous map state when timeline was lasts updated
+    pub prev_map_state_dashboard: tokio::sync::Mutex<Option<MapState>>,
 }
 
 impl Default for MapData {
@@ -85,6 +87,7 @@ impl Default for MapData {
             ),
             lines_geojson: tokio::sync::Mutex::new(empty_geojson().to_string()),
             prev_map_state: tokio::sync::Mutex::new(None),
+            prev_map_state_dashboard: tokio::sync::Mutex::new(None),
         }
     }
 }

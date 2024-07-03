@@ -214,7 +214,7 @@ pub async fn update_geojson(new_data: Option<Location>, foregrounded: bool) {
         .await;
     // tracing::info!("Full query took {:.6?}", before.elapsed());
 
-    // filter out points that are not visible and do not create a line segment
+    // indicate which points are not visible and do not create a line segment
     // that will be visible when calculating the colormap
     let mut cmap_records = vec![];
     for i in 0..records.len() {
@@ -525,7 +525,7 @@ pub fn location_popup_text(
         accuracy_speed_course,
         alt,
         time_pref
-            .format_time(loc.timestamp.to_offset(local_offset))
+            .format_datetime(loc.timestamp.to_offset(local_offset))
             .unwrap_or_else(|_| "Time ?".to_string())
     )
 }

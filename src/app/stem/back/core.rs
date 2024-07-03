@@ -49,7 +49,6 @@ pub fn update_on_foregrounding() {
         };
     });
     tokio::spawn(database::pins::update_derived_pins());
-    tokio::spawn(update_dashboard(None));
 }
 
 /// Determine if a new location data point would be visible on the map.

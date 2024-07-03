@@ -1,5 +1,8 @@
 use serde::{Deserialize, Serialize};
-use time::{macros::format_description, OffsetDateTime};
+use time::{
+    format_description::BorrowedFormatItem, macros::format_description,
+    OffsetDateTime,
+};
 
 // use crate::state::ok_or_default;
 
@@ -22,18 +25,28 @@ pub enum OffsetPreference {
 }
 
 impl TimePreference {
-    pub fn format_time(
+    pub fn format_datetime(
         &self,
         t: OffsetDateTime,
     ) -> Result<String, time::error::Format> {
         format_datetime(t, None, self.twelve_hour_clock)
     }
-    pub fn format_time_with_previous(
+
+    pub fn format_datetime_with_previous(
         &self,
         t: OffsetDateTime,
         prev: Option<OffsetDateTime>,
     ) -> Result<String, time::error::Format> {
         format_datetime(t, prev, self.twelve_hour_clock)
+    }
+
+    pub fn format_time_with_previous(
+        &self,
+        t: OffsetDateTime,
+        prev: Option<OffsetDateTime>,
+        force_offset: bool,
+    ) -> Result<String, time::error::Format> {
+        format_time(t, prev, self.twelve_hour_clock, force_offset)
     }
 }
 
@@ -86,11 +99,69 @@ pub fn format_datetime(
     Ok(out)
 }
 
+/// Formats only the time, assuming the dates are indicated elsewhere.
+pub fn format_time(
+    t: OffsetDateTime,
+    prev: Option<OffsetDateTime>,
+    ampm: bool,
+    force_offset: bool,
+) -> Result<String, time::error::Format> {
+    let use_offset =
+        force_offset || prev.map(|p| p.offset() != t.offset()).unwrap_or(true);
+    let day_difference = prev.map(|p| (t.date() - p.date()).whole_days());
+    let mut out = String::new();
+    if ampm {
+        out.push_str(&t.format(&format_description!(
+            "[hour repr:12]:[minute]:[second] [period]"
+        ))?);
+    } else {
+        out.push_str(
+            &t.format(&format_description!("[hour]:[minute]:[second]"))?,
+        );
+    }
+    if let Some(days) = day_difference {
+        if days != 0 {
+            out.push_str(&to_superscript(format!("{days:+}")));
+        }
+    }
+    if use_offset {
+        out.push_str(&t.format(&format_description!(
+            " [offset_hour sign:mandatory]:[offset_minute]"
+        ))?);
+    }
+    Ok(out)
+}
+
+/// Convert a string-formatted integer to superscript using unicode.
+fn to_superscript(mut s: String) -> String {
+    let superscripts = [
+        ('0', "\u{2070}"),
+        ('1', "\u{00B9}"),
+        ('2', "\u{00B2}"),
+        ('3', "\u{00B3}"),
+        ('4', "\u{2074}"),
+        ('5', "\u{2075}"),
+        ('6', "\u{2076}"),
+        ('7', "\u{2077}"),
+        ('8', "\u{2078}"),
+        ('9', "\u{2079}"),
+        ('+', "\u{207A}"),
+        ('-', "\u{207B}"),
+    ];
+    for &(norm, sup) in &superscripts {
+        s = s.replace(norm, sup);
+    }
+    s
+}
+
 pub fn format_day_of_week(
     t: OffsetDateTime,
 ) -> Result<String, time::error::Format> {
     t.format(&format_description!("[weekday repr:long]"))
 }
+
+pub const LONG_DAY_OF_WEEK_AND_DATE: &[BorrowedFormatItem<'_>] =
+    format_description!("[weekday repr:long], [day] [month repr:long] [year]");
 
 #[cfg(test)]
 mod tests {

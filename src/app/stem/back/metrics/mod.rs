@@ -1,18 +1,13 @@
 //! Higher-level analysis of logged location data. Core feature of Scoria
 //! which allows people to extract useful information from their movement data.
 
+pub mod color;
 pub mod dashboard; // stats dashboard
-
-// segment LineStrings into MultiLineStrings
-pub mod segmentation;
-
-pub mod stats; // sum, mean, count, stddev, etc
-
 pub mod distance; // Computing distance between data points
 pub mod dwells;
+pub mod segmentation; // segment LineStrings into MultiLineStrings
 pub mod speed;
-
-pub mod color; // calculate colormaps for data
+pub mod stats; // sum, mean, count, stddev, etc // calculate colormaps for data
 
 #[cfg(test)]
 pub mod tests {

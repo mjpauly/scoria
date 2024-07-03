@@ -8,7 +8,7 @@ use common::{
     pin::Pin,
     plot_data::TimeSeriesPlot,
     state::{MapState, PersistedRoute},
-    timeline::{Dwell, Movement, Period, Timeline},
+    timeline::{Dwell, Movement, Period, PeriodKind, Timeline},
     LngLat, Location, TimeRange,
 };
 use itertools::Itertools;
@@ -16,12 +16,13 @@ use nav_types::WGS84;
 use tracing::{instrument, Level};
 
 use crate::{
-    app_state::{get_derived_state, get_front_state, set_derived_state},
+    app_state::{
+        get_derived_state, get_front_state, set_derived_state, AppState,
+    },
     core::new_data_is_visible,
     database,
     geojson::{BOUND_EXPANSION, DECIMATION_THRESHOLD},
     metrics::distance::straight_distance,
-    runtime::get_runtime,
 };
 
 use super::{
@@ -33,21 +34,39 @@ use super::{
     },
 };
 
-/// Update the dashboard statistics on navigation to the page.
-pub fn update_dashboard_on_navigate(
+/// Update the dashboard statistics on navigation to the page unconditionally
+/// (since new data may have come in), or when the map state has changed.
+pub async fn update_dashboard_on_state_change(
     prev_route: Option<PersistedRoute>,
     new_route: PersistedRoute,
 ) {
-    if new_route == PersistedRoute::Metrics
-        && prev_route != Some(PersistedRoute::Metrics)
-    {
-        get_runtime().spawn(async move {
-            update_dashboard(None).await;
-        });
+    let app_state = AppState::global();
+    let mut prev_map_data_guard =
+        app_state.map_data.prev_map_state_dashboard.lock().await;
+    let Some(map_state) = get_front_state(|s| s.map.clone()) else {
+        return;
+    };
+    let map_state_different = prev_map_data_guard
+        .as_ref()
+        .map(|prev_state| map_state_is_different(prev_state, &map_state))
+        .unwrap_or(true); // if no prev map data, assume we need to update
+    let navigated = new_route == PersistedRoute::Metrics
+        && prev_route != Some(PersistedRoute::Metrics);
+    if navigated || map_state_different {
+        *prev_map_data_guard = Some(map_state);
+        update_dashboard(None).await;
     }
 }
 
-/// Update the dashboard, but only under certian conditions.
+/// Determine if the map state has changed such that the dashboard should
+/// update.
+fn map_state_is_different(prev: &MapState, curr: &MapState) -> bool {
+    prev.time_range != curr.time_range
+        || prev.filters != curr.filters
+        || prev.view_pos != curr.view_pos
+}
+
+/// Update the dashboard with new location data or unconditionally if None.
 ///
 /// Updates if
 /// (on dashboard route)
@@ -118,17 +137,25 @@ fn update_stats(segments: &[(bool, Vec<&Location>)]) {
                 resolve_timeline_activities(&records_and_isdwell, &pins);
             if !new_timeline_part
                 .iter()
-                .any(|a| matches!(a, Period::Dwell(_)))
+                .any(|a| matches!(a.kind, PeriodKind::Dwell(_)))
             {
                 // skip any contiguous regions without dwell data, e.g. if the
                 // map edge slices through some activity that gets detected as
                 // a bunch of short movement-only segments.
                 continue;
             }
-            if !timeline.is_empty() {
-                // anytime the location track leaves the view bounds we have a
-                // Period::Unknown
-                timeline.push(Period::Unknown);
+            if let Some(last) = timeline.last() {
+                if let Some(next) = new_timeline_part.first() {
+                    // anytime the location track leaves the view bounds we have
+                    // a Period::Unknown
+                    timeline.push(Period {
+                        time: TimeRange {
+                            start: last.time.end,
+                            end: next.time.start,
+                        },
+                        kind: PeriodKind::Unknown,
+                    });
+                }
             }
             timeline.extend_from_slice(&new_timeline_part);
         }
@@ -223,21 +250,23 @@ fn resolve_timeline_activities(
                     None,
                 );
             let detected_pin = detect_pin(&lnglat, deviation, pins);
-            timeline.push(Period::Dwell(Dwell {
+            timeline.push(Period {
                 time: TimeRange { start, end },
-                lnglat,
-                deviation,
-                detected_pin,
-            }));
+                kind: PeriodKind::Dwell(Dwell {
+                    lnglat,
+                    deviation,
+                    detected_pin,
+                }),
+            });
         } else {
             let distance: f64 = chunk
                 .iter()
                 .map(|(a, b)| distance_between_locations(a, b))
                 .sum();
-            timeline.push(Period::Movement(Movement {
+            timeline.push(Period {
                 time: TimeRange { start, end },
-                distance,
-            }));
+                kind: PeriodKind::Movement(Movement { distance }),
+            });
         }
     }
     timeline

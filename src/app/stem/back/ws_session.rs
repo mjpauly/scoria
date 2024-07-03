@@ -22,7 +22,7 @@ use crate::geojson::update_geojson;
 use crate::logs::update_last_logged_error;
 use crate::map::automap::update_automap;
 use crate::map::basemap::evict_old_map_data;
-use crate::metrics::dashboard::update_dashboard_on_navigate;
+use crate::metrics::dashboard::update_dashboard_on_state_change;
 use crate::runtime::get_runtime;
 use crate::{app_state::AppState, geojson::get_popup_text};
 
@@ -154,10 +154,10 @@ impl WsSession {
                         };
                     });
                 }
-                update_dashboard_on_navigate(
+                get_runtime().spawn(update_dashboard_on_state_change(
                     prev_routes.map(|r| r.0),
                     main_route,
-                );
+                ));
             }
             ToBack::ExportTrack => {
                 get_runtime().spawn(async { export_selected().await });
