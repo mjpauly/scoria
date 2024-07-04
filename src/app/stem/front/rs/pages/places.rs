@@ -30,10 +30,10 @@ pub fn Places() -> Html {
 
 // #[function_component]
 // pub fn ShowHidePlaces() -> Html {
-    // html! {
-        // <div class="px-4">
-        // </div>
-    // }
+// html! {
+// <div class="px-4">
+// </div>
+// }
 // }
 
 #[function_component]
