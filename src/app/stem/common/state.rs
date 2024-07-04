@@ -9,6 +9,8 @@
 //! #[serde(default)] is put on structs to indicate that missing fields are to
 //! be pulled from the type's default implementation.
 
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -150,6 +152,10 @@ pub struct FrontState {
     // Export options for GPX, GeoJSON, CSV, etc
     #[serde(deserialize_with = "ok_or_default")]
     pub export_opts: ExportOptions,
+
+    // Positions of scrolls, identified by a string ID.
+    #[serde(deserialize_with = "ok_or_default")]
+    pub scroll_positions: HashMap<String, i32>,
 }
 
 /// The page the frontend is on. Only variants that we care to persist between

@@ -16,7 +16,7 @@ use yewdux::prelude::*;
 use crate::components::time_range_picker::{
     local_offset, time_delta_range_date,
 };
-use crate::components::{BouncyScrollContainerBase, SECONDARY_BUTTON_STYLE};
+use crate::components::{BouncySavedScrollContainer, SECONDARY_BUTTON_STYLE};
 use crate::components::{TabBar, TopNav};
 use crate::maplibre::val_to_jsval;
 use crate::plotly;
@@ -30,11 +30,11 @@ pub fn MetricsDashboard() -> Html {
             <TopNav>
                 <></>
             </TopNav>
-            <BouncyScrollContainerBase class="text-left">
+            <BouncySavedScrollContainer class="text-left" id="metrics-page">
                 <DefaultMetrics />
                 // <ColoredTimeSeriesPlot />
                 <Timeline />
-            </BouncyScrollContainerBase>
+            </BouncySavedScrollContainer>
             <TabBar />
         </>
     }

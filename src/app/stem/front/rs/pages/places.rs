@@ -7,7 +7,7 @@ use yew::prelude::*;
 use yew_router::prelude::*;
 use yewdux::prelude::*;
 
-use crate::components::{BouncyScrollContainerBase, SettingsCard};
+use crate::components::{BouncySavedScrollContainer, SettingsCard};
 use crate::components::{TabBar, TopNav};
 use crate::router::Route;
 use crate::ui_state::{DerivedState, FrontState};
@@ -19,10 +19,10 @@ pub fn Places() -> Html {
             <TopNav>
                 <></>
             </TopNav>
-            <BouncyScrollContainerBase class="text-left">
+            <BouncySavedScrollContainer class="text-left" id="places-page">
                 // <ShowHidePlaces />
                 <PlacesList />
-            </BouncyScrollContainerBase>
+            </BouncySavedScrollContainer>
             <TabBar />
         </>
     }
