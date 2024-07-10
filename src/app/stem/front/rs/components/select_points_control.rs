@@ -114,7 +114,7 @@ pub fn SelectPointsControl() -> Html {
             />
         }
         <div class="flex-grow mx-auto bg-neutral-900 rounded-lg max-w-prose \
-            text-left px-4 py-2 text-neutral-500 flex flex-col gap-2"
+            text-left px-4 py-2 flex flex-col gap-2"
         >
             {(*deletion_result).clone()}
             <p>

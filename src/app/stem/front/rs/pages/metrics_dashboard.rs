@@ -434,7 +434,9 @@ pub fn ColoredTimeSeriesPlot() -> Html {
             "t": 20,
         },
         "modebar": {
-            "remove": "toimage",
+            "remove": [
+                "toimage", "lasso", "select", "zoomin", "zoomout",
+            ],
         },
         "template": plotly::dark_template(),
     });
