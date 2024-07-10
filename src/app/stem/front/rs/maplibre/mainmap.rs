@@ -287,7 +287,7 @@ pub fn add_source_and_layers_to_style(
         &map_style.solid_color,
         &map_style.colored_datastream,
     ));
-    layers_mut.push(selected_points::make_layer(map_style.marker_size));
+    layers_mut.push(selected_points::make_layer(map_style));
     layers_mut.push(make_points_layer(
         map_style.marker_size,
         &map_style.solid_color,

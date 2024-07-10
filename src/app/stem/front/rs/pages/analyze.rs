@@ -465,6 +465,10 @@ fn PlotComponent() -> Html {
                             (*map).clone().unwrap(),
                             (*visible_pins).clone(),
                         );
+                        maplibre::selected_points::update_after_restyle(
+                            (*map).clone().unwrap(),
+                            (*selected).clone(),
+                        );
                     }
                 }
             },

@@ -10,6 +10,7 @@ use yew_icons::{Icon, IconId};
 use yewdux::prelude::*;
 
 use crate::{
+    components::confirm::Confirm,
     ui_state::{DerivedState, FrontState},
     websocket::{use_backend_event, WebsocketService},
 };
@@ -224,37 +225,37 @@ pub fn PinEditor() -> Html {
             state.map.editable_pin = false;
         })
     };
-    let marked_for_deletion = use_state(|| false);
     // Save button saves changes or executes the deletion if th delete button is
     // slelected.
     let save_onclick = {
-        let marked_for_deletion = marked_for_deletion.clone();
         let wss = use_context::<WebsocketService>().unwrap();
         front_dispatch.reduce_mut_callback(move |state: &mut FrontState| {
-            if *marked_for_deletion {
-                if let Some(id) = state.map.current_pin.id {
-                    // has id, so was persisted to backend, delete it
-                    wss.send_msg(ToBack::DeletePin(id));
-                    // clear the current pin
-                    state.map.current_pin = Default::default();
-                }
-                state.map.settings_tab = MapSettingsTab::None;
-            } else {
-                wss.send_msg(ToBack::SavePin(state.map.current_pin.clone()));
-            }
+            wss.send_msg(ToBack::SavePin(state.map.current_pin.clone()));
             state.map.editable_pin = false;
         })
     };
+
+    let confirming_delete = use_state(|| false);
     let delete_onclick = {
-        let marked_for_deletion = marked_for_deletion.clone();
-        Callback::from(move |_| {
-            marked_for_deletion.set(!*marked_for_deletion);
-        })
+        let confirming_delete = confirming_delete.clone();
+        Callback::from(move |_| confirming_delete.set(true))
     };
-    let (delete_button_style, save_button_style) = if *marked_for_deletion {
-        ("bg-red-500 text-white", "text-red-500")
-    } else {
-        ("bg-neutral-800 text-red-500", "text-primary")
+    let cancel_delete_onclick = {
+        let confirming_delete = confirming_delete.clone();
+        Callback::from(move |_: MouseEvent| confirming_delete.set(false))
+    };
+    let ok_delete_onclick = {
+        let wss = use_context::<WebsocketService>().unwrap();
+        front_dispatch.reduce_mut_callback(move |state: &mut FrontState| {
+            if let Some(id) = state.map.current_pin.id {
+                // has id, so was persisted to backend, delete it
+                wss.send_msg(ToBack::DeletePin(id));
+            }
+            // clear the current pin
+            state.map.current_pin = Default::default();
+            state.map.editable_pin = false;
+            state.map.settings_tab = MapSettingsTab::None;
+        })
     };
 
     let icon_onchange = front_dispatch.reduce_mut_callback_with(
@@ -393,6 +394,13 @@ pub fn PinEditor() -> Html {
     });
     html! {
         <div class="flex m-1">
+        if *confirming_delete {
+            <Confirm
+                title={"Delete saved place?"}
+                ok={ok_delete_onclick}
+                cancel={cancel_delete_onclick}
+            />
+        }
         <div class="flex-grow mx-auto bg-neutral-900 rounded-lg \
             overflow-hidden px-4 py-2 flex flex-col gap-2 max-w-prose"
         >
@@ -452,8 +460,8 @@ pub fn PinEditor() -> Html {
                 </button>
             </div>
             <div class="flex items-center justify-between flex-wrap gap-2">
-                <button class={format!("px-3 py-1.5 flex items-center \
-                    rounded-lg {}", delete_button_style)}
+                <button class="px-3 py-1.5 flex items-center rounded-lg \
+                    bg-neutral-800 text-red-500"
                     onclick={delete_onclick}
                 >
                     <Icon icon_id={IconId::BootstrapTrash}
@@ -467,8 +475,8 @@ pub fn PinEditor() -> Html {
                     {"Cancel"}
                 </button>
                 <div></div>
-                <button class={format!("px-3 py-1.5 rounded-lg \
-                    bg-neutral-800 {}", save_button_style)}
+                <button class="px-3 py-1.5 rounded-lg bg-neutral-800 \
+                    text-primary"
                     onclick={save_onclick}
                 >
                     {"Save"}

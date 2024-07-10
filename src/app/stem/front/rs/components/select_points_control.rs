@@ -5,7 +5,7 @@ use std::rc::Rc;
 use common::ToFront;
 use common::{state::MapSettingsTab, Location};
 use yew::prelude::*;
-// use yew_icons::{Icon, IconId};
+use yew_icons::{Icon, IconId};
 use yewdux::prelude::*;
 
 use super::time_range_picker::local_offset;
@@ -71,7 +71,7 @@ pub fn SelectPointsControl() -> Html {
                         <SuccessMessage>
                             <span>
                                 {format!(
-                                    "Successfully deleted {n_deleted} points."
+                                    "Deleted {n_deleted} points."
                                 )}
                             </span>
                         </SuccessMessage>
@@ -131,11 +131,13 @@ pub fn SelectPointsControl() -> Html {
                     {"Unselect All"}
                 </button>
                 <button
-                    class={"px-3 py-1.5 rounded-lg bg-neutral-800 \
-                        text-red-500 disabled:text-neutral-500"}
+                    class="px-3 py-1.5 rounded-lg bg-neutral-800 \
+                        text-red-500 disabled:text-neutral-500 flex \
+                        items-center gap-2"
                     onclick={delete_onclick}
                     disabled={delete_disabled}
                 >
+                    <Icon icon_id={IconId::BootstrapTrash} class="h-5 w-5" />
                     {"Delete Selected"}
                 </button>
             </div>
