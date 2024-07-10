@@ -2,11 +2,13 @@
 
 ## To Do
 
-Current: 
+Current: delete data points
 Then: show/hide pins
 
 - 1.4 release
     - little things
+        - [ ] support window.confirm in android
+        - [ ] cleanup plotly div
         - [ ] Pin aliases for associating dwells with existing pins when the bounding area is large
         - [ ] click on pin and see breakdown of trips at that pin
         - [ ] bar wastes space on iPad
@@ -195,6 +197,8 @@ bazel run //src/app/android/jni:download_jni_bind
 ```
 bazel run //:iosapp
 ```
+
+See `src/app/android/README.md` for Android instructions.
 
 ### Interactively Developing the UI
 

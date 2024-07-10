@@ -9,6 +9,9 @@ use yew_icons::{Icon, IconId};
 use yewdux::prelude::*;
 
 use crate::components::pin_editor::PinDetails;
+use crate::components::select_points_control::{
+    handle_nearest_location, SelectPointsControl,
+};
 use crate::maplibre::{self, add_source_and_layers_to_style};
 use crate::pages::metrics_dashboard::ColoredTimeSeriesPlot;
 use crate::ui_state::{BackState, DerivedState, FrontState};
@@ -83,6 +86,9 @@ fn AnalyzeLocation() -> Html {
             if *settings_tab == MapSettingsTab::TimeSeriesPlot {
                 <ColoredTimeSeriesPlot />
             }
+            if *settings_tab == MapSettingsTab::SelectPoints {
+                <SelectPointsControl />
+            }
             <SettingsPicker />
         </div>
     }
@@ -123,6 +129,12 @@ fn SettingsPicker() -> Html {
             onclick.emit(MapSettingsTab::Filters);
         })
     };
+    let select_onclick = {
+        let onclick = onclick.clone();
+        Callback::from(move |_e: MouseEvent| {
+            onclick.emit(MapSettingsTab::SelectPoints);
+        })
+    };
     let plot_onclick = Callback::from(move |_e: MouseEvent| {
         onclick.emit(MapSettingsTab::TimeSeriesPlot);
     });
@@ -137,10 +149,16 @@ fn SettingsPicker() -> Html {
     let time_button_style = get_style(MapSettingsTab::TimeRange);
     let filter_button_style = get_style(MapSettingsTab::Filters);
     let plot_button_style = get_style(MapSettingsTab::TimeSeriesPlot);
+    let select_button_style = get_style(MapSettingsTab::SelectPoints);
     html! {
         <div class="flex">
             <div class="mx-auto">
-                <button onclick={plot_onclick} id="filter_list_btn"
+                <button onclick={select_onclick} id="select_points_btn"
+                    class={select_button_style}>
+                        <Icon icon_id={IconId::BootstrapHandIndexThumb}
+                            class="h-6 w-6" />
+                </button>
+                <button onclick={plot_onclick} id="graph_btn"
                     class={plot_button_style}>
                         <Icon icon_id={IconId::BootstrapGraphUp}
                             class="h-6 w-6" />
@@ -173,32 +191,29 @@ fn PlotComponent() -> Html {
     // === Popup Callbacks === //
 
     // called by maplibre when a click is detected
-    let request_popup = {
+    let click_point = {
+        let front_dispatch = Dispatch::<FrontState>::new();
         let wss = use_context::<WebsocketService>().unwrap();
         move |params: (LngLat, Option<String>)| {
-            wss.send_msg(ToBack::GetPopupText(params));
+            wss.send_msg(ToBack::GetLocationNear(params.0));
+            // save the color of the point that was clicked, so we can color
+            // the background with it
+            front_dispatch
+                .reduce_mut(|s: &mut FrontState| s.map.popup_color = params.1);
         }
     };
     // adds the popup to the map when the popup contents come from the backend
-    let on_get_popup_text = {
+    let on_get_nearest_location = {
         let map = map.clone();
         move |msg: &ToFront| {
-            // if *msg == ToFront::GeojsonUpdated && *map_initialized {
-            if let ToFront::PopupText {
-                location,
-                text,
-                bg_color,
-            } = msg
-            {
-                // destructure Option just in case message is delivered at a
-                // strange time
+            if let ToFront::NearestLocation(loc) = msg {
                 if let Some(map) = (*map).clone() {
-                    maplibre::add_popup(map, location, text, bg_color);
+                    handle_nearest_location(map, loc);
                 }
             }
         }
     };
-    use_backend_event_with_deps(on_get_popup_text, map.clone());
+    use_backend_event_with_deps(on_get_nearest_location, map.clone());
 
     // === Initial Map === //
 
@@ -307,7 +322,7 @@ fn PlotComponent() -> Html {
                             &view_position,
                             on_load,
                             on_view_change,
-                            request_popup,
+                            click_point,
                         );
                         // register the callbacks for click/create pin
                         maplibre::pins::register_callbacks(
@@ -414,6 +429,25 @@ fn PlotComponent() -> Html {
                 }
             },
             (map_initialized.clone(), visible_pins.clone()),
+        )
+    };
+
+    // update selected points when map initializes, or selections change
+    let selected =
+        use_selector(|state: &FrontState| state.selected_points.clone());
+    {
+        let map = map.clone();
+        use_effect_with_deps(
+            move |(map_initialized, selected)| {
+                if **map_initialized {
+                    maplibre::selected_points::update_selected(
+                        &(*map).clone().unwrap(),
+                        selected,
+                    )
+                    .unwrap();
+                }
+            },
+            (map_initialized.clone(), selected.clone()),
         )
     };
 

@@ -21,7 +21,7 @@ use crate::{
     },
     core::new_data_is_visible,
     database,
-    geojson::{BOUND_EXPANSION, DECIMATION_THRESHOLD},
+    map::geojson::{BOUND_EXPANSION, DECIMATION_THRESHOLD},
     metrics::distance::straight_distance,
 };
 

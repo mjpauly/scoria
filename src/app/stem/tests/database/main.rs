@@ -14,7 +14,7 @@ use time::macros::datetime;
 
 use common::filters::{DataStream, Filter, FilterOp};
 use stem::database::{init_db, FilteredQuery, LocationRow};
-use stem::geojson::DECIMATION_THRESHOLD;
+use stem::map::geojson::DECIMATION_THRESHOLD;
 
 static WORKDIR: &str = "workdir";
 static DB_SRC_DIR: &str = "src/app/stem/db";

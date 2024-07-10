@@ -23,7 +23,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 use tracing::error;
 
-use crate::geojson::empty_geojson;
+use crate::map::geojson::empty_geojson;
 use crate::paths::{get_library_dir, Paths};
 use crate::ws_session::{self, send_derived_state_to_front};
 use common::{BackState, FrontState};

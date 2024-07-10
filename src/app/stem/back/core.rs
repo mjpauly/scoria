@@ -11,8 +11,8 @@ use tracing::error;
 
 use crate::app_state::AppState;
 use crate::database::{self, OSLocationData};
-use crate::geojson::{update_geojson, BOUND_EXPANSION};
 use crate::map::automap::update_automap;
+use crate::map::geojson::{update_geojson, BOUND_EXPANSION};
 use crate::metrics::dashboard::update_dashboard;
 use crate::{logs, ws_session};
 

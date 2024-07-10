@@ -156,6 +156,10 @@ pub struct FrontState {
     // Positions of scrolls, identified by a string ID.
     #[serde(deserialize_with = "ok_or_default")]
     pub scroll_positions: HashMap<String, i32>,
+
+    // Points that are selected
+    #[serde(deserialize_with = "ok_or_default")]
+    pub selected_points: Vec<(time::OffsetDateTime, LngLat)>,
 }
 
 /// The page the frontend is on. Only variants that we care to persist between
@@ -218,6 +222,8 @@ pub struct MapState {
     pub selected_pin_id: Option<i64>,
     #[serde(deserialize_with = "ok_or_default")]
     pub open_in_google_maps: bool,
+    #[serde(deserialize_with = "ok_or_default")]
+    pub popup_color: Option<String>, // color of popup background to display
 }
 
 #[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize)]
@@ -229,6 +235,7 @@ pub enum MapSettingsTab {
     TimeRange,
     PinDetails,
     TimeSeriesPlot,
+    SelectPoints,
 }
 
 /// Default for the backend to use if deserializing from file fails. The
@@ -247,6 +254,7 @@ impl Default for MapState {
             editable_pin: Default::default(),
             selected_pin_id: Default::default(),
             open_in_google_maps: Default::default(),
+            popup_color: Default::default(),
         }
     }
 }

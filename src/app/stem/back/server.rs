@@ -34,7 +34,7 @@ use rand::RngCore;
 
 use crate::app_state::AppState;
 use crate::files;
-use crate::geojson::{lines_geojson_route, points_geojson_route};
+use crate::map::geojson::{lines_geojson_route, points_geojson_route};
 use crate::map::{automap::screen, basemap::map_data_route};
 use crate::ws_session::ws_route;
 

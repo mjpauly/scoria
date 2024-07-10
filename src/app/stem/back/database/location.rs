@@ -58,7 +58,7 @@ use common::{
     filters::{DataStream, Filter, FilterOp},
     state::LastAutomapUpdate,
     view_position::LngLatBounds,
-    LngLat, TimeRange,
+    LngLat, TimeRange, ToFront,
 };
 use sqlx::{
     migrate::Migrator,
@@ -67,7 +67,13 @@ use sqlx::{
 };
 use tracing::{error, info};
 
-use crate::{app_state::AppState, database::pins::update_derived_pins};
+use crate::{
+    app_state::{get_front_state, AppState},
+    database::pins::update_derived_pins,
+    map::geojson::update_geojson,
+    runtime::get_runtime,
+    ws_session::send_message_to_front,
+};
 
 // Embed our migrations from "migrations/" into our binary at compile time
 pub static MIGRATOR: Migrator = sqlx::migrate!();
@@ -188,6 +194,12 @@ pub async fn init_db(db_path: String) -> Result<SqlitePool> {
         .await
     {
         tracing::error!("Failed to set database cache size: {e}");
+    }
+    if let Err(e) = sqlx::query("PRAGMA secure_delete = on;")
+        .execute(&conn)
+        .await
+    {
+        tracing::error!("Failed to set secure delete on: {e}");
     }
     Ok(conn)
 }
@@ -487,6 +499,38 @@ fn reset_last_automap_update(first_import_timestamp: &time::OffsetDateTime) {
     if *last_automap_update > *first_import_timestamp {
         *last_automap_update = *first_import_timestamp
     }
+}
+
+/// Delete the locations that are selected in the UI.
+///
+/// Locations are identified by timestamp, which is unique.
+pub fn delete_selected_locations() {
+    get_runtime().spawn(async move {
+        let conn = get_db_pool();
+        let Some(selected_points) =
+            get_front_state(|s| s.selected_points.clone())
+        else {
+            return;
+        };
+        let mut n_deleted: u64 = 0;
+        for (ts, _) in selected_points.iter() {
+            match sqlx::query("DELETE FROM location WHERE timestamp == ?")
+                .bind(ts.unix_timestamp())
+                .execute(&conn)
+                .await
+            {
+                Ok(_) => n_deleted += 1,
+                Err(e) => {
+                    error!(
+                        "Failed delete record with timestamp {ts:?}\n\
+                        Error: {e}",
+                    );
+                }
+            }
+        }
+        send_message_to_front(ToFront::DeleteLocationsResult(n_deleted));
+        update_geojson(None, true).await;
+    });
 }
 
 /// Convert between the Location we have for talking to the database and the

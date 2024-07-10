@@ -115,7 +115,7 @@ pub fn get_update_callback() -> Callback {
     let callback = move |msg: &ToFront| match msg {
         ToFront::FrontState(val) => {
             // we get the FrontState at startup
-            if let Some(state) = val {
+            if let Some(state) = &**val {
                 set_front_state(state.clone());
             }
         }
@@ -128,8 +128,9 @@ pub fn get_update_callback() -> Callback {
         }
         // These messages handled by other callbacks, and not stored globally
         ToFront::GeojsonUpdated => (),
-        ToFront::PopupText { .. } => (),
+        ToFront::NearestLocation(_) => (),
         ToFront::NewPinId(_) => (),
+        ToFront::DeleteLocationsResult(_) => (),
         ToFront::SwiftPoke => swift_poke::poke(),
     };
     Box::new(callback)

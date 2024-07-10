@@ -3,6 +3,7 @@
 pub mod bouncy_scroll;
 pub mod buttons;
 pub mod colorbar;
+pub mod confirm;
 pub mod inputs;
 pub mod location_config;
 pub mod location_filter_list;
@@ -11,6 +12,7 @@ pub mod map_styler;
 pub mod navbar;
 pub mod pin_editor;
 pub mod select;
+pub mod select_points_control;
 pub mod settings_card;
 pub mod time_preference;
 pub mod time_range_picker;

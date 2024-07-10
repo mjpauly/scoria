@@ -9,7 +9,9 @@ use web_sys::{HtmlInputElement, HtmlSelectElement};
 use yew::prelude::*;
 use yewdux::prelude::*;
 
-use crate::components::{RANGE_INPUT_STYLE, SELECT_STYLE, TOGGLE_SWITCH_STYLE};
+use crate::components::{
+    SettingsCard, RANGE_INPUT_STYLE, SELECT_STYLE, TOGGLE_SWITCH_STYLE,
+};
 use crate::router::get_scoped_host;
 use crate::ui_state::FrontState;
 use common::map_style::{
@@ -119,8 +121,8 @@ pub fn MapStyler() -> Html {
     });
 
     html! {
-        <div class="flex mt-1">
-        <div class="max-w-fit mx-auto">
+        <div class="flex m-1">
+        <SettingsCard class="flex-grow mx-auto max-w-prose px-4 py-1">
             <div class="flex items-center justify-between h-8 flex-wrap">
                 <label for="opacity">{"Opacity"}</label>
                 <input type="range" id="opacity"
@@ -180,7 +182,7 @@ pub fn MapStyler() -> Html {
                     {for basemap_options}
                 </select>
             </div>
-        </div>
+        </SettingsCard>
         </div>
     }
 }

@@ -88,11 +88,10 @@ pub fn PinViewer() -> Html {
         }
     }
 
-    let edit_onclick = {
+    let edit_onclick =
         front_dispatch.reduce_mut_callback(move |state: &mut FrontState| {
             state.map.editable_pin = true;
-        })
-    };
+        });
     let list_elems = pin.lists.iter().map(|l| {
         html! {
             <span class="bg-neutral-800 px-2 py-1 rounded text-sm">

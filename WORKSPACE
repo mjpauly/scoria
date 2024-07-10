@@ -308,6 +308,7 @@ crates_repository(
                 "BootstrapGlobeCentralSouthAsia",
                 "BootstrapGlobeEuropeAfrica",
                 "BootstrapGraphUp",
+                "BootstrapHandIndexThumb",
                 "BootstrapInfoCircle",
                 "BootstrapInfoCircleFill",
                 "BootstrapJournalText",

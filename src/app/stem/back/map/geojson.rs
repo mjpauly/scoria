@@ -19,7 +19,6 @@
 
 use actix_identity::Identity;
 use actix_web::{http::header::ContentType, routes, HttpResponse, Responder};
-use common::units::time::TimePreference;
 use common::view_position::LngLatBounds;
 use geojson::{Feature, FeatureCollection, GeoJson, JsonObject, Value};
 
@@ -32,7 +31,6 @@ use crate::{app_state::AppState, database, ws_session};
 use common::{
     cmaps,
     state::{MapState, PersistedRoute},
-    units::UnitPreference,
     LngLat, Location, ToFront,
 };
 
@@ -111,14 +109,18 @@ fn map_state_is_different(prev: &MapState, curr: &MapState) -> bool {
 
 /// Determine if we should update the geojson data
 ///
+/// force_update is used when the app is foregrounded, since data may have come
+/// in while the app was in the background, or when actions happen which very
+/// likely change the displayed data, like deleting the selected points.
+///
 /// update conditions:
-/// app was foregrounded
+/// force_update
 /// || (the route is on the analyze tab
 ///     && (there is new data in time range
 ///         || the map state/style is different from before))
 async fn should_update_geojson(
     new_data: Option<Location>,
-    foregrounded: bool,
+    force_update: bool,
 ) -> Option<MapState> {
     // get the map configuration state
     let app_state = AppState::global();
@@ -127,18 +129,15 @@ async fn should_update_geojson(
     let persistent_guard = app_state.persistent.lock().unwrap();
     // the '?' operator returns None if the frontend hasn't been initialized yet
     let map_state = &persistent_guard.front.as_ref()?.map;
-    // Always update when app is foregrounded since data may have come in while
-    // we were in the background. We don't update the geojson in the background
-    // since it's costly.
     // 'if' blocks test if we should NOT update (passed by returning None)
-    if !foregrounded {
+    if !force_update {
         if let Some(p) = persistent_guard.front.as_ref() {
             if p.route != PersistedRoute::Analyze {
                 // not looking at the map, don't update data
                 return None;
             }
         } else {
-            // No frontend, shouldn't happen if foregrounded
+            // No frontend, shouldn't happen if force updated
             return None;
         }
         let new_data_visible = new_data
@@ -164,13 +163,11 @@ async fn should_update_geojson(
 /// determined by should_update_geojson().
 ///
 /// This function is called whenever the front state changes, new location data
-/// is logged while the frontend is active, or the app is foregrounded.
+/// is logged while the frontend is active, or it's force updated.
 ///
 /// 'new_data' indicates if this is triggered by new location data as opposed to
 /// a change to the map's style
-///
-/// 'foregrounded' indicates if this is triggered when the app is foregrounded
-pub async fn update_geojson(new_data: Option<Location>, foregrounded: bool) {
+pub async fn update_geojson(new_data: Option<Location>, force_update: bool) {
     // Allow one task to wait on the update lock, turning away any others that
     // can't acquire the wait_lock immediately. This ensures there's always an
     // update that happens after map movement finishes.
@@ -182,7 +179,7 @@ pub async fn update_geojson(new_data: Option<Location>, foregrounded: bool) {
     let _update_guard = app_state.map_data.geojson_update_lock.lock().await;
     drop(_wait_guard);
 
-    let Some(map_state) = should_update_geojson(new_data, foregrounded).await
+    let Some(map_state) = should_update_geojson(new_data, force_update).await
     else {
         return;
     };
@@ -432,13 +429,8 @@ fn get_view_params(bounds: &Option<LngLatBounds>) -> Option<(LngLat, f64)> {
 /// Get the popup text for a click at a given location. Also takes the point's
 /// color if it exists. Returns the location to put the popup, the text,
 /// and the desired color of the popup's background
-pub async fn get_popup_text(
-    lnglat: LngLat,
-    data_color: Option<String>,
-) -> Option<ToFront> {
-    let (map_state, unit_pref, time_pref) = get_front_state(|front| {
-        (front.map.clone(), front.unit_pref, front.time_pref)
-    })?;
+pub async fn get_location_near(lnglat: LngLat) -> Option<ToFront> {
+    let map_state = get_front_state(|front| front.map.clone())?;
 
     // use the bound expansion so the decimation is identical
     let records = database::FilteredQuery::new()
@@ -448,8 +440,6 @@ pub async fn get_popup_text(
         .limit(DECIMATION_THRESHOLD)
         .fetch_decimated()
         .await;
-
-    let local_offset = map_state.time_range.start.offset();
 
     let calc_dist = |loc: &common::Location| {
         (loc.latitude - lnglat.lat).abs() + (loc.longitude - lnglat.lng).abs()
@@ -463,69 +453,5 @@ pub async fn get_popup_text(
             argmin = i;
         }
     }
-    // get() safely indexes into records so we return None if no data
-    records.get(argmin).map(|loc| {
-        let text = location_popup_text(local_offset, unit_pref, time_pref, loc);
-        let bg_color = data_color
-            .unwrap_or_else(|| map_state.style.solid_color.rgb.clone());
-        ToFront::PopupText {
-            location: LngLat {
-                lng: loc.longitude,
-                lat: loc.latitude,
-            },
-            text,
-            bg_color,
-        }
-    })
-}
-
-pub fn location_popup_text(
-    local_offset: time::UtcOffset,
-    unit_pref: UnitPreference,
-    time_pref: TimePreference,
-    loc: &common::Location,
-) -> String {
-    let latlon = format!(
-        "{}, {}",
-        unit_pref.format_angle(loc.latitude, Some(6)),
-        unit_pref.format_angle(loc.longitude, Some(6))
-    );
-    let mut accuracy_speed_course = format!(
-        "±{}",
-        unit_pref.format_small_length(loc.horizontal_accuracy, Some(2)),
-    );
-
-    if let Some(speed) = loc.speed {
-        accuracy_speed_course +=
-            &format!(", {}", unit_pref.format_velocity(speed, Some(2)));
-    }
-    if let Some(course) = loc.course {
-        accuracy_speed_course +=
-            &format!(", {}", unit_pref.format_angle(course, Some(2)));
-    }
-
-    let mut alt = loc.msl_altitude.map(|alt| {
-        format!("{} altitude", unit_pref.format_small_length(alt, Some(2)))
-    });
-    if let Some(v_acc) = loc.vertical_accuracy {
-        alt = alt.map(|alt| {
-            format!("{alt} ±{}", unit_pref.format_small_length(v_acc, Some(2)))
-        });
-    }
-    if let Some(story) = loc.story {
-        alt = alt.map(|alt| format!("{alt}, story {story}"));
-    }
-    let alt = alt.map(|alt| format!("{alt}<br>")).unwrap_or_default();
-    format!(
-        "{}<br>\
-        {}<br>\
-        {}\
-        {}",
-        latlon,
-        accuracy_speed_course,
-        alt,
-        time_pref
-            .format_datetime(loc.timestamp.to_offset(local_offset))
-            .unwrap_or_else(|_| "Time ?".to_string())
-    )
+    Some(ToFront::NearestLocation(records.get(argmin)?.clone()))
 }

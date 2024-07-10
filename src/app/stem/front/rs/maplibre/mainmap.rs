@@ -5,7 +5,7 @@ use js_sys::{Array, Reflect};
 use serde_json::{json, Value};
 use wasm_bindgen::{prelude::*, JsCast};
 
-use crate::maplibre::{binds::*, pins};
+use crate::maplibre::{binds::*, pins, selected_points};
 use crate::router::get_scoped_host;
 use common::cmaps;
 use common::map_style::{ColoredDataStream, MapStyle, Rgba};
@@ -53,7 +53,7 @@ pub fn new_map(
     on_view_change_callback: Box<dyn Fn(ViewPosition)>,
     // closure to get popup text and background color given the
     // data point's lng, lat position and color property, if it exists
-    request_popup: impl Fn((common::LngLat, Option<String>)) + Clone + 'static,
+    click_point: impl Fn((common::LngLat, Option<String>)) + Clone + 'static,
 ) -> Rc<Map> {
     // Create the map and start it loading
     let opts = json!({
@@ -63,9 +63,7 @@ pub fn new_map(
         "zoom": view_position.zoom,
         "bearing": view_position.bearing,
         "pitch": view_position.pitch,
-        // prevent tile caching so we don't get leak-through of
-        // the basemap past the automap screen when zooming out
-        // "maxTileCacheSize": 0,
+        "doubleClickZoom": false,
     });
     let map = Map::new(&val_to_jsval(&opts));
     // map.show_tile_boundaries(true); // great for tile debugging
@@ -87,12 +85,12 @@ pub fn new_map(
     // register our on-load callback
     map.on("load", &Closure::wrap(on_load_callback).into_js_value());
 
-    // register our callback for showing a popup on click
-    let popup_callback = get_popup_callback(request_popup);
+    // register our callback for doing something when a point is clicked
+    let click_point_callback = get_click_point_callback(click_point);
     map.on_layer(
         "click",
         POINTS_LAYER_ID,
-        &Closure::wrap(Box::new(popup_callback) as Box<dyn Fn(&JsValue)>)
+        &Closure::wrap(Box::new(click_point_callback) as Box<dyn Fn(&JsValue)>)
             .into_js_value(),
     );
 
@@ -106,8 +104,9 @@ pub fn new_map(
     map
 }
 
-fn get_popup_callback(
-    request_popup: impl Fn((common::LngLat, Option<String>)) + Clone + 'static,
+// Retrieve the coordiantes and color of the point feature that was clicked.
+fn get_click_point_callback(
+    click_point: impl Fn((common::LngLat, Option<String>)) + Clone + 'static,
 ) -> impl Fn(&JsValue) + Clone {
     move |event: &JsValue| {
         let features = Reflect::get(event, &"features".into()).unwrap();
@@ -130,7 +129,7 @@ fn get_popup_callback(
         let lng = coord_arr.at(0).as_f64().unwrap();
         let lat = coord_arr.at(1).as_f64().unwrap();
 
-        request_popup((common::LngLat { lng, lat }, color));
+        click_point((common::LngLat { lng, lat }, color));
     }
 }
 
@@ -250,6 +249,10 @@ pub fn add_source_and_layers_to_style(
         geojson_source_with_value(&empty_geojson()),
     );
     sources_mut.insert(
+        selected_points::SOURCE_ID.to_string(),
+        geojson_source_with_value(&empty_geojson()),
+    );
+    sources_mut.insert(
         POINTS_SOURCE_ID.to_string(),
         geojson_source_with_url(POINTS_SOURCE_URL),
     );
@@ -284,6 +287,7 @@ pub fn add_source_and_layers_to_style(
         &map_style.solid_color,
         &map_style.colored_datastream,
     ));
+    layers_mut.push(selected_points::make_layer(map_style.marker_size));
     layers_mut.push(make_points_layer(
         map_style.marker_size,
         &map_style.solid_color,

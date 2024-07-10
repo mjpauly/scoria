@@ -5,7 +5,7 @@
 use itertools::Itertools;
 use time::format_description::well_known::Iso8601;
 
-use crate::{app_state::AppState, database, geojson, paths, ws_session};
+use crate::{app_state::AppState, database, map::geojson, paths, ws_session};
 use common::{
     export_options::{ExportFormat, ExportOptions},
     filters::Filter,

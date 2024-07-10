@@ -14,17 +14,17 @@ use common::state::{PersistedRoute, PersistedSettingsRoute};
 use common::{ToBack, ToFront};
 use tracing::{info, warn};
 
+use crate::app_state::AppState;
 use crate::app_state::{get_derived_state, set_back_state};
 use crate::core::update_on_foregrounding;
 use crate::database;
 use crate::export::export_selected;
-use crate::geojson::update_geojson;
 use crate::logs::update_last_logged_error;
 use crate::map::automap::update_automap;
 use crate::map::basemap::evict_old_map_data;
+use crate::map::geojson::{get_location_near, update_geojson};
 use crate::metrics::dashboard::update_dashboard_on_state_change;
 use crate::runtime::get_runtime;
-use crate::{app_state::AppState, geojson::get_popup_text};
 
 /// How often heartbeat pings are sent
 #[allow(dead_code)]
@@ -197,12 +197,10 @@ impl WsSession {
                     }
                 });
             }
-            ToBack::GetPopupText((location, data_color)) => {
+            ToBack::GetLocationNear(location) => {
                 let recipient = ctx.address().recipient();
                 get_runtime().spawn(async move {
-                    if let Some(msg) =
-                        get_popup_text(location, data_color).await
-                    {
+                    if let Some(msg) = get_location_near(location).await {
                         recipient.do_send(MsgToFront(msg))
                     }
                 });
@@ -212,6 +210,9 @@ impl WsSession {
             }
             ToBack::DeletePin(db_idx) => {
                 database::pins::delete_pin(db_idx);
+            }
+            ToBack::DeleteSelectedLocations => {
+                database::location::delete_selected_locations();
             }
         }
     }
@@ -255,7 +256,7 @@ impl WsSession {
             // clone the state and send it
             let front =
                 AppState::global().persistent.lock().unwrap().front.clone();
-            recipient.do_send(MsgToFront(ToFront::FrontState(front)));
+            recipient.do_send(MsgToFront(ToFront::FrontState(Box::new(front))));
         });
     }
 }

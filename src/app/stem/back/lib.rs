@@ -24,7 +24,6 @@ pub mod core; // high-level app logic that spans multiple modules
 pub mod database; // manages the SQLite database
 pub mod export; // export data to common geo data file formats
 pub mod files; // static files served to frontend
-pub mod geojson; // construct the data to display in the frontend
 pub mod location_config; // location logging configuration
 pub mod logs;
 pub mod map;
