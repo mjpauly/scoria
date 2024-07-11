@@ -63,6 +63,12 @@ public func handle_foreground() {
     server_scope = server_config.scope
 }
 
+public func handle_url_scheme(URLContexts: Set<UIOpenURLContext>) {
+    if let urlContext = URLContexts.first {
+        url_scheme(urlContext.url.absoluteString)
+    }
+}
+
 public func check_export_sqlite_log(viewController: UIViewController) {
     if should_export_sqlite_log() {
         // the rust code has its own source of truth on this file name

@@ -261,6 +261,11 @@ pub extern "C" fn should_export_track() -> bool {
     should_export
 }
 
+#[no_mangle]
+pub extern "C" fn url_scheme(url: *const c_char) {
+    core::handle_url_scheme(cstr_to_string(url))
+}
+
 /// Local setup either for development or testing.
 /// Not used in any production app code. TODO: gate with feature flag
 pub mod local {

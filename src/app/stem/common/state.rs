@@ -58,6 +58,12 @@ pub struct DerivedState {
     pub timeline: Timeline,
 }
 
+/// Events that accumulate before UI is active, but which are handled in the UI.
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+pub struct PendingEvents {
+    pub opened_url: Option<String>, // a scoria:// url that was opened
+}
+
 /// Driven by backend
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 #[serde(default)]

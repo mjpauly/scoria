@@ -17,7 +17,7 @@ use std::io::Write;
 use std::sync::{Arc, Mutex};
 
 use actix_web::dev::ServerHandle;
-use common::state::{ok_or_default, DerivedState, MapState};
+use common::state::{ok_or_default, DerivedState, MapState, PendingEvents};
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
@@ -58,6 +58,9 @@ pub struct AppState {
     pub wrapper_messages: Mutex<WrapperMessages>,
 
     pub map_data: MapData,
+
+    // events that accumulate until they are sent to the UI and cleared
+    pub pending_events: Mutex<Option<PendingEvents>>,
 }
 
 /// Data to to shown on the map in the analyze tab, and helpers for calculating
@@ -245,6 +248,7 @@ impl AppState {
                 derived: Mutex::new(Default::default()),
                 wrapper_messages: Mutex::new(Default::default()),
                 map_data: Default::default(),
+                pending_events: Mutex::new(Default::default()),
             }))
             .expect("Could not initialize AppState");
     }

@@ -75,3 +75,5 @@ bool should_export_sqlite_log(void);
 bool should_import_sqlite_log(void);
 void import_from_sqlite_log(const char*);
 bool should_export_track(void);
+
+void url_scheme(const char*);

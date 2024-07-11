@@ -135,6 +135,9 @@ crates_repository(
             patches = ["@//src/app/stem/crates:clipper_sys_ios.patch"],
             patch_args = ["-p1"],
         )],
+        "web-sys": [crate.annotation(
+            rustc_flags = ["--cfg=web_sys_unstable_apis"], # for clipboard api
+        )],
     },
     packages = {
         "approx": crate.spec(version = "0.5.1"),
@@ -163,6 +166,7 @@ crates_repository(
             features = ["gzip", "deflate", "brotli", "rustls-tls-webpki-roots"],
             default_features = False, # disable OpenSSL
         ),
+        "serde_qs": crate.spec(version = "0.13.0"),
         "sqlx": crate.spec(
             version = "0.6.2",
             # features = ["runtime-tokio-native-tls", "sqlite", "time", "macros"],
@@ -268,6 +272,7 @@ crates_repository(
                 "StyleSheetList", "CssRuleList", "CssStyleDeclaration",
                 "HtmlImageElement", "HtmlCanvasElement",
                 "CanvasRenderingContext2d", "ImageData", "HtmlTextAreaElement",
+                "Navigator", "Clipboard",
             ],
         ),
         "log": crate.spec(
@@ -313,6 +318,7 @@ crates_repository(
                 "BootstrapInfoCircleFill",
                 "BootstrapJournalText",
                 "BootstrapJoystick",
+                "BootstrapLink45Deg",
                 "BootstrapList",
                 "BootstrapPlus",
                 "BootstrapPlusLg",

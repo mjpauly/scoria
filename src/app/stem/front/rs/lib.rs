@@ -21,10 +21,12 @@
 mod components;
 mod maplibre;
 mod pages;
+mod pending_events;
 mod plotly;
 mod router;
 mod swift_poke;
 mod ui_state;
+mod web;
 mod websocket;
 
 use yew::prelude::*;
@@ -57,6 +59,7 @@ pub fn App() -> Html {
             <ContextProvider<WebsocketService> context={wss}>
                 <BrowserRouter basename={basename}>
                     <Switch<router::Route> render={router::switch} />
+                    <pending_events::PendingEventHandler />
                 </BrowserRouter>
             </ContextProvider<WebsocketService>>
         </div>

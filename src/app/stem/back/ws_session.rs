@@ -159,6 +159,14 @@ impl WsSession {
                     main_route,
                 ));
             }
+            ToBack::GetPendingEvents => {
+                // reset pending events to None
+                if let Some(events) =
+                    AppState::global().pending_events.lock().unwrap().take()
+                {
+                    self.send_msg(ToFront::PendingEvents(events), ctx);
+                }
+            }
             ToBack::ExportTrack => {
                 get_runtime().spawn(async { export_selected().await });
             }
@@ -251,13 +259,8 @@ impl WsSession {
 
     /// Sends all UI state values, used at startup.
     fn send_front_state(&self, ctx: &mut ws::WebsocketContext<Self>) {
-        let recipient = ctx.address().recipient();
-        get_runtime().spawn(async move {
-            // clone the state and send it
-            let front =
-                AppState::global().persistent.lock().unwrap().front.clone();
-            recipient.do_send(MsgToFront(ToFront::FrontState(Box::new(front))));
-        });
+        let front = AppState::global().persistent.lock().unwrap().front.clone();
+        self.send_msg(ToFront::FrontState(Box::new(front)), ctx);
     }
 }
 

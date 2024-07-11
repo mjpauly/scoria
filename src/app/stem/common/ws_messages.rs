@@ -1,7 +1,9 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    pin::Pin, state::DerivedState, BackState, FrontState, LngLat, Location,
+    pin::Pin,
+    state::{DerivedState, PendingEvents},
+    BackState, FrontState, LngLat, Location,
 };
 
 /// Messages from the frontend to the backend over the websocket
@@ -28,6 +30,8 @@ pub enum ToBack {
     ExportSqliteLog,
     ImportSqliteLog,
     ExportTrack,
+
+    GetPendingEvents,
 }
 
 /// Messages from the backend to the frontend
@@ -41,4 +45,5 @@ pub enum ToFront {
     NewPinId(i64),              // id of a new pin after assignment
     DeleteLocationsResult(u64), // how many points deleted
     SwiftPoke,
+    PendingEvents(PendingEvents),
 }

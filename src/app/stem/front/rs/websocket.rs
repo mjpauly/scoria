@@ -325,6 +325,8 @@ impl WebsocketService {
         // Derived state is pushed by backend when it's updated, so we don't
         // request it in the loop.
         self.send_msg(ToBack::GetDerivedState);
+        // Switch to pending events after initializing everything
+        self.send_msg(ToBack::GetPendingEvents);
         yew::platform::spawn_local(async move {
             loop {
                 // periodically get the back state (latest location, etc)

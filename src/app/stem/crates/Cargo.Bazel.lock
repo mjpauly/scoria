@@ -1,5 +1,5 @@
 {
-  "checksum": "adde3b8ef1338c88d369bb00e54162ae32b6dbaf2565bb59fd7fc17fdb7c1f5f",
+  "checksum": "8ab0406ec05b31afe5c4fc70439d5756b8ec12d103734fd9be078f93a5b6febf",
   "crates": {
     "actix 0.13.0": {
       "name": "actix",
@@ -5995,6 +5995,10 @@
             {
               "id": "serde_json 1.0.94",
               "target": "serde_json"
+            },
+            {
+              "id": "serde_qs 0.13.0",
+              "target": "serde_qs"
             },
             {
               "id": "sqlx 0.6.2",
@@ -18468,6 +18472,65 @@
       ],
       "license_file": null
     },
+    "serde_qs 0.13.0": {
+      "name": "serde_qs",
+      "version": "0.13.0",
+      "package_url": "https://github.com/samscott89/serde_qs",
+      "repository": {
+        "Http": {
+          "url": "https://static.crates.io/crates/serde_qs/0.13.0/download",
+          "sha256": "cd34f36fe4c5ba9654417139a9b3a20d2e1de6012ee678ad14d240c22c78d8d6"
+        }
+      },
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "serde_qs",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "serde_qs",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "crate_features": {
+          "common": [
+            "default"
+          ],
+          "selects": {}
+        },
+        "deps": {
+          "common": [
+            {
+              "id": "percent-encoding 2.2.0",
+              "target": "percent_encoding"
+            },
+            {
+              "id": "serde 1.0.193",
+              "target": "serde"
+            },
+            {
+              "id": "thiserror 1.0.38",
+              "target": "thiserror"
+            }
+          ],
+          "selects": {}
+        },
+        "edition": "2018",
+        "version": "0.13.0"
+      },
+      "license": "MIT/Apache-2.0",
+      "license_ids": [
+        "Apache-2.0",
+        "MIT"
+      ],
+      "license_file": null
+    },
     "serde_repr 0.1.10": {
       "name": "serde_repr",
       "version": "0.1.10",
@@ -23771,6 +23834,7 @@
             "BlobPropertyBag",
             "CanvasRenderingContext2d",
             "CharacterData",
+            "Clipboard",
             "CloseEvent",
             "CloseEventInit",
             "Coordinates",
@@ -23889,6 +23953,12 @@
           "selects": {}
         },
         "edition": "2018",
+        "rustc_flags": {
+          "common": [
+            "--cfg=web_sys_unstable_apis"
+          ],
+          "selects": {}
+        },
         "version": "0.3.66"
       },
       "license": "MIT OR Apache-2.0",
@@ -26306,6 +26376,7 @@
             "BootstrapInfoCircleFill",
             "BootstrapJournalText",
             "BootstrapJoystick",
+            "BootstrapLink45Deg",
             "BootstrapList",
             "BootstrapPlus",
             "BootstrapPlusLg",
@@ -27461,6 +27532,7 @@
     "serde 1.0.193",
     "serde-wasm-bindgen 0.5.0",
     "serde_json 1.0.94",
+    "serde_qs 0.13.0",
     "sqlx 0.6.2",
     "strum 0.25.0",
     "time 0.3.36",

@@ -17,6 +17,8 @@ async fn main() -> Result<(), std::io::Error> {
 
     stem::local::local_setup_with_dev_db("dev_fs/", 8081).await;
 
+    // stem::core::handle_url_scheme("scoria://place?name=Ferry+Building&lng=-122.39339582391952&lat=37.79552680112931&icon=%E2%9B%B4%EF%B8%8F".into());
+
     // Spawn our data generator
     tokio::spawn(data_generator());
 

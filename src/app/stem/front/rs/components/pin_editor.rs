@@ -3,7 +3,6 @@
 use std::str::FromStr;
 
 use common::{pin::Pin, state::MapSettingsTab, LngLat, ToBack, ToFront};
-use unicode_segmentation::UnicodeSegmentation;
 use web_sys::{HtmlInputElement, HtmlTextAreaElement};
 use yew::prelude::*;
 use yew_icons::{Icon, IconId};
@@ -12,6 +11,7 @@ use yewdux::prelude::*;
 use crate::{
     components::confirm::Confirm,
     ui_state::{DerivedState, FrontState},
+    web::clipboard::write_to_clipboard,
     websocket::{use_backend_event, WebsocketService},
 };
 
@@ -19,15 +19,6 @@ static INPUT_STYLE: &str = "rounded bg-neutral-800 border border-neutral-700";
 // prevent long words from increasing width of the element
 static FREEFORM_TEXT_STYLE: &str =
     "whitespace-pre-wrap break-words table table-fixed w-full";
-
-// Maximum number of characters (code points) for various fields
-const ICON_MAX_GRAPHEMES: usize = 5; // max number of graphemes
-const ICON_MAX_CHARS: usize = 32; // max number of code points (some emoji have
-                                  // up to 4 code points)
-const NAME_MAX_CHARS: usize = 128;
-const LIST_MAX_CHARS: usize = 128;
-const TAG_KEY_MAX_CHARS: usize = 128;
-const TAG_VAL_MAX_CHARS: usize = 1024;
 
 // future TODO:
 // - ability to drag pin when editing (for now can just copy over the coords
@@ -120,6 +111,28 @@ pub fn PinViewer() -> Html {
             state.map.settings_tab = MapSettingsTab::None
         });
 
+    let copy_worked = use_state(|| Option::<bool>::None);
+    let copy_link_onclick = {
+        let pin = pin.clone();
+        let copy_worked = copy_worked.clone();
+        Callback::from(move |_e: MouseEvent| {
+            if let Ok(link) = pin.to_url() {
+                let copy_worked = copy_worked.clone();
+                write_to_clipboard(link.clone(), |worked| {
+                    // show if it worked or not for one second
+                    yew::platform::spawn_local(async move {
+                        copy_worked.set(Some(worked));
+                        yew::platform::time::sleep(
+                            std::time::Duration::from_secs(1),
+                        )
+                        .await;
+                        copy_worked.set(None);
+                    });
+                });
+            }
+        })
+    };
+
     let open_in_google_maps =
         use_selector(|state: &FrontState| state.map.open_in_google_maps);
     let maps_link = if cfg!(feature = "android_config") || *open_in_google_maps
@@ -166,6 +179,26 @@ pub fn PinViewer() -> Html {
                 </div>
             }
             { for tags_elems }
+            <div class="flex items-center justify-between flex-wrap gap-2">
+                <button
+                    class="py-1 text-primary flex gap-2 items-center"
+                    onclick={copy_link_onclick}
+                >
+                    {"Copy Scoria Link"}
+                    if copy_worked.is_none() {
+                        // default is a blue link
+                        <Icon icon_id={IconId::BootstrapLink45Deg}
+                            class="h-6 w-6" />
+                    } else if *copy_worked == Some(true) {
+                        <Icon icon_id={IconId::BootstrapCheck}
+                            class="h-6 w-6 animate-inout" />
+                    } else {
+                        <Icon icon_id={IconId::BootstrapX}
+                            class="h-6 w-6 text-red-500 animate-inout" />
+                    }
+                </button>
+                <div></div>
+            </div>
             <div class="flex items-center justify-between flex-wrap gap-2">
                 <a
                     class="py-1 text-primary flex gap-2 items-center"
@@ -261,27 +294,16 @@ pub fn PinEditor() -> Html {
     let icon_onchange = front_dispatch.reduce_mut_callback_with(
         move |state: &mut FrontState, e: Event| {
             let elem: HtmlInputElement = e.target_dyn_into().unwrap();
-            let mut s = elem.value();
-            // Truncate to max number of unicode code points
-            trunc_to_char(&mut s, ICON_MAX_CHARS);
-            // Emoji might not be followed by variation selectors, so we also
-            // truncate to a max number of graphemes
-            trunc_to_grapheme(&mut s, ICON_MAX_GRAPHEMES);
-            if s.trim().is_empty() {
-                // new value is all whitespace -> don't allow change since this
-                // will confusingly result in an invisible icon on the map
+            if state.map.current_pin.set_icon(elem.value()).is_err() {
+                // invalid, reset to previous value
                 elem.set_value(&state.map.current_pin.icon);
-                return;
             }
-            state.map.current_pin.icon = s;
         },
     );
     let name_onchange = front_dispatch.reduce_mut_callback_with(
         move |state: &mut FrontState, e: Event| {
             let elem: HtmlTextAreaElement = e.target_dyn_into().unwrap();
-            let mut s = elem.value();
-            trunc_to_char(&mut s, NAME_MAX_CHARS);
-            state.map.current_pin.name = s;
+            state.map.current_pin.set_name(elem.value());
         },
     );
 
@@ -294,12 +316,10 @@ pub fn PinEditor() -> Html {
                 elem.set_value(&state.map.current_pin.lnglat.to_string());
                 return;
             };
-            if !newlnglat.is_valid() {
-                // lnglat not on the globe, revert
+            if state.map.current_pin.set_lnglat(newlnglat).is_err() {
+                // invalid, revert
                 elem.set_value(&state.map.current_pin.lnglat.to_string());
-                return;
             }
-            state.map.current_pin.lnglat = newlnglat;
         },
     );
 
@@ -329,9 +349,7 @@ pub fn PinEditor() -> Html {
         front_dispatch.reduce_mut_callback_with(
             move |state: &mut FrontState, e: Event| {
                 let elem: HtmlInputElement = e.target_dyn_into().unwrap();
-                let mut s = elem.value();
-                trunc_to_char(&mut s, LIST_MAX_CHARS);
-                state.map.current_pin.lists.push(s);
+                state.map.current_pin.push_list(elem.value());
                 show_list_input.set(false);
             },
         )
@@ -347,17 +365,13 @@ pub fn PinEditor() -> Html {
         let update_key_onchange = front_dispatch.reduce_mut_callback_with(
             move |state: &mut FrontState, e: Event| {
                 let elem: HtmlInputElement = e.target_dyn_into().unwrap();
-                let mut s = elem.value();
-                trunc_to_char(&mut s, TAG_KEY_MAX_CHARS);
-                state.map.current_pin.tags[i].0 = s;
+                state.map.current_pin.update_key_at(i, elem.value());
             },
         );
         let update_value_onchange = front_dispatch.reduce_mut_callback_with(
             move |state: &mut FrontState, e: Event| {
                 let elem: HtmlTextAreaElement = e.target_dyn_into().unwrap();
-                let mut s = elem.value();
-                trunc_to_char(&mut s, TAG_VAL_MAX_CHARS);
-                state.map.current_pin.tags[i].1 = s;
+                state.map.current_pin.update_val_at(i, elem.value());
             },
         );
         html! {
@@ -485,26 +499,4 @@ pub fn PinEditor() -> Html {
         </div>
         </div>
     }
-}
-
-/// Truncate to `n` unicode code points.
-///
-/// A normal string truncation may panic if the byte length splits a code point,
-/// so this avoid the pitfall.
-fn trunc_to_char(s: &mut String, n: usize) {
-    let upto = s.char_indices().map(|(i, _)| i).nth(n).unwrap_or(s.len());
-    s.truncate(upto);
-}
-
-/// Truncate to a given grapheme length.
-///
-/// Sometimes there is no "variation selector" after an emoji, so to prevent
-/// putting too many emoji, we have to truncate just on graphemes
-fn trunc_to_grapheme(s: &mut String, n: usize) {
-    let upto = s
-        .grapheme_indices(true)
-        .map(|(i, _)| i)
-        .nth(n)
-        .unwrap_or(s.len());
-    s.truncate(upto);
 }

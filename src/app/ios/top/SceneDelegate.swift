@@ -28,6 +28,15 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         window?.makeKeyAndVisible()
         let vc = ViewController()
         window?.rootViewController = vc
+
+        handle_url_scheme(URLContexts: connectionOptions.urlContexts)
+    }
+
+    func scene(
+        _ scene: UIScene,
+        openURLContexts URLContexts: Set<UIOpenURLContext>
+    ) {
+        handle_url_scheme(URLContexts: URLContexts)
     }
 
     func sceneDidDisconnect(_ scene: UIScene) {

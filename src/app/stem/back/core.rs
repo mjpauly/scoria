@@ -6,7 +6,7 @@
 //!     3) do any additional calculations for system visibility or user
 //!             analysis.
 
-use common::state::MapState;
+use common::state::{MapState, PendingEvents};
 use tracing::error;
 
 use crate::app_state::AppState;
@@ -70,4 +70,25 @@ pub fn new_data_is_visible(
     let not_filtered_out =
         !map_state.filters.iter().any(|f| f.should_remove(loc));
     in_time_range && in_bounds && not_filtered_out
+}
+
+/// Handle an incoming `scoria://` url scheme, which may come in before we've
+/// foregrounded.
+///
+/// e.g.:
+/// ```text
+/// scoria://place?name=Ferry+Building&lng=-122.39339582391952&lat=\
+/// 37.79552680112931&icon=%E2%9B%B4%EF%B8%8F
+/// ```
+pub fn handle_url_scheme(url: String) {
+    let binding = AppState::global();
+    let mut guard = binding.pending_events.lock().unwrap();
+    if let Some(ref mut events) = &mut *guard {
+        events.opened_url = Some(url);
+    } else {
+        let events = PendingEvents {
+            opened_url: Some(url),
+        };
+        *guard = Some(events);
+    }
 }

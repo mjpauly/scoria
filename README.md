@@ -7,6 +7,7 @@ Then:
 
 - 1.4 release
     - little things
+        - [ ] link detection in pin tags, handle input overflow
         - [ ] Pin aliases for associating dwells with existing pins when the bounding area is large
         - [ ] click on pin and see breakdown of trips at that pin
         - [ ] bar wastes space on iPad

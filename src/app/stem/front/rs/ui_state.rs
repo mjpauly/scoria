@@ -126,6 +126,7 @@ pub fn get_update_callback() -> Callback {
         ToFront::DerivedState(val) => {
             derived_dispatch.reduce_mut(|s| **s = val.clone())
         }
+        ToFront::PendingEvents(_) => (),
         // These messages handled by other callbacks, and not stored globally
         ToFront::GeojsonUpdated => (),
         ToFront::NearestLocation(_) => (),
