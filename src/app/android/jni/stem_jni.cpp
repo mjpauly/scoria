@@ -274,5 +274,12 @@ JNIEXPORT jboolean JNICALL Java_info_scoria_Stem_shouldExportTrack
     return should_export_track();
 }
 
+JNIEXPORT void JNICALL Java_info_scoria_Stem_urlScheme
+  (JNIEnv *, jclass, jstring url)
+{
+    std::string converted{LocalString{url}.Pin().ToString()};
+    url_scheme(converted.c_str());
+}
+
 
 } // extern "C"

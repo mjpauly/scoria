@@ -7,6 +7,7 @@
 //!             analysis.
 
 use common::state::{MapState, PendingEvents};
+use common::ToFront;
 use tracing::error;
 
 use crate::app_state::AppState;
@@ -14,6 +15,7 @@ use crate::database::{self, OSLocationData};
 use crate::map::automap::update_automap;
 use crate::map::geojson::{update_geojson, BOUND_EXPANSION};
 use crate::metrics::dashboard::update_dashboard;
+use crate::ws_session::send_message_to_front;
 use crate::{logs, ws_session};
 
 pub async fn log_location(loc: OSLocationData) {
@@ -83,12 +85,14 @@ pub fn new_data_is_visible(
 pub fn handle_url_scheme(url: String) {
     let binding = AppState::global();
     let mut guard = binding.pending_events.lock().unwrap();
-    if let Some(ref mut events) = &mut *guard {
-        events.opened_url = Some(url);
-    } else {
-        let events = PendingEvents {
-            opened_url: Some(url),
-        };
-        *guard = Some(events);
+    if guard.is_none() {
+        *guard = Some(PendingEvents::default());
+    }
+    guard.as_mut().map(|events| events.opened_url = Some(url));
+    // if frontend is connected, directly send the events
+    if AppState::global().ws_addr.lock().unwrap().is_some() {
+        if let Some(events) = guard.take() {
+            send_message_to_front(ToFront::PendingEvents(events));
+        }
     }
 }

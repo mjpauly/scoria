@@ -121,7 +121,7 @@ async fn set_app_version_code_helper(current_version_code: i64) {
 #[no_mangle]
 pub extern "C" fn log_error(msg: *const c_char) {
     let msg = cstr_to_string(msg);
-    tracing::error!("Swift error: {}", msg);
+    tracing::error!("Wrapper error: {}", msg);
 }
 
 /// Handle shutdown of the app by saving certain persistent state elements to

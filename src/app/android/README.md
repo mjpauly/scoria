@@ -9,6 +9,12 @@ $ANDROID_HOME/emulator/emulator -list-avds
 $ANDROID_HOME/emulator/emulator -avd Medium_Phone_API_34
 ```
 
+View logs
+
+```
+$ANDROID_HOME/platform-tools/adb logcat
+```
+
 ## Building
 
 Build and run the app in the emulator:
@@ -116,6 +122,12 @@ Compiled manifest values can be inspected with:
 
 ```
 aapt dump xmltree app_unsigned.apk AndroidManifest.xml
+```
+
+## Open URL Scheme
+
+```
+$ANDROID_HOME/platform-tools/adb shell 'am start -a android.intent.action.VIEW -d "scoria://place?lng=-122&lat=37&name=hi"'
 ```
 
 ## Common Issues

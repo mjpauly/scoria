@@ -31,4 +31,6 @@ public class Stem {
     public static native boolean shouldImportSqliteLog();
     public static native void importFromSqliteLog(String importPath);
     public static native boolean shouldExportTrack();
+
+    public static native void urlScheme(String url);
 }

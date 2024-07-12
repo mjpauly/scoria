@@ -2,12 +2,11 @@
 
 ## To Do
 
-Current: show/hide pins
-Then:
+Current: link detection in pin tags, handle input overflow
+Then: show/hide pins
 
 - 1.4 release
     - little things
-        - [ ] link detection in pin tags, handle input overflow
         - [ ] Pin aliases for associating dwells with existing pins when the bounding area is large
         - [ ] click on pin and see breakdown of trips at that pin
         - [ ] bar wastes space on iPad
@@ -25,6 +24,7 @@ Then:
     - [ ] remove tails from dwells?
 - data organization and sharing
     - [ ] share pins with others
+        - places RSS feeds?
 - [ ] release binary for desktop scoria
 - [ ] queries/metrics for selected data (distance/time/speed traveled/dwelled, average distanced traveled (mean free path))
 - [ ] icloud backups
