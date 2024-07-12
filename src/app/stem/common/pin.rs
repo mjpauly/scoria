@@ -114,12 +114,21 @@ impl Pin {
     /// scoria://place?name=Ferry+Building&lng=-122.39339582391952&lat=\
     /// 37.79552680112931&icon=%E2%9B%B4%EF%B8%8F
     /// ```
+    ///
+    /// Brackets that indicates nesting are manually percent encoded. This
+    /// avoids other software attempting to then percent encode the whole url
+    /// because it detects the brackets (e.g. Notes), which messes up things
+    /// that are already encoded, like emojis. Parsing the url thus requires
+    /// non-strict mode for serde_qs, and we cannot have brackets inside any key
+    /// names.
     pub fn to_url(&self) -> Result<String> {
         let params = PinUrlParams::from(self.clone());
-        let params_string = match serde_qs::to_string(&params) {
+        let mut params_string = match serde_qs::to_string(&params) {
             Ok(p) => p,
             Err(e) => bail!("Failed to serialize query params. Err: {e}"),
         };
+        params_string = params_string.replace('[', "%5B");
+        params_string = params_string.replace(']', "%5D");
         Ok(format!("{URL_PREFIX}{params_string}"))
     }
 
