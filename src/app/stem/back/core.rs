@@ -88,7 +88,9 @@ pub fn handle_url_scheme(url: String) {
     if guard.is_none() {
         *guard = Some(PendingEvents::default());
     }
-    guard.as_mut().map(|events| events.opened_url = Some(url));
+    if let Some(events) = guard.as_mut() {
+        events.opened_url = Some(url);
+    }
     // if frontend is connected, directly send the events
     if AppState::global().ws_addr.lock().unwrap().is_some() {
         if let Some(events) = guard.take() {

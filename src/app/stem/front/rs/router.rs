@@ -174,26 +174,19 @@ impl SettingsRoute {
 /// On startup, navigate to the last page we were on. Some exceptions apply,
 /// like when the app's intro has updated such that is should be shown.
 pub fn navigate_to_last_page(
-    front_state: &Option<common::FrontState>,
+    s: &common::FrontState,
     navigator: &yew_router::navigator::Navigator,
 ) {
-    if let Some(s) = front_state {
-        if s.last_viewed_intro_version < INTRO_VERSION {
-            // new intro to view -> show intro on startup
-            navigator
-                .push(&Route::from_persisted_route(&PersistedRoute::Intro));
-        } else if s.route == PersistedRoute::SettingsSubpage {
-            // was on a settings page -> go to persisted settings page
-            navigator
-                .push(&SettingsRoute::from_persisted_route(&s.settings_route));
-        } else {
-            // was on a top-level page -> go to it
-            navigator.push(&Route::from_persisted_route(&s.route));
-        }
-    } else {
-        // no persisted state -> show intro
+    if s.last_viewed_intro_version < INTRO_VERSION {
+        // new intro to view -> show intro on startup
         navigator.push(&Route::from_persisted_route(&PersistedRoute::Intro));
-    };
+    } else if s.route == PersistedRoute::SettingsSubpage {
+        // was on a settings page -> go to persisted settings page
+        navigator.push(&SettingsRoute::from_persisted_route(&s.settings_route));
+    } else {
+        // was on a top-level page -> go to it
+        navigator.push(&Route::from_persisted_route(&s.route));
+    }
 }
 
 /// Retrieve the scope from the current url, so that we can use it as the

@@ -172,13 +172,13 @@ pub struct FrontState {
 /// launches are stored.
 #[derive(Debug, Copy, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub enum PersistedRoute {
-    #[default]
     Sense,
     Analyze,
     Places,
     Metrics,
     SettingsRoot,
     SettingsSubpage,
+    #[default]
     Intro,
 }
 
@@ -223,7 +223,8 @@ pub struct MapState {
     #[serde(deserialize_with = "ok_or_default")]
     pub editable_pin: bool,
     // id of the pin that was last selected on the map (may not be the same as
-    // the current pin in the PinEditor)
+    // the current pin in the PinEditor). Can be set independent of current_pin
+    // when moving to the map, as current_pin is derived from it.
     #[serde(deserialize_with = "ok_or_default")]
     pub selected_pin_id: Option<i64>,
     #[serde(deserialize_with = "ok_or_default")]

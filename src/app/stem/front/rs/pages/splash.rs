@@ -3,25 +3,30 @@
 
 use yew::prelude::*;
 use yew_router::prelude::*;
+use yewdux::prelude::*;
 
 use crate::router::navigate_to_last_page;
+use crate::ui_state::{init_state, FrontState};
 use crate::websocket::{use_backend_event, ToFront};
 
-/// Splash page when the app is loading. Redirects to the sense page when the
-/// last bit of app state is received (ToFront::LocationsPastHour)
+/// Splash page when the app is loading.
+///
+/// Initializes the frontend state based on what's received from the backend,
+/// then redirects to the past saved route.
 #[function_component]
 pub fn Splash() -> Html {
+    crate::debug_with_time("splash");
     let navigator = use_navigator().unwrap();
+    let front_dispatch = Dispatch::<FrontState>::new();
     let on_get_state = {
         move |msg: &ToFront| {
-            if let ToFront::FrontState(s) = msg {
-                navigate_to_last_page(s, &navigator);
+            if let ToFront::Startup(state, events) = msg {
+                crate::debug_with_time("got frontstate");
+                init_state(state, events);
+                navigate_to_last_page(&front_dispatch.get(), &navigator);
             }
         }
     };
     use_backend_event(on_get_state);
-    html! {
-        <>
-        </>
-    }
+    html! {}
 }

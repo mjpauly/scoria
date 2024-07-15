@@ -9,18 +9,18 @@
 # Version bumps between iOS and Android should happen in tandem to keep things
 # synced, even if a release is not created.
 
-# Public version used in iOS. TODO: for 1.5, explicitly specify as 1.5.0
-IOS_VERSION_NAME = "1.4" # implicitly "1.4.0"
+# Public version used in iOS.
+IOS_VERSION_NAME = "1.4.0"
 
 # Beta/build version used in iOS testing. Can add more number segments
 # separated by dots to further distinguish build versions.
-IOS_BUILD_VERSION = "17"
+IOS_BUILD_VERSION = "18"
 
 
 # Public semver version, only used for display. The patch version increments
 # when android updates are not timed exactly with iOS, allowing slip for
 # synchronizing on the major/minor version numbers.
-ANDROID_VERSION_NAME = "1.4.0-beta.17" # set to "1.4.0" for public release
+ANDROID_VERSION_NAME = "1.4.0-beta.18" # set to "1.4.0" for public release
 
 # Monotonic version code for use in Android. Bump on each release, since it is
 # used to determine if a new update exists. Increases prevent downgrading.

@@ -13,11 +13,12 @@ use std::{
     rc::Rc,
 };
 
-use common::state::MapState;
+use common::state::{MapState, PendingEvents};
 use yewdux::prelude::*;
 
 use crate::{
     components::time_range_picker::{local_offset, time_delta_range_today},
+    router::Route,
     swift_poke,
     websocket::{Callback, ToBack, ToFront, WebsocketService},
 };
@@ -91,10 +92,21 @@ impl DerefMut for DerivedState {
     }
 }
 
-pub fn get_update_callback() -> Callback {
+/// Initialize the frontend state and handle pending events upon receiving the
+/// ToFront::Startup websocket message.
+pub fn init_state(
+    state: &Option<common::FrontState>,
+    events: &Option<PendingEvents>,
+) {
+    init_front_state(state);
+    handle_pending_events(events);
+}
+
+/// Initialize the front state as received from the backend.
+fn init_front_state(state: &Option<common::FrontState>) {
     let front_dispatch = Dispatch::<FrontState>::new();
-    // logic for setting the front state when it's received from the backend
-    let set_front_state = move |mut state: common::FrontState| {
+    if let Some(mut state) = state.clone() {
+        // logic for setting the front state when it's received from the backend
         if state.map.time_delta_range.offset.is_none() {
             // Backend failed to deserialize -> set to correct offset
             state.map.time_delta_range = time_delta_range_today();
@@ -107,18 +119,51 @@ pub fn get_update_callback() -> Callback {
         // between app launches
         // TODO: reset to today if they've been away for 1+ hour
         state.map.time_range = (&state.map.time_delta_range).into();
-        front_dispatch.reduce_mut(|s| **s = state)
-    };
+        front_dispatch.reduce_mut(|s| **s = state);
+    }
+}
 
+/// Update state according to pending events received at initialization, or
+/// during running.
+///
+/// Must be called after init_front_state. Setting the persisted route here
+/// determines where the UI initially opens to. Also used for acting on events
+/// that are received while the app is running, though for scoria:// links
+/// clicked when the map is open this won't zoom to the right map marker since
+/// no maplibre calls are made.
+///
+/// Can be called if events are pushed by the backend, in which case the return
+/// value is the route to go to.
+pub fn handle_pending_events(events: &Option<PendingEvents>) -> Option<Route> {
+    let front_dispatch = Dispatch::<FrontState>::new();
+    let Some(events) = events else {
+        return None;
+    };
+    let Some(url) = &events.opened_url else {
+        return None;
+    };
+    if let Ok(pin) = common::pin::Pin::from_url(url.clone()) {
+        front_dispatch.reduce_mut(|s: &mut FrontState| {
+            s.map.view_pos.center = pin.lnglat;
+            s.map.view_pos.zoom = 16.0;
+            s.map.current_pin = pin;
+            s.map.selected_pin_id = None;
+            s.map.editable_pin = true;
+            s.map.settings_tab = common::state::MapSettingsTab::PinDetails;
+            s.route = common::state::PersistedRoute::Analyze;
+        });
+        return Some(Route::Analyze);
+    }
+    None
+}
+
+// Updater for back and derived state, which is not sensitive to initialization
+// order
+pub fn get_update_callback() -> Callback {
     let back_dispatch = Dispatch::<BackState>::new();
     let derived_dispatch = Dispatch::<DerivedState>::new();
     let callback = move |msg: &ToFront| match msg {
-        ToFront::FrontState(val) => {
-            // we get the FrontState at startup
-            if let Some(state) = &**val {
-                set_front_state(state.clone());
-            }
-        }
+        ToFront::Startup(_, _) => (),
         ToFront::BackState(val) => {
             // update our known backend state
             back_dispatch.reduce_mut(|s| **s = val.clone())

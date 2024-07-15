@@ -9,7 +9,7 @@ use crate::{
 /// Messages from the frontend to the backend over the websocket
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum ToBack {
-    // Frontend requests frontend state at runtime
+    // Frontend requests frontend state at startup, once
     GetFrontState,
     // And periodically requests the backend state
     GetBackState,
@@ -30,14 +30,12 @@ pub enum ToBack {
     ExportSqliteLog,
     ImportSqliteLog,
     ExportTrack,
-
-    GetPendingEvents,
 }
 
 /// Messages from the backend to the frontend
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum ToFront {
-    FrontState(Box<Option<FrontState>>),
+    Startup(Box<Option<FrontState>>, Option<PendingEvents>),
     BackState(BackState),
     DerivedState(DerivedState),
     GeojsonUpdated,

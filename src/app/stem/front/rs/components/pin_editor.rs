@@ -37,6 +37,7 @@ pub fn PinDetails() -> Html {
             Dispatch::<FrontState>::new().reduce_mut(
                 |state: &mut FrontState| {
                     state.map.current_pin.id = Some(*id);
+                    state.map.selected_pin_id = Some(*id);
                 },
             );
         }
@@ -62,6 +63,15 @@ fn find_matching_pin(selected_pin_id: &Option<i64>) -> Option<Pin> {
 }
 
 /// Views pin details without editing.
+///
+/// The current_pin is set based on the selected_pin_id. A new pin should always
+/// be opened with editable_pin=true and current_pin id and selected_pin_id set
+/// to None.
+///
+/// The selected_pin_id is necessary, since there's a delay between saving a pin
+/// and when the new id is assigned by the backend. We don't want the pin
+/// details to flicker to the previous values for a moment before the backend
+/// pin state updates with the new values.
 #[function_component]
 pub fn PinViewer() -> Html {
     // pin to show in the editor
@@ -86,7 +96,9 @@ pub fn PinViewer() -> Html {
         });
     let list_elems = pin.lists.iter().map(|l| {
         html! {
-            <span class="bg-neutral-800 px-2 py-1 rounded text-sm">
+            <span class="bg-neutral-800 px-2 py-1 rounded text-sm \
+                         overflow-scroll"
+            >
                 {l.clone()}
             </span>
         }
@@ -96,7 +108,7 @@ pub fn PinViewer() -> Html {
     let tags_elems = pin.tags.iter().map(|t| {
         html! {
             <div class="flex items-center justify-start gap-2 select-text">
-                <span class="w-1/3"> {t.0.clone()} </span>
+                <span class="w-1/3 overflow-scroll"> {t.0.clone()} </span>
                 <div class="w-2/3 max-h-32 overflow-scroll">
                     <span class={format!("text-sm {}", FREEFORM_TEXT_STYLE)}>
                         {t.1.clone()}
@@ -286,6 +298,7 @@ pub fn PinEditor() -> Html {
             }
             // clear the current pin
             state.map.current_pin = Default::default();
+            state.map.selected_pin_id = None;
             state.map.editable_pin = false;
             state.map.settings_tab = MapSettingsTab::None;
         })

@@ -22,6 +22,11 @@ Then: show/hide pins
     - [ ] cleanup plotly element buttons
     - [ ] option to manually delete outlier data points
     - [ ] remove tails from dwells?
+- website
+    - [ ] blurb about scoria (use iOS blurb)
+    - [ ] docs
+        - [ ] underlying data format being SQLite, version codes
+        - [ ] factos of power use
 - data organization and sharing
     - [ ] share pins with others
         - places RSS feeds?
