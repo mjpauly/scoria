@@ -2,7 +2,7 @@
 
 ## To Do
 
-Current: link detection in pin tags, handle input overflow
+Current: frontend error logs to backend?
 Then: show/hide pins
 
 - 1.4 release

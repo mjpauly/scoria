@@ -192,6 +192,7 @@ crates_repository(
             version = "0.3.17",
             features = ["env-filter", "tracing-log"],
         ),
+        "url": crate.spec(version = "2.5.2"),
         "walkdir": crate.spec(version = "2.3.3"),
         "anyhow": crate.spec(
             version = "1.0.68",

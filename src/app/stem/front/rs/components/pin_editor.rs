@@ -106,14 +106,32 @@ pub fn PinViewer() -> Html {
 
     // Tags
     let tags_elems = pin.tags.iter().map(|t| {
+        let is_url = url::Url::parse(&t.1).is_ok();
         html! {
             <div class="flex items-center justify-start gap-2 select-text">
                 <span class="w-1/3 overflow-scroll"> {t.0.clone()} </span>
-                <div class="w-2/3 max-h-32 overflow-scroll">
-                    <span class={format!("text-sm {}", FREEFORM_TEXT_STYLE)}>
-                        {t.1.clone()}
-                    </span>
-                </div>
+                if is_url {
+                    <a
+                        class="w-2/3 max-h-32 overflow-scroll text-primary"
+                        href={t.1.clone()}
+                    >
+                        <span class={format!(
+                            "text-sm {}",
+                            FREEFORM_TEXT_STYLE
+                        )}>
+                            {t.1.clone()}
+                        </span>
+                    </a>
+                } else {
+                    <div class="w-2/3 max-h-32 overflow-scroll">
+                        <span class={format!(
+                            "text-sm {}",
+                            FREEFORM_TEXT_STYLE
+                        )}>
+                            {t.1.clone()}
+                        </span>
+                    </div>
+                }
             </div>
         }
     });
@@ -160,9 +178,10 @@ pub fn PinViewer() -> Html {
         web_sys::window().unwrap().dispatch_event(&event).unwrap();
     });
     html! {
-        <div class="flex m-1 text-left">
-        <div class="flex-grow mx-auto bg-neutral-900 rounded-lg \
-            overflow-hidden px-4 py-2 flex flex-col gap-2 max-w-prose"
+        // 50lvh is 50% of the viewport's "large" height
+        <div class="flex text-left max-h-[50lvh] overflow-scroll mx-1">
+        <div class="flex-grow mx-auto bg-neutral-900 rounded-lg h-full \
+            px-4 py-2 flex flex-col gap-2 max-w-prose my-1"
         >
             <div class="flex items-center justify-start gap-2 select-text \
                 text-lg"
@@ -420,7 +439,7 @@ pub fn PinEditor() -> Html {
         web_sys::window().unwrap().dispatch_event(&event).unwrap();
     });
     html! {
-        <div class="flex m-1">
+        <div class="flex text-left max-h-[50lvh] mx-1 overflow-scroll">
         if *confirming_delete {
             <Confirm
                 title={"Delete saved place?"}
@@ -428,8 +447,8 @@ pub fn PinEditor() -> Html {
                 cancel={cancel_delete_onclick}
             />
         }
-        <div class="flex-grow mx-auto bg-neutral-900 rounded-lg \
-            overflow-hidden px-4 py-2 flex flex-col gap-2 max-w-prose"
+        <div class="flex-grow mx-auto bg-neutral-900 rounded-lg h-full \
+            px-4 py-2 flex flex-col gap-2 max-w-prose my-1"
         >
             <div class="flex items-center justify-start gap-2">
                 <input

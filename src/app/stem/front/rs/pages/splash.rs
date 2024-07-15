@@ -15,13 +15,11 @@ use crate::websocket::{use_backend_event, ToFront};
 /// then redirects to the past saved route.
 #[function_component]
 pub fn Splash() -> Html {
-    crate::debug_with_time("splash");
     let navigator = use_navigator().unwrap();
     let front_dispatch = Dispatch::<FrontState>::new();
     let on_get_state = {
         move |msg: &ToFront| {
             if let ToFront::Startup(state, events) = msg {
-                crate::debug_with_time("got frontstate");
                 init_state(state, events);
                 navigate_to_last_page(&front_dispatch.get(), &navigator);
             }
