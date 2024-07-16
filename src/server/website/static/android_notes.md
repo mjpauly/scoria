@@ -29,6 +29,9 @@ Scoria for Android is available only from [scoria.info](https://scoria.info).
 You will need to [opt-in for installing unknown
 apps](https://developer.android.com/distribute/marketing-tools/alternative-distribution#unknown-sources).
 
+Scoria automatically checks for updates at startup, and will notify you in the
+app if there is one available.
+
 <hr class="mt-8 border-neutral-600">
 
 ## Verify App Signature

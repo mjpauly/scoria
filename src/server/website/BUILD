@@ -53,6 +53,9 @@ pkg_tar(
 static_file_targets, static_file_envs = files_and_envs({
     ":index": "INDEX_FILE",
     ":privacy_policy": "PRIVACY_POLICY_FILE",
+    ":feed": "FEED_FILE",
+    ":posts": "POSTS_FILE",
+    ":android_release_post": "ANDROID_RELEASE_POST",
     ":first_release_post": "FIRST_RELEASE_POST",
     ":contact": "CONTACT_FILE",
     ":terms": "TERMS_FILE",
@@ -141,6 +144,16 @@ md_template(
 )
 
 md_template(
+    name = "posts",
+    src = "static/posts.md",
+)
+
+md_template(
+    name = "android_release_post",
+    src = "static/android_release.md",
+)
+
+md_template(
     name = "first_release_post",
     src = "static/first_release.md",
     include_html = True,
@@ -175,6 +188,7 @@ md_template(
 # provides a convenient shorthand target name for the template files
 files(
     names_srcs = {
+        "feed": "static/feed.xml",
         "template_top": "static/template_top.html",
         "template_bottom": "static/template_bottom.html",
     },

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+  <title>Scoria</title>
+  <id>https://scoria.info/</id>
+  <updated>2024-07-16T03:39:12Z</updated>
+  <link rel="self" href="https://scoria.info/feed"/>
+
+  <entry>
+    <title>Scoria For Android</title>
+    <id>https://scoria.info/posts/android_release</id>
+    <updated>2024-07-16T20:00:00Z</updated>
+    <link rel="alternate" href="https://scoria.info/posts/android_release"/>
+  </entry>
+
+  <entry>
+    <title>Scoria's First Release</title>
+    <id>https://scoria.info/posts/first_release</id>
+    <updated>2023-07-12T20:00:00Z</updated>
+    <link rel="alternate" href="https://scoria.info/posts/first_release"/>
+  </entry>
+
+</feed>

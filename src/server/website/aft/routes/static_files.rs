@@ -1,7 +1,11 @@
 use actix_web::http::header::ContentType;
+use actix_web::routes;
 use actix_web::{dev::HttpServiceFactory, get, web, HttpResponse, Responder};
 
 static INDEX_FILE: &str = include_str!(env!("INDEX_FILE"));
+static FEED_FILE: &str = include_str!(env!("FEED_FILE"));
+static POSTS_FILE: &str = include_str!(env!("POSTS_FILE"));
+static ANDROID_RELEASE_POST: &str = include_str!(env!("ANDROID_RELEASE_POST"));
 static FIRST_RELEASE_POST: &str = include_str!(env!("FIRST_RELEASE_POST"));
 static PRIVACY_POLICY_FILE: &str = include_str!(env!("PRIVACY_POLICY_FILE"));
 static CONTACT_FILE: &str = include_str!(env!("CONTACT_FILE"));
@@ -22,7 +26,7 @@ static APP_STORE_BADGE: &[u8] = include_bytes!(env!("APP_STORE_BADGE"));
 pub fn get_static_file_services() -> impl HttpServiceFactory {
     (
         index,
-        first_release_post,
+        posts_services(),
         privacy_policy,
         contact,
         terms,
@@ -34,6 +38,10 @@ pub fn get_static_file_services() -> impl HttpServiceFactory {
     )
 }
 
+fn posts_services() -> impl HttpServiceFactory {
+    (feed, posts, android_release_post, first_release_post)
+}
+
 #[get("/")]
 async fn index() -> impl Responder {
     HttpResponse::Ok()
@@ -41,7 +49,30 @@ async fn index() -> impl Responder {
         .body(INDEX_FILE)
 }
 
+#[routes]
+#[get("/feed")]
+#[get("/feed/")]
+async fn feed() -> impl Responder {
+    HttpResponse::Ok()
+        .insert_header(("content-type", "application/atom+xml"))
+        .body(FEED_FILE)
+}
+
 #[get("/posts")]
+async fn posts() -> impl Responder {
+    HttpResponse::Ok()
+        .content_type(ContentType::html())
+        .body(POSTS_FILE)
+}
+
+#[get("/posts/android_release")]
+async fn android_release_post() -> impl Responder {
+    HttpResponse::Ok()
+        .content_type(ContentType::html())
+        .body(ANDROID_RELEASE_POST)
+}
+
+#[get("/posts/first_release")]
 async fn first_release_post() -> impl Responder {
     HttpResponse::Ok()
         .content_type(ContentType::html())

@@ -369,6 +369,14 @@ developer.apple.com.
     6b. Distribution: Drag the archive into the Transporter app to upload to App
         Store Connect.
 
+### Screenshots
+
+Set iOS simulator time with:
+
+```
+xcrun simctl status_bar booted override --time "9:41" --batteryState charged --batteryLevel 100 --cellularBars 4
+```
+
 ## General Troubleshooting
 
 ### Onclick Events Don't Fire on Div Padding
