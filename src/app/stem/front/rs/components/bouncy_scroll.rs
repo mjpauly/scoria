@@ -42,7 +42,7 @@ pub fn BouncyScrollContainerBase(p: &BouncyScrollContainerProps) -> Html {
         // elements that are supposed to by fixed/sticky (though it is the
         // norm for all mobile websites).
         <div class={classes!(
-            Classes::from("grow overflow-scroll h-0 w-full max-w-prose \
+            Classes::from("grow overflow-y-scroll h-0 w-screen max-w-prose \
                           mx-auto"),
             p.class.clone()
         )}>
