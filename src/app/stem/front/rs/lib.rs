@@ -27,6 +27,7 @@ mod plotly;
 mod router;
 mod swift_poke;
 mod ui_state;
+mod unwrapping;
 mod web;
 mod websocket;
 

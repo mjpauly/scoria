@@ -14,6 +14,7 @@ use crate::components::{
 };
 use crate::router::get_scoped_host;
 use crate::ui_state::FrontState;
+use crate::unwrapping::{unwrap_option_or_log, unwrap_result_or_log};
 use common::map_style::{
     BasemapStyle, ColoredDataStream, MARKER_SIZE_MAX, MARKER_SIZE_MIN,
 };
@@ -58,46 +59,56 @@ pub fn MapStyler() -> Html {
 
     let color_onchange = dispatch.reduce_mut_callback_with(
         move |s: &mut FrontState, e: Event| {
-            let elem: HtmlInputElement = e.target_dyn_into().unwrap();
+            let elem: HtmlInputElement =
+                unwrap_option_or_log!(e.target_dyn_into());
             let val: &str = &elem.value();
             s.map.style.solid_color.rgb = val.to_string();
         },
     );
     let opacity_onchange = dispatch.reduce_mut_callback_with(
         move |s: &mut FrontState, e: InputEvent| {
-            let elem: HtmlInputElement = e.target_dyn_into().unwrap();
+            let elem: HtmlInputElement =
+                unwrap_option_or_log!(e.target_dyn_into());
             let val: &str = &elem.value();
-            let new_opacity = val.to_string().parse::<f64>().unwrap();
+            let new_opacity =
+                unwrap_result_or_log!(val.to_string().parse::<f64>());
             s.map.style.solid_color.a = new_opacity;
         },
     );
     let marker_size_onchange = dispatch.reduce_mut_callback_with(
         move |s: &mut FrontState, e: InputEvent| {
-            let elem: HtmlInputElement = e.target_dyn_into().unwrap();
+            let elem: HtmlInputElement =
+                unwrap_option_or_log!(e.target_dyn_into());
             let val: &str = &elem.value();
-            s.map.style.marker_size = val.to_string().parse().unwrap();
+            s.map.style.marker_size =
+                unwrap_result_or_log!(val.to_string().parse());
         },
     );
     let line_size_onchange = dispatch.reduce_mut_callback_with(
         move |s: &mut FrontState, e: InputEvent| {
-            let elem: HtmlInputElement = e.target_dyn_into().unwrap();
+            let elem: HtmlInputElement =
+                unwrap_option_or_log!(e.target_dyn_into());
             let val: &str = &elem.value();
-            s.map.style.line_size = val.to_string().parse().unwrap();
+            s.map.style.line_size =
+                unwrap_result_or_log!(val.to_string().parse());
         },
     );
     let basemap_onchange = dispatch.reduce_mut_callback_with(
         move |s: &mut FrontState, e: Event| {
-            let elem: HtmlSelectElement = e.target_dyn_into().unwrap();
+            let elem: HtmlSelectElement =
+                unwrap_option_or_log!(e.target_dyn_into());
             let val: &str = &elem.value();
-            s.map.style.basemap_style = BasemapStyle::from_str(val).unwrap();
+            s.map.style.basemap_style =
+                unwrap_result_or_log!(BasemapStyle::from_str(val));
         },
     );
     let datastream_onchange = dispatch.reduce_mut_callback_with(
         move |s: &mut FrontState, e: Event| {
-            let elem: HtmlSelectElement = e.target_dyn_into().unwrap();
+            let elem: HtmlSelectElement =
+                unwrap_option_or_log!(e.target_dyn_into());
             let val: &str = &elem.value();
             s.map.style.colored_datastream =
-                ColoredDataStream::from_str(val).unwrap();
+                unwrap_result_or_log!(ColoredDataStream::from_str(val));
         },
     );
     let colorbar_on_click = {

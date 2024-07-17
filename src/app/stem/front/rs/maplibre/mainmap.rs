@@ -7,6 +7,7 @@ use wasm_bindgen::{prelude::*, JsCast};
 
 use crate::maplibre::{binds::*, pins, selected_points};
 use crate::router::get_scoped_host;
+use crate::unwrapping::{unwrap_js_result_or_log, unwrap_option_or_log};
 use common::cmaps;
 use common::map_style::{ColoredDataStream, MapStyle, Rgba};
 use common::view_position::ViewPosition;
@@ -109,25 +110,33 @@ fn get_click_point_callback(
     click_point: impl Fn((common::LngLat, Option<String>)) + Clone + 'static,
 ) -> impl Fn(&JsValue) + Clone {
     move |event: &JsValue| {
-        let features = Reflect::get(event, &"features".into()).unwrap();
-        let first = features.dyn_ref::<Array>().unwrap().at(0);
+        let features =
+            unwrap_js_result_or_log!(Reflect::get(event, &"features".into()));
+        let first = unwrap_option_or_log!(features.dyn_ref::<Array>()).at(0);
 
         // get the color of the data point
-        let props = Reflect::get(&first, &"properties".into()).unwrap();
-        let color_obj = Reflect::get(&props, &"color".into()).unwrap();
+        let props = unwrap_js_result_or_log!(Reflect::get(
+            &first,
+            &"properties".into()
+        ));
+        let color_obj =
+            unwrap_js_result_or_log!(Reflect::get(&props, &"color".into()));
         let color = if !color_obj.is_undefined() {
-            Some(color_obj.as_string().unwrap())
+            Some(unwrap_option_or_log!(color_obj.as_string()))
         } else {
             None
         };
 
         // get the lng, lat of the data point so we can find it
-        let geometry = Reflect::get(&first, &"geometry".into()).unwrap();
-        let coordinates =
-            Reflect::get(&geometry, &"coordinates".into()).unwrap();
-        let coord_arr = coordinates.dyn_ref::<Array>().unwrap();
-        let lng = coord_arr.at(0).as_f64().unwrap();
-        let lat = coord_arr.at(1).as_f64().unwrap();
+        let geometry =
+            unwrap_js_result_or_log!(Reflect::get(&first, &"geometry".into()));
+        let coordinates = unwrap_js_result_or_log!(Reflect::get(
+            &geometry,
+            &"coordinates".into()
+        ));
+        let coord_arr = unwrap_option_or_log!(coordinates.dyn_ref::<Array>());
+        let lng = unwrap_option_or_log!(coord_arr.at(0).as_f64());
+        let lat = unwrap_option_or_log!(coord_arr.at(1).as_f64());
 
         click_point((common::LngLat { lng, lat }, color));
     }
