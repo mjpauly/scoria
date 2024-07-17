@@ -62,7 +62,8 @@ pub fn get_subscriber(paths: &Paths) -> impl Subscriber + Send + Sync {
         .unwrap();
     let log = fmt::Layer::new()
         .with_writer(file_appender)
-        .with_ansi(false);
+        .with_ansi(false)
+        .with_line_number(true);
 
     // set level directive with RUST_LOG, or default to just pass errors
     let env_filter = EnvFilter::from_default_env();
@@ -104,6 +105,10 @@ pub fn init_logging(subscriber: impl Subscriber + Send + Sync) {
     let _ = subscriber.try_init();
     log_panics::init();
     tracing::info!("Initialized logging");
+}
+
+pub fn log_frontend_error(s: String) {
+    tracing::error!(target: "frontend", "{s}");
 }
 
 // pattern to match in the log files

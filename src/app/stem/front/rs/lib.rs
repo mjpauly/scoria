@@ -19,6 +19,7 @@
 //! ```
 
 mod components;
+mod logs;
 mod maplibre;
 mod pages;
 mod pending_events;
@@ -37,15 +38,24 @@ use websocket::WebsocketService;
 /// Top level App component for the UI.
 #[function_component]
 pub fn App() -> Html {
-    // Start our websocket service, so we use it as a context available to all
-    // components with `use_context`
+    // Start logging and get a handle to reload with the websocket log listener
+    let handle = logs::init_logging();
+
+    // Start the websocket service, to be made available to all components with
+    // `use_context`
     let wss = WebsocketService::new();
-    // Create an id for this function component to associate our callback with
+
+    // Reload the logging
+    logs::reload_with_ws_log_listener(handle, wss.get_sender());
+
+    // Create an id for this function component to associate our callback with,
+    // and register the app state update callback.
     let id = use_memo(|_| uuid::Uuid::new_v4(), ());
-    // Register the app state update callback first ahead of all children
     wss.subscribe(*id, ui_state::get_update_callback());
+
     // Spawn a future that regularly requests updated state info from backend
     wss.clone().spawn_state_requester();
+
     // Notify backend whenever the UI state changes
     ui_state::init_backend_listener(wss.clone());
 
@@ -71,5 +81,5 @@ pub fn now() -> i64 {
 }
 
 pub fn debug_with_time(s: &str) {
-    log::debug!("{} ms, {}", now(), s);
+    tracing::debug!("{} ms, {}", now(), s);
 }

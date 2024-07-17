@@ -192,6 +192,7 @@ crates_repository(
             version = "0.3.17",
             features = ["env-filter", "tracing-log"],
         ),
+        "tracing-web": crate.spec(version = "0.1.3"),
         "url": crate.spec(version = "2.5.2"),
         "walkdir": crate.spec(version = "2.3.3"),
         "anyhow": crate.spec(
@@ -279,9 +280,6 @@ crates_repository(
         "log": crate.spec(
             version = "0.4.17",
             features = ["release_max_level_error"],
-        ),
-        "wasm-logger": crate.spec(
-            version = "0.2.0",
         ),
         "yew_icons": crate.spec(
             version = "0.7.2",

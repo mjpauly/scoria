@@ -47,7 +47,7 @@ mod browser_api {
             match result {
                 Ok(_) => callback(true),
                 Err(e) => {
-                    log::debug!("Copy failed {:?}", e);
+                    tracing::error!("Copy failed {:?}", e);
                     callback(false);
                 }
             };

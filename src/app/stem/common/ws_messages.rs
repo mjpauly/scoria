@@ -9,6 +9,8 @@ use crate::{
 /// Messages from the frontend to the backend over the websocket
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum ToBack {
+    LogError(String),
+
     // Frontend requests frontend state at startup, once
     GetFrontState,
     // And periodically requests the backend state

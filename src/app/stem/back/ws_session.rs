@@ -17,7 +17,6 @@ use tracing::{info, warn};
 use crate::app_state::AppState;
 use crate::app_state::{get_derived_state, set_back_state};
 use crate::core::update_on_foregrounding;
-use crate::database;
 use crate::export::export_selected;
 use crate::logs::update_last_logged_error;
 use crate::map::automap::update_automap;
@@ -25,6 +24,7 @@ use crate::map::basemap::evict_old_map_data;
 use crate::map::geojson::{get_location_near, update_geojson};
 use crate::metrics::dashboard::update_dashboard_on_state_change;
 use crate::runtime::get_runtime;
+use crate::{database, logs};
 
 /// How often heartbeat pings are sent
 #[allow(dead_code)]
@@ -108,6 +108,7 @@ impl WsSession {
     fn handle_msg(&self, msg: ToBack, ctx: &mut ws::WebsocketContext<Self>) {
         // dbg!(msg.clone());
         match msg {
+            ToBack::LogError(s) => logs::log_frontend_error(s),
             ToBack::GetFrontState => {
                 // at startup we send the FrontState and PendingEvents
                 self.send_initial_front_state(ctx);
