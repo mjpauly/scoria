@@ -2,11 +2,12 @@
 
 ## To Do
 
-Current: frontend error logs to backend?
-Then: show/hide pins
+Current: changelog
+Then: screenshots
 
 - 1.4 release
     - little things
+        - [ ] show/hide pins
         - [ ] Pin aliases for associating dwells with existing pins when the bounding area is large
         - [ ] click on pin and see breakdown of trips at that pin
         - [ ] bar wastes space on iPad
@@ -23,7 +24,6 @@ Then: show/hide pins
     - [ ] option to manually delete outlier data points
     - [ ] remove tails from dwells?
 - website
-    - [ ] blurb about scoria (use iOS blurb)
     - [ ] docs
         - [ ] underlying data format being SQLite, version codes
         - [ ] factos of power use
@@ -44,7 +44,7 @@ Then: show/hide pins
     - [ ] decouple ellipsoid and msl altitudes, remove story
 - debug-ability
     - [ ] action failure alterts (esp for importing)
-    - [ ] have frontend send logs to backend
+    - [ ] unwrap less often
 - features
     - [ ] find local timezone with `tzf-rs`, then convert with `time-tz`
     - [ ] self-annotated waypoints, routes, and tracks
@@ -58,6 +58,11 @@ Then: show/hide pins
           specified, even for points (min=max=point)
     - [ ] notification if Scoria is closed
 - bugs
+    - [ ] upgrade maplibre to fix memory leak
+        - https://github.com/maplibre/maplibre-gl-js/issues/3733
+        - v3.0.0
+            - remove expicit resize?
+            - remove mapboxgl-* classes in styles.css?
     - [ ] network timeout too long in airplane mode?
 - housekeeping
     - [ ] switch to Library/Caches for map cache (and cleanup old location)
@@ -366,6 +371,8 @@ developer.apple.com.
 6. Install/upload the app
     6a. Developemnt: Go to Xcode -> devices and simulators -> [your device] ->
         `+` -> archive file
+        - If you get a "A coordinated app install already exists" error, quit
+          the app fully.
     6b. Distribution: Drag the archive into the Transporter app to upload to App
         Store Connect.
 
