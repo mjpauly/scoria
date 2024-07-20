@@ -14,6 +14,7 @@ Then: screenshots
         - [ ] Decimation fix
         - [ ] Reduce dithering at common location
         - [ ] Guide on opening app, esp after entering low power mode, factors of power use.
+        - [ ] recompute automap after deleting data points?
     - [ ] view subset of pins
     - [ ] in-app guide
         - discuss how entering low power mode stops data, need to reopen
