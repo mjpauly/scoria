@@ -70,7 +70,7 @@ pub fn Colorbar() -> Html {
             let height_diff = (title_font_size - title_default_size)
                 + (tick_font_size - tick_default_size);
 
-            let txt_color = plotly::color::Rgba::new(163, 163, 163, 1.);
+            let txt_color = plotly::color::Rgba::new(192, 192, 192, 1.);
             let mut colorbar = plotly::common::ColorBar::new()
                 .orientation(plotly::common::Orientation::Horizontal)
                 .thickness(15)
@@ -121,6 +121,7 @@ pub fn Colorbar() -> Html {
             let bg_color = plotly::color::Rgba::new(0, 0, 0, 0.);
             let layout = plotly::Layout::new()
                 .height((80 + height_diff) as usize)
+                .font(plotly::common::Font::new().family(r#"ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji""#))
                 .paper_background_color(bg_color)
                 .plot_background_color(bg_color)
                 .margin(

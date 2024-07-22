@@ -738,7 +738,7 @@ pub fn dark_template() -> Value {
                 ]
             },
             "colorway": [
-                "#636efa",
+                "#3a87fe", // from iOS color picker (this line only)
                 "#EF553B",
                 "#00cc96",
                 "#ab63fa",
@@ -750,7 +750,8 @@ pub fn dark_template() -> Value {
                 "#FECB52"
             ],
             "font": {
-                "color": "#f2f5fa"
+                "color": "#f2f5fa",
+                "family": r#"ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji""#,
             },
             "geo": {
                 "bgcolor": "rgb(17,17,17)",
@@ -767,8 +768,8 @@ pub fn dark_template() -> Value {
             "mapbox": {
                 "style": "dark"
             },
-            "paper_bgcolor": "rgb(17,17,17)",
-            "plot_bgcolor": "rgb(17,17,17)",
+            "paper_bgcolor": "#000000",
+            "plot_bgcolor": "#000000",
             "polar": {
                 "angularaxis": {
                     "gridcolor": "#506784",

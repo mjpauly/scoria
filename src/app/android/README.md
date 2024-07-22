@@ -86,6 +86,15 @@ jarsigner -keystore ~/keystores/upload_keystore.jks app_deployable.aab upload
 jarsigner -verify app_deployable.aab
 ```
 
+## Install on Device
+
+```
+$ANDROID_HOME/platform-tools/adb install Scoria.apk
+```
+
+Enable developer options and usb debugging. Can check if device is detected
+with `adb devices`.
+
 ## JNI
 
 https://www.baeldung.com/jni

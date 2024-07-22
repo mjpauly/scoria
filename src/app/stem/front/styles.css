@@ -116,3 +116,10 @@
 .mapboxgl-ctrl-group button span, .maplibregl-ctrl-group button span {
     @apply bg-contain
 }
+
+
+/* Plotly */
+
+div.plotly-notifier {
+  visibility: hidden;
+}
