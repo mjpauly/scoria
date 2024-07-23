@@ -80,11 +80,14 @@ pub struct Rgba {
 )]
 #[strum(serialize_all = "title_case")]
 pub enum BasemapStyle {
+    None,
     Basic,
     Dataviz,
     Streets,
     Topo,
     Outdoor,
+    #[strum(serialize = "Dark None")]
+    NoneDark,
     #[strum(serialize = "Dark Basic")]
     #[default]
     BasicDark,
@@ -105,19 +108,25 @@ impl BasemapStyle {
     /// We consider sattelite to be a dark theme since its background is black
     pub fn is_dark(&self) -> bool {
         match self {
-            Self::BasicDark
+            Self::NoneDark
+            | Self::BasicDark
             | Self::DatavizDark
             | Self::StreetsDark
             | Self::TopoDark
             | Self::OutdoorDark
             | Self::Hybrid
             | Self::Satellite => true,
-            Self::Basic
+            Self::None
+            | Self::Basic
             | Self::Dataviz
             | Self::Streets
             | Self::Topo
             | Self::Outdoor => false,
         }
+    }
+
+    pub fn is_some(&self) -> bool {
+        !matches!(self, Self::None | Self::NoneDark)
     }
 }
 

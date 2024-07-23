@@ -30,7 +30,8 @@ use crate::{
 use common::state::MapSettingsTab;
 use common::LngLat;
 
-const BLANK_MAP_STYLE: &str = r#"{"version":8,"name":"Blank","sources":{},"layers":[],"center":[0,0],"zoom":1}"#;
+const BLANK_MAP_STYLE_DARK: &str = r#"{"version":8,"name":"Blank","sources":{},"layers":[{"id":"Background","type":"background","layout":{"visibility":"visible"},"paint":{"background-color":["interpolate",["exponential",1],["zoom"],6,"hsl(0, 0%, 17%)",20,"hsl(0, 0%, 18%)"]}}],"center":[0,0],"zoom":1}"#;
+const BLANK_MAP_STYLE_LIGHT: &str = r#"{"version":8,"name":"Blank","sources":{},"layers":[{"id":"Background","type":"background","layout":{"visibility":"visible"},"paint":{"background-color":{"stops":[[6,"hsl(60,20%,85%)"],[20,"hsl(60,24%,90%)"]]}}}],"center":[0,0],"zoom":1}"#;
 
 #[function_component]
 pub fn Analyze() -> Html {
@@ -230,19 +231,25 @@ fn PlotComponent() -> Html {
             move |basemap_style| {
                 let basemap_style = *basemap_style;
                 wasm_bindgen_futures::spawn_local(async move {
-                    let blank_map = String::from(BLANK_MAP_STYLE);
-                    let url = get_basemap_url(&basemap_style);
-                    let basemap_str = match Request::get(&url).send().await {
-                        Ok(req) => req
-                            .text()
-                            .await
-                            .unwrap_or_else(|_| blank_map.clone()),
-                        Err(_) => blank_map.clone(),
+                    let blank_map = match basemap_style.is_dark() {
+                        true => BLANK_MAP_STYLE_DARK,
+                        false => BLANK_MAP_STYLE_LIGHT,
+                    };
+                    let basemap_str = match basemap_style.is_some() {
+                        false => String::from(blank_map),
+                        true => {
+                            let url = get_basemap_url(&basemap_style);
+                            let text = match Request::get(&url).send().await {
+                                Ok(resp) => resp.text().await.ok(),
+                                Err(_) => None,
+                            };
+                            text.unwrap_or_else(|| String::from(blank_map))
+                        }
                     };
                     // if we can't parse the json, just make it a blank map
                     let basemap_obj: Value = serde_json::from_str(&basemap_str)
                         .unwrap_or_else(|_| {
-                            serde_json::from_str(&blank_map).unwrap()
+                            serde_json::from_str(blank_map).unwrap()
                         });
                     basemap.set(Some(basemap_obj));
                 });

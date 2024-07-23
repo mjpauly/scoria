@@ -35,6 +35,8 @@ fn format_tile_url(style: &str) -> String {
 
 pub fn get_basemap_url(style: &BasemapStyle) -> String {
     match style {
+        BasemapStyle::None => "invalid".into(),
+        BasemapStyle::NoneDark => "invalid".into(),
         BasemapStyle::Basic => format_tile_url("basic-v2"),
         BasemapStyle::Dataviz => format_tile_url("dataviz"),
         BasemapStyle::Streets => format_tile_url("streets-v2"),

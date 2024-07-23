@@ -2,35 +2,26 @@
 
 ## To Do
 
-Current: changelog
-Then: screenshots
+Current: release Android
+Then: google maps import
 
-- 1.4 release
-    - little things
-        - [ ] show/hide pins
-        - [ ] Pin aliases for associating dwells with existing pins when the bounding area is large
-        - [ ] click on pin and see breakdown of trips at that pin
-        - [ ] bar wastes space on iPad
-        - [ ] Decimation fix
-        - [ ] Reduce dithering at common location
-        - [ ] Guide on opening app, esp after entering low power mode, factors of power use.
-        - [ ] recompute automap after deleting data points?
-    - [ ] view subset of pins
-    - [ ] in-app guide
-        - discuss how entering low power mode stops data, need to reopen
+- [ ] show/hide pins
+- [ ] Pin aliases for associating dwells with existing pins when the bounding area is large
+- [ ] click on pin and see breakdown of trips at that pin
+- [ ] bar wastes space on iPad
+- [ ] Decimation fix
+- [ ] light mode
+- [ ] Reduce dithering at common location
+- [ ] recompute automap after deleting data points?
+- [ ] in-app or website guide
+    - discuss how entering low power mode stops data, need to reopen
+        - esp after entering low poewr mode
         - also after update
-        - discuss power use factors
-        - use filters to make timeline good (30m / 100ft)
-    - [ ] cleanup plotly element buttons
-    - [ ] option to manually delete outlier data points
-    - [ ] remove tails from dwells?
-- website
-    - [ ] docs
-        - [ ] underlying data format being SQLite, version codes
-        - [ ] factos of power use
-- data organization and sharing
-    - [ ] share pins with others
-        - places RSS feeds?
+    - discuss power use factors
+    - use filters to make timeline good (30m / 100ft)
+    - [ ] underlying data format being SQLite, version codes
+- [ ] remove tails from dwells?
+- share lists with others - places RSS feeds?
 - [ ] release binary for desktop scoria
 - [ ] queries/metrics for selected data (distance/time/speed traveled/dwelled, average distanced traveled (mean free path))
 - [ ] icloud backups
@@ -39,8 +30,6 @@ Then: screenshots
 - [ ] export track as scoria db for sharing lost sections with friends
     - [ ] mount external db temporarily
     - [ ] timestamp of imported data points
-    - [ ] ability to delete data points
-        - https://www.sqlite.org/pragma.html#pragma_secure_delete
 - post Android release
     - [ ] decouple ellipsoid and msl altitudes, remove story
 - debug-ability
@@ -53,10 +42,6 @@ Then: screenshots
     - [ ] release notes for prior versions
     - [ ] improve colormap contrast option (restrict min/max setting)
     - [ ] support other activity types in "Custom" location mode
-    - [ ] test Sqlite R\*Tree index for faster spatial search
-        - while "virtual", it is stored on disk. rows are manually entered,
-          potentially with triggers. minimum bounding rectangles must be
-          specified, even for points (min=max=point)
     - [ ] notification if Scoria is closed
 - bugs
     - [ ] upgrade maplibre to fix memory leak
@@ -68,14 +53,10 @@ Then: screenshots
 - housekeeping
     - [ ] switch to Library/Caches for map cache (and cleanup old location)
 - low priority
-    - [ ] smaller tab bar icons and text
     - [ ] quick time update buttons
-    - [ ] enable running Scoria on Mac
     - [ ] zoom to current location on first install
     - [ ] internationalization
     - [ ] move pin, and add boundary region
-- [ ] reset to "today" time range and data-centered view if user is away from
-    the app for 1+ hr
 - [ ] notify user when they close the app that keeping it open is required for
     data to be logged
 
@@ -346,7 +327,8 @@ something like an option behind the Mutex.
 
 ### Security / Obfuscation
 
-Inspect the symbols in a binary with `nm [file] | nvim -R -`.
+Inspect the symbols in a binary with `nm [file] | nvim -R -`. Pass `-D` to `nm`
+to see dynamic symbols
 
 ## Style Notes
 
