@@ -5,6 +5,7 @@ use actix_web::{dev::HttpServiceFactory, get, web, HttpResponse, Responder};
 static INDEX_FILE: &str = include_str!(env!("INDEX_FILE"));
 static FEED_FILE: &str = include_str!(env!("FEED_FILE"));
 static POSTS_FILE: &str = include_str!(env!("POSTS_FILE"));
+static SCORIA_1_4_0_POST: &str = include_str!(env!("1_4_0_RELEASE_POST"));
 static ANDROID_RELEASE_POST: &str = include_str!(env!("ANDROID_RELEASE_POST"));
 static FIRST_RELEASE_POST: &str = include_str!(env!("FIRST_RELEASE_POST"));
 static PRIVACY_POLICY_FILE: &str = include_str!(env!("PRIVACY_POLICY_FILE"));
@@ -20,6 +21,9 @@ static SCREENSHOT1: &[u8] = include_bytes!(env!("SCREENSHOT1"));
 static SCREENSHOT2: &[u8] = include_bytes!(env!("SCREENSHOT2"));
 static SCREENSHOT3: &[u8] = include_bytes!(env!("SCREENSHOT3"));
 static SCREENSHOT4: &[u8] = include_bytes!(env!("SCREENSHOT4"));
+static SCREENSHOT5: &[u8] = include_bytes!(env!("SCREENSHOT5"));
+static SCREENSHOT6: &[u8] = include_bytes!(env!("SCREENSHOT6"));
+static SCREENSHOT7: &[u8] = include_bytes!(env!("SCREENSHOT7"));
 static APP_STORE_BADGE: &[u8] = include_bytes!(env!("APP_STORE_BADGE"));
 
 /// Max 12 elements can be grouped together
@@ -39,7 +43,13 @@ pub fn get_static_file_services() -> impl HttpServiceFactory {
 }
 
 fn posts_services() -> impl HttpServiceFactory {
-    (feed, posts, android_release_post, first_release_post)
+    (
+        feed,
+        posts,
+        scoria_1_4_0_post,
+        android_release_post,
+        first_release_post,
+    )
 }
 
 #[get("/")]
@@ -63,6 +73,13 @@ async fn posts() -> impl Responder {
     HttpResponse::Ok()
         .content_type(ContentType::html())
         .body(POSTS_FILE)
+}
+
+#[get("/posts/Scoria_1.4.0")]
+async fn scoria_1_4_0_post() -> impl Responder {
+    HttpResponse::Ok()
+        .content_type(ContentType::html())
+        .body(SCORIA_1_4_0_POST)
 }
 
 #[get("/posts/android_release")]
@@ -128,6 +145,9 @@ async fn screenshots(path: web::Path<usize>) -> impl Responder {
         2 => SCREENSHOT2,
         3 => SCREENSHOT3,
         4 => SCREENSHOT4,
+        5 => SCREENSHOT5,
+        6 => SCREENSHOT6,
+        7 => SCREENSHOT7,
         _ => return HttpResponse::NotFound().finish(),
     };
     HttpResponse::Ok()

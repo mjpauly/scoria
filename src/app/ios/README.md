@@ -1,5 +1,17 @@
 # Screenshots
 
+Convert pngs to jpeg:
+
+```
+mogrify -format jpeg -quality 80 *.png
+```
+
+## Firefox
+
+Use the mobile device view, and use the built-in screenshot tool.
+
+## iOS
+
 Copy a saved database to a running simulator:
 
 ```

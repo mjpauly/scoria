@@ -44,19 +44,16 @@ bazel build shim:jni_lib --platforms=//:android_aarch64
 ### Apk
 
 ```
-# Build, zipalign, and sign
-bazel build app --config=android_release
-zipalign -v -p 4 bazel-bin/src/app/android/app_unsigned.apk release/app_aligned.apk
-apksigner sign --ks ~/keystores/distribution_keystore.jks --out release/scoria.apk release/app_aligned.apk
+# Build zipaligned apk and sign it
+bazel build aligned_apk --config=android_release
+apksigner sign --ks ~/keystores/distribution_keystore.jks --out release/Scoria_1.x.y.apk bazel-bin/src/app/android/Scoria_1.x.y.apk
 
 # Save the unsigned app, proguard mapping, etc for future debug
 bazel build package_release --config=android_release
-cp bazel-bin/src/app/andriod/android_relase_x.y.zip .
+cp bazel-bin/src/app/andriod/android_relase_x.y.zip release/
 
-# Check alignment, signature, and that debug is off (0x0 is off)
-zipalign -v -c 4 release/scoria.apk
+# Check signature
 apksigner verify -v release/scoria.apk
-aapt dump xmltree app_unsigned.apk AndroidManifest.xml | grep debug
 ```
 
 View the cert with `keytool -printcert -jarfile scoria_1_3_g.apk`. Or for in

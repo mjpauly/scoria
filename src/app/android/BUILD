@@ -4,6 +4,7 @@ load("@rules_android_app_bundles//android:android_application.bzl",
     "android_application", "deployable_android_application"
 )
 load("//:src/app/version.bzl", "ANDROID_VERSION_NAME", "ANDROID_VERSION_CODE")
+load("@bazel_skylib//rules:select_file.bzl", "select_file")
 
 proguard_specs = select({
     "//:distribution_profile": [
@@ -12,6 +13,28 @@ proguard_specs = select({
     ],
     "//conditions:default": [],
 })
+
+genrule(
+    name = "aligned_apk",
+    srcs = [":unaligned_apk"],
+    outs = ["Scoria_" + ANDROID_VERSION_NAME + ".apk"],
+    cmd = """
+zipalign -v -p 4 $(location :unaligned_apk) $@
+
+# verify
+zipalign -v -c 4 $@
+
+# check debuggable is set to 0x0 for release (0xffffffff for when debuggable)
+aapt dump xmltree $@ AndroidManifest.xml | grep debug | grep -v 0xffffffff \
+    || { echo "ERROR: apk is debuggable"; false; }
+""",
+)
+
+select_file(
+    name = "unaligned_apk",
+    srcs = ":app",
+    subpath = "app_unsigned.apk",
+)
 
 # Generates a app binary (.apk).
 android_binary(
