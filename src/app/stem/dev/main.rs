@@ -17,6 +17,9 @@ async fn main() -> Result<(), std::io::Error> {
 
     stem::local::local_setup_with_dev_db("dev_fs/", 8081).await;
 
+    // stem::core::handle_url_scheme("scoria://place?name=Ferry+Building&lng=-122.39339582391952&lat=37.79552680112931&icon=%E2%9B%B4%EF%B8%8F".into());
+    // stem::core::handle_url_scheme("scoria://place?name=Ferry+Building&lng=-122.39339582391952&lat=37.79552680112931&icon=%E2%9B%B4%EF%B8%8F&lists%5B0%5D=To+go&tags%5B0%5D%5B0%5D=Website&tags%5B0%5D%5B1%5D=https%3A%2F%2Fwww.ferrybuildingmarketplace.com%2F".into());
+
     // Spawn our data generator
     tokio::spawn(data_generator());
 
@@ -47,7 +50,7 @@ async fn data_generator() {
     // let starting_n = 1;
     let mut data = stem::database::OSLocationData {
         timestamp: time::OffsetDateTime::now_utc().unix_timestamp()
-            - starting_n,
+            - (starting_n * update_rate as i64),
         latitude: 35.68697,
         longitude: 139.70140,
         horizontal_accuracy: random::<f64>() * 3.0 + 2.0,

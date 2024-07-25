@@ -3,13 +3,10 @@
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumIter, EnumString};
 
-use crate::{
-    cmaps::{Cmap, CmapParams},
-    float,
-    state::ok_or_default,
-    units::UnitPreference,
-    Location,
-};
+use crate::{state::ok_or_default, units::UnitPreference, Location};
+
+pub const MARKER_SIZE_MIN: usize = 0;
+pub const MARKER_SIZE_MAX: usize = 10;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
@@ -17,13 +14,15 @@ pub struct MapStyle {
     pub solid_color: Rgba,
     pub marker_size: usize,
     pub line_size: usize,
+    #[serde(deserialize_with = "ok_or_default")]
     pub basemap_style: BasemapStyle,
+    #[serde(deserialize_with = "ok_or_default")]
     pub colored_datastream: ColoredDataStream,
     pub show_colorbar: bool,
-    #[serde(deserialize_with = "ok_or_default")]
     pub automap: bool, // hide unexplored map regions
-    #[serde(deserialize_with = "ok_or_default")]
+    pub automap_opacity: f64,
     pub show_last_location: bool,
+    pub pins_below_data: bool, // display pins below log data
 }
 
 impl MapStyle {
@@ -31,6 +30,8 @@ impl MapStyle {
         self.show_colorbar
             && self.colored_datastream.is_some()
             && self.colored_datastream != ColoredDataStream::Time
+            && self.colored_datastream != ColoredDataStream::ShortDwellDetection
+            && self.colored_datastream != ColoredDataStream::LongDwellDetection
     }
 }
 
@@ -46,8 +47,10 @@ impl Default for MapStyle {
             basemap_style: Default::default(),
             colored_datastream: Default::default(),
             show_colorbar: true,
-            automap: false,
+            automap: true,
+            automap_opacity: 0.5,
             show_last_location: true,
+            pins_below_data: false,
         }
     }
 }
@@ -77,11 +80,14 @@ pub struct Rgba {
 )]
 #[strum(serialize_all = "title_case")]
 pub enum BasemapStyle {
+    None,
     Basic,
     Dataviz,
     Streets,
     Topo,
     Outdoor,
+    #[strum(serialize = "Dark None")]
+    NoneDark,
     #[strum(serialize = "Dark Basic")]
     #[default]
     BasicDark,
@@ -102,19 +108,25 @@ impl BasemapStyle {
     /// We consider sattelite to be a dark theme since its background is black
     pub fn is_dark(&self) -> bool {
         match self {
-            Self::BasicDark
+            Self::NoneDark
+            | Self::BasicDark
             | Self::DatavizDark
             | Self::StreetsDark
             | Self::TopoDark
             | Self::OutdoorDark
             | Self::Hybrid
             | Self::Satellite => true,
-            Self::Basic
+            Self::None
+            | Self::Basic
             | Self::Dataviz
             | Self::Streets
             | Self::Topo
             | Self::Outdoor => false,
         }
+    }
+
+    pub fn is_some(&self) -> bool {
+        !matches!(self, Self::None | Self::NoneDark)
     }
 }
 
@@ -142,8 +154,6 @@ pub enum ColoredDataStream {
     Altitude,
     #[strum(serialize = "Altitude Error")]
     VertAccuracy,
-    #[strum(serialize = "Building Story")]
-    Story,
     Speed,
     #[strum(serialize = "Speed Error")]
     SpeedAccuracy,
@@ -153,35 +163,73 @@ pub enum ColoredDataStream {
     Time,
     #[strum(serialize = "Time of Day")]
     TimeOfDay,
+
+    // These colors are based o data from multiple points
+    #[strum(serialize = "Short Dwell Detection")]
+    ShortDwellDetection,
+    #[strum(serialize = "Long Dwell Detection")]
+    LongDwellDetection,
+    #[strum(serialize = "Dwell Score")]
+    DwellScore,
 }
 
 impl ColoredDataStream {
+    /// Returns whether the coloring is based on the value of a single location
+    /// data point.
+    pub fn is_point_coloring(&self) -> bool {
+        match self {
+            Self::None => false,
+            Self::HorizAccuracy
+            | Self::Altitude
+            | Self::VertAccuracy
+            | Self::Speed
+            | Self::SpeedAccuracy
+            | Self::Course
+            | Self::CourseAccuracy
+            | Self::Time
+            | Self::TimeOfDay => true,
+            Self::ShortDwellDetection
+            | Self::LongDwellDetection
+            | Self::DwellScore => false,
+        }
+    }
+
+    /// Return true if the coloring relies on "adjacent" points that are the
+    /// next point just outside the view bounds wherever the track goes outside.
+    ///
+    /// These adjacent points are marked as not being used for the colormapping,
+    /// and this marking helps certain colormapping schemes better associate
+    /// related points and produce an accurate colormap.
+    pub fn should_get_adjacent(&self) -> bool {
+        matches!(self, Self::LongDwellDetection | Self::DwellScore)
+    }
+
     /// Selects the right data stream from a common::Location struct
     pub fn get_stream(
         &self,
         loc: &Location,
         offset: &time::UtcOffset,
     ) -> Option<f64> {
+        // TODO: convert to utc offset at the data point's location
         let time_of_day_to_seconds = |timestamp: &time::OffsetDateTime| {
             let hms = timestamp.to_offset(*offset).time().as_hms();
             (hms.0 as f64) * 60. * 60. + (hms.1 as f64) * 60. + (hms.2 as f64)
         };
         match self {
-            ColoredDataStream::None => None,
-            ColoredDataStream::HorizAccuracy => Some(loc.horizontal_accuracy),
-            ColoredDataStream::Altitude => loc.msl_altitude,
-            ColoredDataStream::VertAccuracy => loc.vertical_accuracy,
-            ColoredDataStream::Story => loc.story.map(|s| s as f64),
-            ColoredDataStream::Speed => loc.speed,
-            ColoredDataStream::SpeedAccuracy => loc.speed_accuracy,
-            ColoredDataStream::Course => loc.course,
-            ColoredDataStream::CourseAccuracy => loc.course_accuracy,
-            ColoredDataStream::Time => {
-                Some(loc.timestamp.unix_timestamp() as f64)
-            }
-            ColoredDataStream::TimeOfDay => {
-                Some(time_of_day_to_seconds(&loc.timestamp))
-            }
+            Self::None => None,
+            Self::HorizAccuracy => Some(loc.horizontal_accuracy),
+            Self::Altitude => loc.msl_altitude,
+            Self::VertAccuracy => loc.vertical_accuracy,
+            Self::Speed => loc.speed,
+            Self::SpeedAccuracy => loc.speed_accuracy,
+            Self::Course => loc.course,
+            Self::CourseAccuracy => loc.course_accuracy,
+            Self::Time => Some(loc.timestamp.unix_timestamp() as f64),
+            Self::TimeOfDay => Some(time_of_day_to_seconds(&loc.timestamp)),
+            // computed on multiple locations, not on a single point
+            Self::ShortDwellDetection
+            | Self::LongDwellDetection
+            | Self::DwellScore => None,
         }
     }
 
@@ -193,57 +241,41 @@ impl ColoredDataStream {
     pub fn name_with_unit(&self, unit_pref: &UnitPreference) -> String {
         match *self {
             // No units, just display name
-            ColoredDataStream::None
-            | ColoredDataStream::Time
-            | ColoredDataStream::TimeOfDay
-            | ColoredDataStream::Story => format!("{}", self),
+            Self::None
+            | Self::Time
+            | Self::TimeOfDay
+            | Self::ShortDwellDetection
+            | Self::LongDwellDetection
+            | Self::DwellScore => format!("{}", self),
             // Degree units
-            ColoredDataStream::Course | ColoredDataStream::CourseAccuracy => {
+            Self::Course | Self::CourseAccuracy => {
                 format!("{} (º)", self)
             }
             // Small lengths
-            ColoredDataStream::HorizAccuracy
-            | ColoredDataStream::Altitude
-            | ColoredDataStream::VertAccuracy => {
+            Self::HorizAccuracy | Self::Altitude | Self::VertAccuracy => {
                 format!("{} ({})", self, unit_pref.small_length.abbreviation())
             }
             // Speeds
-            ColoredDataStream::Speed | ColoredDataStream::SpeedAccuracy => {
+            Self::Speed | Self::SpeedAccuracy => {
                 format!("{} ({})", self, unit_pref.velocity.abbreviation())
             }
         }
     }
 
-    /// Calculate the cmin and cmax and return colormap the for a datastream
-    /// given a vec of locations
-    pub fn get_cmap_params(
+    pub fn to_preferred_units(
         &self,
-        records: &[&Location],
-        offset: &time::UtcOffset,
-    ) -> CmapParams {
-        let mut params = CmapParams {
-            cmin: 0.,
-            cmax: 0.,
-            cmap: Cmap::Plasma,
-        };
-        if !self.is_some() {
-            // no data-based color mapping, just short circuit
-            return params;
+        unit_pref: &UnitPreference,
+        val: f64,
+    ) -> f64 {
+        match *self {
+            // Small lengths
+            Self::HorizAccuracy | Self::Altitude | Self::VertAccuracy => {
+                unit_pref.small_length.from_base_unit(val)
+            }
+            Self::Speed | Self::SpeedAccuracy => {
+                unit_pref.velocity.from_base_unit(val)
+            }
+            _ => val,
         }
-        if *self == ColoredDataStream::Course {
-            params.cmax = 360.;
-            params.cmap = Cmap::Twilight;
-        } else if *self == ColoredDataStream::TimeOfDay {
-            params.cmax = 24. * 60. * 60.;
-            params.cmap = Cmap::TwilightShifted;
-        } else {
-            let colorvals: Vec<_> = records
-                .iter()
-                .filter_map(|x| self.get_stream(x, offset))
-                .collect();
-            params.cmin = float::min(&colorvals);
-            params.cmax = float::max(&colorvals);
-        }
-        params
     }
 }

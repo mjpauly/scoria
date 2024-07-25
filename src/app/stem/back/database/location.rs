@@ -58,7 +58,7 @@ use common::{
     filters::{DataStream, Filter, FilterOp},
     state::LastAutomapUpdate,
     view_position::LngLatBounds,
-    LngLat, TimeRange,
+    LngLat, TimeRange, ToFront,
 };
 use sqlx::{
     migrate::Migrator,
@@ -67,7 +67,13 @@ use sqlx::{
 };
 use tracing::{error, info};
 
-use crate::app_state::AppState;
+use crate::{
+    app_state::{get_front_state, AppState},
+    database::pins::update_derived_pins,
+    map::geojson::update_geojson,
+    runtime::get_runtime,
+    ws_session::send_message_to_front,
+};
 
 // Embed our migrations from "migrations/" into our binary at compile time
 pub static MIGRATOR: Migrator = sqlx::migrate!();
@@ -188,6 +194,12 @@ pub async fn init_db(db_path: String) -> Result<SqlitePool> {
         .await
     {
         tracing::error!("Failed to set database cache size: {e}");
+    }
+    if let Err(e) = sqlx::query("PRAGMA secure_delete = on;")
+        .execute(&conn)
+        .await
+    {
+        tracing::error!("Failed to set secure delete on: {e}");
     }
     Ok(conn)
 }
@@ -416,6 +428,7 @@ pub async fn import_database_records(import_db_path: PathBuf) {
     let result = sqlx::query(&format!(
         "ATTACH '{}' as toMerge;
         BEGIN;
+
         INSERT OR IGNORE INTO location (
             timestamp,
             latitude, longitude, horizontal_accuracy,
@@ -438,6 +451,14 @@ pub async fn import_database_records(import_db_path: PathBuf) {
             is_simulated_by_software, is_produced_by_accessory,
             was_imported
         FROM toMerge.location;
+
+        INSERT INTO pins (
+            lng, lat, name, icon, lists, tags, boundary
+        )
+        SELECT 
+            lng, lat, name, icon, lists, tags, boundary
+        FROM toMerge.pins;
+
         COMMIT;
         DETACH toMerge;",
         import_db_path.display()
@@ -453,6 +474,8 @@ pub async fn import_database_records(import_db_path: PathBuf) {
     let n_imported = n_final - n_initial;
 
     reset_last_automap_update(&first_import_timestamp);
+
+    update_derived_pins().await;
 
     info!(
         "Successfully imported {n_imported} records. ({} duplicates ignored.)",
@@ -476,6 +499,38 @@ fn reset_last_automap_update(first_import_timestamp: &time::OffsetDateTime) {
     if *last_automap_update > *first_import_timestamp {
         *last_automap_update = *first_import_timestamp
     }
+}
+
+/// Delete the locations that are selected in the UI.
+///
+/// Locations are identified by timestamp, which is unique.
+pub fn delete_selected_locations() {
+    get_runtime().spawn(async move {
+        let conn = get_db_pool();
+        let Some(selected_points) =
+            get_front_state(|s| s.selected_points.clone())
+        else {
+            return;
+        };
+        let mut n_deleted: u64 = 0;
+        for (ts, _) in selected_points.iter() {
+            match sqlx::query("DELETE FROM location WHERE timestamp == ?")
+                .bind(ts.unix_timestamp())
+                .execute(&conn)
+                .await
+            {
+                Ok(_) => n_deleted += 1,
+                Err(e) => {
+                    error!(
+                        "Failed delete record with timestamp {ts:?}\n\
+                        Error: {e}",
+                    );
+                }
+            }
+        }
+        send_message_to_front(ToFront::DeleteLocationsResult(n_deleted));
+        update_geojson(None, true).await;
+    });
 }
 
 /// Convert between the Location we have for talking to the database and the
@@ -812,16 +867,22 @@ impl<'a> FilteredQuery {
         let mut q = self.get_bounds_query(false);
         let query_as = q.build_query_as::<LngLatBoundsResult>();
         match query_as.fetch_one(&get_db_pool()).await {
-            Ok(res) => Some(LngLatBounds {
+            Ok(LngLatBoundsResult(
+                Some(swlng),
+                Some(swlat),
+                Some(nelng),
+                Some(nelat),
+            )) => Some(LngLatBounds {
                 sw: LngLat {
-                    lng: res.0,
-                    lat: res.1,
+                    lng: swlng,
+                    lat: swlat,
                 },
                 ne: LngLat {
-                    lng: res.2,
-                    lat: res.3,
+                    lng: nelng,
+                    lat: nelat,
                 },
             }),
+            Ok(_) => None,
             Err(e) => {
                 error!("Failed to get bounds for filtered query: {e}");
                 None
@@ -830,8 +891,9 @@ impl<'a> FilteredQuery {
     }
 }
 
+/// Results from Sqlite MIN/MAX functions can be NULL.
 #[derive(FromRow)]
-struct LngLatBoundsResult(f64, f64, f64, f64);
+struct LngLatBoundsResult(Option<f64>, Option<f64>, Option<f64>, Option<f64>);
 
 fn to_common_locations(recs: Vec<LocationRow>) -> Vec<common::Location> {
     recs.into_iter().map(|l| l.into()).collect()
@@ -1035,6 +1097,10 @@ fn stream_column_name(filter: &Filter) -> &str {
 
 #[cfg(test)]
 pub mod tests {
+    use common::pin::Pin;
+    use pretty_assertions::assert_eq;
+
+    use crate::app_state::get_derived_state;
     use crate::map::automap::{get_last_automap_update, update_automap};
     use crate::{local::test_setup, paths::get_documents_dir};
 
@@ -1236,6 +1302,24 @@ pub mod tests {
         .execute(&import_conn)
         .await
         .unwrap();
+
+        sqlx::query(
+            "INSERT INTO pins (
+                lng, lat, name, icon, lists, tags
+            )
+            VALUES
+                (?,?,?,?,?,?)",
+        )
+        .bind(-120.0)
+        .bind(37.0)
+        .bind("My Pin")
+        .bind("a")
+        .bind("[]")
+        .bind("[]")
+        .execute(&import_conn)
+        .await
+        .unwrap();
+
         import_conn.close().await;
 
         // import records
@@ -1280,6 +1364,24 @@ pub mod tests {
         assert_eq!(get_last_automap_update().unix_timestamp(), 8);
         update_automap().await;
         assert_eq!(get_last_automap_update().unix_timestamp(), 10);
+
+        // check pins were imported
+        let pins = get_derived_state(|s| s.pins.clone());
+        assert_eq!(
+            pins,
+            vec![Pin {
+                id: Some(1),
+                lnglat: LngLat {
+                    lng: -120.0,
+                    lat: 37.0,
+                },
+                name: "My Pin".into(),
+                icon: "a".into(),
+                lists: vec![],
+                tags: vec![],
+                boundary: None,
+            }]
+        );
     }
 
     /// Test that migrating the database works, and that the data persists.

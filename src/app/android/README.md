@@ -2,6 +2,19 @@
 
 Based on the [Bazel Kotlin example](https://github.com/bazelbuild/examples/tree/d18ce42623f136616e9512d713a47c33f9ad6a58/android/jetpack-compose)
 
+## Start Emulator
+
+```
+$ANDROID_HOME/emulator/emulator -list-avds
+$ANDROID_HOME/emulator/emulator -avd Medium_Phone_API_34
+```
+
+View logs
+
+```
+$ANDROID_HOME/platform-tools/adb logcat
+```
+
 ## Building
 
 Build and run the app in the emulator:
@@ -31,19 +44,16 @@ bazel build shim:jni_lib --platforms=//:android_aarch64
 ### Apk
 
 ```
-# Build, zipalign, and sign
-bazel build app --config=android_release
-zipalign -v -p 4 bazel-bin/src/app/android/app_unsigned.apk release/app_aligned.apk
-apksigner sign --ks ~/keystores/distribution_keystore.jks --out release/scoria.apk release/app_aligned.apk
+# Build zipaligned apk and sign it
+bazel build aligned_apk --config=android_release
+apksigner sign --ks ~/keystores/distribution_keystore.jks --out release/Scoria_1.x.y.apk bazel-bin/src/app/android/Scoria_1.x.y.apk
 
 # Save the unsigned app, proguard mapping, etc for future debug
 bazel build package_release --config=android_release
-cp bazel-bin/src/app/andriod/android_relase_x.y.zip .
+cp bazel-bin/src/app/andriod/android_relase_x.y.zip release/
 
-# Check alignment, signature, and that debug is off (0x0 is off)
-zipalign -v -c 4 release/scoria.apk
+# Check signature
 apksigner verify -v release/scoria.apk
-aapt dump xmltree app_unsigned.apk AndroidManifest.xml | grep debug
 ```
 
 View the cert with `keytool -printcert -jarfile scoria_1_3_g.apk`. Or for in
@@ -72,6 +82,15 @@ jarsigner -keystore ~/keystores/upload_keystore.jks app_deployable.aab upload
 # verify
 jarsigner -verify app_deployable.aab
 ```
+
+## Install on Device
+
+```
+$ANDROID_HOME/platform-tools/adb install Scoria.apk
+```
+
+Enable developer options and usb debugging. Can check if device is detected
+with `adb devices`.
 
 ## JNI
 
@@ -111,6 +130,12 @@ Compiled manifest values can be inspected with:
 aapt dump xmltree app_unsigned.apk AndroidManifest.xml
 ```
 
+## Open URL Scheme
+
+```
+$ANDROID_HOME/platform-tools/adb shell 'am start -a android.intent.action.VIEW -d "scoria://place?lng=-122&lat=37&name=hi"'
+```
+
 ## Common Issues
 
 ### Thread Access to Stem
@@ -130,3 +155,7 @@ Log.d(TAG, "on thread: ${java.lang.Thread.currentThread().getName()}")
 Make sure to build with the `--config=android{_release}` flag!
 
 `ld.lld: error: undefined symbol`: check presence of `#[no_mangle]
+
+### Can't Mock Emulator Locations
+
+Open Google Maps and allow it to use location.

@@ -18,7 +18,7 @@ use uom::str::ParseQuantityError;
 pub type BaseLength = length::meter;
 pub type BaseVelocity = velocity::meter_per_second;
 pub type BaseAngle = angle::degree;
-pub static BASE_ANGLE_INST: BaseAngle = angle::degree;
+pub const BASE_ANGLE_INST: BaseAngle = angle::degree;
 
 #[derive(Debug, Copy, Clone, PartialEq, Serialize, Deserialize)]
 pub struct UnitPreference {
@@ -103,6 +103,23 @@ impl UnitPreference {
             }
         }
         result
+    }
+
+    /// Format a length either as small or large units, depending on the
+    /// magnitude.
+    pub fn format_length(
+        &self,
+        val: f64,
+        small_prec: Option<usize>,
+        large_prec: Option<usize>,
+    ) -> String {
+        // 500 meters is about a quarter mile, which is a good break point
+        const LARGE_LENGTH_FORMAT_THRESHOLD: f64 = 500.0; // meters
+        if val > LARGE_LENGTH_FORMAT_THRESHOLD {
+            self.format_large_length(val, large_prec)
+        } else {
+            self.format_small_length(val, small_prec)
+        }
     }
 
     pub fn format_large_length(&self, val: f64, prec: Option<usize>) -> String {

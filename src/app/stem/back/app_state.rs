@@ -17,15 +17,15 @@ use std::io::Write;
 use std::sync::{Arc, Mutex};
 
 use actix_web::dev::ServerHandle;
-use common::state::{ok_or_default, MapState};
+use common::state::{ok_or_default, DerivedState, MapState, PendingEvents};
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 use tracing::error;
 
-use crate::geojson::empty_geojson;
+use crate::map::geojson::empty_geojson;
 use crate::paths::{get_library_dir, Paths};
-use crate::ws_session;
+use crate::ws_session::{self, send_derived_state_to_front};
 use common::{BackState, FrontState};
 
 /// File where persistent state is stored (joined to library_dir)
@@ -52,10 +52,15 @@ pub struct AppState {
     // State persisted between app launches. It is almost exactly the same as
     // the UI state.
     pub persistent: Mutex<PersistentState>,
+    // Non-persistent backend state that is derived from other sources
+    pub derived: Mutex<DerivedState>,
 
     pub wrapper_messages: Mutex<WrapperMessages>,
 
     pub map_data: MapData,
+
+    // events that accumulate until they are sent to the UI and cleared
+    pub pending_events: Mutex<Option<PendingEvents>>,
 }
 
 /// Data to to shown on the map in the analyze tab, and helpers for calculating
@@ -71,6 +76,8 @@ pub struct MapData {
     pub lines_geojson: tokio::sync::Mutex<String>,
     // previous map state to determine if an update is needed
     pub prev_map_state: tokio::sync::Mutex<Option<MapState>>,
+    // previous map state when timeline was lasts updated
+    pub prev_map_state_dashboard: tokio::sync::Mutex<Option<MapState>>,
 }
 
 impl Default for MapData {
@@ -83,6 +90,7 @@ impl Default for MapData {
             ),
             lines_geojson: tokio::sync::Mutex::new(empty_geojson().to_string()),
             prev_map_state: tokio::sync::Mutex::new(None),
+            prev_map_state_dashboard: tokio::sync::Mutex::new(None),
         }
     }
 }
@@ -117,8 +125,23 @@ pub fn get_back_state<T>(f: impl FnOnce(&BackState) -> T) -> T {
 
 /// Retrive values from the FrontState, which may or may not be initialized.
 /// Cannot modify the FrontState.
-pub fn get_front_state<T>(f: impl FnOnce(&Option<FrontState>) -> T) -> T {
-    f(&AppState::global().persistent.lock().unwrap().front)
+pub fn get_front_state<T>(f: impl FnOnce(&FrontState) -> T) -> Option<T> {
+    AppState::global()
+        .persistent
+        .lock()
+        .unwrap()
+        .front
+        .as_ref()
+        .map(f)
+}
+
+pub fn set_derived_state<T>(f: impl FnOnce(&mut DerivedState) -> T) -> T {
+    let res = f(&mut AppState::global().derived.lock().unwrap());
+    send_derived_state_to_front();
+    res
+}
+pub fn get_derived_state<T>(f: impl FnOnce(&DerivedState) -> T) -> T {
+    f(&AppState::global().derived.lock().unwrap())
 }
 
 /// Temporary data to communicate to Swift
@@ -222,8 +245,10 @@ impl AppState {
                 ws_addr: Mutex::new(None),
                 server_handle: tokio::sync::Mutex::new(None),
                 persistent: Mutex::new(persistent),
+                derived: Mutex::new(Default::default()),
                 wrapper_messages: Mutex::new(Default::default()),
                 map_data: Default::default(),
+                pending_events: Mutex::new(Default::default()),
             }))
             .expect("Could not initialize AppState");
     }
@@ -265,6 +290,7 @@ mod tests {
     use crate::init;
     use crate::local::local_fs_setup;
     use common::{LocationAccuracyMode, LocationMode, StandardLocationConfig};
+    use pretty_assertions::assert_eq;
 
     use super::{
         fs, AppState, BackState, FrontState, OpenOptions, PersistentState,
@@ -374,5 +400,26 @@ mod tests {
             parsed.back.cmap_params.cmap,
             common::cmaps::Cmap::default()
         );
+    }
+
+    /// An unexpected enum value can cause "trailing character" errors when
+    /// parsing, unless annotated with `ok_or_default` for enum fields.
+    #[tokio::test]
+    async fn state_failure_case() {
+        let s = r##"{"front":{"map":{"style":{"colored_datastream":"Unexpected","show_colorbar":false}}}}"##;
+        let p: PersistentState = serde_json::from_str(s).unwrap();
+        assert!(!p.front.unwrap().map.style.show_colorbar);
+    }
+
+    /// Other field types don't seem to have propagating errors like enums do.
+    #[tokio::test]
+    async fn another_state_failure_case() {
+        let s = r##"{"time_pref":{"twelve_hour_clock":true}}"##;
+        let p: FrontState = serde_json::from_str(s).unwrap();
+        assert_eq!(p.time_pref.twelve_hour_clock, true);
+
+        let s = r##"{"time_pref":{"twelve_hour_clock":"string"}}"##;
+        let p: FrontState = serde_json::from_str(s).unwrap();
+        assert_eq!(p.time_pref.twelve_hour_clock, false);
     }
 }

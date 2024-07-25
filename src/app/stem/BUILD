@@ -29,16 +29,28 @@ rust_library(
     compile_data =
         glob(["migrations/*.sql"])
         + [".env", "//:secrets"]
-        + static_file_targets,
-    rustc_env = static_file_envs,
+        + select({
+            # embed static files if not autoreloading
+            "//:autoreload_on": [],
+            "//conditions:default": static_file_targets,
+        }),
+    rustc_env = select({
+        # embed static files if not autoreloading
+        "//:autoreload_on": {},
+        "//conditions:default": static_file_envs,
+    }),
     rustc_flags = select({ # extra optimizations (stripping must be done later)
         "//:optimized_build": ["-C", "lto=y"], # link-time optimization
         "//conditions:default": [],
     }),
-    crate_features = select({
+    crate_features = platform_features + select({
         "//:distribution_profile": ["distribution_key"],
         "//conditions:default": [],
-    }) + platform_features,
+    }) + select({
+        # compile support for runfiles instead of embedding the static files
+        "//:autoreload_on": ["runfiles"],
+        "//conditions:default": [],
+    }),
     proc_macro_deps = [
         "@stem_crate_index//:dotenvy_macro",
     ],
@@ -46,6 +58,7 @@ rust_library(
         ":common",
         ":alloc",
         "@stem_crate_index//:base64",
+        "@stem_crate_index//:coord_transforms",
         "@stem_crate_index//:csv",
         "@stem_crate_index//:geo",
         "@stem_crate_index//:geo-clipper",
@@ -54,6 +67,8 @@ rust_library(
         "@stem_crate_index//:itertools",
         "@stem_crate_index//:log-panics",
         "@stem_crate_index//:mvt",
+        "@stem_crate_index//:nalgebra",
+        "@stem_crate_index//:nav-types",
         "@stem_crate_index//:obfstr",
         "@stem_crate_index//:pointy",
         "@stem_crate_index//:rand",
@@ -81,29 +96,44 @@ rust_library(
     visibility = [":__subpackages__"],
 )
 
-# definitions common to both the frontend and the backend
-rust_library(
-    name = "common",
-    srcs = glob(["common/*.rs"]),
-    edition = "2021",
-    deps = [
-        "@stem_crate_index//:serde",
-        "@stem_crate_index//:strum",
-        "@stem_crate_index//:time",
-        "@stem_crate_index//:uom",
-    ],
-    visibility = ["//visibility:public"],
-)
-
-# Unit tests embedded within the library.
+# Unit tests embedded within the stem crate.
 rust_test(
     name = "unit_tests",
     crate = ":stem",
     size = "small",  # 20 MB RAM, 1 min timeout
     crate_features = platform_features,
     deps = [
+        "@stem_crate_index//:approx",
         "@stem_crate_index//:reqwest", # for server health check unit test
         "@stem_crate_index//:futures-core",
+        "@stem_crate_index//:pretty_assertions",
+    ]
+)
+
+# definitions common to both the frontend and the backend
+rust_library(
+    name = "common",
+    srcs = glob(["common/**/*.rs"]),
+    edition = "2021",
+    deps = [
+        "@stem_crate_index//:anyhow",
+        "@stem_crate_index//:serde",
+        "@stem_crate_index//:strum",
+        "@stem_crate_index//:time",
+        "@stem_crate_index//:unicode-segmentation",
+        "@stem_crate_index//:uom",
+        "@stem_crate_index//:serde_qs",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+# Unit tests for the common crate.
+rust_test(
+    name = "common_tests",
+    crate = ":common",
+    size = "small",
+    deps = [
+        "@stem_crate_index//:pretty_assertions",
     ]
 )
 
@@ -134,7 +164,11 @@ rust_binary(
     edition = "2021",
     data = [
         "db/data.db",
-    ],
+    ] + select({
+        # make the static files available as runfiles
+        "//:autoreload_on": static_file_targets,
+        "//conditions:default": [],
+    }),
     deps = [
         ":stem",
         "@stem_crate_index//:tokio",

@@ -4,6 +4,7 @@ IFS=$'\n\t'
 
 printf "\nRunning unit tests\n\n"
 
+bazel test //src/app/stem:common_tests
 bazel test //src/app/stem:unit_tests
 
 printf "\nRunning integration tests\n\n"

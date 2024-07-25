@@ -28,7 +28,7 @@
 //!     let counter = counter.clone();
 //!     move |msg: &ToFront| {
 //!         if let ToFront::Data(val) = msg {
-//!             log::debug!( "Callback triggered, value: {}", *counter,);
+//!             debug!( "Callback triggered, value: {}", *counter,);
 //!         }
 //!     }
 //! };
@@ -125,6 +125,7 @@ use futures::stream::{SplitSink, SplitStream};
 use futures::{SinkExt, StreamExt};
 use gloo_net::websocket::WebSocketError;
 use gloo_net::websocket::{futures::WebSocket, Message};
+use tracing::{debug, error, info};
 use uuid::Uuid;
 use wasm_bindgen_futures::spawn_local;
 use yew::functional::{hook, use_context, use_effect_with_deps};
@@ -205,6 +206,11 @@ impl WebsocketService {
         self.tx.borrow_mut().try_send(msg).unwrap();
     }
 
+    /// Return a clone of the mpsc::Sender for writing messages to the backend.
+    pub fn get_sender(&self) -> Sender<ToBack> {
+        self.tx.borrow().clone()
+    }
+
     /// Subscribe to messages from the backend
     /// ```
     /// let id = use_memo(|_| uuid::Uuid::new_v4(), ());
@@ -212,12 +218,12 @@ impl WebsocketService {
     /// ```
     pub fn subscribe(&self, id: Uuid, cb: Callback) {
         self.subscribers.borrow_mut().insert(id, cb);
-        // log::debug!("subscriber len: {}", self.subscribers.borrow().len());
+        // debug!("subscriber len: {}", self.subscribers.borrow().len());
     }
 
     pub fn unsubscribe(&self, id: Uuid) {
         self.subscribers.borrow_mut().remove(&id);
-        // log::debug!("removing subscriber {}", id)
+        // debug!("removing subscriber {}", id)
     }
 
     fn connect() -> (
@@ -228,7 +234,7 @@ impl WebsocketService {
     ) {
         // The location of the websocket endpoint on the backend
         let address = format!("ws://{}/ws", get_scoped_host());
-        log::debug!("Binding to websocket at {}", address);
+        debug!("Binding to websocket at {}", address);
 
         let ws = WebSocket::open(&address).unwrap();
 
@@ -296,18 +302,18 @@ impl WebsocketService {
                                 }
                             }
                             Err(e) => {
-                                log::error!("binary message decode: {:?}", e);
+                                error!("binary message decode: {:?}", e);
                             }
                         }
                     }
                     Ok(Message::Text(data)) => {
-                        log::debug!("text from websocket: {}", data);
+                        debug!("text from websocket: {}", data);
                     }
                     Err(WebSocketError::ConnectionClose(close_event)) => {
-                        log::info!("Websocket closed: {close_event:?}");
+                        info!("Websocket closed: {close_event:?}");
                     }
                     Err(e) => {
-                        log::error!("Websocket error: {e}");
+                        error!("Websocket error: {e}");
                     }
                 }
             }
@@ -322,6 +328,9 @@ impl WebsocketService {
         // future to run
         self.send_msg(ToBack::GetBackState);
         self.send_msg(ToBack::GetFrontState);
+        // Derived state is pushed by backend when it's updated, so we don't
+        // request it in the loop.
+        self.send_msg(ToBack::GetDerivedState);
         yew::platform::spawn_local(async move {
             loop {
                 // periodically get the back state (latest location, etc)

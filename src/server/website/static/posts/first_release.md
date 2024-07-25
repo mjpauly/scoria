@@ -9,8 +9,6 @@ excited by the idea of creating beautiful and detailed maps of your location
 history, all with your data staying on your device, then consider giving Scoria
 a try.
 
-<img src="/screenshots/1.jpeg" class="w-[256px] rounded-[32px] border-2 border-neutral-700 my-8 mx-auto">
-
 While location capabilities have been around since the first smartphones,
 their power efficiency has improved tremendously in the past few years.
 This makes it easier than ever to use location services continuously, opening

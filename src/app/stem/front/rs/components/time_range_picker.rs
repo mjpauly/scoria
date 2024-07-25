@@ -152,6 +152,18 @@ fn time_delta_range_day() -> TimeDeltaRange {
     }
 }
 
+/// Get the TimeDeltaRange for a particular date.
+pub fn time_delta_range_date(date: time::Date) -> TimeDeltaRange {
+    let delta = time::OffsetDateTime::now_local().unwrap().date() - date;
+    TimeDeltaRange {
+        start_offset: -delta,
+        end_offset: -delta,
+        snap_start_to_day: true,
+        snap_end_to_day: true,
+        offset: Some(local_offset()),
+    }
+}
+
 fn time_delta_range_week() -> TimeDeltaRange {
     TimeDeltaRange {
         start_offset: -time::Duration::WEEK,

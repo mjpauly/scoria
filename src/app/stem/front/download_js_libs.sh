@@ -4,6 +4,6 @@ IFS=$'\n\t'
 
 cd $BUILD_WORKSPACE_DIRECTORY/src/app/stem/front/static
 
-curl https://cdn.plot.ly/plotly-strict-2.20.0.min.js -o plotly.min.js
+curl https://cdn.plot.ly/plotly-strict-2.33.0.min.js -o plotly.min.js
 curl https://unpkg.com/maplibre-gl@2.4.0/dist/maplibre-gl.js -o maplibre-gl.js
 curl https://unpkg.com/maplibre-gl@2.4.0/dist/maplibre-gl.css -o maplibre-gl.css

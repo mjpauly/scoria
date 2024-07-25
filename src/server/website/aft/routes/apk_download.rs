@@ -20,6 +20,7 @@ use actix_web::{
 };
 
 static UNAVAILABLE_FILE: &str = include_str!(env!("UNAVAILABLE_FILE"));
+static SCORIA_1_4_0: &[u8] = include_bytes!(env!("SCORIA_1_4_0"));
 static SCORIA_1_3_0: &[u8] = include_bytes!(env!("SCORIA_1_3_0"));
 
 const BLOCKED_COUNTRIES: [&str; 5] = ["CU", "IR", "KP", "SY", "FR"];
@@ -31,9 +32,10 @@ pub fn get_apk_file_services() -> impl HttpServiceFactory {
     web::scope("/download/apk")
         .wrap(CheckCountry)
         // NOTE: update this on updates:
-        .service(web::redirect("/latest", "./Scoria_1.3.0.apk"))
+        .service(web::redirect("/latest", "./Scoria_1.4.0.apk"))
         .service(latest_version)
         // NOTE: on updates, add new route for the new verison here:
+        .service(scoria_1_4_0)
         .service(scoria_1_3_0)
 }
 
@@ -41,7 +43,14 @@ pub fn get_apk_file_services() -> impl HttpServiceFactory {
 /// "version_code,version_name"
 #[get("/latest_version")]
 async fn latest_version() -> impl Responder {
-    HttpResponse::Ok().body("2,1.3.0") // NOTE: update this on updates
+    HttpResponse::Ok().body("3,1.4.0") // NOTE: update this on updates
+}
+
+#[get("/Scoria_1.4.0.apk")]
+async fn scoria_1_4_0() -> impl Responder {
+    HttpResponse::Ok()
+        .insert_header(APK_CONTENT_TYPE_HEADER)
+        .body(SCORIA_1_4_0)
 }
 
 #[get("/Scoria_1.3.0.apk")]

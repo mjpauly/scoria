@@ -22,7 +22,8 @@
         @apply my-6 bg-neutral-800 rounded-lg p-2 overflow-scroll max-w-full;
         width: calc(100vw - 2rem);
     }
-    .prose-container > ul {
+    .prose-container > ul,
+    .prose-container > ul > li > ul {
         @apply list-disc pl-4;
     }
     .prose-container > p > a:link, .prose-container > p > em > a:link {

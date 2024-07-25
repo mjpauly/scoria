@@ -86,7 +86,7 @@ class MainActivity : AppCompatActivity(), UpdateConfigCallback {
         wv.webViewClient = CustomWebViewClient(this)
         wv.getSettings().javaScriptEnabled = true
         wv.addJavascriptInterface(
-            WebAppInterface({ handlePoke() }), "Android"
+            WebAppInterface({ handlePoke() }, this), "Android"
         )
         wv.loadUrl(url)
     }
@@ -124,6 +124,15 @@ class MainActivity : AppCompatActivity(), UpdateConfigCallback {
                 .encodeToString(unencodedHtml.toByteArray())
         val wv = findViewById<WebView>(R.id.webview)
         wv.loadData(encodedHtml, "text/html", "base64");
+    }
+
+    // url scheme intents delivered after onStart
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        Log.i(TAG, "onNewIntent")
+        intent.data?.let {
+            Stem.urlScheme(it.toString());
+        }
     }
 
     private fun handlePoke() {

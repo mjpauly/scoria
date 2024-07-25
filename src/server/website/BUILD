@@ -53,6 +53,10 @@ pkg_tar(
 static_file_targets, static_file_envs = files_and_envs({
     ":index": "INDEX_FILE",
     ":privacy_policy": "PRIVACY_POLICY_FILE",
+    ":feed": "FEED_FILE",
+    ":posts": "POSTS_FILE",
+    ":1_4_0_release_post": "1_4_0_RELEASE_POST",
+    ":android_release_post": "ANDROID_RELEASE_POST",
     ":first_release_post": "FIRST_RELEASE_POST",
     ":contact": "CONTACT_FILE",
     ":terms": "TERMS_FILE",
@@ -68,9 +72,13 @@ static_file_targets, static_file_envs = files_and_envs({
     "static/screenshots/2.jpeg": "SCREENSHOT2",
     "static/screenshots/3.jpeg": "SCREENSHOT3",
     "static/screenshots/4.jpeg": "SCREENSHOT4",
+    "static/screenshots/5.jpeg": "SCREENSHOT5",
+    "static/screenshots/6.jpeg": "SCREENSHOT6",
+    "static/screenshots/7.jpeg": "SCREENSHOT7",
     "static/Download_on_the_App_Store_Badge_US-UK_RGB_blk_092917.svg":
         "APP_STORE_BADGE",
     "static/apk/Scoria_1.3.0.apk": "SCORIA_1_3_0",
+    "static/apk/Scoria_1.4.0.apk": "SCORIA_1_4_0",
 })
 
 rust_binary(
@@ -141,9 +149,23 @@ md_template(
 )
 
 md_template(
+    name = "posts",
+    src = "static/posts.md",
+)
+
+md_template(
+    name = "1_4_0_release_post",
+    src = "static/posts/Scoria_1.4.0.md",
+)
+
+md_template(
+    name = "android_release_post",
+    src = "static/posts/android_release.md",
+)
+
+md_template(
     name = "first_release_post",
-    src = "static/first_release.md",
-    include_html = True,
+    src = "static/posts/first_release.md",
 )
 
 html_template(
@@ -175,6 +197,7 @@ md_template(
 # provides a convenient shorthand target name for the template files
 files(
     names_srcs = {
+        "feed": "static/feed.xml",
         "template_top": "static/template_top.html",
         "template_bottom": "static/template_bottom.html",
     },

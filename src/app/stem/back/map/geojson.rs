@@ -23,13 +23,14 @@ use common::view_position::LngLatBounds;
 use geojson::{Feature, FeatureCollection, GeoJson, JsonObject, Value};
 
 use crate::app_state::{get_front_state, set_back_state};
+use crate::core::new_data_is_visible;
 use crate::map::coords::TileXYZ;
+use crate::metrics::color::get_cmap_data;
 use crate::server::no_caching_directives;
 use crate::{app_state::AppState, database, ws_session};
 use common::{
     cmaps,
     state::{MapState, PersistedRoute},
-    units::UnitPreference,
     LngLat, Location, ToFront,
 };
 
@@ -108,14 +109,18 @@ fn map_state_is_different(prev: &MapState, curr: &MapState) -> bool {
 
 /// Determine if we should update the geojson data
 ///
+/// force_update is used when the app is foregrounded, since data may have come
+/// in while the app was in the background, or when actions happen which very
+/// likely change the displayed data, like deleting the selected points.
+///
 /// update conditions:
-/// app was foregrounded
+/// force_update
 /// || (the route is on the analyze tab
 ///     && (there is new data in time range
 ///         || the map state/style is different from before))
 async fn should_update_geojson(
     new_data: Option<Location>,
-    foregrounded: bool,
+    force_update: bool,
 ) -> Option<MapState> {
     // get the map configuration state
     let app_state = AppState::global();
@@ -124,40 +129,28 @@ async fn should_update_geojson(
     let persistent_guard = app_state.persistent.lock().unwrap();
     // the '?' operator returns None if the frontend hasn't been initialized yet
     let map_state = &persistent_guard.front.as_ref()?.map;
-    // Always update when app is foregrounded since data may have come in while
-    // we were in the background. We don't update the geojson in the background
-    // since it's costly.
     // 'if' blocks test if we should NOT update (passed by returning None)
-    if !foregrounded {
+    if !force_update {
         if let Some(p) = persistent_guard.front.as_ref() {
             if p.route != PersistedRoute::Analyze {
                 // not looking at the map, don't update data
                 return None;
             }
         } else {
-            // No frontend, shouldn't happen if foregrounded
+            // No frontend, shouldn't happen if force updated
             return None;
         }
-        if let Some(prev_map_state) = &*prev_map_data_guard {
-            let new_data_in_time_range = new_data
-                .as_ref()
-                .map(|l| map_state.time_range.contains(&l.timestamp))
-                .unwrap_or(false);
-            let new_data_visible = new_data
-                .map(|l| {
-                    map_state
-                        .view_pos
-                        .bounds
-                        .expand(BOUND_EXPANSION)
-                        .contains(&l.lnglat())
-                })
-                .unwrap_or(false);
-            if !((new_data_in_time_range && new_data_visible)
-                || map_state_is_different(prev_map_state, map_state))
-            {
-                // same map state and no new data, don't bother updating
-                return None;
-            }
+        let new_data_visible = new_data
+            .map(|l| new_data_is_visible(&l, map_state, true))
+            .unwrap_or(false); // if no new data, it's not going to be visible
+        let map_state_different = prev_map_data_guard
+            .as_ref()
+            .map(|prev_state| map_state_is_different(prev_state, map_state))
+            .unwrap_or(true); // if no prev map data, assume map stat is
+                              // different
+        if !(new_data_visible || map_state_different) {
+            // same map state and no new data, don't bother updating
+            return None;
         }
     }
     // -> Should update if we get here <-
@@ -170,13 +163,11 @@ async fn should_update_geojson(
 /// determined by should_update_geojson().
 ///
 /// This function is called whenever the front state changes, new location data
-/// is logged while the frontend is active, or the app is foregrounded.
+/// is logged while the frontend is active, or it's force updated.
 ///
 /// 'new_data' indicates if this is triggered by new location data as opposed to
 /// a change to the map's style
-///
-/// 'foregrounded' indicates if this is triggered when the app is foregrounded
-pub async fn update_geojson(new_data: Option<Location>, foregrounded: bool) {
+pub async fn update_geojson(new_data: Option<Location>, force_update: bool) {
     // Allow one task to wait on the update lock, turning away any others that
     // can't acquire the wait_lock immediately. This ensures there's always an
     // update that happens after map movement finishes.
@@ -188,7 +179,7 @@ pub async fn update_geojson(new_data: Option<Location>, foregrounded: bool) {
     let _update_guard = app_state.map_data.geojson_update_lock.lock().await;
     drop(_wait_guard);
 
-    let Some(map_state) = should_update_geojson(new_data, foregrounded).await
+    let Some(map_state) = should_update_geojson(new_data, force_update).await
     else {
         return;
     };
@@ -203,35 +194,36 @@ pub async fn update_geojson(new_data: Option<Location>, foregrounded: bool) {
     let make_points = map_state.style.marker_size > 0;
     let make_lines = map_state.style.line_size > 0;
 
+    // only bother with the performance overhead of getting points adjacent
+    // to the viewbounds if lines are actually drawn
+    // OR if the colormapping relies on the existence of out-of-bounds points to
+    // improve colormapping (as is the case for dwells)
+    let get_adjacent = make_lines || colored_datastream.should_get_adjacent();
+
     // let before = std::time::Instant::now();
     let records = database::FilteredQuery::new()
         .time_range(map_state.time_range)
         .filters(map_state.filters.clone())
         .bounds(bounds)
-        // only bother with the performance overhead of getting points adjacent
-        // to the viewbounds if lines are actually drawn
-        .get_adjacent(make_lines)
+        .get_adjacent(get_adjacent)
         .limit(DECIMATION_THRESHOLD)
         .fetch_decimated()
         .await;
     // tracing::info!("Full query took {:.6?}", before.elapsed());
 
-    // filter out points that are not visible and do not create a line segment
+    // indicate which points are not visible and do not create a line segment
     // that will be visible when calculating the colormap
     let mut cmap_records = vec![];
     for i in 0..records.len() {
         let should_keep = bounds.contains(&records[i].lnglat())
             || (i < records.len() - 1
                 && bounds.contains(&records[i + 1].lnglat()));
-        if should_keep {
-            cmap_records.push(&records[i]);
-        }
+        cmap_records.push((&records[i], should_keep));
     }
     let offset = map_state.time_range.start.offset();
-    let cmap_params =
-        colored_datastream.get_cmap_params(&cmap_records, &offset);
+    let cmap_data = get_cmap_data(colored_datastream, &cmap_records, &offset);
 
-    {
+    if let Some((cmap_params, _)) = cmap_data {
         // update the cmap parameters
         let mut persistent_guard = app_state.persistent.lock().unwrap();
         persistent_guard.back.cmap_params = cmap_params;
@@ -251,20 +243,14 @@ pub async fn update_geojson(new_data: Option<Location>, foregrounded: bool) {
             && (bounds.contains(&records[i].lnglat())
                 || bounds.contains(&records[i + 1].lnglat()));
 
-        let properties = if colored_datastream.is_some() {
-            let val = colored_datastream.get_stream(&records[i], &offset);
-            let color = if let Some(known_val) = val {
-                cmaps::get_data_color(known_val, &cmap_params)
-            } else {
-                // if data in this dimension not known, use a neutral gray color
-                "#808080"
-            };
+        let properties = cmap_data.as_ref().map(|(cmap_params, cmap_vals)| {
+            let color = cmap_vals[i]
+                .map(|v| cmaps::get_data_color(v, cmap_params))
+                .unwrap_or("#808080"); // if data not known, use grey color
             let mut props = JsonObject::new();
-            props.insert("color".to_string(), color.into());
-            Some(props)
-        } else {
-            None
-        };
+            props.insert("color".into(), color.into());
+            props
+        });
 
         let coord1 = records[i].lnglat();
         if make_point {
@@ -443,16 +429,8 @@ fn get_view_params(bounds: &Option<LngLatBounds>) -> Option<(LngLat, f64)> {
 /// Get the popup text for a click at a given location. Also takes the point's
 /// color if it exists. Returns the location to put the popup, the text,
 /// and the desired color of the popup's background
-pub async fn get_popup_text(
-    lnglat: LngLat,
-    data_color: Option<String>,
-) -> Option<ToFront> {
-    let (map_state, unit_pref) = {
-        get_front_state(|maybe_front| {
-            let front = maybe_front.as_ref().unwrap();
-            (front.map.clone(), front.unit_pref)
-        })
-    };
+pub async fn get_location_near(lnglat: LngLat) -> Option<ToFront> {
+    let map_state = get_front_state(|front| front.map.clone())?;
 
     // use the bound expansion so the decimation is identical
     let records = database::FilteredQuery::new()
@@ -462,8 +440,6 @@ pub async fn get_popup_text(
         .limit(DECIMATION_THRESHOLD)
         .fetch_decimated()
         .await;
-
-    let local_offset = map_state.time_range.start.offset();
 
     let calc_dist = |loc: &common::Location| {
         (loc.latitude - lnglat.lat).abs() + (loc.longitude - lnglat.lng).abs()
@@ -477,69 +453,5 @@ pub async fn get_popup_text(
             argmin = i;
         }
     }
-    // get() safely indexes into records so we return None if no data
-    records.get(argmin).map(|loc| {
-        let text = location_popup_text(local_offset, &unit_pref, loc);
-        let bg_color = data_color
-            .unwrap_or_else(|| map_state.style.solid_color.rgb.clone());
-        ToFront::PopupText {
-            location: LngLat {
-                lng: loc.longitude,
-                lat: loc.latitude,
-            },
-            text,
-            bg_color,
-        }
-    })
-}
-
-pub fn location_popup_text(
-    local_offset: time::UtcOffset,
-    unit_pref: &UnitPreference,
-    loc: &common::Location,
-) -> String {
-    let latlon = format!(
-        "{}, {}",
-        unit_pref.format_angle(loc.latitude, Some(6)),
-        unit_pref.format_angle(loc.longitude, Some(6))
-    );
-    let mut accuracy_speed_course = format!(
-        "±{}",
-        unit_pref.format_small_length(loc.horizontal_accuracy, Some(2)),
-    );
-
-    if let Some(speed) = loc.speed {
-        accuracy_speed_course +=
-            &format!(", {}", unit_pref.format_velocity(speed, Some(2)));
-    }
-    if let Some(course) = loc.course {
-        accuracy_speed_course +=
-            &format!(", {}", unit_pref.format_angle(course, Some(2)));
-    }
-
-    let mut alt = loc.msl_altitude.map(|alt| {
-        format!("{} altitude", unit_pref.format_small_length(alt, Some(2)))
-    });
-    if let Some(v_acc) = loc.vertical_accuracy {
-        alt = alt.map(|alt| {
-            format!("{alt} ±{}", unit_pref.format_small_length(v_acc, Some(2)))
-        });
-    }
-    if let Some(story) = loc.story {
-        alt = alt.map(|alt| format!("{alt}, story {story}"));
-    }
-    let alt = alt.map(|alt| format!("{alt}<br>")).unwrap_or_default();
-    format!(
-        "{}<br>\
-        {}<br>\
-        {}\
-        {}",
-        latlon,
-        accuracy_speed_course,
-        alt,
-        loc.timestamp
-            .to_offset(local_offset)
-            .format(&time::format_description::well_known::Rfc2822)
-            .unwrap_or_else(|_| "Timestamp unavailable".to_string())
-    )
+    Some(ToFront::NearestLocation(records.get(argmin)?.clone()))
 }

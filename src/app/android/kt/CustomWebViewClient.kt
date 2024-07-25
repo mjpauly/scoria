@@ -7,6 +7,8 @@
 package info.scoria
 
 import android.app.Activity;
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -58,11 +60,19 @@ class CustomWebViewClient(private val activity: Activity) : WebViewClient() {
     }
 }
 
-class WebAppInterface(val callback: () -> Unit) {
+class WebAppInterface(val callback: () -> Unit, private val context: Context) {
 
     @JavascriptInterface
     fun poke() {
         callback()
+    }
+    
+    // Android WebView doesn't implement clipboard, so we use an escape hatch.
+    @JavascriptInterface
+    fun copyToClipboard(text: String) {
+        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        val clip = ClipData.newPlainText("demo", text)
+        clipboard.setPrimaryClip(clip)
     }
 }
 

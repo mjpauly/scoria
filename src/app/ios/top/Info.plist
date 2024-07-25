@@ -52,5 +52,21 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLIconFile</key>
+			<string></string>
+			<key>CFBundleURLName</key>
+			<string>com.aperturebeam.epsilon</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>scoria</string>
+			</array>
+		</dict>
+		<dict/>
+	</array>
 </dict>
 </plist>

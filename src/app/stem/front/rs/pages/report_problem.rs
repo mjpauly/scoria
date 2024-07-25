@@ -246,7 +246,7 @@ pub fn ReportProblem() -> Html {
 
                 if *view_log {
                     <p
-                        class="pb-2 text-neutral-400 font-mono
+                        class="pb-2 text-neutral-400 font-mono overflow-x-scroll
                         whitespace-pre-wrap text-left text-xs"
                     >
                         if let Some((err, _)) = &*last_error {

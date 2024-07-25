@@ -3,14 +3,18 @@
 pub mod bouncy_scroll;
 pub mod buttons;
 pub mod colorbar;
+pub mod confirm;
 pub mod inputs;
 pub mod location_config;
 pub mod location_filter_list;
 pub mod map_settings;
 pub mod map_styler;
 pub mod navbar;
+pub mod pin_editor;
 pub mod select;
+pub mod select_points_control;
 pub mod settings_card;
+pub mod time_preference;
 pub mod time_range_picker;
 pub mod typography;
 pub mod unit_picker;
@@ -40,7 +44,7 @@ pub static DATETIME_INPUT_STYLE: &str =
     "rounded-lg whitespace-nowrap py-1.5 px-3 placeholder:text-neutral-200 \
         bg-neutral-800";
 pub static RANGE_INPUT_STYLE: &str =
-    "appearance-none bg-neutral-800 h-1 rounded-lg w-40 max-w-[75vw]";
+    "appearance-none bg-neutral-700 h-1 rounded-lg w-40 max-w-[75vw]";
 
 // The `after:` pseudo-element is the dot on the switch that moves back and
 // forth.

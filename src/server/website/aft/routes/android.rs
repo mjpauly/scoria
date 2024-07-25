@@ -1,9 +1,7 @@
 //! Routes for info about Android
 
 use actix_web::http::header::ContentType;
-use actix_web::{
-    dev::HttpServiceFactory, get, HttpResponse, Responder,
-};
+use actix_web::{dev::HttpServiceFactory, get, HttpResponse, Responder};
 
 static ANDROID_RELEASE_NOTES_FILE: &str =
     include_str!(env!("ANDROID_RELEASE_NOTES_FILE"));

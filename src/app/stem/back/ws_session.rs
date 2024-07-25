@@ -11,18 +11,20 @@ use actix_identity::Identity;
 use actix_web::{web, Error, HttpRequest, HttpResponse};
 use actix_web_actors::ws;
 use common::state::{PersistedRoute, PersistedSettingsRoute};
+use common::{ToBack, ToFront};
 use tracing::{info, warn};
 
-use crate::app_state::set_back_state;
-use crate::database;
+use crate::app_state::AppState;
+use crate::app_state::{get_derived_state, set_back_state};
+use crate::core::update_on_foregrounding;
 use crate::export::export_selected;
-use crate::geojson::update_geojson;
 use crate::logs::update_last_logged_error;
 use crate::map::automap::update_automap;
 use crate::map::basemap::evict_old_map_data;
+use crate::map::geojson::{get_location_near, update_geojson};
+use crate::metrics::dashboard::update_dashboard_on_state_change;
 use crate::runtime::get_runtime;
-use crate::{app_state::AppState, geojson::get_popup_text};
-use common::{ToBack, ToFront};
+use crate::{database, logs};
 
 /// How often heartbeat pings are sent
 #[allow(dead_code)]
@@ -34,6 +36,11 @@ const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
 
 pub fn send_back_state_to_front() {
     send(|addr| addr.do_send(SendState));
+}
+
+pub fn send_derived_state_to_front() {
+    let state = get_derived_state(|state| state.clone());
+    send(move |addr| addr.do_send(MsgToFront(ToFront::DerivedState(state))));
 }
 
 pub fn send_message_to_front(msg: ToFront) {
@@ -63,6 +70,7 @@ pub async fn ws_route(
             .body("Only one UI connection allowed."));
     }
     info!("Frontend Websocket Connected");
+    update_on_foregrounding();
     ws::start(WsSession { hb: Instant::now() }, &req, stream)
 }
 
@@ -100,13 +108,25 @@ impl WsSession {
     fn handle_msg(&self, msg: ToBack, ctx: &mut ws::WebsocketContext<Self>) {
         // dbg!(msg.clone());
         match msg {
+            ToBack::LogError(s) => logs::log_frontend_error(s),
             ToBack::GetFrontState => {
-                self.send_front_state(ctx);
+                // at startup we send the FrontState and PendingEvents
+                self.send_initial_front_state(ctx);
             }
             ToBack::GetBackState => {
                 self.send_back_state(ctx);
             }
+            ToBack::GetDerivedState => {
+                send_derived_state_to_front();
+            }
             ToBack::SetFrontState(val) => {
+                let prev_routes = AppState::global()
+                    .persistent
+                    .lock()
+                    .unwrap()
+                    .front
+                    .as_ref()
+                    .map(|s| (s.route, s.settings_route));
                 let main_route = val.route;
                 let settings_route = val.settings_route;
                 AppState::global().persistent.lock().unwrap().front =
@@ -136,6 +156,10 @@ impl WsSession {
                         };
                     });
                 }
+                get_runtime().spawn(update_dashboard_on_state_change(
+                    prev_routes.map(|r| r.0),
+                    main_route,
+                ));
             }
             ToBack::ExportTrack => {
                 get_runtime().spawn(async { export_selected().await });
@@ -175,15 +199,22 @@ impl WsSession {
                     }
                 });
             }
-            ToBack::GetPopupText((location, data_color)) => {
+            ToBack::GetLocationNear(location) => {
                 let recipient = ctx.address().recipient();
                 get_runtime().spawn(async move {
-                    if let Some(msg) =
-                        get_popup_text(location, data_color).await
-                    {
+                    if let Some(msg) = get_location_near(location).await {
                         recipient.do_send(MsgToFront(msg))
                     }
                 });
+            }
+            ToBack::SavePin(pin) => {
+                database::pins::save_pin(pin);
+            }
+            ToBack::DeletePin(db_idx) => {
+                database::pins::delete_pin(db_idx);
+            }
+            ToBack::DeleteSelectedLocations => {
+                database::location::delete_selected_locations();
             }
         }
     }
@@ -221,14 +252,11 @@ impl WsSession {
     }
 
     /// Sends all UI state values, used at startup.
-    fn send_front_state(&self, ctx: &mut ws::WebsocketContext<Self>) {
-        let recipient = ctx.address().recipient();
-        get_runtime().spawn(async move {
-            // clone the state and send it
-            let front =
-                AppState::global().persistent.lock().unwrap().front.clone();
-            recipient.do_send(MsgToFront(ToFront::FrontState(front)));
-        });
+    fn send_initial_front_state(&self, ctx: &mut ws::WebsocketContext<Self>) {
+        let front = AppState::global().persistent.lock().unwrap().front.clone();
+        // take the pending events, leaving None
+        let events = AppState::global().pending_events.lock().unwrap().take();
+        self.send_msg(ToFront::Startup(Box::new(front), events), ctx);
     }
 }
 

@@ -2,21 +2,26 @@
 //!
 //! Messages are serialized with bincode.
 
-use serde::{Deserialize, Serialize};
-
 pub mod cmaps;
+pub mod dashboard_metrics;
 pub mod export_options;
 pub mod filters;
 pub mod float;
+pub mod lnglat;
 pub mod location;
 pub mod location_config;
 pub mod map_style;
+pub mod pin;
+pub mod plot_data;
 pub mod state;
 pub mod time_range;
+pub mod timeline;
 pub mod units;
+pub mod validation;
 pub mod view_position;
 pub mod ws_messages;
 
+pub use lnglat::LngLat;
 pub use location::Location;
 pub use location_config::{
     AllLocationConfig, AutoConfig, LocationAccuracyMode, LocationMode,
@@ -25,16 +30,3 @@ pub use location_config::{
 pub use state::{BackState, FrontState};
 pub use time_range::TimeRange;
 pub use ws_messages::{ToBack, ToFront};
-
-/// Longitude and latitude, encoded in degrees. Use .to_radians() for radians.
-#[derive(PartialEq, Debug, Default, Copy, Clone, Serialize, Deserialize)]
-pub struct LngLat {
-    pub lng: f64,
-    pub lat: f64,
-}
-
-impl From<&LngLat> for Vec<f64> {
-    fn from(lnglat: &LngLat) -> Self {
-        vec![lnglat.lng, lnglat.lat]
-    }
-}

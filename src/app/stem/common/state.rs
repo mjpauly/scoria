@@ -9,35 +9,63 @@
 //! #[serde(default)] is put on structs to indicate that missing fields are to
 //! be pulled from the type's default implementation.
 
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 
 use crate::{
     cmaps::CmapParams,
+    dashboard_metrics::DashboardMetrics,
     export_options::ExportOptions,
     filters::{DataStream, Filter, FilterOp},
     map_style::MapStyle,
+    pin::Pin,
+    plot_data::TimeSeriesPlot,
     time_range::TimeDeltaRange,
-    units::UnitPreference,
+    timeline::Timeline,
+    units::{time::TimePreference, UnitPreference},
     view_position::ViewPosition,
     AutoConfig, LngLat, Location, TimeRange, UserConfig,
 };
 
-/// Pick the type's default if it fails to deserialize. This ensures that an
-/// error during deserialization doesn't cause the whole thing to fail.
-/// `#[serde(default)]` on containers only picks the default if a field is
-/// missing, not if there's an error deserializing. This is important for cases
-/// when, for example, the name of an enum variant changes between app versions.
+/// Pick the type's default if it fails to deserialize.
+///
+/// This ensures that an error deserializing an inner field value doesn't cause
+/// the whole deserialization to fail. This is useful, for example, when the
+/// name of an enum variant has changed, but the app is reading old data.
+///
+/// Warning: it is not sufficient only annotate an outer type. Each enum must be
+/// annotated with `ok_or_default`, since an annotation on the containing struct
+/// will fail to catch the error and cause the entire deserialization to fail.
 pub fn ok_or_default<'de, D, T>(d: D) -> Result<T, D::Error>
 where
     T: Deserialize<'de> + Default,
     D: serde::Deserializer<'de>,
 {
-    T::deserialize(d).or_else(|_| Ok(T::default()))
+    Ok(T::deserialize(d).unwrap_or_default())
+}
+
+/// State driven by the backend which is derived from other state, like the
+/// database.
+///
+/// Does not get persisted between app restarts.
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+pub struct DerivedState {
+    // User-created map pins.
+    pub pins: Vec<Pin>,
+    pub dashboard_metrics: DashboardMetrics,
+    pub colored_timeseries_plot: TimeSeriesPlot,
+    pub timeline: Timeline,
+}
+
+/// Events that accumulate before UI is active, but which are handled in the UI.
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+pub struct PendingEvents {
+    pub opened_url: Option<String>, // a scoria:// url that was opened
 }
 
 /// Driven by backend
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
-// Missing fields are filled in by the struct returned by the default
 #[serde(default)]
 pub struct BackState {
     #[serde(deserialize_with = "ok_or_default")]
@@ -115,6 +143,10 @@ pub struct FrontState {
     #[serde(deserialize_with = "ok_or_default")]
     pub unit_pref: UnitPreference,
 
+    // User's preferred display units
+    #[serde(deserialize_with = "ok_or_default")]
+    pub time_pref: TimePreference,
+
     // Map data cache preferences
     #[serde(deserialize_with = "ok_or_default")]
     pub map_cache_pref: MapCachePreference,
@@ -126,17 +158,27 @@ pub struct FrontState {
     // Export options for GPX, GeoJSON, CSV, etc
     #[serde(deserialize_with = "ok_or_default")]
     pub export_opts: ExportOptions,
+
+    // Positions of scrolls, identified by a string ID.
+    #[serde(deserialize_with = "ok_or_default")]
+    pub scroll_positions: HashMap<String, i32>,
+
+    // Points that are selected
+    #[serde(deserialize_with = "ok_or_default")]
+    pub selected_points: Vec<(time::OffsetDateTime, LngLat)>,
 }
 
 /// The page the frontend is on. Only variants that we care to persist between
 /// launches are stored.
 #[derive(Debug, Copy, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub enum PersistedRoute {
-    #[default]
     Sense,
     Analyze,
+    Places,
+    Metrics,
     SettingsRoot,
     SettingsSubpage,
+    #[default]
     Intro,
 }
 
@@ -156,6 +198,9 @@ pub enum PersistedSettingsRoute {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct MapState {
+    // Map settings tab that's open (if any)
+    #[serde(deserialize_with = "ok_or_default")]
+    pub settings_tab: MapSettingsTab,
     // time_delta_range is the persisted source of truth on the time range to
     // display, but time-fixed time_range is used to get data to plot, and is
     // updated only on particular actions, like an explicit time update, or when
@@ -171,6 +216,33 @@ pub struct MapState {
     pub filters: Vec<Filter>,
     #[serde(deserialize_with = "ok_or_default")]
     pub view_pos: ViewPosition,
+    // Pin that's being viewed/edited, but might not be saved.
+    #[serde(deserialize_with = "ok_or_default")]
+    pub current_pin: Pin,
+    // Whether we're in edit mode for the pin or not
+    #[serde(deserialize_with = "ok_or_default")]
+    pub editable_pin: bool,
+    // id of the pin that was last selected on the map (may not be the same as
+    // the current pin in the PinEditor). Can be set independent of current_pin
+    // when moving to the map, as current_pin is derived from it.
+    #[serde(deserialize_with = "ok_or_default")]
+    pub selected_pin_id: Option<i64>,
+    #[serde(deserialize_with = "ok_or_default")]
+    pub open_in_google_maps: bool,
+    #[serde(deserialize_with = "ok_or_default")]
+    pub popup_color: Option<String>, // color of popup background to display
+}
+
+#[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize)]
+pub enum MapSettingsTab {
+    #[default]
+    None,
+    Filters,
+    MapStyle,
+    TimeRange,
+    PinDetails,
+    TimeSeriesPlot,
+    SelectPoints,
 }
 
 /// Default for the backend to use if deserializing from file fails. The
@@ -179,11 +251,17 @@ pub struct MapState {
 impl Default for MapState {
     fn default() -> Self {
         Self {
+            settings_tab: Default::default(),
             time_delta_range: Default::default(),
             time_range: Default::default(),
             style: Default::default(),
             filters: default_accuracy_filter(),
             view_pos: Default::default(),
+            current_pin: Default::default(),
+            editable_pin: Default::default(),
+            selected_pin_id: Default::default(),
+            open_in_google_maps: Default::default(),
+            popup_color: Default::default(),
         }
     }
 }

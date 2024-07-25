@@ -36,6 +36,15 @@ Debug with a shell:
 docker run -it --entrypoint=/bin/bash website
 ```
 
+### Colima Docker Runtime
+
+```
+colima start
+```
+
+If you get a platform mismatch error, try `colima stop`, `rm -rf ~/.colima`,
+and then `colima start`.
+
 ## Pushing the Container
 
 ```

@@ -8,8 +8,13 @@ use yew::prelude::*;
 use yew_icons::{Icon, IconId};
 use yewdux::prelude::*;
 
-use crate::plots::maplibre::{self, add_source_and_layers_to_style};
-use crate::ui_state::{BackState, FrontState};
+use crate::components::pin_editor::PinDetails;
+use crate::components::select_points_control::{
+    handle_nearest_location, SelectPointsControl,
+};
+use crate::maplibre::{self, add_source_and_layers_to_style};
+use crate::pages::metrics_dashboard::ColoredTimeSeriesPlot;
+use crate::ui_state::{BackState, DerivedState, FrontState};
 use crate::websocket::{
     use_backend_event_with_deps, ToBack, ToFront, WebsocketService,
 };
@@ -20,11 +25,13 @@ use crate::{
         Colorbar, TabBar, TimeRangePicker, PRIMARY_BUTTON_STYLE,
         SECONDARY_BUTTON_STYLE,
     },
-    plots::maplibre::view_pos_from_map,
+    maplibre::view_pos_from_map,
 };
+use common::state::MapSettingsTab;
 use common::LngLat;
 
-const BLANK_MAP_STYLE: &str = r#"{"version":8,"name":"Blank","sources":{},"layers":[],"center":[0,0],"zoom":1}"#;
+const BLANK_MAP_STYLE_DARK: &str = r#"{"version":8,"name":"Blank","sources":{},"layers":[{"id":"Background","type":"background","layout":{"visibility":"visible"},"paint":{"background-color":["interpolate",["exponential",1],["zoom"],6,"hsl(0, 0%, 17%)",20,"hsl(0, 0%, 18%)"]}}],"center":[0,0],"zoom":1}"#;
+const BLANK_MAP_STYLE_LIGHT: &str = r#"{"version":8,"name":"Blank","sources":{},"layers":[{"id":"Background","type":"background","layout":{"visibility":"visible"},"paint":{"background-color":{"stops":[[6,"hsl(60,20%,85%)"],[20,"hsl(60,24%,90%)"]]}}}],"center":[0,0],"zoom":1}"#;
 
 #[function_component]
 pub fn Analyze() -> Html {
@@ -42,7 +49,8 @@ fn AnalyzeLocation() -> Html {
     let map_style = use_selector(|s: &FrontState| s.map.style.clone());
     let filters = use_selector(|s: &FrontState| s.map.filters.clone());
 
-    let settings_tab = use_state(|| SettingsTab::None);
+    let settings_tab =
+        use_selector(|s: &FrontState| s.map.settings_tab.clone());
     // Get the number of filters clamped to the range [0, 2], which is where
     // resizing of the filter list occurs. If the value changes, trigger resize
     let num_filters = (*filters).len().clamp(0, 2);
@@ -64,76 +72,98 @@ fn AnalyzeLocation() -> Html {
     html! {
         <div class="flex-1 flex flex-col">
             <PlotComponent />
-            if *settings_tab == SettingsTab::MapStyle {
+            if *settings_tab == MapSettingsTab::MapStyle {
                 <MapStyler />
             }
-            if *settings_tab == SettingsTab::TimeRange {
+            if *settings_tab == MapSettingsTab::TimeRange {
                 <TimeRangePicker />
             }
-            if *settings_tab == SettingsTab::Filters {
+            if *settings_tab == MapSettingsTab::Filters {
                 <LocationFilterList />
             }
-            <SettingsPicker tab={settings_tab.clone()} />
+            if *settings_tab == MapSettingsTab::PinDetails {
+                <PinDetails />
+            }
+            if *settings_tab == MapSettingsTab::TimeSeriesPlot {
+                <ColoredTimeSeriesPlot />
+            }
+            if *settings_tab == MapSettingsTab::SelectPoints {
+                <SelectPointsControl />
+            }
+            <SettingsPicker />
         </div>
     }
 }
 
-#[derive(Clone, PartialEq, Debug)]
-enum SettingsTab {
-    None,
-    Filters,
-    MapStyle,
-    TimeRange,
-}
-
-#[derive(Properties, PartialEq)]
-struct SettingsPickerProps {
-    tab: UseStateHandle<SettingsTab>,
-}
-
 #[function_component]
-fn SettingsPicker(SettingsPickerProps { tab }: &SettingsPickerProps) -> Html {
+fn SettingsPicker() -> Html {
+    let tab = use_selector(|s: &FrontState| s.map.settings_tab.clone());
+    let front_dispatch = Dispatch::<FrontState>::new();
     // callback generic to all settings tabs
-    let onclick = {
-        let tab = tab.clone();
-        Callback::from(move |tab_target: SettingsTab| {
-            if *tab == tab_target {
+    let onclick = front_dispatch.reduce_mut_callback_with(
+        |state: &mut FrontState, tab_target: MapSettingsTab| {
+            if state.map.settings_tab == tab_target {
                 // Already on this tab -> close it
-                tab.set(SettingsTab::None);
+                state.map.settings_tab = MapSettingsTab::None;
             } else {
                 // Not on the tab yet -> go to it
-                tab.set(tab_target);
+                state.map.settings_tab = tab_target;
             }
-        })
-    };
+        },
+    );
+    // };
     let time_onclick = {
         let onclick = onclick.clone();
         Callback::from(move |_e: MouseEvent| {
-            onclick.emit(SettingsTab::TimeRange);
+            onclick.emit(MapSettingsTab::TimeRange);
         })
     };
     let style_onclick = {
         let onclick = onclick.clone();
         Callback::from(move |_e: MouseEvent| {
-            onclick.emit(SettingsTab::MapStyle);
+            onclick.emit(MapSettingsTab::MapStyle);
         })
     };
-    let filter_onclick = Callback::from(move |_e: MouseEvent| {
-        onclick.emit(SettingsTab::Filters);
+    let filter_onclick = {
+        let onclick = onclick.clone();
+        Callback::from(move |_e: MouseEvent| {
+            onclick.emit(MapSettingsTab::Filters);
+        })
+    };
+    let select_onclick = {
+        let onclick = onclick.clone();
+        Callback::from(move |_e: MouseEvent| {
+            onclick.emit(MapSettingsTab::SelectPoints);
+        })
+    };
+    let plot_onclick = Callback::from(move |_e: MouseEvent| {
+        onclick.emit(MapSettingsTab::TimeSeriesPlot);
     });
-    let get_style = move |tab_target: SettingsTab| {
-        if **tab == tab_target {
+    let get_style = move |tab_target: MapSettingsTab| {
+        if *tab == tab_target {
             format!("m-1 p-2 {}", PRIMARY_BUTTON_STYLE)
         } else {
             format!("m-1 p-2 {}", SECONDARY_BUTTON_STYLE)
         }
     };
-    let style_button_style = get_style(SettingsTab::MapStyle);
-    let time_button_style = get_style(SettingsTab::TimeRange);
-    let filter_button_style = get_style(SettingsTab::Filters);
+    let style_button_style = get_style(MapSettingsTab::MapStyle);
+    let time_button_style = get_style(MapSettingsTab::TimeRange);
+    let filter_button_style = get_style(MapSettingsTab::Filters);
+    let plot_button_style = get_style(MapSettingsTab::TimeSeriesPlot);
+    let select_button_style = get_style(MapSettingsTab::SelectPoints);
     html! {
         <div class="flex">
             <div class="mx-auto">
+                <button onclick={select_onclick} id="select_points_btn"
+                    class={select_button_style}>
+                        <Icon icon_id={IconId::BootstrapHandIndexThumb}
+                            class="h-6 w-6" />
+                </button>
+                <button onclick={plot_onclick} id="graph_btn"
+                    class={plot_button_style}>
+                        <Icon icon_id={IconId::BootstrapGraphUp}
+                            class="h-6 w-6" />
+                </button>
                 <button onclick={filter_onclick} id="filter_list_btn"
                     class={filter_button_style}>
                         <Icon icon_id={IconId::BootstrapFunnel}
@@ -157,37 +187,34 @@ fn SettingsPicker(SettingsPickerProps { tab }: &SettingsPickerProps) -> Html {
 #[function_component]
 fn PlotComponent() -> Html {
     // maplibre map handle
-    let map = use_state(|| Option::<Rc<maplibre::Map>>::None);
+    let map = use_state(|| Option::<Rc<maplibre::binds::Map>>::None);
 
     // === Popup Callbacks === //
 
     // called by maplibre when a click is detected
-    let request_popup = {
+    let click_point = {
+        let front_dispatch = Dispatch::<FrontState>::new();
         let wss = use_context::<WebsocketService>().unwrap();
         move |params: (LngLat, Option<String>)| {
-            wss.send_msg(ToBack::GetPopupText(params));
+            wss.send_msg(ToBack::GetLocationNear(params.0));
+            // save the color of the point that was clicked, so we can color
+            // the background with it
+            front_dispatch
+                .reduce_mut(|s: &mut FrontState| s.map.popup_color = params.1);
         }
     };
     // adds the popup to the map when the popup contents come from the backend
-    let on_get_popup_text = {
+    let on_get_nearest_location = {
         let map = map.clone();
         move |msg: &ToFront| {
-            // if *msg == ToFront::GeojsonUpdated && *map_initialized {
-            if let ToFront::PopupText {
-                location,
-                text,
-                bg_color,
-            } = msg
-            {
-                // destructure Option just in case message is delivered at a
-                // strange time
+            if let ToFront::NearestLocation(loc) = msg {
                 if let Some(map) = (*map).clone() {
-                    maplibre::add_popup(map, location, text, bg_color);
+                    handle_nearest_location(map, loc);
                 }
             }
         }
     };
-    use_backend_event_with_deps(on_get_popup_text, map.clone());
+    use_backend_event_with_deps(on_get_nearest_location, map.clone());
 
     // === Initial Map === //
 
@@ -204,19 +231,25 @@ fn PlotComponent() -> Html {
             move |basemap_style| {
                 let basemap_style = *basemap_style;
                 wasm_bindgen_futures::spawn_local(async move {
-                    let blank_map = String::from(BLANK_MAP_STYLE);
-                    let url = get_basemap_url(&basemap_style);
-                    let basemap_str = match Request::get(&url).send().await {
-                        Ok(req) => req
-                            .text()
-                            .await
-                            .unwrap_or_else(|_| blank_map.clone()),
-                        Err(_) => blank_map.clone(),
+                    let blank_map = match basemap_style.is_dark() {
+                        true => BLANK_MAP_STYLE_DARK,
+                        false => BLANK_MAP_STYLE_LIGHT,
+                    };
+                    let basemap_str = match basemap_style.is_some() {
+                        false => String::from(blank_map),
+                        true => {
+                            let url = get_basemap_url(&basemap_style);
+                            let text = match Request::get(&url).send().await {
+                                Ok(resp) => resp.text().await.ok(),
+                                Err(_) => None,
+                            };
+                            text.unwrap_or_else(|| String::from(blank_map))
+                        }
                     };
                     // if we can't parse the json, just make it a blank map
                     let basemap_obj: Value = serde_json::from_str(&basemap_str)
                         .unwrap_or_else(|_| {
-                            serde_json::from_str(&blank_map).unwrap()
+                            serde_json::from_str(blank_map).unwrap()
                         });
                     basemap.set(Some(basemap_obj));
                 });
@@ -259,6 +292,25 @@ fn PlotComponent() -> Html {
         let map_initialized = map_initialized.clone();
         let view_position = use_selector(|s: &FrontState| s.map.view_pos);
         let front_dispatch = Dispatch::<FrontState>::new();
+        let pin_onclick = |maybe_id| {
+            Dispatch::<FrontState>::new().reduce_mut(
+                move |state: &mut FrontState| {
+                    state.map.selected_pin_id = maybe_id;
+                    state.map.settings_tab = MapSettingsTab::PinDetails;
+                },
+            )
+        };
+        let on_create_pin = |loc: LngLat| {
+            Dispatch::<FrontState>::new().reduce_mut(
+                move |state: &mut FrontState| {
+                    state.map.selected_pin_id = None;
+                    state.map.current_pin = Default::default();
+                    state.map.current_pin.lnglat = loc;
+                    state.map.settings_tab = MapSettingsTab::PinDetails;
+                    state.map.editable_pin = true;
+                },
+            )
+        };
         use_effect_with_deps(
             move |style| {
                 // only create the map when it's not created yet
@@ -277,7 +329,13 @@ fn PlotComponent() -> Html {
                             &view_position,
                             on_load,
                             on_view_change,
-                            request_popup,
+                            click_point,
+                        );
+                        // register the callbacks for click/create pin
+                        maplibre::pins::register_callbacks(
+                            &newmap,
+                            pin_onclick,
+                            on_create_pin,
                         );
                         map.set(Some(newmap));
                     }
@@ -345,6 +403,61 @@ fn PlotComponent() -> Html {
         )
     };
 
+    // update the visible pins to include unsaved edits
+    let pins = use_selector(|state: &DerivedState| state.pins.clone());
+    let current_pin =
+        use_selector(|state: &FrontState| state.map.current_pin.clone());
+    let editing_pin = use_selector(|state: &FrontState| state.map.editable_pin);
+    let visible_pins = use_state(Vec::<common::pin::Pin>::new);
+    {
+        let visible_pins = visible_pins.clone();
+        use_effect_with_deps(
+            move |(pins, current_pin, editing)| {
+                visible_pins.set(maplibre::pins::get_visible_pins(
+                    (**pins).clone(),
+                    (**current_pin).clone(),
+                    **editing,
+                ));
+            },
+            (pins.clone(), current_pin.clone(), editing_pin),
+        );
+    }
+    // update pins when the map initializes, or the pins change
+    {
+        let map = map.clone();
+        use_effect_with_deps(
+            move |(map_initialized, visible_pins)| {
+                if **map_initialized {
+                    maplibre::pins::update_pins(
+                        &(*map).clone().unwrap(),
+                        visible_pins,
+                    )
+                    .unwrap();
+                }
+            },
+            (map_initialized.clone(), visible_pins.clone()),
+        )
+    };
+
+    // update selected points when map initializes, or selections change
+    let selected =
+        use_selector(|state: &FrontState| state.selected_points.clone());
+    {
+        let map = map.clone();
+        use_effect_with_deps(
+            move |(map_initialized, selected)| {
+                if **map_initialized {
+                    maplibre::selected_points::update_selected(
+                        &(*map).clone().unwrap(),
+                        selected,
+                    )
+                    .unwrap();
+                }
+            },
+            (map_initialized.clone(), selected.clone()),
+        )
+    };
+
     // === Restyle map === //
     {
         let map = map.clone();
@@ -352,7 +465,17 @@ fn PlotComponent() -> Html {
             move |style| {
                 if *map_initialized {
                     if let Some(style) = &**style {
-                        maplibre::restyle((*map).clone().unwrap(), style)
+                        maplibre::restyle((*map).clone().unwrap(), style);
+                        // also update pins, since the style object clears the
+                        // data
+                        maplibre::pins::update_pins_after_restyle(
+                            (*map).clone().unwrap(),
+                            (*visible_pins).clone(),
+                        );
+                        maplibre::selected_points::update_after_restyle(
+                            (*map).clone().unwrap(),
+                            (*selected).clone(),
+                        );
                     }
                 }
             },

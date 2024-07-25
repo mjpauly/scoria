@@ -23,10 +23,11 @@ pub mod app_state; // backend state storage
 pub mod core; // high-level app logic that spans multiple modules
 pub mod database; // manages the SQLite database
 pub mod export; // export data to common geo data file formats
-pub mod geojson; // construct the data to display in the frontend
+pub mod files; // static files served to frontend
 pub mod location_config; // location logging configuration
 pub mod logs;
 pub mod map;
+pub mod metrics;
 pub mod paths; // stores and retrieve file system paths
 pub mod runtime; // retrieves async runtime for use in the sync C interface
 pub mod server; // server for the UI
@@ -120,7 +121,7 @@ async fn set_app_version_code_helper(current_version_code: i64) {
 #[no_mangle]
 pub extern "C" fn log_error(msg: *const c_char) {
     let msg = cstr_to_string(msg);
-    tracing::error!("Swift error: {}", msg);
+    tracing::error!("Wrapper error: {}", msg);
 }
 
 /// Handle shutdown of the app by saving certain persistent state elements to
@@ -137,19 +138,7 @@ pub extern "C" fn handle_shutdown() {
 #[no_mangle]
 pub extern "C" fn handle_enter_foreground() -> server::ServerConfig {
     tracing::info!("App Foregrounded");
-    runtime::get_runtime().block_on(async {
-        // We may have received new data while in the background
-        tokio::spawn(geojson::update_geojson(None, true));
-        tokio::spawn(map::automap::update_automap());
-        tokio::spawn(async {
-            if let Err(e) = logs::update_last_logged_error().await {
-                tracing::error!(
-                    "IO failure when updating last logged error: {e}"
-                );
-            };
-        });
-        server::run(0, true).await
-    })
+    runtime::get_runtime().block_on(server::run(0, true))
 }
 
 /// When the app goes the background we stop the server. This way we release
@@ -272,12 +261,17 @@ pub extern "C" fn should_export_track() -> bool {
     should_export
 }
 
+#[no_mangle]
+pub extern "C" fn url_scheme(url: *const c_char) {
+    core::handle_url_scheme(cstr_to_string(url))
+}
+
 /// Local setup either for development or testing.
 /// Not used in any production app code. TODO: gate with feature flag
 pub mod local {
+    use super::init;
     use super::paths::Paths;
     use super::server;
-    use super::init;
 
     use std::fs;
     use std::path::PathBuf;

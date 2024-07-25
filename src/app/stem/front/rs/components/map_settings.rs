@@ -4,9 +4,13 @@ use uom::fmt::DisplayStyle;
 use uom::si::information;
 use uom::si::u64::*;
 use uom::str::ParseQuantityError;
+use web_sys::HtmlInputElement;
 use yew::prelude::*;
+use yew_icons::Icon;
+use yew_icons::IconId;
 use yewdux::prelude::*;
 
+use crate::components::RANGE_INPUT_STYLE;
 use crate::components::{
     AfterCardParagraph, SettingsCard, SettingsCardInput, SettingsCardToggle,
 };
@@ -15,24 +19,43 @@ use crate::ui_state::{BackState, FrontState};
 const MIN_CACHE_SIZE: u64 = 10_000_000;
 
 #[function_component]
-pub fn ShowLastLocationSetting() -> Html {
+pub fn MiscMapSettings() -> Html {
     let dispatch = Dispatch::<FrontState>::new();
-    let style = use_selector(|s: &FrontState| s.map.style.clone());
+    let map = use_selector(|s: &FrontState| s.map.clone());
 
-    let show_last_location_on_click = {
+    let show_last_location_on_click =
         dispatch.reduce_mut_callback(move |s: &mut FrontState| {
             s.map.style.show_last_location = !s.map.style.show_last_location;
-        })
-    };
+        });
+    let pins_below_data_onclick =
+        dispatch.reduce_mut_callback(move |s: &mut FrontState| {
+            s.map.style.pins_below_data = !s.map.style.pins_below_data;
+        });
+    let open_in_google_maps_onclick =
+        dispatch.reduce_mut_callback(move |s: &mut FrontState| {
+            s.map.open_in_google_maps = !s.map.open_in_google_maps;
+        });
 
     html! {
         <>
             <SettingsCard>
                 <SettingsCardToggle
-                    checked={style.show_last_location}
+                    checked={map.style.show_last_location}
                     onclick={show_last_location_on_click}
                     text={"Show Last Location"}
                 />
+                <SettingsCardToggle
+                    checked={map.style.pins_below_data}
+                    onclick={pins_below_data_onclick}
+                    text={"Display Pins Below Log Data"}
+                />
+                if cfg!(feature = "ios_config") {
+                    <SettingsCardToggle
+                        checked={map.open_in_google_maps}
+                        onclick={open_in_google_maps_onclick}
+                        text={"Open Links in Google Maps"}
+                    />
+                }
             </SettingsCard>
         </>
     }
@@ -43,10 +66,28 @@ pub fn AutomapSetting() -> Html {
     let dispatch = Dispatch::<FrontState>::new();
     let style = use_selector(|s: &FrontState| s.map.style.clone());
 
-    let automap_onclick = {
+    let automap_onclick =
         dispatch.reduce_mut_callback(move |s: &mut FrontState| {
             s.map.style.automap = !s.map.style.automap;
-        })
+        });
+    let opacity_onchange = dispatch.reduce_mut_callback_with(
+        move |s: &mut FrontState, e: InputEvent| -> Option<()> {
+            let elem: HtmlInputElement = e.target_dyn_into()?;
+            let val: &str = &elem.value();
+            let new_opacity = val.to_string().parse::<f64>().ok()?;
+            s.map.style.automap_opacity = new_opacity;
+            None
+        },
+    );
+    let zero_opacity_icon_color = if style.automap_opacity == 0.0 {
+        "text-primary"
+    } else {
+        "test-neutral-500"
+    };
+    let one_opacity_icon_color = if style.automap_opacity == 1.0 {
+        "text-primary"
+    } else {
+        "test-neutral-500"
     };
 
     let num_remaining =
@@ -63,14 +104,35 @@ pub fn AutomapSetting() -> Html {
                 <SettingsCardToggle
                     checked={style.automap}
                     onclick={automap_onclick}
-                    text={"Hide Unexplored Area"}
+                    text={"Use Automap"}
                 />
+                <div class="flex items-center justify-between py-2 px-4 w-full \
+                    active:bg-neutral-800">
+                    <label for="opacity">{"Opacity"}</label>
+                    <div class="flex items-center gap-2">
+                        <Icon icon_id={IconId::BootstrapSquare}
+                            class={classes!(
+                                "h-4 w-4".to_string(),
+                                zero_opacity_icon_color
+                            )} />
+                        <input type="range" id="opacity"
+                            value={format!("{}", style.automap_opacity)}
+                            min="0.0" max="1.0" step="0.01"
+                            class={format!("m-1 {}", RANGE_INPUT_STYLE)}
+                            oninput={opacity_onchange} />
+                        <Icon icon_id={IconId::BootstrapSquareFill}
+                            class={classes!(
+                                "h-4 w-4".to_string(),
+                                one_opacity_icon_color,
+                            )} />
+                    </div>
+                </div>
             </SettingsCard>
             <AfterCardParagraph>
-                {"Leaves the map blank where you haven't explored yet. An
-                area is marked as explored if it is within 100 meters of a data
-                point that has a horizontal error better (smaller) than 100
-                meters."}
+                {"The automap obscures the parts of the map where you haven't
+                explored yet. An area is marked as explored if it is within 100
+                meters of a data point that has a horizontal error better
+                (smaller) than 100 meters."}
             </AfterCardParagraph>
             if style.automap {
                 <AfterCardParagraph>
@@ -119,11 +181,10 @@ pub fn CacheSetting() -> Html {
     // size of the cache right now
     let curr_cache_size = use_selector(|s: &BackState| s.map_cache_size);
 
-    let disable_fetch_onclick = {
+    let disable_fetch_onclick =
         dispatch.reduce_mut_callback(move |s: &mut FrontState| {
             s.map_cache_pref.disable_fetch = !s.map_cache_pref.disable_fetch;
-        })
-    };
+        });
 
     html! {
         <>
