@@ -24,6 +24,7 @@ pub mod core; // high-level app logic that spans multiple modules
 pub mod database; // manages the SQLite database
 pub mod export; // export data to common geo data file formats
 pub mod files; // static files served to frontend
+pub mod import; // import data from common geo data file formats
 pub mod location_config; // location logging configuration
 pub mod logs;
 pub mod map;
@@ -266,6 +267,28 @@ pub extern "C" fn url_scheme(url: *const c_char) {
     core::handle_url_scheme(cstr_to_string(url))
 }
 
+/// Tell wrapper to import a places GeoJSON with a document picker
+#[no_mangle]
+pub extern "C" fn should_import_places_geojson() -> bool {
+    // replace the message with false and return its previous value
+    std::mem::replace(
+        &mut app_state::AppState::global()
+            .wrapper_messages
+            .lock()
+            .unwrap()
+            .should_import_places_geojson,
+        false,
+    )
+}
+
+#[no_mangle]
+pub extern "C" fn import_places_geojson(import_path: *const c_char) {
+    let import_path = PathBuf::from(cstr_to_string(import_path));
+    runtime::get_runtime().block_on(async {
+        import::pins_geojson::import_pins(import_path).await
+    })
+}
+
 /// Local setup either for development or testing.
 /// Not used in any production app code. TODO: gate with feature flag
 pub mod local {
@@ -358,6 +381,12 @@ pub mod local {
         let dev_db_path = "src/app/stem/db/data.db";
         let dest = documents_dir.join("data.db");
         fs::copy(dev_db_path, dest).unwrap();
+
+        // move saved places to the right location, if available, so testing
+        // importing is possible
+        let import_path = "src/app/stem/db_full/saved_places.json";
+        let dest = "dev_fs/tmp/saved_places.json";
+        let _ = fs::copy(import_path, dest);
     }
 }
 

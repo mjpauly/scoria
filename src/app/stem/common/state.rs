@@ -22,7 +22,7 @@ use crate::{
     pin::Pin,
     plot_data::TimeSeriesPlot,
     time_range::TimeDeltaRange,
-    timeline::Timeline,
+    timeline::{Timeline, TimelineConfig},
     units::{time::TimePreference, UnitPreference},
     view_position::ViewPosition,
     AutoConfig, LngLat, Location, TimeRange, UserConfig,
@@ -166,6 +166,9 @@ pub struct FrontState {
     // Points that are selected
     #[serde(deserialize_with = "ok_or_default")]
     pub selected_points: Vec<(time::OffsetDateTime, LngLat)>,
+
+    #[serde(deserialize_with = "ok_or_default")]
+    pub pin_import_default: Pin,
 }
 
 /// The page the frontend is on. Only variants that we care to persist between
@@ -189,6 +192,7 @@ pub enum PersistedSettingsRoute {
     Root,
     General,
     MapSettings,
+    Import,
     Export,
     Data,
     ReportProblem,
@@ -231,6 +235,8 @@ pub struct MapState {
     pub open_in_google_maps: bool,
     #[serde(deserialize_with = "ok_or_default")]
     pub popup_color: Option<String>, // color of popup background to display
+    #[serde(deserialize_with = "ok_or_default")]
+    pub timeline_config: TimelineConfig,
 }
 
 #[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize)]
@@ -262,6 +268,7 @@ impl Default for MapState {
             selected_pin_id: Default::default(),
             open_in_google_maps: Default::default(),
             popup_color: Default::default(),
+            timeline_config: Default::default(),
         }
     }
 }

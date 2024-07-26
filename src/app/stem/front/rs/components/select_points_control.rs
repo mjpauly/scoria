@@ -2,6 +2,7 @@
 
 use std::rc::Rc;
 
+use common::popups::{PopUp, PopUpCode};
 use common::ToFront;
 use common::{state::MapSettingsTab, Location};
 use yew::prelude::*;
@@ -10,7 +11,6 @@ use yewdux::prelude::*;
 
 use super::time_range_picker::local_offset;
 use crate::components::confirm::Confirm;
-use crate::components::{ErrorMessage, SuccessMessage};
 use crate::websocket::{use_backend_event_with_deps, ToBack, WebsocketService};
 use crate::{
     maplibre::{add_popup, binds::Map},
@@ -54,52 +54,19 @@ pub fn SelectPointsControl() -> Html {
     };
     let delete_disabled = selected_points.is_empty();
 
-    let deletion_result = use_state(|| Option::<Html>::None);
     let on_deletion_result = {
-        let deletion_result = deletion_result.clone();
         let front_dispatch = front_dispatch.clone();
         move |msg: &ToFront| {
-            if let ToFront::DeleteLocationsResult(n_deleted) = msg {
-                let clear_selected = || {
-                    front_dispatch.reduce_mut(|s: &mut FrontState| {
-                        s.selected_points = vec![]
-                    })
-                };
-                if *n_deleted == n_selected as u64 {
-                    // display sucess
-                    deletion_result.set(Some(html! {
-                        <SuccessMessage>
-                            <span>
-                                {format!(
-                                    "Deleted {n_deleted} points."
-                                )}
-                            </span>
-                        </SuccessMessage>
-                    }));
-                    clear_selected();
-                } else if *n_deleted > 0 {
-                    // display error with partial success
-                    deletion_result.set(Some(html! {
-                        <ErrorMessage>
-                            <span>
-                                {format!(
-                                    "Failed to delete points. Deleted \
-                                    {n_deleted} of {n_selected}.",
-                                )}
-                            </span>
-                        </ErrorMessage>
-                    }));
-                    clear_selected();
-                } else {
-                    // display error, don't reset selection
-                    deletion_result.set(Some(html! {
-                        <ErrorMessage>
-                            <span>
-                                {"Failed to delete points."}
-                            </span>
-                        </ErrorMessage>
-                    }));
-                }
+            if let ToFront::PopUp(PopUp {
+                code: PopUpCode::DeletePoints,
+                ..
+            }) = msg
+            {
+                // clear selections after the deletion has completed in the
+                // backend, and we receive the result popup
+                front_dispatch.reduce_mut(|s: &mut FrontState| {
+                    s.selected_points = vec![]
+                });
             }
         }
     };
@@ -116,7 +83,6 @@ pub fn SelectPointsControl() -> Html {
         <div class="flex-grow mx-auto bg-neutral-900 rounded-lg max-w-prose \
             text-left px-4 py-2 flex flex-col gap-2"
         >
-            {(*deletion_result).clone()}
             <p>
                 {format!(
                     "Tap a point to select it. Points selected: {}",

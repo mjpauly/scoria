@@ -164,6 +164,7 @@ rust_binary(
     edition = "2021",
     data = [
         "db/data.db",
+        # "db_full/saved_places.json",
     ] + select({
         # make the static files available as runfiles
         "//:autoreload_on": static_file_targets,

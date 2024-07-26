@@ -55,6 +55,7 @@ static_file_targets, static_file_envs = files_and_envs({
     ":privacy_policy": "PRIVACY_POLICY_FILE",
     ":feed": "FEED_FILE",
     ":posts": "POSTS_FILE",
+    ":import_places_post": "IMPORT_PLACES_POST",
     ":1_4_0_release_post": "1_4_0_RELEASE_POST",
     ":android_release_post": "ANDROID_RELEASE_POST",
     ":first_release_post": "FIRST_RELEASE_POST",
@@ -79,6 +80,7 @@ static_file_targets, static_file_envs = files_and_envs({
         "APP_STORE_BADGE",
     "static/apk/Scoria_1.3.0.apk": "SCORIA_1_3_0",
     "static/apk/Scoria_1.4.0.apk": "SCORIA_1_4_0",
+    "static/apk/Scoria_1.4.2.apk": "SCORIA_1_4_2",
 })
 
 rust_binary(
@@ -151,6 +153,11 @@ md_template(
 md_template(
     name = "posts",
     src = "static/posts.md",
+)
+
+md_template(
+    name = "import_places_post",
+    src = "static/posts/import_places.md",
 )
 
 md_template(

@@ -31,7 +31,7 @@ public func handle_poke(viewController: MyViewControllerProtocol) {
     check_request_when_in_use_authorization()
     myLocationManager.updateConfig()
     check_export_sqlite_log(viewController: viewController)
-    check_import_sqlite_log(viewController: viewController)
+    check_import(viewController: viewController)
     check_export_track(viewController: viewController)
 }
 
@@ -88,9 +88,15 @@ func getFormattedDateTime() -> String {
     return formattedDateTime
 }
 
-func check_import_sqlite_log(viewController: MyViewControllerProtocol) {
+func check_import(viewController: MyViewControllerProtocol) {
     if should_import_sqlite_log() {
-        importFile(viewController: viewController)
+        importFile(
+            viewController: viewController, presentationSource: .database
+        )
+    } else if should_import_places_geojson() {
+        importFile(
+            viewController: viewController, presentationSource: .placesGeojson
+        )
     }
 }
 
@@ -121,8 +127,9 @@ func check_export_track(viewController: UIViewController) {
     }
 }
 
-public func handle_import(fileURL: URL) {
-    print("Attempting to import data from \(fileURL)")
+// Database imports have to copy the import database to a new location so that
+// the database can be migrated.
+public func handle_database_import(fileURL: URL) {
     let temporaryDirectory = FileManager.default.temporaryDirectory
     let temporaryURL = temporaryDirectory.appendingPathComponent("data_import.db")
     let fileManager = FileManager.default
@@ -157,4 +164,13 @@ public func handle_import(fileURL: URL) {
     } catch {
         print_and_log_error(s: "Failed to remove temporary database file after import: \(error)")
     }
+}
+
+public func handle_places_geojson_import(fileURL: URL) {
+    if !fileURL.startAccessingSecurityScopedResource() {
+        print_and_log_error(s: "Failed to access import file")
+        return
+    }
+    import_places_geojson(fileURL.path);
+    fileURL.stopAccessingSecurityScopedResource()
 }

@@ -38,7 +38,6 @@ use super::{
 /// (since new data may have come in), or when the map state has changed.
 pub async fn update_dashboard_on_state_change(
     prev_route: Option<PersistedRoute>,
-    new_route: PersistedRoute,
 ) {
     let app_state = AppState::global();
     let mut prev_map_data_guard =
@@ -50,8 +49,7 @@ pub async fn update_dashboard_on_state_change(
         .as_ref()
         .map(|prev_state| map_state_is_different(prev_state, &map_state))
         .unwrap_or(true); // if no prev map data, assume we need to update
-    let navigated = new_route == PersistedRoute::Metrics
-        && prev_route != Some(PersistedRoute::Metrics);
+    let navigated = prev_route != Some(PersistedRoute::Metrics);
     if navigated || map_state_different {
         *prev_map_data_guard = Some(map_state);
         update_dashboard(None).await;
@@ -64,6 +62,7 @@ fn map_state_is_different(prev: &MapState, curr: &MapState) -> bool {
     prev.time_range != curr.time_range
         || prev.filters != curr.filters
         || prev.view_pos != curr.view_pos
+        || prev.timeline_config != curr.timeline_config
 }
 
 /// Update the dashboard with new location data or unconditionally if None.

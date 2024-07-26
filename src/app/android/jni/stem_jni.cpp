@@ -268,6 +268,19 @@ JNIEXPORT void JNICALL Java_info_scoria_Stem_importFromSqliteLog
     import_from_sqlite_log(converted.c_str());
 }
 
+JNIEXPORT jboolean JNICALL Java_info_scoria_Stem_shouldImportPlacesGeojson
+  (JNIEnv *, jclass)
+{
+    return should_import_places_geojson();
+}
+
+JNIEXPORT void JNICALL Java_info_scoria_Stem_importFromPlacesGeojson
+  (JNIEnv *, jclass, jstring path)
+{
+    std::string converted{LocalString{path}.Pin().ToString()};
+    import_places_geojson(converted.c_str());
+}
+
 JNIEXPORT jboolean JNICALL Java_info_scoria_Stem_shouldExportTrack
   (JNIEnv *, jclass)
 {

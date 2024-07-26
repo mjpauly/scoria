@@ -7,6 +7,13 @@
   <link rel="self" href="https://scoria.info/feed"/>
 
   <entry>
+    <title>Import Places from Google Maps</title>
+    <id>https://scoria.info/posts/import_places</id>
+    <updated>2024-08-20T19:00:00Z</updated>
+    <link rel="alternate" href="https://scoria.info/posts/import_places"/>
+  </entry>
+
+  <entry>
     <title>Scoria 1.4.0</title>
     <id>https://scoria.info/posts/Scoria_1.4.0</id>
     <updated>2024-07-24T19:00:00Z</updated>

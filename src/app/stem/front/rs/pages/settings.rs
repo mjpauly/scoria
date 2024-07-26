@@ -18,6 +18,7 @@ use crate::components::map_settings::{
     AutomapSetting, CacheSetting, MiscMapSettings,
 };
 use crate::components::time_preference::TwelveHourPreference;
+use crate::components::timeline_config::TimelineConfig;
 use crate::components::unit_picker::UnitPicker;
 use crate::components::{
     AfterCardParagraph, BouncyScrollContainer, DoneButton, MainSettingsButton,
@@ -77,6 +78,10 @@ pub fn Settings() -> Html {
                     <SettingsCardPageButton<SettingsRoute>
                         text="Map"
                         route={SettingsRoute::MapSettings}
+                    />
+                    <SettingsCardPageButton<SettingsRoute>
+                        text="Import Places"
+                        route={SettingsRoute::Import}
                     />
                     <SettingsCardPageButton<SettingsRoute>
                         text="Export Track"
@@ -154,10 +159,15 @@ pub fn General() -> Html {
 
             <BouncyScrollContainer class="pb-8">
                 <H1> {"General"} </H1>
+
                 <H2> {"Units"} </H2>
                 <UnitPicker />
+
                 <H2> {"Time"} </H2>
                 <TwelveHourPreference />
+
+                <H2> {"Timeline"} </H2>
+                <TimelineConfig />
             </BouncyScrollContainer>
 
             <HomeBarSpacer />

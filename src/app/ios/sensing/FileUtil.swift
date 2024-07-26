@@ -2,6 +2,24 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 
+// A DocumentPicker that carries metadata about what function triggered it, so
+// we can call the right import handler.
+public class CustomDocumentPickerViewController: UIDocumentPickerViewController {
+    public var presentationSource: PresentationSource?
+
+    convenience init(presentationSource: PresentationSource) {
+        let supportedTypes: [UTType] = [UTType.data]
+        self.init(forOpeningContentTypes: supportedTypes)
+        self.presentationSource = presentationSource
+    }
+}
+
+// The reason we're presenting a file picker.
+public enum PresentationSource {
+    case database
+    case placesGeojson
+}
+
 // Ordinary share sheet that shares the file with its existing name
 func shareFile(file: URL, viewController: UIViewController, deleteAfterShare: Bool = false) {
     // Make the activityViewContoller which shows the share-view
@@ -54,9 +72,13 @@ func shareFileWithDifferentName(originalURL: URL, desiredFilename: String, viewC
     }
 }
 
-func importFile(viewController: MyViewControllerProtocol) {
-    let supportedTypes: [UTType] = [UTType.data]
-    let documentPicker = UIDocumentPickerViewController(forOpeningContentTypes: supportedTypes)
+func importFile(
+    viewController: MyViewControllerProtocol,
+    presentationSource: PresentationSource
+) {
+    let documentPicker = CustomDocumentPickerViewController(
+        presentationSource: presentationSource
+    )
     documentPicker.delegate = viewController
     viewController.present(documentPicker, animated: true, completion: nil)
 }
@@ -80,29 +102,4 @@ func getTemporaryDirectoryPath() -> String {
 
 func getBundlePath() -> String {
     return Bundle.main.bundlePath
-}
-
-// appendToFile tries to append data to a file, and if the file doesn't exist it creates it
-func appendToFile(file: String, dataString: String) {
-    /* try to append to file if file exists, otherwise create new file with data */
-    let data = dataString.data(using: .utf8)!  // Encode String as bytes for file writing
-    let fileManager = FileManager.default
-    if fileManager.fileExists(atPath: file) {  // Check if the file exists
-        let fileHandle = FileHandle(forWritingAtPath: file)  // Open the file for writing
-        fileHandle?.seekToEndOfFile()  // Move to the end of the file
-        fileHandle?.write(data)  // Append the data to the file
-        fileHandle?.closeFile()  // Close the file
-    } else {
-        writeToNewFile(file: file, dataString: dataString)
-    }
-}
-
-// writeToNewFile writes data to a file, creating it if it doesn't exist, or overwriting it if it does
-func writeToNewFile(file: String, dataString: String) {
-    /* Write the data to a new file, overwriting what was there before */
-    do {
-        try dataString.write(toFile: file, atomically: true, encoding: .utf8)
-    } catch {
-        print("Error writing to file: \(error)")
-    }
 }

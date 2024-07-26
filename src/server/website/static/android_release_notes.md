@@ -1,5 +1,16 @@
 # Android Release Notes
 
+## 1.4.2
+
+*Aug 20, 2024*
+
+- configurable dwell duration for timeline
+- ability to [import places](/posts/import_places) from a GeoJSON file
+
+Note: Scoria 1.4.1 was released as a bug fix for iOS only.
+
+[Download APK](/download/apk/Scoria_1.4.2.apk)
+
 ## 1.4.0
 
 *Jul 24, 2024*

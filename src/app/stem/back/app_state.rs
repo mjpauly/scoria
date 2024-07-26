@@ -154,6 +154,7 @@ pub struct WrapperMessages {
     // tell swift to import the SQLite log
     pub should_import_sqlite_log: bool,
     pub should_export_track: bool,
+    pub should_import_places_geojson: bool,
 }
 
 impl AppState {

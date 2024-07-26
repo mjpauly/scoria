@@ -10,6 +10,7 @@ use actix::prelude::*;
 use actix_identity::Identity;
 use actix_web::{web, Error, HttpRequest, HttpResponse};
 use actix_web_actors::ws;
+use common::popups;
 use common::state::{PersistedRoute, PersistedSettingsRoute};
 use common::{ToBack, ToFront};
 use tracing::{info, warn};
@@ -45,6 +46,23 @@ pub fn send_derived_state_to_front() {
 
 pub fn send_message_to_front(msg: ToFront) {
     send(|addr| addr.do_send(MsgToFront(msg)));
+}
+
+pub fn send_error_popup(msg: &str) {
+    send_popup(popups::PopUpKind::Error, msg);
+}
+
+pub fn send_success_popup(msg: &str) {
+    send_popup(popups::PopUpKind::Success, msg);
+}
+
+fn send_popup(kind: popups::PopUpKind, msg: &str) {
+    let popup = popups::PopUp {
+        kind,
+        msg: msg.into(),
+        code: popups::PopUpCode::Other,
+    };
+    send_message_to_front(ToFront::PopUp(popup));
 }
 
 fn send(f: impl FnOnce(actix::Addr<WsSession>)) {
@@ -120,18 +138,17 @@ impl WsSession {
                 send_derived_state_to_front();
             }
             ToBack::SetFrontState(val) => {
-                let prev_routes = AppState::global()
-                    .persistent
-                    .lock()
-                    .unwrap()
-                    .front
-                    .as_ref()
-                    .map(|s| (s.route, s.settings_route));
                 let main_route = val.route;
                 let settings_route = val.settings_route;
-                AppState::global().persistent.lock().unwrap().front =
-                    Some(*val);
+
+                let prev_front_state = std::mem::replace(
+                    &mut AppState::global().persistent.lock().unwrap().front,
+                    Some(*val),
+                );
                 AppState::save_to_file();
+                let prev_routes =
+                    prev_front_state.map(|s| (s.route, s.settings_route));
+
                 get_runtime().spawn(update_geojson(None, false));
                 if main_route == PersistedRoute::SettingsSubpage
                     && settings_route == PersistedSettingsRoute::MapSettings
@@ -158,8 +175,14 @@ impl WsSession {
                 }
                 get_runtime().spawn(update_dashboard_on_state_change(
                     prev_routes.map(|r| r.0),
-                    main_route,
                 ));
+            }
+            ToBack::ImportPlaces => {
+                AppState::global()
+                    .wrapper_messages
+                    .lock()
+                    .unwrap()
+                    .should_import_places_geojson = true;
             }
             ToBack::ExportTrack => {
                 get_runtime().spawn(async { export_selected().await });

@@ -136,14 +136,21 @@ extension ViewController: WKScriptMessageHandler{
 }
 
 extension ViewController: UIDocumentPickerDelegate {
-    func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+    func documentPicker(
+        _ controller: UIDocumentPickerViewController,
+        didPickDocumentsAt urls: [URL]
+    ) {
         guard let fileURL = urls.first else { return }
-        
-        // Process the imported file
-        handle_import(fileURL: fileURL)
-    }
-    
-    func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
-        // Handle cancellation of the document picker
+
+        if let presentationSource = (
+            controller as? CustomDocumentPickerViewController
+        )?.presentationSource {
+            switch presentationSource {
+                case .database:
+                    handle_database_import(fileURL: fileURL)
+                case .placesGeojson:
+                    handle_places_geojson_import(fileURL: fileURL)
+            }
+        }
     }
 }

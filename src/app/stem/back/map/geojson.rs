@@ -105,6 +105,7 @@ fn map_state_is_different(prev: &MapState, curr: &MapState) -> bool {
         // size sliders rapidly, so we'll save compute when next updating
         || ((prev.style.marker_size == 0) && (curr.style.marker_size != 0))
         || ((prev.style.line_size == 0) && (curr.style.line_size != 0))
+        || prev.timeline_config != curr.timeline_config
 }
 
 /// Determine if we should update the geojson data
@@ -156,6 +157,7 @@ async fn should_update_geojson(
     // -> Should update if we get here <-
     // store the current state as the previous state
     *prev_map_data_guard = Some(map_state.clone());
+    println!("prev map state");
     Some(map_state.clone())
 }
 

@@ -21,13 +21,15 @@ import kotlin.io.path.copyTo
 
 val TAG = "ScoriaFiles"
 val SHARE_CODE = 5 // identifies this sharing action (our choice)
-val IMPORT_CODE = 6 // identifies the import action (our choice)
+val IMPORT_SQLITE_CODE = 6 // identifies the import sqlite action (our choice)
+val IMPORT_PLACES_GEOJSON_CODE = 7 // same as above, but for places
 val SHARE_DEL_FILE_DELAY: Long = 10000 // how long after share action to wait
                                        // before deleting the file
 val DB_EXPORT_PREFIX = "Scoria_Export_"
 val TRACK_EXPORT_PREFIX = "Scoria_Track_"
 val TRACK_TEMP_PREFIX = "track_export"
 val DB_IMPORT_NAME = "scoria_import.db"
+val PLACES_GEOJSON_IMPORT_NAME = "places.geojson"
 val MIME_TYPE = "*/*" // Not all file manager apps seem to accept any mime
                       // type. Ideally we'd use "application/x-sqlite3", but
                       // "*/*" has the most compatibility
@@ -94,17 +96,33 @@ public fun shareFile(activity: Activity, path: Path) {
 }
 
 // Initiate a file request. The result is handled in `onActivityResult`.
-public fun initiateImport(activity: Activity) {
+//
+// Valid request codes are IMPORT_SQLITE_CODE and IMPORT_PLACES_GEOJSON_CODE.
+public fun initiateImport(activity: Activity, code: Int) {
     val requestFileIntent = Intent(Intent.ACTION_GET_CONTENT).apply {
         type = MIME_TYPE
         addCategory(Intent.CATEGORY_OPENABLE)
     }
-    activity.startActivityForResult(requestFileIntent, IMPORT_CODE)
+    activity.startActivityForResult(requestFileIntent, code)
 }
 
-// Have a possibly valid file URI, try to import it into Scoria
+public fun completeSqliteImport(activity: Activity, uri: Uri) {
+    readURIToFile(activity, uri, DB_IMPORT_NAME)?.also { tempFile ->
+        Stem.importFromSqliteLog(tempFile.absolutePath);
+        tempFile.delete();
+    }
+}
+
+public fun completePlacesGeojsonImport(activity: Activity, uri: Uri) {
+    readURIToFile(activity, uri, PLACES_GEOJSON_IMPORT_NAME)?.also { tempFile ->
+        Stem.importFromPlacesGeojson(tempFile.absolutePath);
+        tempFile.delete();
+    }
+}
+
+// Have a possibly valid file URI, try to convert to a real file on disk
 // Ref: https://developer.android.com/training/secure-file-sharing/request-file
-public fun completeImport(activity: Activity, uri: Uri) {
+public fun readURIToFile(activity: Activity, uri: Uri, fname: String): File? {
     // Try to open the file for "read" access using the
     // returned URI. If the file isn't found, write to the
     // error log and return.
@@ -115,14 +133,14 @@ public fun completeImport(activity: Activity, uri: Uri) {
     } catch (e: FileNotFoundException) {
         e.printStackTrace()
         Log.e(TAG, "File not found.")
-        return
+        return null
     }
     // Get a regular file descriptor for the file
     // val fd = inputPFD.fileDescriptor
-    inputPFD?.fileDescriptor.also { fd ->
-        val inputStream = FileInputStream(fd)
+    return inputPFD?.fileDescriptor.let {
+        val inputStream = FileInputStream(it)
         val tempFile = Path(activity.getCacheDir().getAbsolutePath())
-            .resolve(DB_IMPORT_NAME).toFile()
+            .resolve(fname).toFile()
         val outputStream = FileOutputStream(tempFile)
         val buffer = ByteArray(1024)
         var length: Int
@@ -131,8 +149,7 @@ public fun completeImport(activity: Activity, uri: Uri) {
         }
         outputStream.close()
         inputStream.close()
-        Stem.importFromSqliteLog(tempFile.absolutePath)
-        tempFile.delete()
+        tempFile
     }
 }
 

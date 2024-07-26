@@ -5,6 +5,7 @@ use actix_web::{dev::HttpServiceFactory, get, web, HttpResponse, Responder};
 static INDEX_FILE: &str = include_str!(env!("INDEX_FILE"));
 static FEED_FILE: &str = include_str!(env!("FEED_FILE"));
 static POSTS_FILE: &str = include_str!(env!("POSTS_FILE"));
+static IMPORT_PLACES_POST: &str = include_str!(env!("IMPORT_PLACES_POST"));
 static SCORIA_1_4_0_POST: &str = include_str!(env!("1_4_0_RELEASE_POST"));
 static ANDROID_RELEASE_POST: &str = include_str!(env!("ANDROID_RELEASE_POST"));
 static FIRST_RELEASE_POST: &str = include_str!(env!("FIRST_RELEASE_POST"));
@@ -46,6 +47,7 @@ fn posts_services() -> impl HttpServiceFactory {
     (
         feed,
         posts,
+        import_places_post,
         scoria_1_4_0_post,
         android_release_post,
         first_release_post,
@@ -73,6 +75,13 @@ async fn posts() -> impl Responder {
     HttpResponse::Ok()
         .content_type(ContentType::html())
         .body(POSTS_FILE)
+}
+
+#[get("/posts/import_places")]
+async fn import_places_post() -> impl Responder {
+    HttpResponse::Ok()
+        .content_type(ContentType::html())
+        .body(IMPORT_PLACES_POST)
 }
 
 #[get("/posts/Scoria_1.4.0")]

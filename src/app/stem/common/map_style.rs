@@ -47,7 +47,7 @@ impl Default for MapStyle {
             basemap_style: Default::default(),
             colored_datastream: Default::default(),
             show_colorbar: true,
-            automap: true,
+            automap: false,
             automap_opacity: 0.5,
             show_last_location: true,
             pins_below_data: false,

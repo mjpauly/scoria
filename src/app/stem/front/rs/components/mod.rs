@@ -16,6 +16,8 @@ pub mod select_points_control;
 pub mod settings_card;
 pub mod time_preference;
 pub mod time_range_picker;
+pub mod timeline_config;
+pub mod toast;
 pub mod typography;
 pub mod unit_picker;
 pub mod warning;

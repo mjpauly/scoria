@@ -2,9 +2,10 @@
 
 ## To Do
 
-Current: release Android
-Then: google maps import
+Current: 
+Then: location scraping tool and blog post
 
+- [ ] throttle geojson updates to 10 Hz?
 - [ ] show/hide pins
 - [ ] Pin aliases for associating dwells with existing pins when the bounding area is large
 - [ ] click on pin and see breakdown of trips at that pin

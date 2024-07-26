@@ -15,7 +15,8 @@ use crate::{
     websocket::{use_backend_event, WebsocketService},
 };
 
-static INPUT_STYLE: &str = "rounded bg-neutral-800 border border-neutral-700";
+pub static INPUT_STYLE: &str =
+    "rounded bg-neutral-800 border border-neutral-700";
 // prevent long words from increasing width of the element
 static FREEFORM_TEXT_STYLE: &str =
     "whitespace-pre-wrap break-words table table-fixed w-full";
@@ -73,7 +74,7 @@ fn find_matching_pin(selected_pin_id: &Option<i64>) -> Option<Pin> {
 /// details to flicker to the previous values for a moment before the backend
 /// pin state updates with the new values.
 #[function_component]
-pub fn PinViewer() -> Html {
+fn PinViewer() -> Html {
     // pin to show in the editor
     let pin = use_selector(|s: &FrontState| s.map.current_pin.clone());
     // pin id last selected on the map (may be different)
@@ -94,47 +95,6 @@ pub fn PinViewer() -> Html {
         front_dispatch.reduce_mut_callback(move |state: &mut FrontState| {
             state.map.editable_pin = true;
         });
-    let list_elems = pin.lists.iter().map(|l| {
-        html! {
-            <span class="bg-neutral-800 px-2 py-1 rounded text-sm \
-                         overflow-scroll"
-            >
-                {l.clone()}
-            </span>
-        }
-    });
-
-    // Tags
-    let tags_elems = pin.tags.iter().map(|t| {
-        let is_url = url::Url::parse(&t.1).is_ok();
-        html! {
-            <div class="flex items-center justify-start gap-2 select-text">
-                <span class="w-1/3 overflow-scroll"> {t.0.clone()} </span>
-                if is_url {
-                    <a
-                        class="w-2/3 max-h-32 overflow-scroll text-primary"
-                        href={t.1.clone()}
-                    >
-                        <span class={format!(
-                            "text-sm {}",
-                            FREEFORM_TEXT_STYLE
-                        )}>
-                            {t.1.clone()}
-                        </span>
-                    </a>
-                } else {
-                    <div class="w-2/3 max-h-32 overflow-scroll">
-                        <span class={format!(
-                            "text-sm {}",
-                            FREEFORM_TEXT_STYLE
-                        )}>
-                            {t.1.clone()}
-                        </span>
-                    </div>
-                }
-            </div>
-        }
-    });
 
     let close_settings_tab =
         front_dispatch.reduce_mut_callback(|state: &mut FrontState| {
@@ -183,33 +143,7 @@ pub fn PinViewer() -> Html {
         <div class="flex-grow mx-auto bg-neutral-900 rounded-lg h-full \
             px-4 py-2 flex flex-col gap-2 max-w-prose my-1"
         >
-            <div class="flex items-center justify-start gap-2 select-text \
-                text-lg"
-            >
-                <span class="whitespace-nowrap"> {pin.icon.clone()} </span>
-                <div class="max-h-32 overflow-scroll font-medium">
-                    <span class={format!("grow {}", FREEFORM_TEXT_STYLE)}>
-                        {pin.name.clone()}
-                    </span>
-                </div>
-            </div>
-            <div class="flex items-center justify-start gap-2 select-text">
-                <label for="latlng" class="w-1/3">{"Location"}</label>
-                <span id="latlng" class="w-2/3 text-sm" >
-                    {pin.lnglat.to_string()}
-                </span>
-            </div>
-            if list_elems.len() != 0 {
-                <div class="flex items-center justify-start gap-2 select-text">
-                    <label for="lists" class="w-1/3">{"Lists"}</label>
-                    <div id="lists" class="w-2/3 flex flex-wrap justify-start \
-                        gap-2"
-                    >
-                        { for list_elems }
-                    </div>
-                </div>
-            }
-            { for tags_elems }
+            <PinDetailView pin={(*pin).clone()} />
             <div class="flex items-center justify-between flex-wrap gap-2">
                 <button
                     class="py-1 text-primary flex gap-2 items-center"
@@ -258,8 +192,91 @@ pub fn PinViewer() -> Html {
     }
 }
 
+#[derive(Properties, PartialEq)]
+pub struct PinDetailViewProps {
+    pub pin: Pin,
+}
+
+/// Show the user-edited parts of the pin details.
 #[function_component]
-pub fn PinEditor() -> Html {
+pub fn PinDetailView(PinDetailViewProps { pin }: &PinDetailViewProps) -> Html {
+    let list_elems = pin.lists.iter().map(|l| {
+        html! {
+            <span class="bg-neutral-800 px-2 py-1 rounded text-sm \
+                         overflow-scroll"
+            >
+                {l.clone()}
+            </span>
+        }
+    });
+
+    // Tags
+    let tags_elems = pin.tags.iter().map(|t| {
+        let is_url = url::Url::parse(&t.1).is_ok();
+        html! {
+            <div class="flex items-center justify-start gap-2 select-text">
+                <span class="w-1/3 overflow-scroll"> {t.0.clone()} </span>
+                if is_url {
+                    <a
+                        class="w-2/3 max-h-32 overflow-scroll text-primary"
+                        href={t.1.clone()}
+                    >
+                        <span class={format!(
+                            "text-sm {}",
+                            FREEFORM_TEXT_STYLE
+                        )}>
+                            {t.1.clone()}
+                        </span>
+                    </a>
+                } else {
+                    <div class="w-2/3 max-h-32 overflow-scroll">
+                        <span class={format!(
+                            "text-sm {}",
+                            FREEFORM_TEXT_STYLE
+                        )}>
+                            {t.1.clone()}
+                        </span>
+                    </div>
+                }
+            </div>
+        }
+    });
+
+    html! {
+        <>
+            <div class="flex items-center justify-start gap-2 select-text \
+                text-lg"
+            >
+                <span class="whitespace-nowrap"> {pin.icon.clone()} </span>
+                <div class="max-h-32 overflow-scroll font-medium">
+                    <span class={format!("grow {}", FREEFORM_TEXT_STYLE)}>
+                        {pin.name.clone()}
+                    </span>
+                </div>
+            </div>
+            <div class="flex items-center justify-start gap-2 select-text">
+                <label for="latlng" class="w-1/3">{"Location"}</label>
+                <span id="latlng" class="w-2/3 text-sm" >
+                    {pin.lnglat.to_string()}
+                </span>
+            </div>
+            if list_elems.len() != 0 {
+                <div class="flex items-center justify-start gap-2 select-text">
+                    <label for="lists" class="w-1/3">{"Lists"}</label>
+                    <div id="lists" class="w-2/3 flex flex-wrap justify-start \
+                        gap-2"
+                    >
+                        { for list_elems }
+                    </div>
+                </div>
+            }
+            { for tags_elems }
+        </>
+    }
+}
+
+#[function_component]
+fn PinEditor() -> Html {
     // pin to show in the editor
     let pin = use_selector(|s: &FrontState| s.map.current_pin.clone());
     // pin id last selected on the map (may be different)
