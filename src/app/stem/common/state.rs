@@ -189,6 +189,7 @@ pub enum PersistedSettingsRoute {
     Root,
     General,
     MapSettings,
+    Import,
     Export,
     Data,
     ReportProblem,

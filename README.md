@@ -2,8 +2,8 @@
 
 ## To Do
 
-Current: release Android
-Then: google maps import
+Current: google maps import on Android
+Then:
 
 - [ ] show/hide pins
 - [ ] Pin aliases for associating dwells with existing pins when the bounding area is large

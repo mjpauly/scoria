@@ -1,5 +1,6 @@
 pub mod analyze;
 pub mod export_track;
+pub mod import_places;
 pub mod intro;
 pub mod metrics_dashboard;
 pub mod places;
@@ -11,6 +12,7 @@ pub mod update;
 
 pub use analyze::Analyze;
 pub use export_track::ExportTrack;
+pub use import_places::ImportPlaces;
 pub use intro::Intro;
 pub use metrics_dashboard::MetricsDashboard;
 pub use places::Places;

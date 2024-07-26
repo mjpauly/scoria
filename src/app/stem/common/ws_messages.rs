@@ -32,6 +32,7 @@ pub enum ToBack {
     ExportSqliteLog,
     ImportSqliteLog,
     ExportTrack,
+    ImportPlaces,
 }
 
 /// Messages from the backend to the frontend

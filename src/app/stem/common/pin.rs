@@ -98,7 +98,6 @@ impl Pin {
     }
 
     pub fn set_tags(&mut self, tags: Vec<(String, String)>) {
-        self.tags = vec![];
         for (mut k, mut v) in tags.into_iter() {
             trunc_to_char(&mut k, TAG_KEY_MAX_CHARS);
             trunc_to_char(&mut v, TAG_VAL_MAX_CHARS);

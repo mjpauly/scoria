@@ -161,6 +161,13 @@ impl WsSession {
                     main_route,
                 ));
             }
+            ToBack::ImportPlaces => {
+                AppState::global()
+                    .wrapper_messages
+                    .lock()
+                    .unwrap()
+                    .should_import_places_geojson = true;
+            }
             ToBack::ExportTrack => {
                 get_runtime().spawn(async { export_selected().await });
             }
