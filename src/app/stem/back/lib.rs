@@ -381,6 +381,12 @@ pub mod local {
         let dev_db_path = "src/app/stem/db/data.db";
         let dest = documents_dir.join("data.db");
         fs::copy(dev_db_path, dest).unwrap();
+
+        // move saved places to the right location, if available, so testing
+        // importing is possible
+        let import_path = "src/app/stem/db/saved_places.json";
+        let dest = "dev_fs/tmp/saved_places.json";
+        let _ = fs::copy(import_path, dest);
     }
 }
 

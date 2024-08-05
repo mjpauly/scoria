@@ -85,7 +85,7 @@ fn pin_from_feature(f: Feature, pin_template: &Pin) -> Option<Pin> {
     let Value::Point(point) = &geometry.value else {
         return None;
     };
-    let lng = *point.get(0)?;
+    let lng = *point.first()?;
     let lat = *point.get(1)?;
 
     let mut pin = pin_template.clone();
@@ -128,14 +128,14 @@ fn traverse_props(
                 };
                 match (key.to_lowercase().as_str(), value) {
                     ("name", JsonValue::String(s)) => *name = Some(s.clone()),
-                    _ => traverse_props(&value, &new_path, tags, name),
+                    _ => traverse_props(value, &new_path, tags, name),
                 }
             }
         }
         JsonValue::Array(arr) => {
             for (i, value) in arr.iter().enumerate() {
                 let new_path = format!("{}[{}]", path, i);
-                traverse_props(&value, &new_path, tags, name);
+                traverse_props(value, &new_path, tags, name);
             }
         }
         JsonValue::String(s) => tags.push((path.to_string(), s.clone())),
