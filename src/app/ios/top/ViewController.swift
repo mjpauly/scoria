@@ -14,12 +14,9 @@ import Sensing
 // agree on for the class's type when passed to the Sensing framwork.
 class ViewController: UIViewController, MyViewControllerProtocol, WKNavigationDelegate {
 
-    override func viewDidLoad() {
-        super.viewDidLoad()
-        // Do any additional setup after loading the view.
-        
+    func load() {
+        let webView = setupWebView()
         webView.navigationDelegate = self
-        
         view.addSubview(webView)
         NSLayoutConstraint.activate([
             webView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
@@ -27,12 +24,10 @@ class ViewController: UIViewController, MyViewControllerProtocol, WKNavigationDe
             webView.bottomAnchor.constraint(equalTo: view.layoutMarginsGuide.bottomAnchor),
             webView.topAnchor.constraint(equalTo: view.layoutMarginsGuide.topAnchor)
         ])
-        
-        let contentController = self.webView.configuration.userContentController
+
+        let contentController = webView.configuration.userContentController
         contentController.add(self, name: "pokeMessageHandler")
-    }
-    
-    func reload() {
+
         // load the frontend webapp
         let port = server_port  // get server port from sensing module
         let scope = server_scope
@@ -42,8 +37,12 @@ class ViewController: UIViewController, MyViewControllerProtocol, WKNavigationDe
         let req = URLRequest(url: url!)
         webView.load(req)
     }
-    
-    private lazy var webView: WKWebView = {
+
+    func unload() {
+        view.subviews.forEach({ $0.removeFromSuperview() })
+    }
+
+    func setupWebView() -> WKWebView {
         let webConfiguration = WKWebViewConfiguration()
         // don't persist any data to disk
         webConfiguration.websiteDataStore = WKWebsiteDataStore.nonPersistent()
@@ -59,7 +58,7 @@ class ViewController: UIViewController, MyViewControllerProtocol, WKNavigationDe
         }
 #endif
         return webView
-    }()
+    }
     
     //added for full screen
     override func viewWillLayoutSubviews() {

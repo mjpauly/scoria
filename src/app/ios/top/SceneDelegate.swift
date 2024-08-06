@@ -67,7 +67,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // reload the UI with the new key and port
         guard let windowScene = (scene as? UIWindowScene) else { return }
         guard let vc = (windowScene.keyWindow?.rootViewController as? ViewController) else { return }
-        vc.reload()
+        vc.load()
     }
 
     func sceneDidEnterBackground(_ scene: UIScene) {
@@ -77,6 +77,10 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         //print_and_log(s: "SceneDelegate: sceneDidEnterBackground")
         handle_background()
         updateWidget(is_on: is_location_on())
+
+        guard let windowScene = (scene as? UIWindowScene) else { return }
+        guard let vc = (windowScene.keyWindow?.rootViewController as? ViewController) else { return }
+        vc.unload()
     }
 
 
