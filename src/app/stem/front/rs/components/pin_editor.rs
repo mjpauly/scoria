@@ -15,7 +15,8 @@ use crate::{
     websocket::{use_backend_event, WebsocketService},
 };
 
-static INPUT_STYLE: &str = "rounded bg-neutral-800 border border-neutral-700";
+pub static INPUT_STYLE: &str =
+    "rounded bg-neutral-800 border border-neutral-700";
 // prevent long words from increasing width of the element
 static FREEFORM_TEXT_STYLE: &str =
     "whitespace-pre-wrap break-words table table-fixed w-full";

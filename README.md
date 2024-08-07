@@ -3,7 +3,7 @@
 ## To Do
 
 Current: google maps import on Android
-Then:
+Then: location scraping tool and blog post
 
 - [ ] show/hide pins
 - [ ] Pin aliases for associating dwells with existing pins when the bounding area is large

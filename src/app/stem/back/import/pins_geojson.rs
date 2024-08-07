@@ -62,7 +62,7 @@ pub async fn import_pins(path: PathBuf) {
         }
     };
     let mut pin_default =
-        get_front_state(|s| s.map.current_pin.clone()).unwrap_or_default();
+        get_front_state(|s| s.pin_import_default.clone()).unwrap_or_default();
     pin_default.id = None; // make sure we're inserting new pins without ids
     for feature in fc.features.into_iter() {
         if let Some(pin) = pin_from_feature(feature, &pin_default) {

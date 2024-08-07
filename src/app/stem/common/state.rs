@@ -166,6 +166,9 @@ pub struct FrontState {
     // Points that are selected
     #[serde(deserialize_with = "ok_or_default")]
     pub selected_points: Vec<(time::OffsetDateTime, LngLat)>,
+
+    #[serde(deserialize_with = "ok_or_default")]
+    pub pin_import_default: Pin,
 }
 
 /// The page the frontend is on. Only variants that we care to persist between
