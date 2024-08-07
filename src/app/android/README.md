@@ -136,6 +136,14 @@ aapt dump xmltree app_unsigned.apk AndroidManifest.xml
 $ANDROID_HOME/platform-tools/adb shell 'am start -a android.intent.action.VIEW -d "scoria://place?lng=-122&lat=37&name=hi"'
 ```
 
+## Add File to Emulator Filesystem
+
+Drag and drop onto the emulator.
+
+## Inpect Emulator WebView
+
+Go to `chrome://inspect` in a Chromium browser.
+
 ## Common Issues
 
 ### Thread Access to Stem

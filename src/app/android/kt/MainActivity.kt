@@ -145,7 +145,7 @@ class MainActivity : AppCompatActivity(), UpdateConfigCallback {
             checkLocationSourceSetting()
             updateLocationConfig()
             checkExportSqliteLog()
-            checkImportSqliteLog()
+            checkImport()
             checkExportTrack()
         }
     }
@@ -186,9 +186,11 @@ class MainActivity : AppCompatActivity(), UpdateConfigCallback {
     }
 
     // Check if we should import a Sqlite log, and do so
-    private fun checkImportSqliteLog() {
+    private fun checkImport() {
         if (Stem.shouldImportSqliteLog()) {
-            initiateImport(this)
+            initiateImport(this, IMPORT_SQLITE_CODE)
+        } else if (Stem.shouldImportPlacesGeojson()) {
+            initiateImport(this, IMPORT_PLACES_GEOJSON_CODE)
         }
     }
 
@@ -206,12 +208,15 @@ class MainActivity : AppCompatActivity(), UpdateConfigCallback {
     ) {
         if (requestCode == SHARE_CODE) {
             cleanupSharedFile()
-        } else if (
-            requestCode == IMPORT_CODE
-            && resultCode == RESULT_OK
-        ) {
-            returnIntent?.data?.also { returnUri ->
-                completeImport(this, returnUri)
+        } else if (resultCode == RESULT_OK) {
+            if (requestCode == IMPORT_SQLITE_CODE) {
+                returnIntent?.data?.also { returnUri ->
+                    completeSqliteImport(this, returnUri)
+                }
+            } else if (requestCode == IMPORT_PLACES_GEOJSON_CODE) {
+                returnIntent?.data?.also { returnUri ->
+                    completePlacesGeojsonImport(this, returnUri)
+                }
             }
         }
     }
