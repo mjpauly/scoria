@@ -48,6 +48,7 @@ async fn latest_version() -> impl Responder {
 
 #[get("/Scoria_1.4.0.apk")]
 async fn scoria_1_4_0() -> impl Responder {
+    tracing::info!("Download of 1.4.0");
     HttpResponse::Ok()
         .insert_header(APK_CONTENT_TYPE_HEADER)
         .body(SCORIA_1_4_0)
@@ -55,6 +56,7 @@ async fn scoria_1_4_0() -> impl Responder {
 
 #[get("/Scoria_1.3.0.apk")]
 async fn scoria_1_3_0() -> impl Responder {
+    tracing::info!("Download of 1.3.0");
     HttpResponse::Ok()
         .insert_header(APK_CONTENT_TYPE_HEADER)
         .body(SCORIA_1_3_0)
