@@ -9,6 +9,8 @@ use gpx::{Gpx, GpxVersion, Metadata, Track, TrackSegment, Waypoint};
 
 use common::Location;
 
+use crate::ws_session::send_error_popup;
+
 use super::ExportData;
 
 pub fn export(mut fname: PathBuf, data: ExportData) {
@@ -16,6 +18,7 @@ pub fn export(mut fname: PathBuf, data: ExportData) {
     fname.set_extension("gpx");
     if let Err(e) = write_gpx(&fname, gpx) {
         tracing::error!("Failed to write GPX file: {e}");
+        send_error_popup("Failed to write GPX file.");
     }
 }
 

@@ -20,6 +20,9 @@ module.exports = {
         appear: {
           '0%': { opacity: 0, transform: 'translate(-50%, -50%) scale(1.1)' },
         },
+        appear2: {
+          '0%': { opacity: 0, transform: 'translate(-0%, -50%)' },
+        },
         inout: {
           '0%,100%': { opacity: 0 },
           '40%,60%': { opacity: 1 },
@@ -27,6 +30,7 @@ module.exports = {
       },
       animation: {
         appear: 'appear 0.1s ease-in-out',
+        appear2: 'appear2 0.1s ease-in-out',
         inout: 'inout 1s ease-in-out',
       }
     },

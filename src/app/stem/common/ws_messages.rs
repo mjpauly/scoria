@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     pin::Pin,
+    popups::PopUp,
     state::{DerivedState, PendingEvents},
     BackState, FrontState, LngLat, Location,
 };
@@ -43,8 +44,8 @@ pub enum ToFront {
     DerivedState(DerivedState),
     GeojsonUpdated,
     NearestLocation(Location),
-    NewPinId(i64),              // id of a new pin after assignment
-    DeleteLocationsResult(u64), // how many points deleted
+    NewPinId(i64), // id of a new pin after assignment
     SwiftPoke,
     PendingEvents(PendingEvents),
+    PopUp(PopUp), // message from backend to display
 }

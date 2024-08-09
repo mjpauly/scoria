@@ -384,7 +384,7 @@ pub mod local {
 
         // move saved places to the right location, if available, so testing
         // importing is possible
-        let import_path = "src/app/stem/db/saved_places.json";
+        let import_path = "src/app/stem/db_full/saved_places.json";
         let dest = "dev_fs/tmp/saved_places.json";
         let _ = fs::copy(import_path, dest);
     }

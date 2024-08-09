@@ -10,6 +10,7 @@ use actix::prelude::*;
 use actix_identity::Identity;
 use actix_web::{web, Error, HttpRequest, HttpResponse};
 use actix_web_actors::ws;
+use common::popups;
 use common::state::{PersistedRoute, PersistedSettingsRoute};
 use common::{ToBack, ToFront};
 use tracing::{info, warn};
@@ -45,6 +46,23 @@ pub fn send_derived_state_to_front() {
 
 pub fn send_message_to_front(msg: ToFront) {
     send(|addr| addr.do_send(MsgToFront(msg)));
+}
+
+pub fn send_error_popup(msg: &str) {
+    send_popup(popups::PopUpKind::Error, msg);
+}
+
+pub fn send_success_popup(msg: &str) {
+    send_popup(popups::PopUpKind::Success, msg);
+}
+
+fn send_popup(kind: popups::PopUpKind, msg: &str) {
+    let popup = popups::PopUp {
+        kind,
+        msg: msg.into(),
+        code: popups::PopUpCode::Other,
+    };
+    send_message_to_front(ToFront::PopUp(popup));
 }
 
 fn send(f: impl FnOnce(actix::Addr<WsSession>)) {

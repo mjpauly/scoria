@@ -25,7 +25,11 @@
 use std::fs;
 use std::path::PathBuf;
 
-use common::{pin::Pin, LngLat};
+use common::{
+    pin::Pin,
+    popups::{PopUp, PopUpCode, PopUpKind},
+    LngLat, ToFront,
+};
 use geojson::{Feature, FeatureCollection, GeoJson, JsonValue, Value};
 use tracing::error;
 
@@ -35,6 +39,7 @@ use crate::{
         get_db_pool,
         pins::{save_pin_to_db, update_derived_pins},
     },
+    ws_session::send_message_to_front,
 };
 
 // TODO: error popup message?
@@ -64,14 +69,47 @@ pub async fn import_pins(path: PathBuf) {
     let mut pin_default =
         get_front_state(|s| s.pin_import_default.clone()).unwrap_or_default();
     pin_default.id = None; // make sure we're inserting new pins without ids
+    let n_features = fc.features.len();
+    let mut n_saved = 0;
     for feature in fc.features.into_iter() {
         if let Some(pin) = pin_from_feature(feature, &pin_default) {
             if let Err(e) = save_pin_to_db(&get_db_pool(), &pin).await {
                 error!("Failed to save pin. {e}");
+            } else {
+                n_saved += 1;
             }
         }
     }
+    send_result_popup(n_features, n_saved);
     update_derived_pins().await;
+}
+
+fn send_result_popup(n_features: usize, n_saved: usize) {
+    let code = PopUpCode::Other;
+    let popup = if n_saved == n_features {
+        let s = if n_saved == 1 { "" } else { "s" };
+        PopUp {
+            kind: PopUpKind::Success,
+            msg: format!("Saved {n_saved} place{s}"),
+            code,
+        }
+    } else if n_saved > 0 {
+        PopUp {
+            kind: PopUpKind::Error,
+            msg: format!(
+                "Failed to save some places. Saved \
+                {n_saved} of {n_features}.",
+            ),
+            code,
+        }
+    } else {
+        PopUp {
+            kind: PopUpKind::Error,
+            msg: "Failed to save places.".into(),
+            code,
+        }
+    };
+    send_message_to_front(ToFront::PopUp(popup));
 }
 
 /// Extract a Pin from a feature, returning Some(Pin) if successful or None if

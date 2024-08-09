@@ -29,7 +29,7 @@ async fn ui_interface_tests() -> Result<(), fantoccini::error::CmdError> {
     let base_url = format!("http://localhost:{}/123/", server_port);
     c.goto(&base_url).await?;
     // let the webapp load
-    sleep(Duration::from_millis(100)).await;
+    sleep(Duration::from_millis(500)).await;
 
     // UI tests
     simple_navigation(&c, base_url).await?;

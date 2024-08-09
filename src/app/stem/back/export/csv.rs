@@ -7,12 +7,15 @@ use time::format_description::well_known::Iso8601;
 
 use common::Location;
 
+use crate::ws_session::send_error_popup;
+
 use super::ExportData;
 
 pub fn export(mut fname: PathBuf, data: ExportData, map_state: &MapState) {
     fname.set_extension("csv");
     if let Err(e) = write_csv(&fname, data, map_state) {
         tracing::error!("Failed to write CSV file: {e}");
+        send_error_popup("Failed to write CSV file.");
     }
 }
 

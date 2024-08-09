@@ -56,6 +56,7 @@ use std::str::FromStr;
 use anyhow::Result;
 use common::{
     filters::{DataStream, Filter, FilterOp},
+    popups::{PopUp, PopUpCode, PopUpKind},
     state::LastAutomapUpdate,
     view_position::LngLatBounds,
     LngLat, TimeRange, ToFront,
@@ -72,7 +73,7 @@ use crate::{
     database::pins::update_derived_pins,
     map::geojson::update_geojson,
     runtime::get_runtime,
-    ws_session::send_message_to_front,
+    ws_session::{send_error_popup, send_message_to_front, send_success_popup},
 };
 
 // Embed our migrations from "migrations/" into our binary at compile time
@@ -400,7 +401,7 @@ pub async fn import_database_records(import_db_path: PathBuf) {
         Ok(c) => c,
         Err(e) => {
             error!("Failed to open connection to import db: {e}");
-            // TODO: send failure feedback to user
+            send_error_popup("Failed to open import database.");
             return;
         }
     };
@@ -408,6 +409,7 @@ pub async fn import_database_records(import_db_path: PathBuf) {
     if let Err(e) = MIGRATOR.run(&import_conn).await {
         error!("Failed to migrate import db: {e}.");
         import_conn.close().await;
+        send_error_popup("Failed to migrate import database.");
         return;
     }
     if let Err(e) = sqlx::query!("UPDATE location SET was_imported = 1")
@@ -416,6 +418,7 @@ pub async fn import_database_records(import_db_path: PathBuf) {
     {
         error!("Failed to mark records as imported: {e}");
         import_conn.close().await;
+        send_error_popup("Failed to modify import database.");
         return;
     }
     let n_to_import = count_all_records(&import_conn).await;
@@ -467,6 +470,7 @@ pub async fn import_database_records(import_db_path: PathBuf) {
     .await;
     if let Err(e) = result {
         error!("Failed to import records: {e}");
+        send_error_popup("Failed to import records from database.");
         return;
     }
 
@@ -477,12 +481,12 @@ pub async fn import_database_records(import_db_path: PathBuf) {
 
     update_derived_pins().await;
 
-    info!(
+    let success_msg = format!(
         "Successfully imported {n_imported} records. ({} duplicates ignored.)",
         n_to_import - n_imported
     );
-
-    // TODO: send success to UI
+    info!("{}", success_msg);
+    send_success_popup(&success_msg);
 }
 
 /// reset the automap latest update time (if necessary), so it can regenerate
@@ -512,7 +516,8 @@ pub fn delete_selected_locations() {
         else {
             return;
         };
-        let mut n_deleted: u64 = 0;
+        let n_to_delete = selected_points.len();
+        let mut n_deleted = 0;
         for (ts, _) in selected_points.iter() {
             match sqlx::query("DELETE FROM location WHERE timestamp == ?")
                 .bind(ts.unix_timestamp())
@@ -528,9 +533,37 @@ pub fn delete_selected_locations() {
                 }
             }
         }
-        send_message_to_front(ToFront::DeleteLocationsResult(n_deleted));
+        send_delete_result_popup(n_to_delete, n_deleted);
         update_geojson(None, true).await;
     });
+}
+
+fn send_delete_result_popup(n_to_delete: usize, n_deleted: usize) {
+    let code = PopUpCode::DeletePoints;
+    let popup = if n_deleted == n_to_delete {
+        let s = if n_deleted == 1 { "" } else { "s" };
+        PopUp {
+            kind: PopUpKind::Success,
+            msg: format!("Deleted {n_deleted} point{s}"),
+            code,
+        }
+    } else if n_deleted > 0 {
+        PopUp {
+            kind: PopUpKind::Error,
+            msg: format!(
+                "Failed to delete some points. Deleted \
+                {n_deleted} of {n_to_delete}.",
+            ),
+            code,
+        }
+    } else {
+        PopUp {
+            kind: PopUpKind::Error,
+            msg: "Failed to delete points.".into(),
+            code,
+        }
+    };
+    send_message_to_front(ToFront::PopUp(popup));
 }
 
 /// Convert between the Location we have for talking to the database and the

@@ -176,8 +176,8 @@ pub fn get_update_callback() -> Callback {
         ToFront::GeojsonUpdated => (),
         ToFront::NearestLocation(_) => (),
         ToFront::NewPinId(_) => (),
-        ToFront::DeleteLocationsResult(_) => (),
         ToFront::SwiftPoke => swift_poke::poke(),
+        ToFront::PopUp(_) => (),
     };
     Box::new(callback)
 }

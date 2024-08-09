@@ -36,6 +36,8 @@ use yew_router::prelude::*;
 
 use websocket::WebsocketService;
 
+use crate::components::toast::Toast;
+
 /// Top level App component for the UI.
 #[function_component]
 pub fn App() -> Html {
@@ -68,6 +70,7 @@ pub fn App() -> Html {
         <div class="text-center bg-black flex-1 flex flex-col \
                     font-light text-neutral-200 select-none">
             <ContextProvider<WebsocketService> context={wss}>
+                <Toast />
                 <BrowserRouter basename={basename}>
                     <Switch<router::Route> render={router::switch} />
                     <pending_events::PendingEventHandler />
