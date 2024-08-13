@@ -13,6 +13,8 @@ use itertools::Itertools;
 use nav_types::WGS84;
 use tracing::{instrument, Level};
 
+use crate::app_state::get_front_state;
+
 use super::{
     distance::straight_distance, speed::avg_speed, stats::weighted_mean,
 };
@@ -63,7 +65,6 @@ pub fn dwell_score_segment(
     }
 }
 
-const LONG_DWELL_WIDTH_SECS: u64 = 120;
 const OUTLIER_Z_SCORE: f64 = 2.5;
 
 /// Slide a window at least 2 minutes long, and score each point as the minimum
@@ -73,11 +74,15 @@ const OUTLIER_Z_SCORE: f64 = 2.5;
 /// be a continuous segment of data points (no jumps due to view bounds edges).
 #[instrument(skip_all, level = Level::TRACE)]
 pub fn dwell_score(records: &[&Location]) -> Vec<Option<f64>> {
+    let long_dwell_width_secs =
+        get_front_state(|s| s.map.timeline_config.clone())
+            .unwrap_or_default()
+            .long_dwell_width_secs;
     let mut min_stds = vec![Option::<f64>::None; records.len()];
     let mut ei = 0; // end index
     let dur_gte_big_thresh = |start: &Location, end: &Location| {
         end.timestamp - start.timestamp
-            > time::Duration::seconds(LONG_DWELL_WIDTH_SECS as i64)
+            > time::Duration::seconds(long_dwell_width_secs as i64)
     };
     for si in 0..records.len() {
         // println!("{si}");
@@ -160,41 +165,3 @@ pub fn weighted_lnglat_mean_and_stddev(
         squared_distances_and_weights.map(move |(d, _)| d.sqrt() / stddev);
     (LngLat { lng, lat }, stddev, z_scores)
 }
-
-/*
-#[instrument(skip_all, level = Level::TRACE)]
-pub fn merge_close_dwells(records: &mut [(&Location, Option<bool>)]) {
-    println!("");
-    let chunker = records.iter_mut().chunk_by(|(_, d)| *d);
-    let mut chunks = chunker
-        .into_iter()
-        .map(|(_k, c)| c.collect::<Vec<_>>())
-        .collect::<Vec<_>>();
-    if chunks.len() >= 3 {
-        for i in 1..chunks.len() - 1 {
-            // a and c are the dwell points that straddle the non-dwell
-            let a = chunks[i - 1].last().unwrap(); // chunks have >=1 value
-            let c = chunks[i + 1].first().unwrap();
-            if a.1 == Some(true)
-                && c.1 == Some(true)
-                && c.0.timestamp - a.0.timestamp
-                    < time::Duration::seconds(LONG_DWELL_WIDTH_SECS as i64)
-                && distance_between_lla(
-                    &dbg!(center_of_locations(
-                        chunks[i - 1].iter().map(|(l, _)| *l)
-                    )),
-                    &dbg!(center_of_locations(
-                        chunks[i - 1].iter().map(|(l, _)| *l)
-                    )),
-                ) < 10.0
-            {
-                for b in &mut chunks[i] {
-                    if let Some(ref mut is_dwell) = b.1 {
-                        *is_dwell = true;
-                    }
-                }
-            }
-        }
-    }
-}
-*/

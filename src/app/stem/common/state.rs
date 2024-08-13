@@ -22,7 +22,7 @@ use crate::{
     pin::Pin,
     plot_data::TimeSeriesPlot,
     time_range::TimeDeltaRange,
-    timeline::Timeline,
+    timeline::{Timeline, TimelineConfig},
     units::{time::TimePreference, UnitPreference},
     view_position::ViewPosition,
     AutoConfig, LngLat, Location, TimeRange, UserConfig,
@@ -235,6 +235,8 @@ pub struct MapState {
     pub open_in_google_maps: bool,
     #[serde(deserialize_with = "ok_or_default")]
     pub popup_color: Option<String>, // color of popup background to display
+    #[serde(deserialize_with = "ok_or_default")]
+    pub timeline_config: TimelineConfig,
 }
 
 #[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize)]
@@ -266,6 +268,7 @@ impl Default for MapState {
             selected_pin_id: Default::default(),
             open_in_google_maps: Default::default(),
             popup_color: Default::default(),
+            timeline_config: Default::default(),
         }
     }
 }

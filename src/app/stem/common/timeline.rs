@@ -30,3 +30,18 @@ pub struct Dwell {
     pub deviation: f64, // standard deviation of distances to lnglat
     pub detected_pin: Option<(Pin, f64)>, // detected pin and distance to lnglat
 }
+
+// ===== Config =====
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TimelineConfig {
+    pub long_dwell_width_secs: u64, // threshold duration for a dwell
+}
+
+impl Default for TimelineConfig {
+    fn default() -> Self {
+        Self {
+            long_dwell_width_secs: 120, // 2 minutes default
+        }
+    }
+}
