@@ -24,38 +24,39 @@ starred places and a collection of `.csv` files for all of your other lists.
 You'll want to run `gmaps-coords` on each file, including the GeoJSON, to
 ensure each place has coordinate data.
 
-[Install Rust](https://www.rust-lang.org/tools/install) and get a copy of the
-`gmaps-coords` repository, then `cd` into the directory.
+First, [install Rust](https://www.rust-lang.org/tools/install).
+
+Next, install the `gmaps-coords` CLI tool, and a WebDriver server like `geckodriver`. The WebDriver server lets `gmaps-coords` visit the Google Maps webpage and retrieve each place's coordinates.
 
 ```shell
-git clone https://github.com/scoria-team/gmaps-coords.git
-cd gmaps-coords
+cargo install --git https://github.com/scoria-team/gmaps-coords.git
+cargo install geckodriver
 ```
 
-Install and run a WebDriver server in another terminal, such as `geckodriver`.
-The WebDriver server lets the tool visit the Google Maps webpage and retrieve
-each place's coordinates.
+In one terminal, start `geckodriver`.
 
 ```shell
-cargo install geckodriver
 geckodriver
 ```
 
-Run the CLI tool on your files. The tool takes about two seconds to look up
-each place's coordinates.
+In a second terminal, run `gmaps-coords` on your files. The tool takes about two seconds to look up each place's coordinates.
 
 ```shell
-cargo run -- -i saved_places.json -o saved_places_complete_coordinates.json
-cargo run -- -i my_travel_list.csv -o my_travel_list_with_coordinates.json
+gmaps-coords -i saved_places.json -o saved_places_complete.json
+gmaps-coords -i travel_list.csv -o travel_list_coords.json
 ```
 
-## Parallelism
+### Parallelism
 
-Multiple instances of the tool can be run at the same time using multiple
-WebDriver instances. Specify the `-p` argument for `geckodriver` and
-`gmaps-coords` to a value other than the default `4444`.
+Multiple instances of the tool can be run at the same time using multiple WebDriver instances. Specify the `-p` argument for `geckodriver` and `gmaps-coords` to a value other than the default `4444`.
 
 ```shell
 geckodriver -p 4445
-cargo run -- -p 4445 -i saved_places.json -o out.json
+gmaps-coords -p 4445 -i saved_places.json -o out.json
+```
+
+### More Options
+
+```shell
+gmaps-coords --help
 ```
