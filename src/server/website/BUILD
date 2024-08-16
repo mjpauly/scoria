@@ -80,6 +80,7 @@ static_file_targets, static_file_envs = files_and_envs({
         "APP_STORE_BADGE",
     "static/apk/Scoria_1.3.0.apk": "SCORIA_1_3_0",
     "static/apk/Scoria_1.4.0.apk": "SCORIA_1_4_0",
+    "static/apk/Scoria_1.4.2.apk": "SCORIA_1_4_2",
 })
 
 rust_binary(
