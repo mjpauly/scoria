@@ -1,6 +1,6 @@
 # Posts
 
-Aug 16, 2024: [Import Places](/posts/import_places)
+Aug 20, 2024: [Import Places from Google Maps](/posts/import_places)
 
 Jul 24, 2024: [Scoria 1.4.0](/posts/Scoria_1.4.0)
 

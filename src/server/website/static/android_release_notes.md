@@ -2,7 +2,7 @@
 
 ## 1.4.2
 
-*Aug 16, 2024*
+*Aug 20, 2024*
 
 - configurable dwell duration for timeline
 - ability to [import places](/posts/import_places) from a GeoJSON file

@@ -29,13 +29,19 @@
     .prose-container > ul > li > ul {
         @apply list-disc pl-4;
     }
-    .prose-container > p > a:link, .prose-container > p > em > a:link {
+    .prose-container > p > a:link,
+    .prose-container > p > em > a:link,
+    .prose-container > ul > li > a:link {
         @apply text-primary underline;
     }
-    .prose-container > p > a:visited, .prose-container > p > em > a:visited {
+    .prose-container > p > a:visited,
+    .prose-container > p > em > a:visited,
+    .prose-container > ul > li > a:visited {
         @apply text-violet-500 underline;
     }
-    .prose-container > p > a:active, .prose-container > p > em > a:active {
+    .prose-container > p > a:active,
+    .prose-container > p > em > a:active,
+    .prose-container > ul > li > a:active {
         @apply text-blue-400 underline;
     }
 }

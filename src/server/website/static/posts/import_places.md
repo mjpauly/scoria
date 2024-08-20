@@ -1,6 +1,6 @@
 # Import Places from Google Maps
 
-*Aug 16, 2024*
+*Aug 20, 2024*
 
 New in Scoria 1.4.2 is the ability to import places from a GeoJSON file. This
 lets you migrate over places that you've saved in other apps.
@@ -26,7 +26,9 @@ ensure each place has coordinate data.
 
 First, [install Rust](https://www.rust-lang.org/tools/install).
 
-Next, install the `gmaps-coords` CLI tool, and a WebDriver server like `geckodriver`. The WebDriver server lets `gmaps-coords` visit the Google Maps webpage and retrieve each place's coordinates.
+Next, install the `gmaps-coords` CLI tool, and a WebDriver server like
+`geckodriver`. The WebDriver server lets `gmaps-coords` visit the Google Maps
+webpage and retrieve each place's coordinates.
 
 ```shell
 cargo install --git https://github.com/scoria-team/gmaps-coords.git
@@ -39,7 +41,8 @@ In one terminal, start `geckodriver`.
 geckodriver
 ```
 
-In a second terminal, run `gmaps-coords` on your files. The tool takes about two seconds to look up each place's coordinates.
+In a second terminal, run `gmaps-coords` on your files. The tool takes about
+two seconds to look up each place's coordinates.
 
 ```shell
 gmaps-coords -i saved_places.json -o saved_places_complete.json
@@ -48,7 +51,9 @@ gmaps-coords -i travel_list.csv -o travel_list_coords.json
 
 ### Parallelism
 
-Multiple instances of the tool can be run at the same time using multiple WebDriver instances. Specify the `-p` argument for `geckodriver` and `gmaps-coords` to a value other than the default `4444`.
+Multiple instances of the tool can be run at the same time using multiple
+WebDriver instances. Specify the `-p` argument for `geckodriver` and
+`gmaps-coords` to a value other than the default `4444`.
 
 ```shell
 geckodriver -p 4445
