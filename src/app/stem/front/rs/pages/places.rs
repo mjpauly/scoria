@@ -7,8 +7,11 @@ use yew::prelude::*;
 use yew_router::prelude::*;
 use yewdux::prelude::*;
 
+use crate::components::places_filter::PlacesFilterList;
+use crate::components::{
+    AfterCardParagraph, SettingsCardSimpleButton, TabBar, TopNav,
+};
 use crate::components::{BouncySavedScrollContainer, SettingsCard};
-use crate::components::{TabBar, TopNav};
 use crate::router::Route;
 use crate::ui_state::{DerivedState, FrontState};
 
@@ -20,7 +23,6 @@ pub fn Places() -> Html {
                 <></>
             </TopNav>
             <BouncySavedScrollContainer class="text-left" id="places-page">
-                // <ShowHidePlaces />
                 <PlacesList />
             </BouncySavedScrollContainer>
             <TabBar />
@@ -28,23 +30,30 @@ pub fn Places() -> Html {
     }
 }
 
-// #[function_component]
-// pub fn ShowHidePlaces() -> Html {
-// html! {
-// <div class="px-4">
-// </div>
-// }
-// }
-
 #[function_component]
 pub fn PlacesList() -> Html {
     let pins = use_selector(|s: &DerivedState| s.pins.clone());
+    let filters = use_selector(|s: &FrontState| s.pin_settings.filters.clone());
 
-    let pin_html = pins.iter().map(|p| {
-        html! {
-            <Place pin={p.clone()} />
-        }
-    });
+    let pin_html =
+        pins.iter().filter(|p| p.passes_filters(&filters)).map(|p| {
+            html! {
+                <Place pin={p.clone()} />
+            }
+        });
+
+    let show_filters =
+        use_selector(|s: &FrontState| s.pin_settings.show_filters);
+    let dispatch = Dispatch::<FrontState>::new();
+    let show_filters_onclick =
+        dispatch.reduce_mut_callback(|s: &mut FrontState| {
+            s.pin_settings.show_filters = !s.pin_settings.show_filters;
+        });
+    let show_hide_text = if *show_filters {
+        "Hide Filters"
+    } else {
+        "Show Filters"
+    };
 
     html! {
         <div class="px-4">
@@ -55,7 +64,22 @@ pub fn PlacesList() -> Html {
                 {"Press and hold on the map to save a place."}
             </p>
 
-            <SettingsCard>
+            <SettingsCard class="mb-4">
+                <SettingsCardSimpleButton
+                    text={show_hide_text}
+                    onclick={show_filters_onclick}
+                />
+            </SettingsCard>
+            <AfterCardParagraph class="mb-4">
+                {"Filters determine which places are displayed in the map and
+                the timeline. A place is shown if it is true for all active
+                filters."}
+            </AfterCardParagraph>
+            if *show_filters {
+                <PlacesFilterList />
+            }
+
+            <SettingsCard class="mt-6">
                 {for pin_html}
             </SettingsCard>
         </div>

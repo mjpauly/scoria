@@ -405,6 +405,12 @@ fn PlotComponent() -> Html {
 
     // update the visible pins to include unsaved edits
     let pins = use_selector(|state: &DerivedState| state.pins.clone());
+    let filters = use_selector(|s: &FrontState| s.pin_settings.filters.clone());
+    let pins = pins
+        .iter()
+        .filter(|p| p.passes_filters(&filters))
+        .cloned()
+        .collect::<Vec<_>>();
     let current_pin =
         use_selector(|state: &FrontState| state.map.current_pin.clone());
     let editing_pin = use_selector(|state: &FrontState| state.map.editable_pin);
@@ -414,12 +420,12 @@ fn PlotComponent() -> Html {
         use_effect_with_deps(
             move |(pins, current_pin, editing)| {
                 visible_pins.set(maplibre::pins::get_visible_pins(
-                    (**pins).clone(),
+                    (*pins).clone(),
                     (**current_pin).clone(),
                     **editing,
                 ));
             },
-            (pins.clone(), current_pin.clone(), editing_pin),
+            (pins, current_pin.clone(), editing_pin),
         );
     }
     // update pins when the map initializes, or the pins change

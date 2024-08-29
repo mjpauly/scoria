@@ -121,7 +121,14 @@ fn should_update(new_loc: &Option<Location>, map_state: &MapState) -> bool {
 fn update_stats(segments: &[(bool, Vec<&Location>)]) {
     let mut total_stats = DashboardMetrics::default();
     let mut timeline = Timeline::new();
-    let pins = get_derived_state(|s| s.pins.clone());
+    let mut pins = get_derived_state(|s| s.pins.clone());
+    let pin_filters = get_front_state(|s| s.pin_settings.filters.clone());
+    if let Some(filters) = pin_filters {
+        pins = pins
+            .into_iter()
+            .filter(|p| p.passes_filters(&filters))
+            .collect::<Vec<_>>();
+    }
     for (visible, seg) in segments.iter() {
         if *visible {
             let is_dwell = long_dwell_threshold(dwell_score(seg).into_iter());

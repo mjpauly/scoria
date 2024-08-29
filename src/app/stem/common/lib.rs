@@ -2,6 +2,7 @@
 //!
 //! Messages are serialized with bincode.
 
+pub mod bool_expr;
 pub mod cmaps;
 pub mod dashboard_metrics;
 pub mod export_options;

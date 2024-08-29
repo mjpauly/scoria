@@ -11,6 +11,7 @@ pub mod map_settings;
 pub mod map_styler;
 pub mod navbar;
 pub mod pin_editor;
+pub mod places_filter;
 pub mod select;
 pub mod select_points_control;
 pub mod settings_card;

@@ -19,7 +19,7 @@ use crate::{
     export_options::ExportOptions,
     filters::{DataStream, Filter, FilterOp},
     map_style::MapStyle,
-    pin::Pin,
+    pin::{Pin, PinSettings},
     plot_data::TimeSeriesPlot,
     time_range::TimeDeltaRange,
     timeline::{Timeline, TimelineConfig},
@@ -169,6 +169,9 @@ pub struct FrontState {
 
     #[serde(deserialize_with = "ok_or_default")]
     pub pin_import_default: Pin,
+
+    #[serde(deserialize_with = "ok_or_default")]
+    pub pin_settings: PinSettings,
 }
 
 /// The page the frontend is on. Only variants that we care to persist between
