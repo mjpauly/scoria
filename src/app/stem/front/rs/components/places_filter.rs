@@ -178,7 +178,7 @@ pub fn GenericPlacesFilterList(p: &PlacesFilterListProps) -> Html {
     };
 
     html! {
-        <div class="w-min flex flex-col gap-2 items-start mx-auto">
+        <div class="px-4 w-min flex flex-col gap-2 items-start mx-auto">
             {for exprs_html}
             <button onclick={new_filter_onclick}>
                 <div class="rounded-lg p-2 bg-neutral-800 w-min">

@@ -30,7 +30,10 @@ pub fn MetricsDashboard() -> Html {
             <TopNav>
                 <></>
             </TopNav>
-            <BouncySavedScrollContainer class="text-left" id="metrics-page">
+            <BouncySavedScrollContainer
+                class="text-left max-w-prose"
+                id="metrics-page"
+            >
                 <DefaultMetrics />
                 // <ColoredTimeSeriesPlot />
                 <Timeline />

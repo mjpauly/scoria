@@ -56,7 +56,8 @@ pub fn PlacesList() -> Html {
     };
 
     html! {
-        <div class="px-4">
+        <div>
+        <div class="px-4 max-w-prose mx-auto">
             <h1 class="text-primary text-3xl my-6 text-center">
                 {"Places"}
             </h1>
@@ -75,13 +76,17 @@ pub fn PlacesList() -> Html {
                 the timeline. A place is shown if it is true for all active
                 filters."}
             </AfterCardParagraph>
+        </div>
+        <div class="w-screen overflow-x-scroll box-border">
             if *show_filters {
                 <PlacesFilterList />
             }
-
+        </div>
+        <div class="px-4 mb-6 max-w-prose mx-auto">
             <SettingsCard class="mt-6">
                 {for pin_html}
             </SettingsCard>
+        </div>
         </div>
     }
 }
