@@ -20,6 +20,35 @@ const LIST_MAX_CHARS: usize = 128;
 const TAG_KEY_MAX_CHARS: usize = 128;
 const TAG_VAL_MAX_CHARS: usize = 1024;
 
+pub type PinFilters = Vec<(bool, BoolExpr<PinStringPred>)>;
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct PinSettings {
+    pub filters: PinFilters,
+    pub editing_filter: Option<usize>, // index of the filter being edited
+    pub show_filters: bool,
+}
+
+impl Default for PinSettings {
+    fn default() -> Self {
+        Self {
+            filters: vec![(
+                true,
+                BoolExpr::Not(
+                    PinStringPred {
+                        kind: PinStringPredKind::InList,
+                        value: "hidden".into(),
+                    }
+                    .into(),
+                ),
+            )],
+            editing_filter: None,
+            show_filters: false,
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Pin {
     pub id: Option<i64>,
@@ -238,35 +267,6 @@ mod tests {
         let url = "scoria://place?";
         let parsed = Pin::from_url(url.into()).unwrap();
         assert_eq!(Pin::default(), parsed);
-    }
-}
-
-pub type PinFilters = Vec<(bool, BoolExpr<PinStringPred>)>;
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(default)]
-pub struct PinSettings {
-    pub filters: PinFilters,
-    pub editing_filter: Option<usize>, // index of the filter being edited
-    pub show_filters: bool,
-}
-
-impl Default for PinSettings {
-    fn default() -> Self {
-        Self {
-            filters: vec![(
-                true,
-                BoolExpr::Not(
-                    PinStringPred {
-                        kind: PinStringPredKind::InList,
-                        value: "hidden".into(),
-                    }
-                    .into(),
-                ),
-            )],
-            editing_filter: None,
-            show_filters: false,
-        }
     }
 }
 

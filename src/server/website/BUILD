@@ -55,6 +55,7 @@ static_file_targets, static_file_envs = files_and_envs({
     ":privacy_policy": "PRIVACY_POLICY_FILE",
     ":feed": "FEED_FILE",
     ":posts": "POSTS_FILE",
+    ":tips_for_use_post": "TIPS_FOR_USE_POST",
     ":import_places_post": "IMPORT_PLACES_POST",
     ":1_4_0_release_post": "1_4_0_RELEASE_POST",
     ":android_release_post": "ANDROID_RELEASE_POST",
@@ -153,6 +154,12 @@ md_template(
 md_template(
     name = "posts",
     src = "static/posts.md",
+)
+
+md_template(
+    name = "tips_for_use_post",
+    src = "static/posts/tips_for_use.md",
+    include_html = True,
 )
 
 md_template(

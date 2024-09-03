@@ -1,5 +1,7 @@
 # Posts
 
+Sep 3, 2024: [Tips for Using Scoria](/posts/tips_for_use)
+
 Aug 20, 2024: [Import Places from Google Maps](/posts/import_places)
 
 Jul 24, 2024: [Scoria 1.4.0](/posts/Scoria_1.4.0)
