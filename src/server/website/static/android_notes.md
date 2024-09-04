@@ -19,7 +19,7 @@
             Download APK
         </a>
         <span class="text-sm text-neutral-400 mt-2">
-            Works on Andriod 10+
+            Works on Andriod 12+
         </span>
     </div>
 </div>

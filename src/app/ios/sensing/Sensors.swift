@@ -180,7 +180,7 @@ public func handle_places_geojson_import(fileURL: URL) {
 func check_request_notifications() {
     if should_notify_on_stop() {
         UNUserNotificationCenter.current().requestAuthorization(
-            options: [.alert, .badge, .sound]
+            options: [.alert, .sound]
         ) { granted, error in
             if let error = error {
                 print("Error requesting notification permissions: \(error)")

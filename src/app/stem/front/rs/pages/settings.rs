@@ -198,8 +198,8 @@ pub fn NotificationSettings() -> Html {
                 />
             </SettingsCard>
             <AfterCardParagraph>
-                {"Notify when Scoria stops running, to help remember to keep
-                Scoria open in the background to log locations."}
+                {"Notify if Scoria stops logging locations when logging is
+                enabled. Might not catch all cases when logging stops."}
             </AfterCardParagraph>
         </>
     }

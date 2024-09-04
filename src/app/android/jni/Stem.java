@@ -34,5 +34,7 @@ public class Stem {
     public static native void importFromPlacesGeojson(String importPath);
     public static native boolean shouldExportTrack();
 
+    public static native boolean shouldNotifyOnStop();
+
     public static native void urlScheme(String url);
 }

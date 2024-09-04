@@ -102,6 +102,7 @@ class LocationService() : Service(), LocationListenerCompat {
     override fun onDestroy() {
         val locationManager = getSystemService(LOCATION_SERVICE) as LocationManager
         LocationManagerCompat.removeUpdates(locationManager, this)
+        sendStopNotification()
         super.onDestroy()
         Log.i(TAG, "onDestroy")
     }
@@ -249,6 +250,40 @@ class LocationService() : Service(), LocationListenerCompat {
             }
         }
         timer!!.schedule(timerTask, UPDATE_CONFIG_DELAY_MS)
+    }
+
+    val STOPPED_CHANNEL_ID = "info.scoria.stopped"
+    val STOPPED_NAME = "Scoria Stopped"
+    val STOPPED_CONTENT_TEXT = "Scoria stopped logging unexpectedly."
+
+    // Notify when the LocationService is destroyed. Current not needed since the
+    // LocationService is run by the OS anyways, even if the user swiples up on
+    // the app switcher.
+    private fun sendStopNotification() {
+        if (Stem.shouldNotifyOnStop()
+            && Stem.getLocationEnabled()) {
+                val chan = NotificationChannel(
+                    STOPPED_CHANNEL_ID,
+                    STOPPED_NAME,
+                    NotificationManager.IMPORTANCE_DEFAULT
+                )
+                chan.lightColor = Color.BLUE
+                chan.lockscreenVisibility = Notification.VISIBILITY_PRIVATE
+                val manager = (
+                    getSystemService(Context.NOTIFICATION_SERVICE)
+                    as NotificationManager
+                )
+                manager.createNotificationChannel(chan)
+                val notification: Notification =
+                    NotificationCompat.Builder(this, STOPPED_CHANNEL_ID)
+                        .setSmallIcon(R.mipmap.ic_launcher)
+                        .setContentTitle(STOPPED_NAME)
+                        .setContentText(STOPPED_CONTENT_TEXT)
+                        .setPriority(NotificationManager.IMPORTANCE_DEFAULT)
+                        .build()
+                Log.i(TAG, "notify")
+                manager.notify(3, notification)
+        }
     }
 
     inner class LocalBinder : Binder() {

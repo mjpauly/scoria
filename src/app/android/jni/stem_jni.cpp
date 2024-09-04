@@ -287,6 +287,12 @@ JNIEXPORT jboolean JNICALL Java_info_scoria_Stem_shouldExportTrack
     return should_export_track();
 }
 
+JNIEXPORT jboolean JNICALL Java_info_scoria_Stem_shouldNotifyOnStop
+  (JNIEnv *, jclass)
+{
+    return should_notify_on_stop();
+}
+
 JNIEXPORT void JNICALL Java_info_scoria_Stem_urlScheme
   (JNIEnv *, jclass, jstring url)
 {
