@@ -24,7 +24,7 @@ use crate::components::{
     AfterCardParagraph, BouncyScrollContainer, DoneButton, MainSettingsButton,
     SettingsCard, SettingsCardButtonWithChildren, SettingsCardExternalLink,
     SettingsCardPageButton, SettingsCardPageButtonWithLabel,
-    SettingsCardSimpleButton, WarningMessage, H1, H2,
+    SettingsCardSimpleButton, SettingsCardToggle, WarningMessage, H1, H2,
 };
 use crate::components::{HomeBarSpacer, TopNav};
 use crate::pages::update::{
@@ -160,6 +160,9 @@ pub fn General() -> Html {
             <BouncyScrollContainer class="pb-8">
                 <H1> {"General"} </H1>
 
+                <H2> {"Notifications"} </H2>
+                <NotificationSettings />
+
                 <H2> {"Units"} </H2>
                 <UnitPicker />
 
@@ -171,6 +174,33 @@ pub fn General() -> Html {
             </BouncyScrollContainer>
 
             <HomeBarSpacer />
+        </>
+    }
+}
+
+#[function_component]
+pub fn NotificationSettings() -> Html {
+    let dispatch = Dispatch::<FrontState>::new();
+    let notif_pref = use_selector(|s: &FrontState| s.notif_pref);
+    let should_notify_onclick =
+        dispatch.reduce_mut_callback(move |s: &mut FrontState| {
+            s.notif_pref.should_notify_on_stop =
+                !s.notif_pref.should_notify_on_stop;
+            swift_poke::poke();
+        });
+    html! {
+        <>
+            <SettingsCard>
+                <SettingsCardToggle
+                    checked={notif_pref.should_notify_on_stop}
+                    onclick={should_notify_onclick}
+                    text={"Notify on Stop"}
+                />
+            </SettingsCard>
+            <AfterCardParagraph>
+                {"Notify when Scoria stops running, to help remember to keep
+                Scoria open in the background to log locations."}
+            </AfterCardParagraph>
         </>
     }
 }

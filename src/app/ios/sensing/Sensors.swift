@@ -33,6 +33,7 @@ public func handle_poke(viewController: MyViewControllerProtocol) {
     check_export_sqlite_log(viewController: viewController)
     check_import(viewController: viewController)
     check_export_track(viewController: viewController)
+    check_request_notifications()
 }
 
 public func is_location_on() -> Bool {
@@ -173,4 +174,47 @@ public func handle_places_geojson_import(fileURL: URL) {
     }
     import_places_geojson(fileURL.path);
     fileURL.stopAccessingSecurityScopedResource()
+}
+
+// ask for user permission to show notifications when the app is quit
+func check_request_notifications() {
+    if should_notify_on_stop() {
+        UNUserNotificationCenter.current().requestAuthorization(
+            options: [.alert, .badge, .sound]
+        ) { granted, error in
+            if let error = error {
+                print("Error requesting notification permissions: \(error)")
+            }
+        }
+    }
+}
+
+public func scheduleStopNotification() {
+    // only notify if user has enabled locations and granted always
+    // authorization
+    if should_notify_on_stop() && myLocationManager.isOn() {
+        // Create a notification content object
+        let content = UNMutableNotificationContent()
+        content.title = "Scoria Stopped"
+        content.body = "Keep Scoria open in the background to log locations."
+        content.sound = UNNotificationSound.default
+
+        // Create a notification trigger
+        let trigger =
+            UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
+
+        // Create a notification request
+        let request = UNNotificationRequest(
+            identifier: "scoria",
+            content: content,
+            trigger: trigger
+        )
+
+        // Add the notification request to the notification center
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error = error {
+                print_and_log_error(s: "Error scheduling notification: \(error)")
+            }
+        }
+    }
 }

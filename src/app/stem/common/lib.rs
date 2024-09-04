@@ -12,6 +12,7 @@ pub mod lnglat;
 pub mod location;
 pub mod location_config;
 pub mod map_style;
+pub mod notif_pref;
 pub mod pin;
 pub mod plot_data;
 pub mod popups;

@@ -78,4 +78,6 @@ bool should_export_track(void);
 bool should_import_places_geojson(void);
 void import_places_geojson(const char*);
 
+bool should_notify_on_stop();
+
 void url_scheme(const char*);

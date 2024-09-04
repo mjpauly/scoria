@@ -14,13 +14,13 @@ IOS_VERSION_NAME = "1.4.3"
 
 # Beta/build version used in iOS testing. Can add more number segments
 # separated by dots to further distinguish build versions.
-IOS_BUILD_VERSION = "3"
+IOS_BUILD_VERSION = "4"
 
 
 # Public semver version, only used for display. The patch version increments
 # when android updates are not timed exactly with iOS, allowing slip for
 # synchronizing on the major/minor version numbers.
-ANDROID_VERSION_NAME = "1.4.3-beta.3" # beta format: "1.4.0-beta.x"
+ANDROID_VERSION_NAME = "1.4.3-beta.4" # beta format: "1.4.0-beta.x"
 
 # Monotonic version code for use in Android. Bump on each release, since it is
 # used to determine if a new update exists. Increases prevent downgrading.

@@ -289,6 +289,13 @@ pub extern "C" fn import_places_geojson(import_path: *const c_char) {
     })
 }
 
+/// Tell wrapper to request location when in use authorization
+#[no_mangle]
+pub extern "C" fn should_notify_on_stop() -> bool {
+    app_state::get_front_state(|s| s.notif_pref.should_notify_on_stop)
+        .unwrap_or_default()
+}
+
 /// Local setup either for development or testing.
 /// Not used in any production app code. TODO: gate with feature flag
 pub mod local {
