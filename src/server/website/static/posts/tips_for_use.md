@@ -4,6 +4,9 @@
 
 ## <a id="continuous-logging" href="#continuous-logging">Ensuring Continuous Logging</a>
 
+*This section applies mainly to iOS, which is more strict about delivering
+location updates to background apps.*
+
 You may have noticed times when Scoria stopped logging your movement without
 you changing anything. Opening the app expecting to have hours or days of new
 activity to analyze, only to find your movement wasn't logged, can be
@@ -16,7 +19,7 @@ stop running.
 - Scoria hasn't been opened in the past day. Location services take power to
   run, and the OS assumes that you don't want to be losing battery life to apps
   that you're not actively using. The same can be said for privacy loss, since
-  most apps are not as [privacy-forward](/privacy) as Scoria, and this policy
+  most apps are not as [privacy-forward](/privacy) as Scoria, and this behavior
   helps protect your privacy in the average case. On iOS, Scoria may be shut
   down in as little as 24 hours since it was last opened.
 - Your device's battery level is low, or it's in low-power mode. The OS may
