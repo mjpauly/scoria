@@ -23,6 +23,8 @@
 	<string>Your location data is securely stored on your device and lets you analyze your location history.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Your location data is securely stored on your device and lets you analyze your location history.</string>
+	<key>NSMotionUsageDescription</key>
+	<string>Your motion data is used to improve the accuracy of your location data, which is securely stored on your device and lets you analyze your location history.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>location</string>
