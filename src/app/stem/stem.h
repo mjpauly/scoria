@@ -54,6 +54,13 @@ typedef struct {
 
 void log_location(OSLocationData);
 
+typedef struct {
+    double x;
+    double y;
+    double z;
+} ThreeAxisData;
+void imu_data(ThreeAxisData accelerometer, ThreeAxisData gyro);
+
 // location settings
 
 typedef enum {

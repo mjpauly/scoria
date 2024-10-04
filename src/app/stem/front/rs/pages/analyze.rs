@@ -262,9 +262,15 @@ fn PlotComponent() -> Html {
     // The style object with user data
     let style = use_state(|| Option::<Value>::None);
     // update last location
-    let last_loc =
+    let last_loc_from_os =
         use_selector(|state: &BackState| state.last_location.clone());
-    let last_loc_lnglat = last_loc.as_ref().as_ref().map(|x| x.lnglat());
+    let last_loc_from_os_lnglat =
+        last_loc_from_os.as_ref().as_ref().map(|x| x.lnglat());
+    // kf filtered
+    let filtered_last_loc =
+        use_selector(|s: &DerivedState| s.filtered_position);
+    // if we have the kalman filtered location, use that, otherwise OS result
+    let last_loc_lnglat = filtered_last_loc.or(last_loc_from_os_lnglat);
     {
         let style = style.clone();
         use_effect_with_deps(

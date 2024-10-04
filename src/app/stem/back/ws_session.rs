@@ -259,13 +259,11 @@ impl WsSession {
         // the SO thread linked in the docstring for more)
         let recipient = ctx.address().recipient();
         get_runtime().spawn(async move {
-            // update the last location and number of records in the past hour
-            let rec = database::get_last_record().await;
+            // update the number of recent records (location updated in core.rs)
             let n = database::count_records_past_minute().await;
             let n5 = database::count_records_past_five_minutes().await;
             // update the back state, then clone it and send it to the front
             let back = set_back_state(|back| {
-                back.last_location = rec;
                 back.locations_past_minute = Some(n);
                 back.locations_past_five_minutes = Some(n5);
                 back.clone()

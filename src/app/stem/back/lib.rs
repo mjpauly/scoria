@@ -25,6 +25,7 @@ pub mod database; // manages the SQLite database
 pub mod export; // export data to common geo data file formats
 pub mod files; // static files served to frontend
 pub mod import; // import data from common geo data file formats
+pub mod kf;
 pub mod location_config; // location logging configuration
 pub mod logs;
 pub mod map;
@@ -165,6 +166,16 @@ pub extern "C" fn log_location(loc: database::OSLocationData) {
     runtime::get_runtime().block_on(async {
         core::log_location(loc).await;
     });
+}
+
+/// Receive the current accelerometer and gyro data in 3 axes (m/s^2 and rad/s)
+#[no_mangle]
+pub extern "C" fn imu_data(
+    accelerometer: kf::ThreeAxisData,
+    gyro: kf::ThreeAxisData,
+) {
+    // println!("imu: {accelerometer:?}, {gyro:?}");
+    kf::update_with_imu(accelerometer, gyro);
 }
 
 /// Return whether the standard location service should be enabled

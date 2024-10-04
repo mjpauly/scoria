@@ -23,6 +23,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 use tracing::error;
 
+use crate::kf;
 use crate::map::geojson::empty_geojson;
 use crate::paths::{get_library_dir, Paths};
 use crate::ws_session::{self, send_derived_state_to_front};
@@ -61,6 +62,9 @@ pub struct AppState {
 
     // events that accumulate until they are sent to the UI and cleared
     pub pending_events: Mutex<Option<PendingEvents>>,
+
+    // Kalman filter state
+    pub kf_state: Mutex<kf::State>,
 }
 
 /// Data to to shown on the map in the analyze tab, and helpers for calculating
@@ -239,6 +243,7 @@ impl AppState {
             }
         };
         persistent.back.app_version = app_version; // update app version
+        let kf_state = kf::init(&persistent.back.last_location);
         (*state)
             .set(Arc::new(AppState {
                 paths,
@@ -250,6 +255,7 @@ impl AppState {
                 wrapper_messages: Mutex::new(Default::default()),
                 map_data: Default::default(),
                 pending_events: Mutex::new(Default::default()),
+                kf_state: Mutex::new(kf_state),
             }))
             .expect("Could not initialize AppState");
     }

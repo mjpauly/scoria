@@ -7,22 +7,25 @@
 //!             analysis.
 
 use common::state::{MapState, PendingEvents};
-use common::ToFront;
+use common::{Location, ToFront};
 use tracing::error;
 
-use crate::app_state::AppState;
+use crate::app_state::{set_back_state, AppState};
 use crate::database::{self, OSLocationData};
 use crate::map::automap::update_automap;
 use crate::map::geojson::{update_geojson, BOUND_EXPANSION};
 use crate::metrics::dashboard::update_dashboard;
 use crate::ws_session::send_message_to_front;
-use crate::{logs, ws_session};
+use crate::{kf, logs, ws_session};
 
-pub async fn log_location(loc: OSLocationData) {
+pub async fn log_location(location: OSLocationData) {
     // Log the location in our database
-    if let Err(e) = database::log_location(loc.clone()).await {
+    if let Err(e) = database::log_location(location.clone()).await {
         error!("Failed to log location: {e}.");
     }
+    let location: Location = location.into();
+    kf::update_with_position(&location); // TODO
+    set_back_state(|back| back.last_location = Some(location.clone()));
     // We first want to get the address, NOT in the "if let" scrutinee, since
     // the lock will be held for the whole if-block, and we won't be able to
     // await
@@ -30,10 +33,9 @@ pub async fn log_location(loc: OSLocationData) {
     // If the UI is active, we'll send it the new location to display
     if let Some(addr) = maybe_addr {
         addr.do_send(ws_session::SendState);
-        let new_loc = Some(loc.into());
-        tokio::spawn(update_geojson(new_loc.clone(), false));
+        tokio::spawn(update_geojson(Some(location.clone()), false));
         tokio::spawn(update_automap());
-        tokio::spawn(update_dashboard(new_loc));
+        tokio::spawn(update_dashboard(Some(location)));
     }
 }
 

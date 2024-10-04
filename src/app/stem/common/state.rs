@@ -57,6 +57,7 @@ pub struct DerivedState {
     pub dashboard_metrics: DashboardMetrics,
     pub colored_timeseries_plot: TimeSeriesPlot,
     pub timeline: Timeline,
+    pub filtered_position: Option<LngLat>, // Kalman-filtered position to show on map
 }
 
 /// Events that accumulate before UI is active, but which are handled in the UI.

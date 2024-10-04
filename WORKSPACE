@@ -142,8 +142,12 @@ crates_repository(
     packages = {
         "approx": crate.spec(version = "0.5.1"),
         "base64": crate.spec(version = "0.22.0"),
-        "coord_transforms": crate.spec(version = "1.4.0"),
         "csv": crate.spec(version = "1.3.0"),
+        "eskf": crate.spec(
+            # latest updates (like support for nalgebra 0.32) not published yet
+            git = "https://github.com/nordmoen/eskf-rs",
+            rev = "de7eb3c88739ef6d1dd520be43e20a4f5a487254"
+        ),
         "futures-core": crate.spec(version = "0.3.28"),
         "geo": crate.spec(version = "0.26.0"),
         "geo-clipper": crate.spec(version = "0.7.3"),
@@ -152,7 +156,7 @@ crates_repository(
         "itertools": crate.spec(version = "0.13.0"),
         "log-panics": crate.spec(version = "2.1.0"),
         "mvt": crate.spec(version = "0.8.1"),
-        "nalgebra": crate.spec(version = "0.31.4"), # for coord_transforms
+        "nalgebra": crate.spec(version = "0.32.6"), # for coord_transforms
         "nav-types": crate.spec(version = "0.5.2"),
         "pointy": crate.spec(version = "0.4.0"),
         "rand": crate.spec(version = "0.8.5"),

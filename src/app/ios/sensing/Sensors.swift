@@ -5,6 +5,7 @@ import UIKit
 public protocol MyViewControllerProtocol: UIViewController, UIDocumentPickerDelegate {}
 
 var myLocationManager = MyLocationManager()
+var myMotionManager: MyMotionManager? = nil
 public var server_port: UInt16 = 0;
 public var server_scope: UInt64 = 0;
 
@@ -18,6 +19,9 @@ public func startup() {
                  getBundlePath(),
                  app_version)
     myLocationManager.touch()  // initialize the lazy global var
+    myMotionManager = MyMotionManager()
+    print("starting imu");
+    myMotionManager?.startIMU()
 }
 
 // handle shutdown of the app by saving certain parts of the app state

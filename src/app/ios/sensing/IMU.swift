@@ -2,42 +2,99 @@ import CoreMotion
 import Foundation
 import StemLib
 
+let UPDATE_RATE_HZ = 100.0
+let ONE_G = 9.81
 
 class MyMotionManager: NSObject {
     let motion = CMMotionManager()
     var timer: Timer? = nil
 
-    // Trigger initialization of a lazily-initialized instance
-    func touch() {
-        print("Initializing location manager")
+    func startIMU() {
+        // Make sure the IMU hardware is available. 
+        if !(self.motion.isAccelerometerAvailable && self.motion.isGyroAvailable) { return }
+
+        self.motion.accelerometerUpdateInterval = 1.0 / UPDATE_RATE_HZ // T
+        self.motion.gyroUpdateInterval = 1.0 / UPDATE_RATE_HZ // T
+        self.motion.startAccelerometerUpdates()
+        self.motion.startGyroUpdates()
+
+        // Configure a timer to fetch the data.
+        self.timer = Timer(fire: Date(), interval: (1.0 / UPDATE_RATE_HZ), 
+                  repeats: true, block: { (timer) in
+            guard let accelerometerData = self.motion.accelerometerData else { return }
+            guard let gyroData = self.motion.gyroData else { return }
+
+            let a = ThreeAxisData.init(
+                x: accelerometerData.acceleration.x * ONE_G,
+                y: accelerometerData.acceleration.y * ONE_G,
+                z: accelerometerData.acceleration.z * ONE_G
+            )
+
+            let g = ThreeAxisData.init(
+                x: gyroData.rotationRate.x,
+                y: gyroData.rotationRate.y,
+                z: gyroData.rotationRate.z
+            )
+
+            imu_data(a, g)
+        })
+
+        // Add the timer to the current run loop.
+        RunLoop.current.add(self.timer!, forMode: RunLoop.Mode.default)
     }
 
-    func startAccelerometers() {
-        // Make sure the accelerometer hardware is available. 
-        if self.motion.isAccelerometerAvailable {
-             self.motion.accelerometerUpdateInterval = 1.0 / 50.0  // 50 Hz
-             self.motion.startAccelerometerUpdates()
-
-
-             // Configure a timer to fetch the data.
-             self.timer = Timer(fire: Date(), interval: (1.0/50.0), 
-                       repeats: true, block: { (timer) in
-                  // Get the accelerometer data.
-                  if let data = self.motion.accelerometerData {
-                       let x = data.acceleration.x
-                       let y = data.acceleration.y
-                       let z = data.acceleration.z
-
-                       print("x: \(x), y: \(y), z: \(z)")
-
-                       // Use the accelerometer data
-                  }
-             })
-
-
-            // Add the timer to the current run loop.
-            RunLoop.current.add(self.timer!, forMode: RunLoop.Mode.default)
-        }
+    func stopIMU() {
+        self.timer?.invalidate()
+        self.timer = nil
+        self.motion.stopAccelerometerUpdates()
+        self.motion.stopGyroUpdates()
     }
 
 }
+
+
+/*
+    public func startAccelerometer() {
+        // Make sure the accelerometer hardware is available. 
+        if !self.motion.isAccelerometerAvailable { return }
+        self.motion.accelerometerUpdateInterval = 1.0 / UPDATE_RATE_HZ // T
+        self.motion.startAccelerometerUpdates(to: .main) { accelerometerData, error in
+            guard let data = accelerometerData else { return }
+
+            // Data in g's (multiply by 9.81 for m/s^2)
+            let x = data.acceleration.x * ONE_G
+            let y = data.acceleration.y * ONE_G
+            let z = data.acceleration.z * ONE_G
+
+            // accelerometer_data(x, y, z)
+
+            // print("[\(x), \(y), \(z)],")
+        }
+    }
+    
+    public func stopAccelerometer() {
+        self.motion.stopAccelerometerUpdates()
+    }
+
+    public func startGyro() {
+        if !self.motion.isGyroAvailable { return }
+        self.motion.gyroUpdateInterval = 1.0 / UPDATE_RATE_HZ // T
+        self.motion.startGyroUpdates(to: .main) { gyroData, error in
+            guard let data = gyroData else { return }
+
+            // Data in radians/s
+            let x = data.rotationRate.x
+            let y = data.rotationRate.y
+            let z = data.rotationRate.z
+
+            // gyro_data(x, y, z)
+
+            // print("[\(x), \(y), \(z)],")
+        }
+
+    }
+
+    public func stopGyro() {
+        self.motion.stopGyroUpdates()
+    }
+    */
