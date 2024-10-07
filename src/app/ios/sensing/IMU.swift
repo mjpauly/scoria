@@ -50,6 +50,32 @@ class MyMotionManager: NSObject {
         self.motion.stopGyroUpdates()
     }
 
+    let queue = OperationQueue()
+
+    func startDeviceMotionUpdates() {
+        if !self.motion.isDeviceMotionAvailable { return }
+
+        self.motion.deviceMotionUpdateInterval = 1.0 / UPDATE_RATE_HZ
+        self.motion.startDeviceMotionUpdates(using: .xTrueNorthZVertical, 
+                  to: self.queue, withHandler: { (data, error) in
+            // Make sure the data is valid before accessing it.
+            if let validData = data {
+                // Get the attitude relative to the magnetic north reference frame. 
+                let roll = validData.attitude.roll
+                let pitch = validData.attitude.pitch
+                let yaw = validData.attitude.yaw
+  
+  
+                // Use the motion data in your app.
+            }
+        })
+
+    }
+
+    func stopDeviceMotionUpdates() {
+        self.motion.stopDeviceMotionUpdates()
+    }
+
 }
 
 
