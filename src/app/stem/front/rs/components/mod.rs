@@ -9,8 +9,10 @@ pub mod location_config;
 pub mod location_filter_list;
 pub mod map_settings;
 pub mod map_styler;
+pub mod mounted_db_list;
 pub mod navbar;
 pub mod pin_editor;
+pub mod places_filter;
 pub mod select;
 pub mod select_points_control;
 pub mod settings_card;
@@ -54,7 +56,7 @@ pub static RANGE_INPUT_STYLE: &str =
 //
 // TODO: set z height below that of the plot so it doesn't overlap before plot's
 // resize happens
-pub static TOGGLE_SWITCH_STYLE: &str = "\
+pub const TOGGLE_SWITCH_STYLE: &str = "\
     h-6 \
     w-10 \
     appearance-none \

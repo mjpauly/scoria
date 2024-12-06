@@ -4,8 +4,10 @@
 use anyhow::{bail, Result};
 use serde::{Deserialize, Serialize};
 
+use crate::bool_expr::BoolExpr;
 use crate::validation::{trunc_to_char, trunc_to_grapheme};
 use crate::LngLat;
+use pin_predicate::{PinStringPred, PinStringPredKind};
 
 const URL_PREFIX: &str = "scoria://place?"; // scheme, host, and query param ?
 
@@ -17,6 +19,39 @@ const NAME_MAX_CHARS: usize = 128;
 const LIST_MAX_CHARS: usize = 128;
 const TAG_KEY_MAX_CHARS: usize = 128;
 const TAG_VAL_MAX_CHARS: usize = 1024;
+
+// filter is active status, and the filter expression itself
+pub type PinFilters = Vec<(bool, BoolExpr<PinStringPred>)>;
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct PinSettings {
+    pub filters: PinFilters,
+    pub editing_filter: Option<usize>, // index of the filter being edited
+    pub show_filters: bool,
+    pub place_detailed_view: Option<Pin>, // the pin to show a detailed
+                                          // breakdown for in the Place tab
+}
+
+impl Default for PinSettings {
+    fn default() -> Self {
+        Self {
+            filters: vec![(
+                true,
+                BoolExpr::Not(
+                    PinStringPred {
+                        kind: PinStringPredKind::InList,
+                        value: "Hidden".into(),
+                    }
+                    .into(),
+                ),
+            )],
+            editing_filter: None,
+            show_filters: false,
+            place_detailed_view: None,
+        }
+    }
+}
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Pin {
@@ -145,6 +180,13 @@ impl Pin {
         };
         Ok(Self::from(params))
     }
+
+    /// Returns true if the pin passes all the active filters.
+    pub fn passes_filters(&self, filters: &PinFilters) -> bool {
+        filters
+            .iter()
+            .all(|(active, expr)| !active || expr.eval(self))
+    }
 }
 
 /// Serializable url parameters for a Pin.
@@ -229,5 +271,127 @@ mod tests {
         let url = "scoria://place?";
         let parsed = Pin::from_url(url.into()).unwrap();
         assert_eq!(Pin::default(), parsed);
+    }
+}
+
+pub mod pin_predicate {
+    use super::Pin;
+    use crate::bool_expr::Predicate;
+    use serde::{Deserialize, Serialize};
+    use strum::{Display, EnumIter, EnumString};
+
+    /// A predicate on a Pin using comparisons against a String, with
+    /// comparisons being case insensitive (by converting the strings to be
+    /// compared to lowercase)
+    #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+    pub struct PinStringPred {
+        pub kind: PinStringPredKind,
+        pub value: String,
+    }
+
+    #[derive(
+        Clone,
+        Debug,
+        PartialEq,
+        Default,
+        Serialize,
+        Deserialize,
+        Display,
+        EnumString,
+        EnumIter,
+    )]
+    #[strum(serialize_all = "title_case")]
+    pub enum PinStringPredKind {
+        #[default]
+        InList,
+        NameContains,
+        NameIs,
+        IconContains,
+        IconIs,
+        HasTagKey,
+        HasTagValue,
+    }
+
+    impl Predicate for PinStringPred {
+        type Substitute = Pin;
+        fn eval(&self, sub: &Self::Substitute) -> bool {
+            let value = self.value.to_lowercase();
+            match self.kind {
+                PinStringPredKind::InList => {
+                    sub.lists.iter().any(|l| l.to_lowercase() == value)
+                }
+                PinStringPredKind::NameContains => {
+                    sub.name.to_lowercase().contains(&value)
+                }
+                PinStringPredKind::NameIs => sub.name.to_lowercase() == value,
+                PinStringPredKind::IconContains => {
+                    sub.icon.to_lowercase().contains(&value)
+                }
+                PinStringPredKind::IconIs => sub.icon.to_lowercase() == value,
+                PinStringPredKind::HasTagKey => {
+                    sub.tags.iter().any(|(k, _v)| k.to_lowercase() == value)
+                }
+                PinStringPredKind::HasTagValue => {
+                    sub.tags.iter().any(|(_k, v)| v.to_lowercase() == value)
+                }
+            }
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+        use crate::bool_expr::BoolExpr;
+        #[test]
+        fn test_pin_pred() {
+            let mut pin = Pin::default();
+            pin.lists.push("alist".into());
+            pin.name = "pin name".into();
+            pin.tags.push(("akey".into(), "aval".into()));
+
+            assert!(BoolExpr::from(PinStringPred {
+                kind: PinStringPredKind::InList,
+                value: "alist".into(),
+            })
+            .eval(&pin));
+            assert!(BoolExpr::from(PinStringPred {
+                kind: PinStringPredKind::NameContains,
+                value: "name".into(),
+            })
+            .eval(&pin));
+            assert!(BoolExpr::from(PinStringPred {
+                kind: PinStringPredKind::NameIs,
+                value: "pin name".into(),
+            })
+            .eval(&pin));
+            assert!(BoolExpr::Not(
+                PinStringPred {
+                    kind: PinStringPredKind::NameIs,
+                    value: "not the name".into(),
+                }
+                .into()
+            )
+            .eval(&pin));
+            assert!(BoolExpr::from(PinStringPred {
+                kind: PinStringPredKind::IconContains,
+                value: "⭐️".into(),
+            })
+            .eval(&pin));
+            assert!(BoolExpr::from(PinStringPred {
+                kind: PinStringPredKind::IconIs,
+                value: "⭐️".into(),
+            })
+            .eval(&pin));
+            assert!(BoolExpr::from(PinStringPred {
+                kind: PinStringPredKind::HasTagKey,
+                value: "akey".into(),
+            })
+            .eval(&pin));
+            assert!(BoolExpr::from(PinStringPred {
+                kind: PinStringPredKind::HasTagValue,
+                value: "aval".into(),
+            })
+            .eval(&pin));
+        }
     }
 }

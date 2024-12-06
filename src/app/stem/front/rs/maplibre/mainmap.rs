@@ -1,8 +1,12 @@
 //! Bindings and data processing for the Maplibre charts.
 use std::rc::Rc;
 
+use anyhow::Context;
+use common::mounted::MountID;
+use gloo_net::http::Request;
 use js_sys::{Array, Reflect};
 use serde_json::{json, Value};
+use tracing::error;
 use wasm_bindgen::{prelude::*, JsCast};
 
 use crate::maplibre::{binds::*, pins, selected_points};
@@ -12,12 +16,6 @@ use common::cmaps;
 use common::map_style::{ColoredDataStream, MapStyle, Rgba};
 use common::view_position::ViewPosition;
 
-static POINTS_SOURCE_ID: &str = "points";
-static POINTS_LAYER_ID: &str = "points";
-static POINTS_SOURCE_URL: &str = "./points.geojson";
-static LINES_SOURCE_ID: &str = "lines";
-static LINES_LAYER_ID: &str = "lines";
-static LINES_SOURCE_URL: &str = "./lines.geojson";
 static UNEXPLORED_SOURCE_ID: &str = "unexplored";
 static UNEXPLORED_LAYER_ID: &str = "unexplored";
 static LAST_LOCATION_SOURCE_ID: &str = "last_location";
@@ -52,9 +50,6 @@ pub fn new_map(
     on_load_callback: Box<dyn Fn()>, // closure to run when the plot loads
     // closure to run with pan/zoom data
     on_view_change_callback: Box<dyn Fn(ViewPosition)>,
-    // closure to get popup text and background color given the
-    // data point's lng, lat position and color property, if it exists
-    click_point: impl Fn((common::LngLat, Option<String>)) + Clone + 'static,
 ) -> Rc<Map> {
     // Create the map and start it loading
     let opts = json!({
@@ -65,6 +60,7 @@ pub fn new_map(
         "bearing": view_position.bearing,
         "pitch": view_position.pitch,
         "doubleClickZoom": false,
+        "preserveDrawingBuffer": true, // required to save canvas as png
     });
     let map = Map::new(&val_to_jsval(&opts));
     // map.show_tile_boundaries(true); // great for tile debugging
@@ -86,15 +82,6 @@ pub fn new_map(
     // register our on-load callback
     map.on("load", &Closure::wrap(on_load_callback).into_js_value());
 
-    // register our callback for doing something when a point is clicked
-    let click_point_callback = get_click_point_callback(click_point);
-    map.on_layer(
-        "click",
-        POINTS_LAYER_ID,
-        &Closure::wrap(Box::new(click_point_callback) as Box<dyn Fn(&JsValue)>)
-            .into_js_value(),
-    );
-
     // Notify the yew component of the new view position whenever it changes.
     let on_view_change: Box<dyn Fn()> = {
         let map = map.clone();
@@ -105,11 +92,16 @@ pub fn new_map(
     map
 }
 
-// Retrieve the coordiantes and color of the point feature that was clicked.
-fn get_click_point_callback(
-    click_point: impl Fn((common::LngLat, Option<String>)) + Clone + 'static,
-) -> impl Fn(&JsValue) + Clone {
-    move |event: &JsValue| {
+// Create the point click callback to register on the map, which returns the id
+// of the mounted database layer clicked, the coordinates of the click, and the
+// color of the point.
+pub fn get_click_point_callback(
+    mount_id: MountID,
+    click_point: impl Fn((MountID, common::LngLat, Option<String>))
+        + Clone
+        + 'static,
+) -> JsValue {
+    let cb = move |event: &JsValue| {
         let features =
             unwrap_js_result_or_log!(Reflect::get(event, &"features".into()));
         let first = unwrap_option_or_log!(features.dyn_ref::<Array>()).at(0);
@@ -138,8 +130,9 @@ fn get_click_point_callback(
         let lng = unwrap_option_or_log!(coord_arr.at(0).as_f64());
         let lat = unwrap_option_or_log!(coord_arr.at(1).as_f64());
 
-        click_point((common::LngLat { lng, lat }, color));
-    }
+        click_point((mount_id, common::LngLat { lng, lat }, color));
+    };
+    Closure::wrap(Box::new(cb) as Box<dyn Fn(&JsValue)>).into_js_value()
 }
 
 pub fn add_popup(
@@ -229,13 +222,57 @@ pub fn add_css_rule(class_name: &str, rule: &str) {
     }
 }
 
-/// Update the map's data source. Forces the map to update, which is useful if
-/// the data has changed.
-pub fn update_data(map: Rc<Map>) {
-    map.get_source(POINTS_SOURCE_ID)
-        .set_data(&"./points.geojson".into());
-    map.get_source(LINES_SOURCE_ID)
-        .set_data(&"./lines.geojson".into());
+/// Update the map's points and lines data sources. Forces the map to update.
+pub fn update_data(map: Rc<Map>, mounted_dbs_enabled: &[MountID]) {
+    for (source_id, source_url) in points_lines_ids_and_urls(
+        mounted_dbs_enabled,
+        &[LayerKind::Points, LayerKind::Lines],
+    ) {
+        map.get_source(&source_id).set_data(&source_url.into());
+    }
+}
+
+/// Build the combinations of source/layer ids and source urls for the points and
+/// lines for each enabled database.
+///
+/// Source and layer ids are identical.
+///
+/// e.g. DB 0 has source ids "points0" and "lines0", and source urls
+/// "./0/points.geojson" and "/0/lines.geojson"
+pub fn points_lines_ids_and_urls(
+    mounted_dbs_enabled: &[MountID],
+    layer_kinds: &[LayerKind],
+) -> Vec<(String, String)> {
+    let mut out = Vec::new();
+    for id in mounted_dbs_enabled {
+        for kind in layer_kinds {
+            out.push((layer_id(id, kind), source_url(id, kind)));
+        }
+    }
+    out
+}
+
+/// Layer and source ids are the same in our app (they can be distinct).
+pub fn layer_id(mount_id: &MountID, layer_kind: &LayerKind) -> String {
+    format!("{layer_kind}{mount_id}")
+}
+
+pub fn source_url(mount_id: &MountID, layer_kind: &LayerKind) -> String {
+    format!("./{mount_id}/{layer_kind}.geojson")
+}
+
+pub enum LayerKind {
+    Points,
+    Lines,
+}
+
+impl std::fmt::Display for LayerKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Self::Points => write!(f, "points"),
+            Self::Lines => write!(f, "lines"),
+        }
+    }
 }
 
 /// Restyles the whole plot. Necessary if changing the basemap layer since
@@ -249,7 +286,7 @@ pub fn restyle(map: Rc<Map>, style: &Value) {
 pub fn add_source_and_layers_to_style(
     style: &mut Value,
     map_style: &MapStyle,
-    last_loc: Option<common::LngLat>,
+    mounted_dbs_enabled: &[MountID],
 ) {
     // Sources
     let sources_mut = style["sources"].as_object_mut().unwrap();
@@ -261,19 +298,18 @@ pub fn add_source_and_layers_to_style(
         selected_points::SOURCE_ID.to_string(),
         geojson_source_with_value(&empty_geojson()),
     );
-    sources_mut.insert(
-        POINTS_SOURCE_ID.to_string(),
-        geojson_source_with_url(POINTS_SOURCE_URL),
-    );
-    sources_mut.insert(
-        LINES_SOURCE_ID.to_string(),
-        geojson_source_with_url(LINES_SOURCE_URL),
-    );
+    // add all points and lines sources for each enabled database
+    for (source_id, source_url) in points_lines_ids_and_urls(
+        mounted_dbs_enabled,
+        &[LayerKind::Points, LayerKind::Lines],
+    ) {
+        sources_mut.insert(source_id, geojson_source_with_url(&source_url));
+    }
     if map_style.show_last_location {
         // The last location will be added when the map initializes
         sources_mut.insert(
             LAST_LOCATION_SOURCE_ID.to_string(),
-            geojson_source_with_value(&geojson_point(last_loc)),
+            geojson_source_with_value(&empty_geojson()),
         );
     }
     if map_style.automap {
@@ -291,17 +327,29 @@ pub fn add_source_and_layers_to_style(
     if map_style.pins_below_data {
         layers_mut.push(pins::make_pins_layer());
     }
-    layers_mut.push(make_lines_layer(
-        map_style.line_size,
-        &map_style.solid_color,
-        &map_style.colored_datastream,
-    ));
+    // add all lines layers for each enabled database
+    for (layer_id, _) in
+        points_lines_ids_and_urls(mounted_dbs_enabled, &[LayerKind::Lines])
+    {
+        layers_mut.push(make_lines_layer(
+            &layer_id,
+            map_style.line_size,
+            &map_style.solid_color,
+            &map_style.colored_datastream,
+        ));
+    }
     layers_mut.push(selected_points::make_layer(map_style));
-    layers_mut.push(make_points_layer(
-        map_style.marker_size,
-        &map_style.solid_color,
-        &map_style.colored_datastream,
-    ));
+    // add all points layers for each enabled database
+    for (layer_id, _) in
+        points_lines_ids_and_urls(mounted_dbs_enabled, &[LayerKind::Points])
+    {
+        layers_mut.push(make_points_layer(
+            &layer_id,
+            map_style.marker_size,
+            &map_style.solid_color,
+            &map_style.colored_datastream,
+        ));
+    }
     if !map_style.pins_below_data {
         layers_mut.push(pins::make_pins_layer());
     }
@@ -388,14 +436,15 @@ fn log_rescale_opacity(val: f64) -> f64 {
 }
 
 fn make_points_layer(
+    id: &str,
     marker_size: usize,
     marker_color: &Rgba,
     colored_datastream: &ColoredDataStream,
 ) -> Value {
     json!({
-        "id": POINTS_LAYER_ID,
+        "id": id,
         "type": "circle",
-        "source": POINTS_SOURCE_ID,
+        "source": id,
         "paint": {
             "circle-radius": marker_size,
             "circle-color":
@@ -415,14 +464,15 @@ fn make_points_layer(
 }
 
 fn make_lines_layer(
+    id: &str,
     line_size: usize,
     marker_color: &Rgba,
     colored_datastream: &ColoredDataStream,
 ) -> Value {
     json!({
-        "id": LINES_LAYER_ID,
+        "id": id,
         "type": "line",
-        "source": LINES_SOURCE_ID,
+        "source": id, // source id same as layer id
         "paint": {
             "line-width": line_size,
             "line-color":
@@ -497,4 +547,42 @@ fn geojson_source_with_value(value: &Value) -> Value {
         "type": "geojson",
         "data": value,
     })
+}
+
+/// Generate an image from the current map view and return the data to a
+/// callback.
+pub fn generate_image(map: Rc<Map>) {
+    let callback = Closure::wrap(Box::new(move |blob: web_sys::Blob| {
+        yew::platform::spawn_local(async move {
+            let resp = match Request::post("./save_image")
+                .header("Content-Type", "image/png")
+                .body(blob)
+                .send()
+                .await
+                .context("posting save image request")
+            {
+                Ok(resp) => resp,
+                Err(e) => {
+                    error!("{e:?}");
+                    return;
+                }
+            };
+            if !resp.ok() {
+                error!(
+                    "save image request failed with {}: {}",
+                    resp.status(),
+                    resp.status_text()
+                )
+            }
+        });
+    }) as Box<dyn Fn(web_sys::Blob)>);
+
+    let canvas = map.get_canvas();
+    // use jpeg, which defaults to quality ~0.9
+    canvas
+        .to_blob_with_type(
+            callback.into_js_value().unchecked_ref(),
+            "image/jpeg",
+        )
+        .unwrap();
 }

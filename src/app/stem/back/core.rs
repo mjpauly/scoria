@@ -7,10 +7,10 @@
 //!             analysis.
 
 use common::state::{MapState, PendingEvents};
-use common::ToFront;
+use common::{BackState, ToFront};
 use tracing::error;
 
-use crate::app_state::AppState;
+use crate::app_state::{set_back_state, AppState};
 use crate::database::{self, OSLocationData};
 use crate::map::automap::update_automap;
 use crate::map::geojson::{update_geojson, BOUND_EXPANSION};
@@ -53,6 +53,20 @@ pub fn update_on_foregrounding() {
     tokio::spawn(database::pins::update_derived_pins());
 }
 
+pub async fn update_back_state() -> BackState {
+    // update the last location and number of records in the past hour
+    let rec = database::get_last_record().await;
+    let n = database::count_records_past_minute().await;
+    let n5 = database::count_records_past_five_minutes().await;
+    // update the back state, then clone it and send it to the front
+    set_back_state(|back| {
+        back.last_location = rec;
+        back.locations_past_minute = Some(n);
+        back.locations_past_five_minutes = Some(n5);
+        back.clone()
+    })
+}
+
 /// Determine if a new location data point would be visible on the map.
 ///
 /// Compares the data to the current time range bounds, map view bounds (if view
@@ -62,7 +76,10 @@ pub fn new_data_is_visible(
     map_state: &MapState,
     view_bounded: bool,
 ) -> bool {
-    let in_time_range = map_state.time_range.contains(&loc.timestamp);
+    let ts =
+        jiff::Timestamp::from_nanosecond(loc.timestamp.unix_timestamp_nanos())
+            .unwrap();
+    let in_time_range = map_state.time_range.contains(&ts);
     let in_bounds = !view_bounded
         || map_state
             .view_pos

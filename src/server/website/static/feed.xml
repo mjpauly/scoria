@@ -7,6 +7,13 @@
   <link rel="self" href="https://scoria.info/feed"/>
 
   <entry>
+    <title>Tips for Using Scoria</title>
+    <id>https://scoria.info/posts/tips_for_use</id>
+    <updated>2024-09-03T19:00:00Z</updated>
+    <link rel="alternate" href="https://scoria.info/posts/tips_for_use"/>
+  </entry>
+
+  <entry>
     <title>Import Places from Google Maps</title>
     <id>https://scoria.info/posts/import_places</id>
     <updated>2024-08-20T19:00:00Z</updated>

@@ -7,6 +7,7 @@ import android.content.Intent
 import android.content.ServiceConnection
 import android.content.pm.PackageManager.PERMISSION_GRANTED
 import android.os.Binder
+import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
 import android.util.Log
@@ -16,6 +17,8 @@ import android.webkit.WebView
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updateLayoutParams
@@ -147,6 +150,8 @@ class MainActivity : AppCompatActivity(), UpdateConfigCallback {
             checkExportSqliteLog()
             checkImport()
             checkExportTrack()
+            checkExportImage()
+            checkRequestNotifications()
         }
     }
 
@@ -191,6 +196,8 @@ class MainActivity : AppCompatActivity(), UpdateConfigCallback {
             initiateImport(this, IMPORT_SQLITE_CODE)
         } else if (Stem.shouldImportPlacesGeojson()) {
             initiateImport(this, IMPORT_PLACES_GEOJSON_CODE)
+        } else if (Stem.shouldImportMountedDB()) {
+            initiateImport(this, IMPORT_MOUNTED_DB_CODE)
         }
     }
 
@@ -198,6 +205,30 @@ class MainActivity : AppCompatActivity(), UpdateConfigCallback {
     private fun checkExportTrack() {
         if (Stem.shouldExportTrack()) {
             exportTrack(this)
+        }
+    }
+
+    private fun checkExportImage() {
+        if (Stem.shouldExportImage()) {
+            exportImage(this)
+        }
+    }
+
+    // Check if notification permissions should be requested
+    private fun checkRequestNotifications() {
+        if (Stem.shouldNotifyOnStop()) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                if (ContextCompat.checkSelfPermission(
+                    this,
+                    permission.POST_NOTIFICATIONS
+                ) != PERMISSION_GRANTED) {
+                    ActivityCompat.requestPermissions(
+                        this,
+                        arrayOf(permission.POST_NOTIFICATIONS),
+                        1
+                    )
+                }
+            }
         }
     }
 
@@ -216,6 +247,10 @@ class MainActivity : AppCompatActivity(), UpdateConfigCallback {
             } else if (requestCode == IMPORT_PLACES_GEOJSON_CODE) {
                 returnIntent?.data?.also { returnUri ->
                     completePlacesGeojsonImport(this, returnUri)
+                }
+            } else if (requestCode == IMPORT_MOUNTED_DB_CODE) {
+                returnIntent?.data?.also { returnUri ->
+                    completeMountedDBImport(this, returnUri)
                 }
             }
         }

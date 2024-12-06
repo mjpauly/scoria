@@ -206,10 +206,14 @@ async fn get_records_batch(
     // automap, so we increment it by one since build_filtered_query gives us
     // records that are inclusive of the lower time bound.
     let start = *last_update + time::Duration::SECOND;
-    database::FilteredQuery::new()
-        .start(start)
+    database::FilteredQuery::builder()
+        .start(
+            jiff::Timestamp::from_nanosecond(start.unix_timestamp_nanos())
+                .unwrap(),
+        )
         .filters(default_accuracy_filter())
         .limit(BATCH_SIZE)
+        .build()
         .fetch_first_n()
         .await
 }

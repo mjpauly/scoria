@@ -18,6 +18,8 @@ pub use metrics_dashboard::MetricsDashboard;
 pub use places::Places;
 pub use report_problem::ReportProblem;
 pub use sense::Sense;
-pub use settings::{DataSettings, General, MapSettings, Settings};
+pub use settings::{
+    DataSettings, General, MapSettings, MountedDBSettings, Settings,
+};
 pub use splash::Splash;
 pub use update::Update;

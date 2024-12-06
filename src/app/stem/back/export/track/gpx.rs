@@ -13,7 +13,7 @@ use crate::ws_session::send_error_popup;
 
 use super::ExportData;
 
-pub fn export(mut fname: PathBuf, data: ExportData) {
+pub(super) fn export(mut fname: PathBuf, data: ExportData) {
     let gpx = make_gpx(data);
     fname.set_extension("gpx");
     if let Err(e) = write_gpx(&fname, gpx) {
@@ -99,12 +99,13 @@ mod tests {
             log_location(get_test_data(i)).await.unwrap();
         }
         let time_range = TimeRange {
-            start: time::OffsetDateTime::from_unix_timestamp(0).unwrap(),
-            end: time::OffsetDateTime::from_unix_timestamp(1000).unwrap(),
+            start: jiff::Timestamp::from_second(0).unwrap(),
+            end: jiff::Timestamp::from_second(1000).unwrap(),
         };
-        let records = FilteredQuery::new()
+        let records = FilteredQuery::builder()
             .time_range(time_range)
             .limit(1_000)
+            .build()
             .fetch_first_n()
             .await;
 

@@ -32,6 +32,7 @@ pub mod metrics;
 pub mod paths; // stores and retrieve file system paths
 pub mod runtime; // retrieves async runtime for use in the sync C interface
 pub mod server; // server for the UI
+pub mod tz;
 #[cfg(feature = "android_config")]
 pub mod update;
 pub mod ws_session; // websocket actor for the UI
@@ -90,12 +91,8 @@ pub async fn init(init_paths: paths::Paths, app_version: String) {
     let span = tracing::span!(tracing::Level::INFO, "init");
     let _enter = span.enter();
 
-    let db = database::init_db(paths::get_db_path_helper(&init_paths))
-        .await
-        .unwrap();
-    app_state::AppState::init(init_paths, app_version, db);
-    // vacuum and checkpoint the database at startup, so it shrinks to size
-    database::checkpoint_db().await;
+    app_state::AppState::init(init_paths, app_version);
+    database::init_main_db().await;
     tracing::info!("===== App Startup =====");
 }
 
@@ -139,7 +136,11 @@ pub extern "C" fn handle_shutdown() {
 #[no_mangle]
 pub extern "C" fn handle_enter_foreground() -> server::ServerConfig {
     tracing::info!("App Foregrounded");
-    runtime::get_runtime().block_on(server::run(0, true))
+    runtime::get_runtime().block_on(async {
+        database::mounted::open_all_mounted().await;
+        database::increase_db_cache_sizes().await;
+        server::run(0, true).await
+    })
 }
 
 /// When the app goes the background we stop the server. This way we release
@@ -152,7 +153,10 @@ pub extern "C" fn handle_enter_background() {
     tracing::info!("App Backgrounded");
     runtime::get_runtime().block_on(async {
         server::shutdown().await;
-        database::reduce_db_cache_size().await;
+        tokio::spawn(async {
+            database::reduce_db_cache_sizes().await;
+            database::mounted::close_all_mounted().await;
+        });
     });
     // save the app state to file
     app_state::AppState::save_to_file();
@@ -207,7 +211,9 @@ pub extern "C" fn should_export_sqlite_log() -> bool {
         // Checkpoint the database so all outstanding transactions move from the
         // WAL file to the database
         runtime::get_runtime().block_on(async {
-            database::checkpoint_db().await;
+            if let Ok(conn) = database::get_main_db_pool() {
+                database::checkpoint_db(&conn).await;
+            }
         });
     }
     should_export
@@ -289,6 +295,46 @@ pub extern "C" fn import_places_geojson(import_path: *const c_char) {
     })
 }
 
+/// Tell wrapper to import a SQLite log with document picker as a mounted db
+#[no_mangle]
+pub extern "C" fn should_import_mounted_db() -> bool {
+    std::mem::replace(
+        &mut app_state::AppState::global()
+            .wrapper_messages
+            .lock()
+            .unwrap()
+            .should_mount_db,
+        false,
+    )
+}
+
+#[no_mangle]
+pub extern "C" fn import_mounted_db(import_path: *const c_char) {
+    let import_path = PathBuf::from(cstr_to_string(import_path));
+    runtime::get_runtime()
+        .block_on(async { database::mounted::mount_db(import_path).await })
+}
+
+/// Tell wrapper to export an image
+#[no_mangle]
+pub extern "C" fn should_export_image() -> bool {
+    std::mem::replace(
+        &mut app_state::AppState::global()
+            .wrapper_messages
+            .lock()
+            .unwrap()
+            .should_export_image,
+        false,
+    )
+}
+
+/// Tell wrapper to request location when in use authorization
+#[no_mangle]
+pub extern "C" fn should_notify_on_stop() -> bool {
+    app_state::get_front_state(|s| s.notif_pref.should_notify_on_stop)
+        .unwrap_or_default()
+}
+
 /// Local setup either for development or testing.
 /// Not used in any production app code. TODO: gate with feature flag
 pub mod local {
@@ -337,6 +383,9 @@ pub mod local {
         init(paths, "1.test.0".into()).await;
         #[cfg(feature = "android_config")]
         super::set_app_version_code_helper(1).await;
+        // pre-foregrounding tasks
+        super::database::mounted::open_all_mounted().await;
+        super::database::increase_db_cache_sizes().await;
         server::run(port, false).await.port
     }
 

@@ -41,6 +41,10 @@
     svg {
         @apply overflow-visible
     }
+
+    b {
+        @apply font-bold
+    }
 }
 
 /* Maplibre */

@@ -77,5 +77,10 @@ void import_from_sqlite_log(const char*);
 bool should_export_track(void);
 bool should_import_places_geojson(void);
 void import_places_geojson(const char*);
+bool should_import_mounted_db(void);
+void import_mounted_db(const char*);
+bool should_export_image(void);
+
+bool should_notify_on_stop();
 
 void url_scheme(const char*);

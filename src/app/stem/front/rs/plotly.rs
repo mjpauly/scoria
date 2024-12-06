@@ -3,8 +3,8 @@
 //! https://plotly.com/javascript/reference
 
 use common::map_style::ColoredDataStream;
+use jiff::{Span, Timestamp};
 use serde_json::{json, Value};
-use time::{ext::NumericalDuration, macros::datetime};
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -21,16 +21,18 @@ extern "C" {
     );
 }
 
-/// Format a time to Iso8601, which Plotly understands.
-pub fn time_to_str(t: &time::OffsetDateTime) -> String {
-    t.format(&time::format_description::well_known::Iso8601::DATE_TIME)
-        .unwrap()
+/// Generate iso 8601-style timestamps for plotly x axis.
+pub fn time_to_str(zdt: &jiff::Zoned) -> String {
+    zdt.datetime().to_string()
 }
 
+/// Generate iso 8601-style timestamps, but make sure there's a decimal. Without
+/// a decimal plotly gives an "encountered bad format" error on the "%H:%M"
+/// format specifier.
 pub fn sec_to_timeofday<'a>(vals: impl Iterator<Item = &'a f64>) -> Value {
-    let base = datetime!(2020-01-01 0:00 UTC);
+    let base: Timestamp = "2020-01-01T00:00:00Z".parse().unwrap();
     json!(vals
-        .map(|x| time_to_str(&(base + x.seconds())))
+        .map(|x| format!("{:.2}", base + Span::new().seconds(*x as i64)))
         .collect::<Vec<_>>())
 }
 

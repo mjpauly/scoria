@@ -25,6 +25,7 @@
 use std::fs;
 use std::path::PathBuf;
 
+use anyhow::Context;
 use common::{
     pin::Pin,
     popups::{PopUp, PopUpCode, PopUpKind},
@@ -36,33 +37,48 @@ use tracing::error;
 use crate::{
     app_state::get_front_state,
     database::{
-        get_db_pool,
+        get_main_db_pool,
         pins::{save_pin_to_db, update_derived_pins},
     },
-    ws_session::send_message_to_front,
+    ws_session::{send_error_popup, send_message_to_front},
 };
 
-// TODO: error popup message?
+/// Read file to string, indicating valid utf8 (true) or lossy utf-8 conversion.
+fn read_to_string(path: &PathBuf) -> std::io::Result<(String, bool)> {
+    let contents = fs::read(path)?;
+    Ok(match String::from_utf8(contents.clone()) {
+        Ok(out) => (out, true),
+        Err(_) => (String::from_utf8_lossy(&contents).to_string(), false),
+    })
+}
 
 pub async fn import_pins(path: PathBuf) {
-    let geojson_str = match fs::read_to_string(path) {
-        Ok(s) => s,
-        Err(e) => {
-            error!("Failed to read GeoJSON import file: {e}");
-            return;
-        }
-    };
+    let (geojson_str, valid_utf8) =
+        match read_to_string(&path).context("reading GeoJSON import file") {
+            Ok(s) => s,
+            Err(e) => {
+                error!("{e:?}");
+                send_error_popup("Failed to read file.");
+                return;
+            }
+        };
     let geoj = match geojson_str.parse::<GeoJson>() {
         Ok(g) => g,
         Err(e) => {
-            error!("Failed to parse file contents as GeoJSON: {e}");
+            error!(
+                "Failed to parse file contents as GeoJSON. \
+                   (Contained {} UTF-8 data.): {e:?}",
+                if valid_utf8 { "valid" } else { "invalid" }
+            );
+            send_error_popup("Failed to parse file as GeoJSON.");
             return;
         }
     };
     let fc = match FeatureCollection::try_from(geoj) {
         Ok(fc) => fc,
         Err(e) => {
-            error!("GeoJSON not a Feature Collection: {e}");
+            error!("GeoJSON not a Feature Collection: {e:?}");
+            send_error_popup("GeoJSON not a Feature Collection.");
             return;
         }
     };
@@ -73,7 +89,10 @@ pub async fn import_pins(path: PathBuf) {
     let mut n_saved = 0;
     for feature in fc.features.into_iter() {
         if let Some(pin) = pin_from_feature(feature, &pin_default) {
-            if let Err(e) = save_pin_to_db(&get_db_pool(), &pin).await {
+            let Ok(conn) = get_main_db_pool() else {
+                return;
+            };
+            if let Err(e) = save_pin_to_db(&conn, &pin).await {
                 error!("Failed to save pin. {e}");
             } else {
                 n_saved += 1;

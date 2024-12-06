@@ -17,14 +17,15 @@ use tracing::{info, warn};
 
 use crate::app_state::AppState;
 use crate::app_state::{get_derived_state, set_back_state};
-use crate::core::update_on_foregrounding;
-use crate::export::export_selected;
+use crate::core::{update_back_state, update_on_foregrounding};
+use crate::export::track::export_selected;
 use crate::logs::update_last_logged_error;
 use crate::map::automap::update_automap;
 use crate::map::basemap::evict_old_map_data;
 use crate::map::geojson::{get_location_near, update_geojson};
 use crate::metrics::dashboard::update_dashboard_on_state_change;
 use crate::runtime::get_runtime;
+use crate::tz::update_map_tz;
 use crate::{database, logs};
 
 /// How often heartbeat pings are sent
@@ -127,15 +128,12 @@ impl WsSession {
         // dbg!(msg.clone());
         match msg {
             ToBack::LogError(s) => logs::log_frontend_error(s),
-            ToBack::GetFrontState => {
+            ToBack::GetStartupState => {
                 // at startup we send the FrontState and PendingEvents
-                self.send_initial_front_state(ctx);
+                self.send_initial_state(ctx);
             }
             ToBack::GetBackState => {
                 self.send_back_state(ctx);
-            }
-            ToBack::GetDerivedState => {
-                send_derived_state_to_front();
             }
             ToBack::SetFrontState(val) => {
                 let main_route = val.route;
@@ -146,8 +144,9 @@ impl WsSession {
                     Some(*val),
                 );
                 AppState::save_to_file();
-                let prev_routes =
-                    prev_front_state.map(|s| (s.route, s.settings_route));
+                let prev_routes = prev_front_state
+                    .as_ref()
+                    .map(|s| (s.route, s.settings_route));
 
                 get_runtime().spawn(update_geojson(None, false));
                 if main_route == PersistedRoute::SettingsSubpage
@@ -176,6 +175,7 @@ impl WsSession {
                 get_runtime().spawn(update_dashboard_on_state_change(
                     prev_routes.map(|r| r.0),
                 ));
+                update_map_tz(&prev_front_state);
             }
             ToBack::ImportPlaces => {
                 AppState::global()
@@ -222,10 +222,12 @@ impl WsSession {
                     }
                 });
             }
-            ToBack::GetLocationNear(location) => {
+            ToBack::GetLocationNear(mount_id, location) => {
                 let recipient = ctx.address().recipient();
                 get_runtime().spawn(async move {
-                    if let Some(msg) = get_location_near(location).await {
+                    if let Some(msg) =
+                        get_location_near(mount_id, location).await
+                    {
                         recipient.do_send(MsgToFront(msg))
                     }
                 });
@@ -238,6 +240,21 @@ impl WsSession {
             }
             ToBack::DeleteSelectedLocations => {
                 database::location::delete_selected_locations();
+            }
+            ToBack::CopySelectedLocationsToDatabase => {
+                database::location::copy_selected_locations();
+            }
+            ToBack::MountDB => {
+                AppState::global()
+                    .wrapper_messages
+                    .lock()
+                    .unwrap()
+                    .should_mount_db = true;
+            }
+            ToBack::DeleteMountedDB(id) => {
+                get_runtime().spawn(async move {
+                    database::mounted::delete_mounted_db(id).await;
+                });
             }
         }
     }
@@ -259,27 +276,27 @@ impl WsSession {
         // the SO thread linked in the docstring for more)
         let recipient = ctx.address().recipient();
         get_runtime().spawn(async move {
-            // update the last location and number of records in the past hour
-            let rec = database::get_last_record().await;
-            let n = database::count_records_past_minute().await;
-            let n5 = database::count_records_past_five_minutes().await;
-            // update the back state, then clone it and send it to the front
-            let back = set_back_state(|back| {
-                back.last_location = rec;
-                back.locations_past_minute = Some(n);
-                back.locations_past_five_minutes = Some(n5);
-                back.clone()
-            });
+            let back = update_back_state().await;
             recipient.do_send(MsgToFront(ToFront::BackState(back)));
         });
     }
 
     /// Sends all UI state values, used at startup.
-    fn send_initial_front_state(&self, ctx: &mut ws::WebsocketContext<Self>) {
+    fn send_initial_state(&self, ctx: &mut ws::WebsocketContext<Self>) {
         let front = AppState::global().persistent.lock().unwrap().front.clone();
         // take the pending events, leaving None
         let events = AppState::global().pending_events.lock().unwrap().take();
-        self.send_msg(ToFront::Startup(Box::new(front), events), ctx);
+        let derived = get_derived_state(|state| state.clone());
+        let recipient = ctx.address().recipient();
+        get_runtime().spawn(async move {
+            let back = update_back_state().await;
+            recipient.do_send(MsgToFront(ToFront::Startup(
+                Box::new(front),
+                back,
+                derived,
+                events,
+            )));
+        });
     }
 }
 

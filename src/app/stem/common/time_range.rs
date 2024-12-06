@@ -1,36 +1,64 @@
+//! TimeRange could be pair of Timestamps. Just marks instants in time.
+//!
+//! TimeDeltaRange could be Spans for start/end offsets. A snap-to-day, and a
+//! timezone name.
+//!
+//! Have ability to lookup/follow timezone in center of the map. Show tz when
+//! selected.
+//!
+//! Ability to step by Span units, optionally with start/end tied together
+//!
+//! Start
+//! End
+//! +/- y m d H M S  [start, end, both]
+//! All, week, day, now
+//!
+//! Timezone (localized, system / fixed) (just use setting?)
+
+use jiff::{civil::Date, Span, Timestamp};
 use serde::{Deserialize, Serialize};
-use time::OffsetDateTime;
+
+use crate::state::ok_or_default;
+
+/// A newtype which defines the default value for the TZ.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TZ(pub String);
+
+impl Default for TZ {
+    fn default() -> Self {
+        Self("UTC".into())
+    }
+}
+
+impl std::ops::Deref for TZ {
+    type Target = str;
+
+    fn deref(&self) -> &str {
+        &self.0
+    }
+}
 
 /// A range of times.
 /// Encoding as a struct helps ensure `start` and `end` are not accidentally
 /// swapped.
 #[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct TimeRange {
-    pub start: OffsetDateTime,
-    pub end: OffsetDateTime,
+    #[serde(deserialize_with = "ok_or_default")]
+    pub start: Timestamp,
+    #[serde(deserialize_with = "ok_or_default")]
+    pub end: Timestamp,
 }
 
 impl TimeRange {
-    pub fn contains(&self, timestamp: &OffsetDateTime) -> bool {
+    /// Slice semantics (start <= other < end)
+    pub fn contains(&self, timestamp: &Timestamp) -> bool {
         &self.start <= timestamp && timestamp < &self.end
     }
 }
 
-impl From<&TimeDeltaRange> for TimeRange {
-    fn from(td_range: &TimeDeltaRange) -> Self {
-        let mut now = OffsetDateTime::now_utc();
-        if let Some(offset) = td_range.offset {
-            now = now.to_offset(offset);
-        }
-        let mut start = now + td_range.start_offset;
-        let mut end = now + td_range.end_offset;
-        if td_range.snap_start_to_day {
-            start = start.replace_time(time::Time::MIDNIGHT);
-        }
-        if td_range.snap_end_to_day {
-            end = end.replace_time(time::Time::from_hms(23, 59, 59).unwrap());
-        }
-        Self { start, end }
+impl Default for TimeRange {
+    fn default() -> Self {
+        TimeDeltaRange::default().to_time_range("UTC").unwrap()
     }
 }
 
@@ -39,33 +67,91 @@ impl From<&TimeDeltaRange> for TimeRange {
 /// Negative offsets are backwars in time, positive are forward.
 #[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct TimeDeltaRange {
-    pub start_offset: time::Duration,
-    pub end_offset: time::Duration,
-    // whether to snap to the start/end of the day
+    #[serde(deserialize_with = "ok_or_default")]
+    pub start_offset: Span,
+    #[serde(deserialize_with = "ok_or_default")]
+    pub end_offset: Span,
+    // whether to snap to the nearest day
     pub snap_start_to_day: bool,
     pub snap_end_to_day: bool,
-    // an optional utc offset so snap-to-day works with local time
-    pub offset: Option<time::UtcOffset>,
 }
 
-impl Default for TimeDeltaRange {
-    /// Time range to use if it can't be parsed from file. Does not depend on
-    /// the timezone offset, so it is safe to be run by the backend. This is a
-    /// backup in case deserialization doesn't work. On first install the
-    /// frontend should be what initializes the time_range.
-    fn default() -> Self {
+impl TimeDeltaRange {
+    pub fn to_time_range(&self, tz: &str) -> Result<TimeRange, jiff::Error> {
+        let now = Timestamp::now().intz(tz)?;
+        let mut start = &now + self.start_offset;
+        let mut end = &now + self.end_offset;
+        if self.snap_start_to_day {
+            start = start.start_of_day()?;
+        }
+        if self.snap_end_to_day {
+            end = end.tomorrow()?.start_of_day()?;
+        }
+        Ok(TimeRange {
+            start: start.timestamp(),
+            end: end.timestamp(),
+        })
+    }
+
+    pub fn today() -> Self {
         Self {
-            start_offset: -time::Duration::DAY,
-            end_offset: time::Duration::DAY,
+            start_offset: Span::new(),
+            end_offset: Span::new(),
+            snap_start_to_day: true,
+            snap_end_to_day: true,
+        }
+    }
+
+    pub fn past_24h() -> Self {
+        Self {
+            start_offset: -Span::new().days(1),
+            end_offset: Span::new(),
             snap_start_to_day: false,
             snap_end_to_day: false,
-            offset: None,
         }
+    }
+
+    pub fn week() -> Self {
+        Self {
+            start_offset: -Span::new().weeks(1),
+            end_offset: Span::new(),
+            snap_start_to_day: true,
+            snap_end_to_day: true,
+        }
+    }
+
+    /// Show a particular date, snapped to the day
+    pub fn date(date: Date, tz: &str) -> Result<Self, jiff::Error> {
+        let now = Timestamp::now().intz(tz)?;
+        let delta = now.until(&date.at(12, 0, 0, 0).intz(tz)?)?; // noon
+        Ok(Self {
+            start_offset: delta,
+            end_offset: delta,
+            snap_start_to_day: true,
+            snap_end_to_day: true,
+        })
+    }
+
+    pub fn all() -> Result<Self, jiff::Error> {
+        let start = Date::new(2023, 1, 1)?.at(12, 0, 0, 0).intz("UTC").unwrap();
+        let end = &start + Span::new().years(10);
+        let now = Timestamp::now().intz("UTC").unwrap();
+        let start_delta = now.until(&start)?;
+        let end_delta = now.until(&end)?;
+        Ok(Self {
+            start_offset: start_delta,
+            end_offset: end_delta,
+            snap_start_to_day: true,
+            snap_end_to_day: true,
+        })
     }
 }
 
-impl Default for TimeRange {
+impl Default for TimeDeltaRange {
+    /// Time range to use if it can't be parsed from file. This is a backup in
+    /// case deserialization doesn't work. On first install the frontend should
+    /// be what initializes the time_range.
     fn default() -> Self {
-        (&TimeDeltaRange::default()).into()
+        Self::today()
     }
 }

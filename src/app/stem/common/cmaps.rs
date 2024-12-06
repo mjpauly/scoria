@@ -32,6 +32,19 @@ pub struct CmapParams {
     pub cmap: Cmap,
 }
 
+impl CmapParams {
+    /// Combine two sets of cmap parameters so that the new set of parameters
+    /// covers all data without saturating. Useful if params are derived for the
+    /// data in different chunks, but need to be displayed together.
+    pub fn merge(&self, other: &Self) -> Self {
+        Self {
+            cmin: self.cmin.min(other.cmin),
+            cmax: self.cmax.max(other.cmax),
+            cmap: self.cmap,
+        }
+    }
+}
+
 /// Given a hex color code, return true if the color is more bright than dark.
 /// Used to determine if text on a colored background should be white or black.
 pub fn hex_color_is_bright(hex: &str) -> bool {

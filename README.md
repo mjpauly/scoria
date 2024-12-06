@@ -2,25 +2,22 @@
 
 ## To Do
 
-Current: 
-Then: location scraping tool and blog post
+Current:
+Then:
 
+- limit number of points by number of databases mounted
+1. Timeline of prior visits to X (start, stop, duration, number)
+2. Click to show that day's timeline, from place timeline & location point
+4. Queries on timeline: avg, min, max, median, stddev, sum of [time spent, arrival/departure times]
+5. Bounding regions for non-point places (terradraw)
+6. Nominatim lookup of places from OSM
+7. credits page
 - [ ] throttle geojson updates to 10 Hz?
-- [ ] show/hide pins
-- [ ] Pin aliases for associating dwells with existing pins when the bounding area is large
-- [ ] click on pin and see breakdown of trips at that pin
 - [ ] bar wastes space on iPad
 - [ ] Decimation fix
 - [ ] light mode
 - [ ] Reduce dithering at common location
 - [ ] recompute automap after deleting data points?
-- [ ] in-app or website guide
-    - discuss how entering low power mode stops data, need to reopen
-        - esp after entering low poewr mode
-        - also after update
-    - discuss power use factors
-    - use filters to make timeline good (30m / 100ft)
-    - [ ] underlying data format being SQLite, version codes
 - [ ] remove tails from dwells?
 - share lists with others - places RSS feeds?
 - [ ] release binary for desktop scoria
@@ -305,13 +302,20 @@ $ dot -Tpng < graph_pruned.in > graph_pruned.png
 
 Prereq: install graphviz (includes `dot`) with `brew install graphviz`.
 
-### Rust Debug Output
+### Error Handling
 
-- Use `let foo = dbg!(bar)` for quicker debugging than with printing!
-- `.unwrap_or_else(|err| { println("got error {}", err); return; })`
-    - if return type is `()` on success: `if let Err(e) = run(config) {`
-- `eprintln` for stderr
-- Log levels from most to least important: error!, warn!, info!, debug!, trace!.
+- Attach context to errors that are passed up using `anyhow::Context`.
+- At final level of handling, use
+```rust
+if let Err(e) = fallible() {
+    tracing::error!("doing x: {e:?}");
+    return;
+}
+```
+- Debug printing the error with `{e:?}` includes the context down to the source
+  error.
+- Log levels from most to least important: error!, warn!, info!, debug!,
+  trace!.
 
 ### Other tips
 

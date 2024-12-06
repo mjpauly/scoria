@@ -2,15 +2,17 @@
 
 use std::rc::Rc;
 
+use common::mounted::{MountID, MAIN_DB_MOUNT_ID, MAIN_DB_NAME};
 use common::popups::{PopUp, PopUpCode};
 use common::ToFront;
 use common::{state::MapSettingsTab, Location};
+use jiff::Zoned;
 use yew::prelude::*;
 use yew_icons::{Icon, IconId};
 use yewdux::prelude::*;
 
-use super::time_range_picker::local_offset;
 use crate::components::confirm::Confirm;
+use crate::components::Select;
 use crate::websocket::{use_backend_event_with_deps, ToBack, WebsocketService};
 use crate::{
     maplibre::{add_popup, binds::Map},
@@ -89,13 +91,8 @@ pub fn SelectPointsControl() -> Html {
                      n_selected,
                 )}
             </p>
+            <CopyPoints />
             <div class="flex justify-between">
-                <button class="px-3 py-1.5 text-primary rounded-lg \
-                    bg-neutral-800"
-                    onclick={clear_onclick}
-                >
-                    {"Unselect All"}
-                </button>
                 <button
                     class="px-3 py-1.5 rounded-lg bg-neutral-800 \
                         text-red-500 disabled:text-neutral-500 flex \
@@ -106,25 +103,144 @@ pub fn SelectPointsControl() -> Html {
                     <Icon icon_id={IconId::BootstrapTrash} class="h-5 w-5" />
                     {"Delete Selected"}
                 </button>
+                <button class="px-3 py-1.5 text-primary rounded-lg \
+                    bg-neutral-800"
+                    onclick={clear_onclick}
+                >
+                    {"Unselect All"}
+                </button>
             </div>
         </div>
         </div>
     }
 }
 
+#[function_component]
+fn CopyPoints() -> Html {
+    let n_selected = use_selector(|s: &FrontState| s.selected_points.len());
+    let dest_db = use_selector(|s: &FrontState| s.copy_dest_db);
+    let mounted_db_settings =
+        use_selector(|s: &FrontState| s.mounted_db_settings.clone());
+    let dest_db_name = mounted_db_settings
+        .get(&dest_db)
+        .map(|db| db.name.clone())
+        .unwrap_or_else(|| MAIN_DB_NAME.to_string());
+
+    let db_choices = mounted_db_settings
+        .iter()
+        .map(|(_id, db)| db.name.clone())
+        .collect::<Vec<_>>();
+    let front_dispatch = Dispatch::<FrontState>::new();
+    let db_choice_onchange = front_dispatch.reduce_mut_callback_with(
+        move |s: &mut FrontState, choice: String| {
+            let choice_id = s
+                .mounted_db_settings
+                .iter()
+                .find(|(_id, db)| db.name == choice)
+                .map(|(id, _db)| *id)
+                .unwrap_or(MAIN_DB_MOUNT_ID);
+            s.copy_dest_db = choice_id;
+        },
+    );
+
+    let wss = use_context::<WebsocketService>().unwrap();
+    let confirm_message = format!(
+        "Copy {n_selected} point{} to database \"{dest_db_name}\"?",
+        if *n_selected > 1 { "s" } else { "" }
+    );
+
+    let confirming_copy = use_state(|| false);
+    let copy_onclick = {
+        let confirming_copy = confirming_copy.clone();
+        Callback::from(move |_e: MouseEvent| {
+            confirming_copy.set(true);
+        })
+    };
+    let ok_onclick = {
+        let confirming_copy = confirming_copy.clone();
+        Callback::from(move |_: MouseEvent| {
+            wss.send_msg(ToBack::CopySelectedLocationsToDatabase);
+            confirming_copy.set(false)
+        })
+    };
+    let cancel_onclick = {
+        let confirming_copy = confirming_copy.clone();
+        Callback::from(move |_: MouseEvent| confirming_copy.set(false))
+    };
+    let copy_disabled = mounted_db_settings.len() <= 1;
+
+    let on_copy_result = {
+        let front_dispatch = front_dispatch.clone();
+        move |msg: &ToFront| {
+            if let ToFront::PopUp(PopUp {
+                code: PopUpCode::CopyPoints,
+                ..
+            }) = msg
+            {
+                // clear selections after the copy has completed in the backend,
+                // and we receive the result popup
+                front_dispatch.reduce_mut(|s: &mut FrontState| {
+                    s.selected_points = vec![]
+                });
+            }
+        }
+    };
+    use_backend_event_with_deps(on_copy_result, n_selected);
+    html! {
+        <>
+            if *confirming_copy {
+                <Confirm
+                    title={confirm_message}
+                    ok={ok_onclick}
+                    cancel={cancel_onclick}
+                />
+            }
+            <div class="flex justify-between items-center">
+                <div class="flex items-center">
+                    <p> {"Copy to: "} </p>
+                    <Select<String>
+                        selection={dest_db_name}
+                        choices={db_choices}
+                        onchange={db_choice_onchange}
+                        class="mx-2"
+                        id="copy_destination_database"
+                    />
+                </div>
+                <button
+                    class="px-3 py-1.5 rounded-lg bg-neutral-800 \
+                        text-primary disabled:text-neutral-500 flex \
+                        items-center gap-2"
+                    onclick={copy_onclick}
+                    disabled={copy_disabled}
+                >
+                    {"Copy"}
+                </button>
+            </div>
+        </>
+    }
+}
+
 /// Handle receipt of a location from the backend either by displaying a popup
 /// over it or selecting it.
-pub fn handle_nearest_location(map: Rc<Map>, loc: &Location) {
+pub fn handle_nearest_location(
+    map: Rc<Map>,
+    mount_id: &MountID,
+    loc: &Location,
+    zdt: &Zoned,
+) {
     let front_dispatch = Dispatch::<FrontState>::new();
     let front_state = front_dispatch.get();
     if front_state.map.settings_tab == MapSettingsTab::SelectPoints {
         front_dispatch.reduce_mut(|s: &mut FrontState| {
-            if let Some(index) =
-                s.selected_points.iter().position(|p| p.0 == loc.timestamp)
+            if let Some(index) = s
+                .selected_points
+                .iter()
+                .position(|p| p.0 == (*mount_id, loc.timestamp))
             {
                 s.selected_points.remove(index);
             } else {
-                s.selected_points.push((loc.timestamp, loc.lnglat()));
+                s.selected_points
+                    .push(((*mount_id, loc.timestamp), loc.lnglat()));
             }
         })
     } else {
@@ -133,16 +249,15 @@ pub fn handle_nearest_location(map: Rc<Map>, loc: &Location) {
             .popup_color
             .clone()
             .unwrap_or(front_state.map.style.solid_color.rgb.clone());
-        let text = popup_text(loc);
+        let text = popup_text(loc, zdt);
         add_popup(map, &loc.lnglat(), &text, &bg_color);
     }
 }
 
-pub fn popup_text(loc: &Location) -> String {
+pub fn popup_text(loc: &Location, zdt: &Zoned) -> String {
     let front_state = Dispatch::<FrontState>::new().get();
     let unit_pref = front_state.unit_pref;
-    let offset = local_offset();
-    let time_pref = front_state.time_pref;
+    let time_pref = &front_state.time_pref;
     let latlon = format!(
         "{}, {}",
         unit_pref.format_angle(loc.latitude, Some(6)),
@@ -183,7 +298,7 @@ pub fn popup_text(loc: &Location) -> String {
         accuracy_speed_course,
         alt,
         time_pref
-            .format_datetime(loc.timestamp.to_offset(offset))
+            .format_jiff_datetime(zdt, &None)
             .unwrap_or_else(|_| "Time ?".to_string())
     )
 }

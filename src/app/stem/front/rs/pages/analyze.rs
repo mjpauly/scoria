@@ -2,6 +2,7 @@
 
 use std::rc::Rc;
 
+use common::mounted::{EnabledDBs, MountID};
 use gloo_net::http::Request;
 use serde_json::Value;
 use yew::prelude::*;
@@ -12,20 +13,17 @@ use crate::components::pin_editor::PinDetails;
 use crate::components::select_points_control::{
     handle_nearest_location, SelectPointsControl,
 };
-use crate::maplibre::{self, add_source_and_layers_to_style};
+use crate::components::{
+    location_filter_list::LocationFilterList,
+    map_styler::{get_basemap_url, MapStyler},
+    Colorbar, TabBar, TimeRangePicker, PRIMARY_BUTTON_STYLE,
+    SECONDARY_BUTTON_STYLE,
+};
+use crate::maplibre;
 use crate::pages::metrics_dashboard::ColoredTimeSeriesPlot;
 use crate::ui_state::{BackState, DerivedState, FrontState};
 use crate::websocket::{
     use_backend_event_with_deps, ToBack, ToFront, WebsocketService,
-};
-use crate::{
-    components::{
-        location_filter_list::LocationFilterList,
-        map_styler::{get_basemap_url, MapStyler},
-        Colorbar, TabBar, TimeRangePicker, PRIMARY_BUTTON_STYLE,
-        SECONDARY_BUTTON_STYLE,
-    },
-    maplibre::view_pos_from_map,
 };
 use common::state::MapSettingsTab;
 use common::LngLat;
@@ -195,21 +193,21 @@ fn PlotComponent() -> Html {
     let click_point = {
         let front_dispatch = Dispatch::<FrontState>::new();
         let wss = use_context::<WebsocketService>().unwrap();
-        move |params: (LngLat, Option<String>)| {
-            wss.send_msg(ToBack::GetLocationNear(params.0));
+        move |params: (MountID, LngLat, Option<String>)| {
+            wss.send_msg(ToBack::GetLocationNear(params.0, params.1));
             // save the color of the point that was clicked, so we can color
             // the background with it
             front_dispatch
-                .reduce_mut(|s: &mut FrontState| s.map.popup_color = params.1);
+                .reduce_mut(|s: &mut FrontState| s.map.popup_color = params.2);
         }
     };
     // adds the popup to the map when the popup contents come from the backend
     let on_get_nearest_location = {
         let map = map.clone();
         move |msg: &ToFront| {
-            if let ToFront::NearestLocation(loc) = msg {
+            if let ToFront::NearestLocation(mount_id, loc, zdt) = msg {
                 if let Some(map) = (*map).clone() {
-                    handle_nearest_location(map, loc);
+                    handle_nearest_location(map, mount_id, loc, zdt);
                 }
             }
         }
@@ -265,23 +263,26 @@ fn PlotComponent() -> Html {
     let last_loc =
         use_selector(|state: &BackState| state.last_location.clone());
     let last_loc_lnglat = last_loc.as_ref().as_ref().map(|x| x.lnglat());
+    let mounted_dbs_enabled = use_selector(|state: &FrontState| {
+        state.mounted_db_settings.enabled_dbs()
+    });
     {
         let style = style.clone();
         use_effect_with_deps(
-            move |(basemap, map_style)| {
+            move |(basemap, map_style, mounted_dbs_enabled)| {
                 // if we've loaded the basemap json from the http request
                 if let Some(basemap_obj) = &**basemap {
                     let mut style_obj = basemap_obj.clone();
-                    add_source_and_layers_to_style(
+                    maplibre::add_source_and_layers_to_style(
                         &mut style_obj,
                         map_style,
-                        last_loc_lnglat,
+                        mounted_dbs_enabled,
                     );
                     style.set(Some(style_obj));
                 }
                 || ()
             },
-            (basemap, map_style.clone()),
+            (basemap, map_style.clone(), mounted_dbs_enabled.clone()),
         );
     }
 
@@ -329,7 +330,6 @@ fn PlotComponent() -> Html {
                             &view_position,
                             on_load,
                             on_view_change,
-                            click_point,
                         );
                         // register the callbacks for click/create pin
                         maplibre::pins::register_callbacks(
@@ -363,7 +363,8 @@ fn PlotComponent() -> Html {
         use_effect_with_deps(
             move |map_initialized| {
                 if **map_initialized {
-                    let view_pos = view_pos_from_map(&(*map).clone().unwrap());
+                    let view_pos =
+                        maplibre::view_pos_from_map(&(*map).clone().unwrap());
                     front_dispatch.reduce_mut(|s| s.map.view_pos = view_pos)
                 }
             },
@@ -377,15 +378,62 @@ fn PlotComponent() -> Html {
     let on_geojson_update = {
         let map = map.clone();
         let map_initialized = map_initialized.clone();
+        let mounted_dbs_enabled = mounted_dbs_enabled.clone();
         move |msg: &ToFront| {
             if *msg == ToFront::GeojsonUpdated && *map_initialized {
                 // OK to unwrap map when guarded by if *map_initialized, since
                 // this is a contract we uphold
-                maplibre::update_data((*map).clone().unwrap());
+                maplibre::update_data(
+                    (*map).clone().unwrap(),
+                    &mounted_dbs_enabled,
+                );
             }
         }
     };
-    use_backend_event_with_deps(on_geojson_update, map_initialized.clone());
+    use_backend_event_with_deps(
+        on_geojson_update,
+        (map_initialized.clone(), mounted_dbs_enabled.clone()),
+    );
+
+    // update point click callbacks. old callbacks are tracked with a state
+    // handle so they can be removed
+    {
+        let map = map.clone();
+        let map_initialized = map_initialized.clone();
+        let mounted_dbs_enabled = mounted_dbs_enabled.clone();
+        // the layer ids and the callbacks previously registered, so they can be
+        // removed from the map
+        let click_callbacks_registered =
+            use_state(Vec::<(String, wasm_bindgen::JsValue)>::new);
+        use_effect_with_deps(
+            move |(map_initialized, mounted_dbs_enabled)| {
+                if **map_initialized {
+                    // remove all the old callbacks
+                    for (layer_id, old_cb) in &*click_callbacks_registered {
+                        (*map).clone().unwrap().off("click", layer_id, old_cb);
+                    }
+                    let mut new_cbs = Vec::new();
+                    for mount_id in &**mounted_dbs_enabled {
+                        let js_cb = maplibre::get_click_point_callback(
+                            *mount_id,
+                            click_point.clone(),
+                        );
+                        let layer_id = maplibre::layer_id(
+                            mount_id,
+                            &maplibre::LayerKind::Points,
+                        );
+                        (*map)
+                            .clone()
+                            .unwrap()
+                            .on_layer("click", &layer_id, &js_cb);
+                        new_cbs.push((layer_id, js_cb));
+                    }
+                    click_callbacks_registered.set(new_cbs);
+                }
+            },
+            (map_initialized.clone(), mounted_dbs_enabled),
+        )
+    }
 
     {
         let map = map.clone();
@@ -405,6 +453,12 @@ fn PlotComponent() -> Html {
 
     // update the visible pins to include unsaved edits
     let pins = use_selector(|state: &DerivedState| state.pins.clone());
+    let filters = use_selector(|s: &FrontState| s.pin_settings.filters.clone());
+    let pins = pins
+        .iter()
+        .filter(|p| p.passes_filters(&filters))
+        .cloned()
+        .collect::<Vec<_>>();
     let current_pin =
         use_selector(|state: &FrontState| state.map.current_pin.clone());
     let editing_pin = use_selector(|state: &FrontState| state.map.editable_pin);
@@ -414,12 +468,12 @@ fn PlotComponent() -> Html {
         use_effect_with_deps(
             move |(pins, current_pin, editing)| {
                 visible_pins.set(maplibre::pins::get_visible_pins(
-                    (**pins).clone(),
+                    (*pins).clone(),
                     (**current_pin).clone(),
                     **editing,
                 ));
             },
-            (pins.clone(), current_pin.clone(), editing_pin),
+            (pins, current_pin.clone(), editing_pin),
         );
     }
     // update pins when the map initializes, or the pins change
@@ -495,10 +549,17 @@ fn PlotComponent() -> Html {
         })
     };
 
-    let flytome_onclick = Callback::from(move |_e: MouseEvent| {
-        if let Some(loc) = last_loc_lnglat {
-            maplibre::fly_to((*map).clone().unwrap(), loc, 16.);
-        }
+    let flytome_onclick = {
+        let map = map.clone();
+        Callback::from(move |_e: MouseEvent| {
+            if let Some(loc) = last_loc_lnglat {
+                maplibre::fly_to((*map).clone().unwrap(), loc, 16.);
+            }
+        })
+    };
+
+    let saveimage_onclick = Callback::from(move |_e: MouseEvent| {
+        maplibre::generate_image((*map).clone().unwrap());
     });
 
     html! {
@@ -514,6 +575,12 @@ fn PlotComponent() -> Html {
                 class="p-2 rounded-lg bg-black w-min opacity-50 \
                     absolute bottom-[6.125rem] left-safe-or-2.5 z-40">
                 <Icon icon_id={IconId::FontAwesomeSolidLocationArrow}
+                    class="h-6 w-6 text-[#aaaaaa]" />
+            </button>
+            <button onclick={saveimage_onclick}
+                class="p-2 rounded-lg bg-black w-min opacity-50 \
+                    absolute bottom-[8.875rem] left-safe-or-2.5 z-40">
+                <Icon icon_id={IconId::BootstrapCameraFill}
                     class="h-6 w-6 text-[#aaaaaa]" />
             </button>
         </div>

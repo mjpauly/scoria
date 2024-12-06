@@ -49,6 +49,8 @@ pub enum SettingsRoute {
     Import,
     #[at("/settings/export")]
     Export,
+    #[at("/settings/mounted")]
+    Mounted,
     #[at("/settings/data")]
     Data,
     #[at("/settings/reportproblem")]
@@ -108,6 +110,7 @@ fn switch_settings(route: SettingsRoute) -> Html {
         SettingsRoute::MapSettings => html! { <pages::MapSettings /> },
         SettingsRoute::Import => html! { <pages::ImportPlaces /> },
         SettingsRoute::Export => html! { <pages::ExportTrack /> },
+        SettingsRoute::Mounted => html! { <pages::MountedDBSettings /> },
         SettingsRoute::Data => html! { <pages::DataSettings /> },
         SettingsRoute::ReportProblem => html! { <pages::ReportProblem /> },
         SettingsRoute::Update => html! { <pages::Update /> },
@@ -155,6 +158,7 @@ impl SettingsRoute {
             PersistedSettingsRoute::MapSettings => Self::MapSettings,
             PersistedSettingsRoute::Import => Self::Import,
             PersistedSettingsRoute::Export => Self::Export,
+            PersistedSettingsRoute::Mounted => Self::Mounted,
             PersistedSettingsRoute::Data => Self::Data,
             PersistedSettingsRoute::ReportProblem => Self::ReportProblem,
             PersistedSettingsRoute::Update => Self::Update,
@@ -168,6 +172,7 @@ impl SettingsRoute {
             Self::MapSettings => PersistedSettingsRoute::MapSettings,
             Self::Import => PersistedSettingsRoute::Import,
             Self::Export => PersistedSettingsRoute::Export,
+            Self::Mounted => PersistedSettingsRoute::Mounted,
             Self::Data => PersistedSettingsRoute::Data,
             Self::ReportProblem => PersistedSettingsRoute::ReportProblem,
             Self::Update => PersistedSettingsRoute::Update,

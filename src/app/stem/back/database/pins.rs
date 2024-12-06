@@ -11,12 +11,15 @@ use crate::{
     ws_session::send_message_to_front,
 };
 
-use super::get_db_pool;
+use super::get_main_db_pool;
 
 /// Save a new pin (if id is None) or update an existing pin.
 pub fn save_pin(pin: Pin) {
     get_runtime().spawn(async move {
-        if let Err(e) = save_pin_to_db(&get_db_pool(), &pin).await {
+        let Ok(conn) = get_main_db_pool() else {
+            return;
+        };
+        if let Err(e) = save_pin_to_db(&conn, &pin).await {
             error!("Failed to save pin. {e}");
             return;
         }
@@ -27,7 +30,10 @@ pub fn save_pin(pin: Pin) {
 /// Delete a pin.
 pub fn delete_pin(db_idx: i64) {
     get_runtime().spawn(async move {
-        if let Err(e) = delete_pin_in_db(&get_db_pool(), db_idx).await {
+        let Ok(conn) = get_main_db_pool() else {
+            return;
+        };
+        if let Err(e) = delete_pin_in_db(&conn, db_idx).await {
             error!("Failed to delete pin. {e}");
             return;
         }
@@ -37,7 +43,10 @@ pub fn delete_pin(db_idx: i64) {
 
 /// Update the in-memory copy of the pins and send the state to the frontend.
 pub async fn update_derived_pins() {
-    let all_pins = match fetch_all_pins(&get_db_pool()).await {
+    let Ok(conn) = get_main_db_pool() else {
+        return;
+    };
+    let all_pins = match fetch_all_pins(&conn).await {
         Ok(a) => a,
         Err(e) => {
             error!("Failed to fetch pins. {e}");
@@ -164,7 +173,7 @@ pub async fn save_pin_to_db(
         .bind(lists_str)
         .bind(tags_str)
         .bind(boundary_str_option)
-        .fetch_one(&mut tx)
+        .fetch_one(&mut *tx)
         .await?
         .get(0);
         tx.commit().await?;
@@ -243,7 +252,7 @@ mod tests {
     #[tokio::test]
     async fn test_simple_pins_db() {
         test_setup("test_simple_pins_db/").await;
-        let conn = get_db_pool();
+        let conn = get_main_db_pool().unwrap();
         add_test_pins(&conn).await;
 
         let pins = fetch_all_pins(&conn).await.unwrap();
@@ -258,7 +267,7 @@ mod tests {
     #[tokio::test]
     async fn test_delete_pins() {
         test_setup("test_delete_pins/").await;
-        let conn = get_db_pool();
+        let conn = get_main_db_pool().unwrap();
         add_test_pins(&conn).await;
         delete_pin_in_db(&conn, 1).await.unwrap();
 

@@ -93,8 +93,7 @@ pub fn BouncySavedScrollContainer(p: &BouncySavedScrollContainerProps) -> Html {
     html! {
         <div
             class={classes!(
-                Classes::from("grow overflow-scroll h-0 w-full max-w-prose \
-                              mx-auto"),
+                Classes::from("grow overflow-scroll h-0 w-full mx-auto"),
                 p.class.clone()
             )}
             onscroll={onscroll}

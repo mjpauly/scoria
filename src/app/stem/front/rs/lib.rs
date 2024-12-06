@@ -60,7 +60,7 @@ pub fn App() -> Html {
     wss.clone().spawn_state_requester();
 
     // Notify backend whenever the UI state changes
-    ui_state::init_backend_listener(wss.clone());
+    ui_state::init_front_listener(wss.clone());
 
     // Get the frontend key / scope to use as the router basename
     let basename = format!("/{}", router::get_scope());

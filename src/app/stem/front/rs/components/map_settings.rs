@@ -35,6 +35,11 @@ pub fn MiscMapSettings() -> Html {
         dispatch.reduce_mut_callback(move |s: &mut FrontState| {
             s.map.open_in_google_maps = !s.map.open_in_google_maps;
         });
+    let hide_points_outside_viewbounds_onclick =
+        dispatch.reduce_mut_callback(move |s: &mut FrontState| {
+            s.map.style.hide_points_outside_viewbounds =
+                !s.map.style.hide_points_outside_viewbounds;
+        });
 
     html! {
         <>
@@ -56,6 +61,11 @@ pub fn MiscMapSettings() -> Html {
                         text={"Open Links in Google Maps"}
                     />
                 }
+                <SettingsCardToggle
+                    checked={map.style.hide_points_outside_viewbounds}
+                    onclick={hide_points_outside_viewbounds_onclick}
+                    text={"Hide Points Outside Viewbounds"}
+                />
             </SettingsCard>
         </>
     }

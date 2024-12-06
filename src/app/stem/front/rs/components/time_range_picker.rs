@@ -1,78 +1,115 @@
 //! Picker element for a date and time range, including convenience buttons for
 //! today, the past 24 hours, and the past 7 days.
 
+use anyhow::Context;
 use common::time_range::TimeDeltaRange;
-use common::TimeRange;
-use time::macros::{datetime, format_description};
+use jiff::{civil::DateTime, Timestamp, Zoned};
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
 use yewdux::prelude::*;
 
 use crate::components::{DATETIME_INPUT_STYLE, SECONDARY_BUTTON_STYLE};
-use crate::ui_state::FrontState;
+use crate::ui_state::{BackState, FrontState};
+use crate::unwrapping::unwrap_result_or_log;
+
+/// Format a timestamp in a timezone, falling back to UTC on failure
+fn format_timestamp(ts: &Timestamp, tz: &str) -> String {
+    let zdt = ts
+        .intz(tz)
+        .with_context(|| format!("converting to timezone {tz}"))
+        .unwrap_or_else(|e| {
+            tracing::error!("{e:?}");
+            ts.intz("UTC").unwrap()
+        });
+    // format iso8601 up to second precision
+    format!("{:.0}", zdt.datetime())
+}
+
+/// Parse the datetime received from a type="datetime-local" html input.
+fn parse_datetime_input(val: &str, tz: &str) -> Result<Zoned, jiff::Error> {
+    let dt: DateTime = val.parse()?;
+    dt.intz(tz)
+}
+
+fn now(tz: &str) -> Zoned {
+    Timestamp::now()
+        .intz(tz)
+        .unwrap_or_else(|_| Timestamp::now().intz("UTC").unwrap())
+}
 
 #[function_component]
 pub fn TimeRangePicker() -> Html {
-    // format used to put a time::OffsetDatetime into an HtmlInputElement
-    let format = format_description!("[year]-[month]-[day]T[hour]:[minute]");
+    let map_tz = use_selector(|s: &BackState| s.map_tz.clone());
 
     let dispatch = Dispatch::<FrontState>::new();
     let time_range = use_selector(|s: &FrontState| s.map.time_range);
 
-    let start_onchange = dispatch.reduce_mut_callback_with(
-        move |s: &mut FrontState, e: Event| {
-            let start_elem: HtmlInputElement = e.target_dyn_into().unwrap();
-            if let Ok(val) = parse_datetime_input(&start_elem.value()) {
-                s.map.time_range.start = val;
-                // update the time_delta_range to match
-                s.map.time_delta_range.start_offset =
-                    val - time::OffsetDateTime::now_utc();
-                s.map.time_delta_range.snap_start_to_day = false;
-            }
-        },
-    );
-    let end_onchange = dispatch.reduce_mut_callback_with(
-        move |s: &mut FrontState, e: Event| {
-            let end_elem: HtmlInputElement = e.target_dyn_into().unwrap();
-            if let Ok(mut val) = parse_datetime_input(&end_elem.value()) {
-                // get all data in the minute
-                val += time::Duration::seconds(59);
-                s.map.time_range.end = val;
-                // update the time_delta_range to match
-                s.map.time_delta_range.end_offset =
-                    val - time::OffsetDateTime::now_utc();
-                s.map.time_delta_range.snap_end_to_day = false;
-            }
-        },
-    );
+    let start_time_formatted = format_timestamp(&time_range.start, &map_tz);
+    let end_time_formatted = format_timestamp(&time_range.end, &map_tz);
 
+    let start_onchange = {
+        let map_tz = map_tz.clone();
+        dispatch.reduce_mut_callback_with(
+            move |s: &mut FrontState, e: Event| {
+                let start_elem: HtmlInputElement = e.target_dyn_into().unwrap();
+                if let Ok(val) =
+                    parse_datetime_input(&start_elem.value(), &map_tz)
+                {
+                    s.map.time_range.start = val.timestamp();
+                    // update the time_delta_range to match
+                    if let Ok(new_start_offset) = now(&map_tz).until(&val) {
+                        s.map.time_delta_range.start_offset = new_start_offset;
+                    }
+                    s.map.time_delta_range.snap_start_to_day = false;
+                }
+            },
+        )
+    };
+    let end_onchange = {
+        let map_tz = map_tz.clone();
+        dispatch.reduce_mut_callback_with(
+            move |s: &mut FrontState, e: Event| {
+                let end_elem: HtmlInputElement = e.target_dyn_into().unwrap();
+                if let Ok(val) =
+                    parse_datetime_input(&end_elem.value(), &map_tz)
+                {
+                    s.map.time_range.end = val.timestamp();
+                    // update the time_delta_range to match
+                    if let Ok(new_end_offset) = now(&map_tz).until(&val) {
+                        s.map.time_delta_range.end_offset = new_end_offset;
+                    }
+                    s.map.time_delta_range.snap_end_to_day = false;
+                }
+            },
+        )
+    };
+
+    let (tz0, tz1, tz2, tz3) = (
+        map_tz.clone(),
+        map_tz.clone(),
+        map_tz.clone(),
+        map_tz.clone(),
+    );
     let all_onclick =
         dispatch.reduce_mut_callback(move |s: &mut FrontState| {
-            s.map.time_range = time_range_all();
-            let now = time::OffsetDateTime::now_utc();
-            s.map.time_delta_range = TimeDeltaRange {
-                start_offset: s.map.time_range.start - now,
-                end_offset: s.map.time_range.end - now,
-                snap_start_to_day: true,
-                snap_end_to_day: true,
-                offset: Some(local_offset()),
-            };
+            s.map.time_delta_range =
+                unwrap_result_or_log!(TimeDeltaRange::all());
+            update_time_range(s, &tz0);
         });
     let week_onclick =
         dispatch.reduce_mut_callback(move |s: &mut FrontState| {
-            s.map.time_delta_range = time_delta_range_week();
-            // update absolute range
-            s.map.time_range = (&s.map.time_delta_range).into();
+            s.map.time_delta_range = TimeDeltaRange::week();
+            update_time_range(s, &tz1);
         });
     let day_onclick =
         dispatch.reduce_mut_callback(move |s: &mut FrontState| {
-            s.map.time_delta_range = time_delta_range_day();
-            s.map.time_range = (&s.map.time_delta_range).into();
+            s.map.time_delta_range = TimeDeltaRange::past_24h();
+            update_time_range(s, &tz2);
         });
     let today_onclick =
         dispatch.reduce_mut_callback(move |s: &mut FrontState| {
-            s.map.time_delta_range = time_delta_range_today();
-            s.map.time_range = (&s.map.time_delta_range).into();
+            s.map.time_delta_range = TimeDeltaRange::today();
+            update_time_range(s, &tz3);
         });
     html! {
         <div class="my-1 overflow-scroll w-screen">
@@ -85,14 +122,14 @@ pub fn TimeRangePicker() -> Html {
                 <div class="flex items-center justify-between flex-wrap">
                     <label for="start">{"Start"}</label>
                     <input type="datetime-local" id="start"
-                        value={time_range.start.format(&format).unwrap()}
+                        value={start_time_formatted}
                         class={format!("m-1 ml-4 {}", DATETIME_INPUT_STYLE)}
                         onchange={start_onchange} />
                 </div>
                 <div class="flex items-center justify-between flex-wrap">
                     <label for="end">{"End"}</label>
                     <input type="datetime-local" id="end"
-                        value={time_range.end.format(&format).unwrap()}
+                        value={end_time_formatted}
                         class={format!("m-1 ml-4 {}", DATETIME_INPUT_STYLE)}
                         onchange={end_onchange}/>
                 </div>
@@ -115,68 +152,17 @@ pub fn TimeRangePicker() -> Html {
                 class={format!("m-1 py-1.5 px-3 {}", SECONDARY_BUTTON_STYLE)}>
                     {"Today"}
             </button>
+
+            // <p class="text-neutral-500 mx-2">
+                // {"Time Zone: "}{&map_tz.0}
+            // </p>
         </div>
     }
 }
 
-pub fn local_offset() -> time::UtcOffset {
-    time::UtcOffset::current_local_offset().unwrap()
-}
-
-/// Parse the datetime received from a type="datetime-local" html input.
-fn parse_datetime_input(
-    val: &str,
-) -> Result<time::OffsetDateTime, time::error::Parse> {
-    let format = format_description!("[year]-[month]-[day]T[hour]:[minute]");
-    Ok(time::PrimitiveDateTime::parse(val, &format)?
-        .assume_offset(local_offset()))
-}
-
-pub fn time_delta_range_today() -> TimeDeltaRange {
-    TimeDeltaRange {
-        start_offset: time::Duration::ZERO,
-        end_offset: time::Duration::ZERO,
-        snap_start_to_day: true,
-        snap_end_to_day: true,
-        offset: Some(local_offset()),
-    }
-}
-
-fn time_delta_range_day() -> TimeDeltaRange {
-    TimeDeltaRange {
-        start_offset: -time::Duration::DAY,
-        end_offset: time::Duration::ZERO,
-        snap_start_to_day: false,
-        snap_end_to_day: false,
-        offset: Some(local_offset()),
-    }
-}
-
-/// Get the TimeDeltaRange for a particular date.
-pub fn time_delta_range_date(date: time::Date) -> TimeDeltaRange {
-    let delta = time::OffsetDateTime::now_local().unwrap().date() - date;
-    TimeDeltaRange {
-        start_offset: -delta,
-        end_offset: -delta,
-        snap_start_to_day: true,
-        snap_end_to_day: true,
-        offset: Some(local_offset()),
-    }
-}
-
-fn time_delta_range_week() -> TimeDeltaRange {
-    TimeDeltaRange {
-        start_offset: -time::Duration::WEEK,
-        end_offset: time::Duration::ZERO,
-        snap_start_to_day: false,
-        snap_end_to_day: false,
-        offset: Some(local_offset()),
-    }
-}
-
-fn time_range_all() -> TimeRange {
-    TimeRange {
-        start: datetime!(2023-01-01 0:00).assume_offset(local_offset()),
-        end: datetime!(2033-01-01 0:00).assume_offset(local_offset()),
+/// Update the map.time_range based on a new value for map.time_delta_range.
+pub fn update_time_range(s: &mut FrontState, tz: &str) {
+    if let Ok(new_range) = s.map.time_delta_range.to_time_range(tz) {
+        s.map.time_range = new_range;
     }
 }

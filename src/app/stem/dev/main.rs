@@ -4,6 +4,8 @@
 //! RUST_LOG=info ibazel run :dev
 //!
 
+use std::path::PathBuf;
+
 use tokio::signal::unix::{signal, SignalKind};
 use tokio::time::{sleep, Duration};
 
@@ -31,6 +33,8 @@ async fn main() -> Result<(), std::io::Error> {
     // Spawn our data generator
     tokio::spawn(data_generator());
 
+    // import_mounted_db().await;
+
     println!("Running server until ctrl-c is sent.");
     // If we're using ibazel it will upgrade our SIGINT (ctrl-c) to SIGTERM, so
     // we need to listen to both signals.
@@ -57,10 +61,12 @@ async fn data_generator() {
     // let starting_n = 30;
     // let starting_n = 1;
     let mut data = stem::database::OSLocationData {
-        timestamp: time::OffsetDateTime::now_utc().unix_timestamp()
+        timestamp: jiff::Timestamp::now().as_second()
             - (starting_n * update_rate as i64),
-        latitude: 35.68697,
-        longitude: 139.70140,
+        // latitude: 35.68697,
+        // longitude: 139.70140,
+        latitude: 37.5,
+        longitude: -122.3,
         horizontal_accuracy: random::<f64>() * 3.0 + 2.0,
 
         msl_altitude: 0.0,
@@ -98,7 +104,14 @@ async fn data_generator() {
         data.vertical_accuracy -= 0.01;
         data.story += 1;
         data.speed = (vx * vx + vy * vy).sqrt();
-        data.course = 180. - vy.atan2(vx).to_degrees();
+        data.course = (vx.atan2(vy).to_degrees() + 360.0).rem_euclid(360.0);
         stem::core::log_location(data.clone()).await;
     }
+}
+
+/// Note: must add dep on import_seg.db to stem/BUILD file.
+#[allow(unused)]
+async fn import_mounted_db() {
+    let import_path = PathBuf::from("src/app/stem/db_full/import_seg.db");
+    stem::database::mounted::mount_db(import_path).await;
 }

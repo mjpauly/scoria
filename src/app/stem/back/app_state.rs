@@ -11,19 +11,21 @@
 //! For unit testing we make it a thread_local. Wrapping in an extra Arc is
 //! necessary since we can't pass references to thread_locals.
 
+use std::collections::BTreeMap;
 use std::fs;
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::sync::{Arc, Mutex};
 
 use actix_web::dev::ServerHandle;
+use common::mounted::MountID;
 use common::state::{ok_or_default, DerivedState, MapState, PendingEvents};
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
+use tokio::sync::Mutex as AsyncMutex;
 use tracing::error;
 
-use crate::map::geojson::empty_geojson;
 use crate::paths::{get_library_dir, Paths};
 use crate::ws_session::{self, send_derived_state_to_front};
 use common::{BackState, FrontState};
@@ -41,8 +43,12 @@ pub struct AppState {
     // App directory paths, set during startup so not mutable
     pub paths: Paths,
 
-    // SqlitePool connection, sharable between threads and clonable
-    pub db: SqlitePool,
+    // Mounted databases that can be opened successfully, including the main
+    // database at index 0. Errors for dbs that are on disk, but not openable,
+    // in common::state::DerivedState.mounted_dbs_on_disk. BTreeMap is used
+    // since it's ordered, which is nice for displaying, and has fast access to
+    // the first element.
+    pub dbs: Mutex<BTreeMap<MountID, SqlitePool>>,
 
     // Address of the websocket actor so we can send messages to it
     pub ws_addr: Mutex<Option<actix::Addr<ws_session::WsSession>>>,
@@ -71,9 +77,9 @@ pub struct MapData {
     // wait for the previous to finish
     pub geojson_wait_lock: tokio::sync::Mutex<()>,
     pub geojson_update_lock: tokio::sync::Mutex<()>,
-    // data to pass to frontend via an actix route
-    pub points_geojson: tokio::sync::Mutex<String>,
-    pub lines_geojson: tokio::sync::Mutex<String>,
+    // mounted database geojson strings (points, lines) to pass to frontend via
+    // http route
+    pub mount_geojsons: AsyncMutex<BTreeMap<MountID, (String, String)>>,
     // previous map state to determine if an update is needed
     pub prev_map_state: tokio::sync::Mutex<Option<MapState>>,
     // previous map state when timeline was lasts updated
@@ -85,10 +91,7 @@ impl Default for MapData {
         Self {
             geojson_wait_lock: tokio::sync::Mutex::new(()),
             geojson_update_lock: tokio::sync::Mutex::new(()),
-            points_geojson: tokio::sync::Mutex::new(
-                empty_geojson().to_string(),
-            ),
-            lines_geojson: tokio::sync::Mutex::new(empty_geojson().to_string()),
+            mount_geojsons: AsyncMutex::new(BTreeMap::new()),
             prev_map_state: tokio::sync::Mutex::new(None),
             prev_map_state_dashboard: tokio::sync::Mutex::new(None),
         }
@@ -155,6 +158,8 @@ pub struct WrapperMessages {
     pub should_import_sqlite_log: bool,
     pub should_export_track: bool,
     pub should_import_places_geojson: bool,
+    pub should_mount_db: bool,
+    pub should_export_image: bool,
 }
 
 impl AppState {
@@ -189,15 +194,15 @@ impl AppState {
 
     /// Initialize the AppState
     #[cfg(not(test))]
-    pub fn init(paths: Paths, app_version: String, db: SqlitePool) {
-        Self::do_init(&APP_STATE, paths, app_version, db);
+    pub fn init(paths: Paths, app_version: String) {
+        Self::do_init(&APP_STATE, paths, app_version);
     }
 
     /// Initialize the AppState
     #[cfg(test)]
-    pub fn init(paths: Paths, app_version: String, db: SqlitePool) {
+    pub fn init(paths: Paths, app_version: String) {
         APP_STATE.with(|state| {
-            Self::do_init(state, paths, app_version, db);
+            Self::do_init(state, paths, app_version);
         });
     }
 
@@ -206,7 +211,6 @@ impl AppState {
         state: &OnceCell<Arc<AppState>>,
         paths: Paths,
         app_version: String,
-        db: SqlitePool,
     ) {
         let state_file = paths.library_dir.join(STATE_FNAME);
         let mut persistent = match fs::read_to_string(state_file) {
@@ -242,7 +246,7 @@ impl AppState {
         (*state)
             .set(Arc::new(AppState {
                 paths,
-                db,
+                dbs: Mutex::new(BTreeMap::new()),
                 ws_addr: Mutex::new(None),
                 server_handle: tokio::sync::Mutex::new(None),
                 persistent: Mutex::new(persistent),
@@ -405,6 +409,11 @@ mod tests {
 
     /// An unexpected enum value can cause "trailing character" errors when
     /// parsing, unless annotated with `ok_or_default` for enum fields.
+    ///
+    /// ```
+    /// #[serde(deserialize_with = "ok_or_default")]
+    /// pub colored_datastream: ColoredDataStream,
+    /// ```
     #[tokio::test]
     async fn state_failure_case() {
         let s = r##"{"front":{"map":{"style":{"colored_datastream":"Unexpected","show_colorbar":false}}}}"##;
@@ -412,15 +421,11 @@ mod tests {
         assert!(!p.front.unwrap().map.style.show_colorbar);
     }
 
-    /// Other field types don't seem to have propagating errors like enums do.
+    /// Check that we can deserialize something that is completely the wrong
+    /// type, and get the default value out.
     #[tokio::test]
-    async fn another_state_failure_case() {
-        let s = r##"{"time_pref":{"twelve_hour_clock":true}}"##;
-        let p: FrontState = serde_json::from_str(s).unwrap();
-        assert_eq!(p.time_pref.twelve_hour_clock, true);
-
-        let s = r##"{"time_pref":{"twelve_hour_clock":"string"}}"##;
-        let p: FrontState = serde_json::from_str(s).unwrap();
-        assert_eq!(p.time_pref.twelve_hour_clock, false);
+    async fn span_failure_case() {
+        let s = r##"{"front":{"map":{"time_delta_range":{"start_offset":[0,0],"end_offset":[0,0],"snap_start_to_day":true,"snap_end_to_day":true,"offset":[-8,0,0]},"time_range":{"start":[2024,309,0,0,0,0,-8,0,0],"end":[2024,309,23,59,59,0,-8,0,0]}}}}"##;
+        let _: PersistentState = serde_json::from_str(s).unwrap();
     }
 }

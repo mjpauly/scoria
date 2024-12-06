@@ -1,15 +1,17 @@
 //! Timeline of movement and dwells
 
+use jiff::Zoned;
 use serde::{Deserialize, Serialize};
 
-use crate::{pin::Pin, LngLat, TimeRange};
+use crate::{pin::Pin, LngLat};
 
 pub type Timeline = Vec<Period>;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Period {
     pub kind: PeriodKind,
-    pub time: TimeRange,
+    pub start: Zoned,
+    pub end: Zoned,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

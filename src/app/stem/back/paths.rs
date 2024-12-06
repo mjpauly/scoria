@@ -14,7 +14,7 @@
 //!
 //! - Documents
 //!     - data.db{,-wal,-shm}
-//!     - stemlog.txt // no longer in use
+//!     - mount/{num}/data.db{,-wal,-shm}
 //! - Library
 //!     - persistent_state.json
 //!             - ok to not back up, user can re-input their settings
@@ -56,7 +56,7 @@ use std::path::PathBuf;
 use crate::app_state::AppState;
 
 const DB_PREFIX: &str = "sqlite://";
-const DB_FNAME: &str = "data.db";
+pub const DB_FNAME: &str = "data.db";
 
 // name of the directory which contains cached map data
 const MAP_CACHE_DIR: &str = "map_cache";
@@ -66,7 +66,10 @@ const UNEXPLORED_AREA_DIR: &str = "unexplored_area";
 // name of the directory containing hourly logs
 const LOGS_DIR: &str = "logs";
 
-const EXPORT_FNAME: &str = "track_export";
+const TRACK_EXPORT_FNAME: &str = "track_export";
+const IMAGE_EXPORT_FNAME: &str = "image_export.jpeg";
+
+const MOUNT_DIR: &str = "mount";
 
 // Struct that contains the app directory paths.
 // Lets us keep the paths without having to pass it from Swift every function
@@ -131,8 +134,20 @@ pub fn get_logs_dir_helper(paths: &Paths) -> PathBuf {
     paths.library_dir.join(LOGS_DIR)
 }
 
-pub fn get_export_fname() -> PathBuf {
-    get_tmp_dir().join(EXPORT_FNAME)
+pub fn get_track_export_fname() -> PathBuf {
+    get_tmp_dir().join(TRACK_EXPORT_FNAME)
+}
+
+pub fn get_image_export_fname() -> PathBuf {
+    get_tmp_dir().join(IMAGE_EXPORT_FNAME)
+}
+
+pub fn get_mount_root_dir() -> PathBuf {
+    get_documents_dir().join(MOUNT_DIR)
+}
+
+pub fn get_mount_dir_with_id(id: u32) -> PathBuf {
+    get_mount_root_dir().join(id.to_string())
 }
 
 #[cfg(test)]

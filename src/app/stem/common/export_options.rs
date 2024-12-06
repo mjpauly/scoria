@@ -15,8 +15,7 @@ pub struct ExportOptions {
 impl Default for ExportOptions {
     fn default() -> Self {
         Self {
-            format: ExportFormat::CSV,
-            // format: ExportFormat::GPX,
+            format: ExportFormat::Scoria,
             view_bounded: true,
             max_points: DEFAULT_MAX_POINTS,
         }
@@ -35,10 +34,12 @@ impl Default for ExportOptions {
     EnumIter,
 )]
 pub enum ExportFormat {
+    #[strum(serialize = "Scoria")]
+    Scoria,
     #[strum(serialize = "CSV")]
     CSV,
-    // GeoJson,
     #[strum(serialize = "GPX")]
     GPX,
+    // GeoJson,
     // KML,
 }

@@ -9,7 +9,7 @@ use common::{
 use itertools::Itertools;
 use tracing::{instrument, Level};
 
-use crate::metrics::dashboard::update_timeseries_plot_data;
+use crate::tz::location_datetime_fn;
 
 use super::dwells::{
     dwell_score_segment, long_dwell_threshold, segment_on_visibility,
@@ -22,12 +22,11 @@ pub fn get_cmap_data(
     colored_datastream: &ColoredDataStream,
     // bool indicates if point contributes to the cmap, or will be hidden
     records: &[(&Location, bool)],
-    offset: &time::UtcOffset,
 ) -> Option<(CmapParams, Vec<Option<f64>>)> {
     if !colored_datastream.is_some() {
         return None;
     }
-    let cmap_vals = get_colored_data_vals(colored_datastream, records, offset);
+    let cmap_vals = get_colored_data_vals(colored_datastream, records);
     let mut params = CmapParams::default();
     if *colored_datastream == ColoredDataStream::Course {
         params.cmax = 360.;
@@ -45,11 +44,6 @@ pub fn get_cmap_data(
         params.cmax = float::max(only_valid_data);
     }
     debug_assert_eq!(records.len(), cmap_vals.len());
-    update_timeseries_plot_data(
-        records.iter().map(|r| r.0),
-        &cmap_vals,
-        colored_datastream,
-    );
     Some((params, cmap_vals))
 }
 
@@ -58,7 +52,6 @@ pub fn get_cmap_data(
 pub fn get_colored_data_vals(
     colored_datastream: &ColoredDataStream,
     records: &[(&Location, bool)],
-    offset: &time::UtcOffset,
 ) -> Vec<Option<f64>> {
     if *colored_datastream == ColoredDataStream::ShortDwellDetection {
         delta_color_vals(records, |(a, b)| {
@@ -77,10 +70,24 @@ pub fn get_colored_data_vals(
             .iter()
             .map(|(l, visible)| {
                 visible
-                    .then(|| colored_datastream.get_stream(l, offset))
+                    .then(|| {
+                        colored_datastream.get_stream(l, location_tod_fn())
+                    })
                     .flatten()
             })
             .collect()
+    }
+}
+
+/// Return a fn that converts Location to time of day in seconds
+pub fn location_tod_fn() -> impl Fn(&Location) -> Option<f64> {
+    let f = location_datetime_fn();
+    move |x: &Location| {
+        f(x).ok().map(|zdt| {
+            zdt.hour() as f64 * 60. * 60.
+                + zdt.minute() as f64 * 60.
+                + zdt.second() as f64
+        })
     }
 }
 

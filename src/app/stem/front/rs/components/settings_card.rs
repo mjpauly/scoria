@@ -11,7 +11,7 @@ use crate::components::{Select, ShortInput, ToggleSwitch};
 
 // A line on a settings card that is a horizontal flexbox that takes the full
 // width and separates the elements to the ends of the line.
-const LINE_FLEX_STYLE: &str =
+const SETTINGS_LINE_STYLE: &str =
     "flex items-center justify-between py-2 px-4 w-full active:bg-neutral-800";
 
 #[derive(Properties, PartialEq)]
@@ -92,7 +92,7 @@ pub fn SettingsCardButtonWithChildren(
     p: &SettingsCardButtonWithChildrenProps,
 ) -> Html {
     html! {
-        <button onclick={p.onclick.clone()} class={LINE_FLEX_STYLE} >
+        <button onclick={p.onclick.clone()} class={SETTINGS_LINE_STYLE} >
             { for p.children.iter() }
         </button>
     }
@@ -157,7 +157,7 @@ pub struct SettingsCardExternalLinkProps {
 pub fn SettingsCardExternalLink(p: &SettingsCardExternalLinkProps) -> Html {
     html! {
         <a
-            class={LINE_FLEX_STYLE}
+            class={SETTINGS_LINE_STYLE}
             href={p.href.clone()}
         >
             <label>{p.text.clone()}</label>
@@ -188,8 +188,8 @@ where
     <C as FromStr>::Err: Debug,
 {
     html! {
-        <label class={LINE_FLEX_STYLE}>
-            {p.text.clone()}
+        <label class={SETTINGS_LINE_STYLE}>
+            <span class="text-left">{p.text.clone()}</span>
             <Select<C>
                 selection={p.selection.clone()}
                 choices={p.choices.clone()}
@@ -213,7 +213,7 @@ pub struct SettingsCardToggleProps {
 #[function_component]
 pub fn SettingsCardToggle(p: &SettingsCardToggleProps) -> Html {
     html! {
-        <label class={LINE_FLEX_STYLE}>
+        <label class={SETTINGS_LINE_STYLE}>
             {p.text.clone()}
             <ToggleSwitch
                 class={"ml-4 mr-1"}
@@ -239,7 +239,7 @@ pub struct SettingsCardInputProps {
 #[function_component]
 pub fn SettingsCardInput(p: &SettingsCardInputProps) -> Html {
     html! {
-        <label class={LINE_FLEX_STYLE}>
+        <label class={SETTINGS_LINE_STYLE}>
             {p.text.clone()}
             <ShortInput
                 class={classes!(

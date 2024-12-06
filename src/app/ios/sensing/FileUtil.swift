@@ -17,6 +17,7 @@ public class CustomDocumentPickerViewController: UIDocumentPickerViewController 
 // The reason we're presenting a file picker.
 public enum PresentationSource {
     case database
+    case mountedDatabase
     case placesGeojson
 }
 
@@ -96,8 +97,8 @@ func getLibraryDirectory() -> URL {
     return paths[0]
 }
 
-func getTemporaryDirectoryPath() -> String {
-    return NSTemporaryDirectory()
+func getTemporaryDirectory() -> URL {
+    return FileManager.default.temporaryDirectory
 }
 
 func getBundlePath() -> String {

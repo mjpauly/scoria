@@ -2,26 +2,27 @@
 //! covered, min/max speeds, and starting and ending times.
 
 use common::map_style::ColoredDataStream;
+use common::mounted::MountID;
 use common::state::MapSettingsTab;
+use common::time_range::TimeDeltaRange;
 use common::timeline::PeriodKind;
-use common::units::time::LONG_DAY_OF_WEEK_AND_DATE;
+use common::units::time::format_date;
 use common::LngLat;
-use serde_json::json;
-use time::OffsetDateTime;
+use jiff::{civil::Date, SignedDuration, Zoned};
+use serde_json::{json, Value};
 use yew::prelude::*;
 use yew_icons::{Icon, IconId};
 use yew_router::prelude::*;
 use yewdux::prelude::*;
 
-use crate::components::time_range_picker::{
-    local_offset, time_delta_range_date,
-};
+use crate::components::time_range_picker::update_time_range;
 use crate::components::{BouncySavedScrollContainer, SECONDARY_BUTTON_STYLE};
 use crate::components::{TabBar, TopNav};
 use crate::maplibre::val_to_jsval;
 use crate::plotly;
 use crate::router::Route;
-use crate::ui_state::{DerivedState, FrontState};
+use crate::ui_state::{BackState, DerivedState, FrontState};
+use crate::unwrapping::unwrap_result_or_log;
 
 #[function_component]
 pub fn MetricsDashboard() -> Html {
@@ -30,7 +31,10 @@ pub fn MetricsDashboard() -> Html {
             <TopNav>
                 <></>
             </TopNav>
-            <BouncySavedScrollContainer class="text-left" id="metrics-page">
+            <BouncySavedScrollContainer
+                class="text-left max-w-prose"
+                id="metrics-page"
+            >
                 <DefaultMetrics />
                 // <ColoredTimeSeriesPlot />
                 <Timeline />
@@ -116,9 +120,9 @@ fn ScalarMetric(p: &ScalarMetricProps) -> Html {
 fn Timeline() -> Html {
     let timeline = use_selector(|s: &DerivedState| s.timeline.clone());
     let unit_pref = use_selector(|s: &FrontState| s.unit_pref);
-    let time_pref = use_selector(|s: &FrontState| s.time_pref);
+    let time_pref = use_selector(|s: &FrontState| s.time_pref.clone());
 
-    let format_dur = |dur: time::Duration| {
+    let format_dur = |dur: SignedDuration| {
         humantime::format_duration(dur.unsigned_abs()).to_string()
     };
 
@@ -143,14 +147,15 @@ fn Timeline() -> Html {
 
     let show_details = use_state(|| Option::<usize>::None);
 
-    let new_day_html = |date: time::Date| {
-        let day = date
-            .format(LONG_DAY_OF_WEEK_AND_DATE)
-            .unwrap_or_else(|_| "New Day".to_string());
+    let map_tz = use_selector(|s: &BackState| s.map_tz.clone());
+    let new_day_html = |date: Date| {
+        let day = format_date(&date).unwrap_or_else(|_| "New Day".to_string());
+        let map_tz = map_tz.clone();
         let day_onclick =
             front_dispatch.reduce_mut_callback(move |s: &mut FrontState| {
-                s.map.time_delta_range = time_delta_range_date(date);
-                s.map.time_range = (&s.map.time_delta_range).into();
+                s.map.time_delta_range =
+                    unwrap_result_or_log!(TimeDeltaRange::date(date, &map_tz));
+                update_time_range(s, &map_tz);
             });
         html! {
             <button
@@ -169,26 +174,28 @@ fn Timeline() -> Html {
         // prev_time_formatted is the last formatted time, used to determine if
         // the UTC offset has changed and should thus be displayed.
         move |(prev_date, prev_time_formatted), (i, period)| {
-            let offset = local_offset();
-            let start = period.time.start.to_offset(offset);
-            let end = period.time.end.to_offset(offset);
+            let start = &period.start;
+            let end = &period.end;
             // whether to display the new day
             let new_day = prev_date
-                .map(|p: OffsetDateTime| (p.date() != start.date()))
+                .as_ref()
+                .map(|p: &Zoned| (p.date() != start.date()))
                 .unwrap_or(true)
                 .then(|| start.date())
                 .map(new_day_html);
             if new_day.is_some() {
-                *prev_date = Some(start);
+                *prev_date = Some(start.clone());
             }
-            let mut format_time = |t: time::OffsetDateTime| {
-                let offset_different = prev_time_formatted
-                    .map(|p: OffsetDateTime| p.offset() != t.offset())
-                    .unwrap_or(true);
-                *prev_time_formatted = Some(t);
-                time_pref
-                    .format_time_with_previous(t, *prev_date, offset_different)
-                    .unwrap_or_else(|_| "?".to_string())
+            let mut format_time = |t: &Zoned| {
+                let date_ref = prev_date.as_ref().map(|zdt: &Zoned| zdt.date());
+                let tz_ref = prev_time_formatted.as_ref().map(
+                    |zdt: &Zoned| zdt.time_zone()
+                );
+                let out = time_pref
+                    .format_jiff_time_with_previous(t, &tz_ref, &date_ref)
+                    .unwrap_or_else(|_| "?".to_string());
+                *prev_time_formatted = Some(t.clone());
+                out
             };
 
             Some(match &period.kind
@@ -197,7 +204,7 @@ fn Timeline() -> Html {
             // display a new day marker after the element where the day changed
             let start_time = format_time(start);
             let end_time = format_time(end);
-            let f_dur = format_dur(start - end);
+            let f_dur = format_dur(start.duration_until(end));
             let lnglat = dwell.lnglat;
             let create_pin_onclick = {
                 let create_pin = create_pin.clone();
@@ -340,7 +347,7 @@ fn Timeline() -> Html {
             }
         }
         PeriodKind::Movement(movement) => {
-            let f_dur = format_dur(start - end);
+            let f_dur = format_dur(start.duration_until(end));
             let f_distance =
                 unit_pref.format_length(movement.distance, Some(0), Some(2));
             html! {
@@ -382,47 +389,44 @@ fn Timeline() -> Html {
 
 #[function_component]
 pub fn ColoredTimeSeriesPlot() -> Html {
-    let raw_data =
+    let ids_raw_data =
         use_selector(|s: &DerivedState| s.colored_timeseries_plot.clone());
     let colored_datastream =
         use_selector(|s: &FrontState| s.map.style.colored_datastream);
     let unit_pref = use_selector(|s: &FrontState| s.unit_pref);
-    let offset = local_offset();
-    let str_dates = raw_data
-        .t
+    let mut ylabel = None;
+    let data: Value = ids_raw_data
         .iter()
-        .map(|t| plotly::time_to_str(&t.to_offset(offset)))
-        .collect::<Vec<_>>();
-    let y = if *colored_datastream == ColoredDataStream::TimeOfDay {
-        plotly::sec_to_timeofday(raw_data.y.iter())
-    } else if *colored_datastream == ColoredDataStream::Time {
-        json!(raw_data
-            .y
-            .iter()
-            .map(|t| plotly::time_to_str(
-                &time::OffsetDateTime::from_unix_timestamp(*t as i64)
-                    .unwrap()
-                    .to_offset(offset)
-            ))
-            .collect::<Vec<_>>())
-    } else {
-        json!(raw_data
-            .y
-            .iter()
-            .map(|x| colored_datastream.to_preferred_units(&unit_pref, *x))
-            .collect::<Vec<_>>())
-    };
-    let data = json!([{
-        "x": str_dates,
-        "y": y,
-        "type": "scatter",
-        "mode": "markers",
-        // "mode": "lines+markers",
-    }]);
+        .map(|(mount_id, raw_data)| {
+            ylabel = Some(raw_data.ylabel.clone());
+            let str_dates = raw_data
+                .t
+                .iter()
+                .map(plotly::time_to_str)
+                .collect::<Vec<_>>();
+            let y = if *colored_datastream == ColoredDataStream::TimeOfDay {
+                plotly::sec_to_timeofday(raw_data.y.iter())
+            } else if *colored_datastream == ColoredDataStream::Time {
+                json!(str_dates)
+            } else {
+                json!(raw_data
+                    .y
+                    .iter()
+                    .map(|x| colored_datastream
+                        .to_preferred_units(&unit_pref, *x))
+                    .collect::<Vec<_>>())
+            };
+            json!({
+                "x": str_dates,
+                "y": y,
+                "type": "scatter",
+                "mode": "markers",
+                "name": db_name(mount_id),
+                // "mode": "lines+markers",
+            })
+        })
+        .collect();
     let layout = json!({
-        "ylabel": {
-            "text": raw_data.ylabel,
-        },
         "yaxis": {
             "tickformat": plotly::tickformat(&colored_datastream),
         },
@@ -437,6 +441,14 @@ pub fn ColoredTimeSeriesPlot() -> Html {
             "remove": [
                 "toimage", "lasso", "select", "zoomin", "zoomout",
             ],
+        },
+        // legend ref: https://plotly.com/javascript/legend/
+        "showlegend": (ids_raw_data.len() > 1),
+        "legend": {
+            "xanchor": "right",
+            "x": 1,
+            "y": 0,
+            "bgcolor": "#111111aa",
         },
         "template": plotly::dark_template(),
     });
@@ -454,7 +466,7 @@ pub fn ColoredTimeSeriesPlot() -> Html {
                 &val_to_jsval(&layout),
                 &val_to_jsval(&config),
             );
-            // log::debug!("bb");
+            // log::debug!("b");
         },
         data,
     );
@@ -462,4 +474,13 @@ pub fn ColoredTimeSeriesPlot() -> Html {
         <div id={plot_id}>
         </div>
     }
+}
+
+fn db_name(id: &MountID) -> String {
+    Dispatch::<FrontState>::new()
+        .get()
+        .mounted_db_settings
+        .get(id)
+        .map(|setting| setting.name.clone())
+        .unwrap_or_else(|| id.to_string())
 }

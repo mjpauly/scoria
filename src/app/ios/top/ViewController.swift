@@ -142,15 +142,11 @@ extension ViewController: UIDocumentPickerDelegate {
     ) {
         guard let fileURL = urls.first else { return }
 
-        if let presentationSource = (
+        guard let presentationSource = (
             controller as? CustomDocumentPickerViewController
-        )?.presentationSource {
-            switch presentationSource {
-                case .database:
-                    handle_database_import(fileURL: fileURL)
-                case .placesGeojson:
-                    handle_places_geojson_import(fileURL: fileURL)
-            }
+        )?.presentationSource else {
+            return
         }
+        handle_import(fileURL: fileURL, presentationSource: presentationSource)
     }
 }

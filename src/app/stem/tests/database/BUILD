@@ -8,6 +8,7 @@ rust_binary(
     deps = [
         "//src/app/stem",
         "//src/app/stem:common",
+        "@stem_crate_index//:jiff",
         "@stem_crate_index//:log",
         "@stem_crate_index//:sqlx",
         "@stem_crate_index//:time",

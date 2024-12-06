@@ -108,6 +108,13 @@ Copy them from the generated .h file into `stem_jni.cpp`.
 The compiled `.class` files are also outputted. Use `javap -s Stem.class` to
 inspect the JNI interface descriptors.
 
+## Compatibility
+
+Android API levels 31 and below don't support 'wasm-unsafe-eval'. We could add
+'unsafe-eval' to the content security policy and extend support to level 29. But
+we opt for less compatibility instead of decreasing security or maintaining a
+special case for older Android API levels.
+
 ## Emulator Locations
 
 Update the location in the emulator with:

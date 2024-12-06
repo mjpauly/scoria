@@ -9,7 +9,7 @@
 //! #[serde(default)] is put on structs to indicate that missing fields are to
 //! be pulled from the type's default implementation.
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use serde::{Deserialize, Serialize};
 
@@ -19,30 +19,51 @@ use crate::{
     export_options::ExportOptions,
     filters::{DataStream, Filter, FilterOp},
     map_style::MapStyle,
-    pin::Pin,
+    mounted::{MountID, MountedDB},
+    notif_pref::NotificationPreference,
+    pin::{Pin, PinSettings},
     plot_data::TimeSeriesPlot,
-    time_range::TimeDeltaRange,
+    time_range::{TimeDeltaRange, TZ},
     timeline::{Timeline, TimelineConfig},
     units::{time::TimePreference, UnitPreference},
     view_position::ViewPosition,
     AutoConfig, LngLat, Location, TimeRange, UserConfig,
 };
 
-/// Pick the type's default if it fails to deserialize.
+/// Pick the type's default if it fails to deserialize from JSON, but error on
+/// binary formats like bincode.
 ///
 /// This ensures that an error deserializing an inner field value doesn't cause
 /// the whole deserialization to fail. This is useful, for example, when the
 /// name of an enum variant has changed, but the app is reading old data.
 ///
+/// TODO: is this warning still true?
 /// Warning: it is not sufficient only annotate an outer type. Each enum must be
 /// annotated with `ok_or_default`, since an annotation on the containing struct
 /// will fail to catch the error and cause the entire deserialization to fail.
-pub fn ok_or_default<'de, D, T>(d: D) -> Result<T, D::Error>
+pub fn ok_or_default<'de, T, D>(deserializer: D) -> Result<T, D::Error>
 where
     T: Deserialize<'de> + Default,
     D: serde::Deserializer<'de>,
 {
-    Ok(T::deserialize(d).unwrap_or_default())
+    if deserializer.is_human_readable() {
+        // is_human_readable corresponds to self-describing formats like json,
+        // where we can use deserialize_any into a Value and consume the
+        // incorrect type. if we don't consume it we get an error
+        let v: serde_json::Value = Deserialize::deserialize(deserializer)?;
+        Ok(T::deserialize(v).unwrap_or_default())
+    } else {
+        // On binary formats we can't handle the incorrect type (e.g. if it's a
+        // seq but we expected a string), since we need to know what the type is
+        //
+        // If we wanted, we could still get a default with
+        //
+        // ```
+        // Ok(T::deserialize(deserializer).unwrap_or_default())
+        // ```
+
+        T::deserialize(deserializer)
+    }
 }
 
 /// State driven by the backend which is derived from other state, like the
@@ -54,8 +75,12 @@ pub struct DerivedState {
     // User-created map pins.
     pub pins: Vec<Pin>,
     pub dashboard_metrics: DashboardMetrics,
-    pub colored_timeseries_plot: TimeSeriesPlot,
+    pub colored_timeseries_plot: BTreeMap<MountID, TimeSeriesPlot>,
     pub timeline: Timeline,
+    // ids of databases on disk, with an optional error if it can't be opened
+    // (contains the main database at index 0)
+    pub mounted_dbs_on_disk: BTreeMap<MountID, Option<String>>,
+    pub last_mounted: Option<(MountID, String)>, // id + name of last mounted db
 }
 
 /// Events that accumulate before UI is active, but which are handled in the UI.
@@ -109,6 +134,11 @@ pub struct BackState {
     // reviewed by the user already (if yes, no prompting to review it)
     #[serde(deserialize_with = "ok_or_default")]
     pub last_logged_error: Option<(String, bool)>,
+
+    // the tz to use for the map time range, using tz pref. if localized, uses
+    // the tz in the center of the map
+    #[serde(deserialize_with = "ok_or_default")]
+    pub map_tz: TZ,
 }
 
 /// Driven by frontend
@@ -165,10 +195,22 @@ pub struct FrontState {
 
     // Points that are selected
     #[serde(deserialize_with = "ok_or_default")]
-    pub selected_points: Vec<(time::OffsetDateTime, LngLat)>,
+    pub selected_points: Vec<((MountID, time::OffsetDateTime), LngLat)>,
+    #[serde(deserialize_with = "ok_or_default")]
+    pub copy_dest_db: MountID,
 
     #[serde(deserialize_with = "ok_or_default")]
     pub pin_import_default: Pin,
+
+    #[serde(deserialize_with = "ok_or_default")]
+    pub pin_settings: PinSettings,
+
+    #[serde(deserialize_with = "ok_or_default")]
+    pub notif_pref: NotificationPreference,
+
+    // settings for the mounted databases, including the main database at idx 0
+    #[serde(deserialize_with = "ok_or_default")]
+    pub mounted_db_settings: BTreeMap<MountID, MountedDB>,
 }
 
 /// The page the frontend is on. Only variants that we care to persist between
@@ -194,6 +236,7 @@ pub enum PersistedSettingsRoute {
     MapSettings,
     Import,
     Export,
+    Mounted,
     Data,
     ReportProblem,
     Update,

@@ -22,5 +22,6 @@ pub enum PopUpKind {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum PopUpCode {
     DeletePoints,
+    CopyPoints,
     Other, // anything where the popup being shown doesn't trigger anything
 }

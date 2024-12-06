@@ -23,6 +23,7 @@ use actix_session::{
 };
 use actix_web::dev::Server;
 use actix_web::http::header::ContentType;
+use actix_web::web::PayloadConfig;
 use actix_web::{
     cookie::{time::Duration, Key},
     http::header::{self, CacheControl, CacheDirective},
@@ -33,12 +34,17 @@ use base64::{prelude::BASE64_STANDARD, Engine};
 use rand::RngCore;
 
 use crate::app_state::AppState;
+use crate::export::image::export_image;
 use crate::files;
-use crate::map::geojson::{lines_geojson_route, points_geojson_route};
+use crate::map::geojson::geojson_route;
 use crate::map::{automap::screen, basemap::map_data_route};
 use crate::ws_session::ws_route;
 
 const ONE_DAY: Duration = Duration::days(1);
+
+// Max 100MiB payload size, since we want to be able to receive images from the
+// frontend, and aren't worried about resource exhaustion attacks.
+const MAX_PAYLOAD_SIZE: usize = 100 * 1024_usize.pow(2);
 
 /// Configuration struct we pass to Swift via C
 #[repr(C)]
@@ -116,6 +122,8 @@ fn build(listener: TcpListener, frontend_key: FrontendKey) -> Server {
 
     HttpServer::new(move || {
         let scope = format!("{}", frontend_key.clone().expose());
+        // set max size for Bytes and String payload data extractors
+        let payload_config = PayloadConfig::new(MAX_PAYLOAD_SIZE);
         App::new()
             // redirect scope so that static files are properly loaded from the
             // correct relative path even if a trailing slash is not provided
@@ -134,10 +142,10 @@ fn build(listener: TcpListener, frontend_key: FrontendKey) -> Server {
                     .service(always_auth_png)
                     // dynamic routes
                     .service(health_check)
-                    .service(points_geojson_route)
-                    .service(lines_geojson_route)
+                    .service(geojson_route)
                     .service(map_data_route)
                     .service(screen)
+                    .service(save_image)
                     .route("/ws", web::get().to(ws_route))
                     // If the UI crashes, the browser may reload it at the same
                     // path, so we want to redirect that back to the index
@@ -150,6 +158,7 @@ fn build(listener: TcpListener, frontend_key: FrontendKey) -> Server {
                     .service(web::redirect("/settings/{subpath}", "../"))
                     // Cookie-based authentication
                     .app_data(frontend_auth.clone())
+                    .app_data(payload_config)
                     .wrap(IdentityMiddleware::default())
                     .wrap(
                         SessionMiddleware::builder(
@@ -188,6 +197,17 @@ pub fn no_caching_directives() -> CacheControl {
 
 #[get("/health_check")]
 async fn health_check() -> impl Responder {
+    HttpResponse::Ok()
+}
+
+#[routes]
+#[post("/save_image")]
+#[post("/analyze/save_image")]
+async fn save_image(
+    _: Identity,
+    data: actix_web::web::Bytes,
+) -> impl Responder {
+    export_image(&data);
     HttpResponse::Ok()
 }
 

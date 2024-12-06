@@ -51,26 +51,22 @@
 //!
 
 use std::path::PathBuf;
-use std::str::FromStr;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use common::{
     filters::{DataStream, Filter, FilterOp},
+    mounted::{MountID, MAIN_DB_MOUNT_ID},
     popups::{PopUp, PopUpCode, PopUpKind},
     state::LastAutomapUpdate,
     view_position::LngLatBounds,
     LngLat, TimeRange, ToFront,
 };
-use sqlx::{
-    migrate::Migrator,
-    sqlite::{SqliteConnectOptions, SqliteJournalMode},
-    FromRow, QueryBuilder, Sqlite, SqlitePool,
-};
+use sqlx::{migrate::Migrator, FromRow, QueryBuilder, Sqlite, SqlitePool};
 use tracing::{error, info};
 
 use crate::{
     app_state::{get_front_state, AppState},
-    database::pins::update_derived_pins,
+    database::{mounted::db_debug_name, pins::update_derived_pins},
     map::geojson::update_geojson,
     runtime::get_runtime,
     ws_session::{send_error_popup, send_message_to_front, send_success_popup},
@@ -181,43 +177,19 @@ impl std::convert::From<OSLocationData> for common::Location {
     }
 }
 
-/// Initialized the shared database pool given its path.
-/// Call this once at startup.
-pub async fn init_db(db_path: String) -> Result<SqlitePool> {
-    let opt = SqliteConnectOptions::from_str(&db_path)?
-        .create_if_missing(true)
-        .journal_mode(SqliteJournalMode::Wal);
-    let conn = SqlitePool::connect_with(opt).await?;
-    MIGRATOR.run(&conn).await?;
-    // Set the in-memory cache size to 2Gb (2M kibibytes)
-    if let Err(e) = sqlx::query("PRAGMA cache_size = -2000000;")
-        .execute(&conn)
-        .await
-    {
-        tracing::error!("Failed to set database cache size: {e}");
-    }
-    if let Err(e) = sqlx::query("PRAGMA secure_delete = on;")
-        .execute(&conn)
-        .await
-    {
-        tracing::error!("Failed to set secure delete on: {e}");
-    }
-    Ok(conn)
+/// Get a handle for the main database pool.
+///
+/// The main database is the one where new location data and pins are saved.
+/// Other external databases can be mounted for viewing other data.
+pub fn get_main_db_pool() -> Result<SqlitePool> {
+    get_db_for_id(MAIN_DB_MOUNT_ID)
+        .ok_or(anyhow::anyhow!("main database not open"))
 }
 
-/// Lower the database cache size when in the background to 2Mb (2k kibibytes)
-pub async fn reduce_db_cache_size() {
-    if let Err(e) = sqlx::query("PRAGMA cache_size = -2000;")
-        .execute(&get_db_pool())
-        .await
-    {
-        tracing::error!("Failed to reduce database cache size: {e}");
-    }
-}
-
-/// Get a handle for the database pool.
-pub fn get_db_pool() -> SqlitePool {
-    AppState::global().db.clone()
+/// Get a database connection for the given mount ID. ID 0 corresponds to the
+/// main database, and greater ids correspond to the mounted databases.
+pub fn get_db_for_id(id: MountID) -> Option<SqlitePool> {
+    AppState::global().dbs.lock().unwrap().get(&id).cloned()
 }
 
 /// Checkpoint the database so all transactions in the WAL file are flushed to
@@ -229,10 +201,9 @@ pub fn get_db_pool() -> SqlitePool {
 /// This should be done anytime the user wants to export the database file, or
 /// during app startup since migrations can cause large amounts of space to be
 /// unused if they involve copying data to a new table.
-pub async fn checkpoint_db() {
-    let conn = get_db_pool();
+pub async fn checkpoint_db(conn: &SqlitePool) {
     if let Err(e) = sqlx::query("VACUUM; PRAGMA wal_checkpoint(TRUNCATE);")
-        .execute(&conn)
+        .execute(conn)
         .await
     {
         error!("Failed to checkpoint/vacuum db: {e}.");
@@ -241,10 +212,12 @@ pub async fn checkpoint_db() {
 }
 
 /// Log a location event in the database.
-pub async fn log_location(loc: OSLocationData) -> Result<()> {
+pub async fn log_location_with_db(
+    loc: impl Into<common::Location>,
+    conn: &SqlitePool,
+) -> Result<()> {
     // Convert to a common::Location, which has the correct fields
     let parsed: common::Location = loc.into();
-    let conn = get_db_pool();
     let timestamp = parsed.timestamp.unix_timestamp();
     sqlx::query!(
         "INSERT INTO location (
@@ -274,14 +247,19 @@ pub async fn log_location(loc: OSLocationData) -> Result<()> {
         parsed.is_simulated_by_software,
         parsed.is_produced_by_accessory,
     )
-    .execute(&conn)
+    .execute(conn)
     .await?;
     Ok(())
 }
 
+pub async fn log_location(loc: OSLocationData) -> Result<()> {
+    let conn = get_main_db_pool()?;
+    log_location_with_db(loc, &conn).await
+}
+
 /// Get the last record in the database
 pub async fn get_last_record() -> Option<common::Location> {
-    let conn = get_db_pool();
+    let conn = get_main_db_pool().ok()?;
     // compile-time checked query macros are failing to infer the right type,
     // so we use the ordinary unchecked version instead for simplicity.
     match sqlx::query_as::<_, LocationRow>(
@@ -294,31 +272,6 @@ pub async fn get_last_record() -> Option<common::Location> {
         Err(e) => {
             error!("Failed to get last record: {e}");
             None
-        }
-    }
-}
-
-/// Get records that have happened after a timestamp, subject to a max limit on
-/// the number to of records to retrieve.
-pub async fn get_records_after_with_limit(
-    start_time: &time::OffsetDateTime,
-    max_records: u32,
-) -> Vec<common::Location> {
-    let conn = get_db_pool();
-    match sqlx::query_as::<_, LocationRow>(
-        "SELECT * FROM location WHERE timestamp > (?)
-        ORDER BY timestamp ASC
-        LIMIT (?)",
-    )
-    .bind(start_time.unix_timestamp())
-    .bind(max_records)
-    .fetch_all(&conn)
-    .await
-    {
-        Ok(result) => to_common_locations(result),
-        Err(e) => {
-            error!("Failed to get records in time range: {e}");
-            vec![]
         }
     }
 }
@@ -337,7 +290,9 @@ pub async fn count_records_past_five_minutes() -> i32 {
 }
 
 pub async fn count_records_since(thresh: time::OffsetDateTime) -> i32 {
-    let conn = get_db_pool();
+    let Ok(conn) = get_main_db_pool() else {
+        return 0;
+    };
     let timestamp = thresh.unix_timestamp();
     match sqlx::query!(
         "SELECT
@@ -349,7 +304,7 @@ pub async fn count_records_since(thresh: time::OffsetDateTime) -> i32 {
     .fetch_one(&conn)
     .await
     {
-        Ok(result) => result.count,
+        Ok(result) => result.count as i32,
         Err(e) => {
             error!("Failed to count records since threshold: {e}.");
             0
@@ -366,7 +321,7 @@ async fn count_all_records(conn: &SqlitePool) -> i32 {
     .fetch_one(conn)
     .await
     {
-        Ok(result) => result.count,
+        Ok(result) => result.count as i32,
         Err(e) => {
             error!("Failed to count all records: {e}");
             0
@@ -425,7 +380,9 @@ pub async fn import_database_records(import_db_path: PathBuf) {
     let first_import_timestamp = get_first_timestamp(&import_conn).await;
     import_conn.close().await;
 
-    let conn = get_db_pool();
+    let Ok(conn) = get_main_db_pool() else {
+        return;
+    };
     let n_initial = count_all_records(&conn).await;
 
     let result = sqlx::query(&format!(
@@ -510,7 +467,6 @@ fn reset_last_automap_update(first_import_timestamp: &time::OffsetDateTime) {
 /// Locations are identified by timestamp, which is unique.
 pub fn delete_selected_locations() {
     get_runtime().spawn(async move {
-        let conn = get_db_pool();
         let Some(selected_points) =
             get_front_state(|s| s.selected_points.clone())
         else {
@@ -518,19 +474,26 @@ pub fn delete_selected_locations() {
         };
         let n_to_delete = selected_points.len();
         let mut n_deleted = 0;
-        for (ts, _) in selected_points.iter() {
+        for ((mount_id, ts), _) in selected_points.iter() {
+            let Some(conn) = get_db_for_id(*mount_id) else {
+                error!(
+                    "could not get connection for database {}",
+                    db_debug_name(mount_id)
+                );
+                continue;
+            };
             match sqlx::query("DELETE FROM location WHERE timestamp == ?")
                 .bind(ts.unix_timestamp())
                 .execute(&conn)
                 .await
-            {
+                .with_context(|| {
+                    format!(
+                        "deleting record with timestamp {ts:?} in database {}",
+                        db_debug_name(mount_id)
+                    )
+                }) {
                 Ok(_) => n_deleted += 1,
-                Err(e) => {
-                    error!(
-                        "Failed delete record with timestamp {ts:?}\n\
-                        Error: {e}",
-                    );
-                }
+                Err(e) => error!("{e:?}"),
             }
         }
         send_delete_result_popup(n_to_delete, n_deleted);
@@ -566,6 +529,110 @@ fn send_delete_result_popup(n_to_delete: usize, n_deleted: usize) {
     send_message_to_front(ToFront::PopUp(popup));
 }
 
+/// Delete the locations that are selected in the UI.
+///
+/// Locations are identified by timestamp, which is unique.
+pub fn copy_selected_locations() {
+    get_runtime().spawn(async move {
+        let Some((mut selected_points, dest_db)) =
+            get_front_state(|s| (s.selected_points.clone(), s.copy_dest_db))
+        else {
+            return;
+        };
+        let n_selected = selected_points.len();
+        // remove points that are already in the destination database
+        selected_points.retain(|((id, _), _)| *id != dest_db);
+        let n_to_copy = selected_points.len();
+
+        let Some(dest_conn) = get_db_for_id(dest_db) else {
+            send_delete_result_popup(n_to_copy, 0);
+            return;
+        };
+
+        let mut n_copied = 0;
+        for ((mount_id, ts), _) in selected_points.iter() {
+            let Some(conn) = get_db_for_id(*mount_id) else {
+                error!(
+                    "could not get connection for database {}",
+                    db_debug_name(mount_id)
+                );
+                continue;
+            };
+            let loc = match sqlx::query_as::<_, LocationRow>(
+                "SELECT * FROM location WHERE timestamp == ?",
+            )
+            .bind(ts.unix_timestamp())
+            .fetch_one(&conn)
+            .await
+            .with_context(|| {
+                format!(
+                    "fetching record with timestamp {ts:?} in database {}",
+                    db_debug_name(mount_id)
+                )
+            }) {
+                Ok(loc) => loc,
+                Err(e) => {
+                    error!("{e:?}");
+                    continue;
+                }
+            };
+            match log_location_with_db(loc, &dest_conn).await.with_context(
+                || {
+                    format!(
+                        "inserting record with timestamp {ts:?} in database {}",
+                        db_debug_name(&dest_db)
+                    )
+                },
+            ) {
+                Ok(_) => n_copied += 1,
+                Err(e) => error!("{e:?}"),
+            }
+        }
+        send_copy_result_popup(n_to_copy, n_copied, n_selected);
+        update_geojson(None, true).await;
+    });
+}
+
+fn send_copy_result_popup(
+    n_to_copy: usize,
+    n_copied: usize,
+    n_selected: usize,
+) {
+    let n_ignored = n_selected - n_to_copy;
+    let n_ignored_msg = if n_ignored > 0 {
+        let s = if n_ignored == 1 { "" } else { "s" };
+        format!(" Ignored {n_ignored} point{s} already in database.")
+    } else {
+        "".into()
+    };
+    let code = PopUpCode::CopyPoints;
+    let popup = if n_copied == n_to_copy {
+        let s = if n_copied == 1 { "" } else { "s" };
+        PopUp {
+            kind: PopUpKind::Success,
+            msg: format!("Copied {n_copied} point{s}.{n_ignored_msg}"),
+            code,
+        }
+    } else if n_copied > 0 {
+        PopUp {
+            kind: PopUpKind::Error,
+            msg: format!(
+                "Failed to copy some points. Copied \
+                {n_copied} of {n_to_copy}.{n_ignored_msg}",
+            ),
+            code,
+        }
+    } else {
+        let s = if n_to_copy == 1 { "" } else { "s" };
+        PopUp {
+            kind: PopUpKind::Error,
+            msg: format!("Failed to copy {n_to_copy} point{s}.{n_ignored_msg}"),
+            code,
+        }
+    };
+    send_message_to_front(ToFront::PopUp(popup));
+}
+
 /// Convert between the Location we have for talking to the database and the
 /// Location we pass between the frontend and the backend.
 ///
@@ -594,62 +661,40 @@ impl std::convert::From<LocationRow> for common::Location {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, bon::Builder)]
 pub struct FilteredQuery {
-    start: Option<time::OffsetDateTime>,
-    end: Option<time::OffsetDateTime>,
+    start: Option<jiff::Timestamp>,
+    end: Option<jiff::Timestamp>,
     filters: Option<Vec<Filter>>,
+    /// The lnglat bounds for the query.
     bounds: Option<LngLatBounds>,
-    // if bounded, whether to get points adjacent to the bounded points
+    /// Whether to get the next/previous point just outside the lnglat bounds
+    /// (only works for decimation queries). Does not affect the decimation.
+    #[builder(default)]
     get_adjacent: bool,
-    // limit on the number of points to return
+    /// Limit on the number of data points returned. This drives the decimation
+    /// factor for decimation queries, and the number of points returned for
+    /// first_n queries.
     limit: Option<u64>,
 }
 
+use filtered_query_builder::{IsUnset, SetEnd, SetStart, State};
+
+impl<S: State> FilteredQueryBuilder<S> {
+    /// Custom builder method for setting the start and end from a time range.
+    pub fn time_range(
+        self,
+        time_range: TimeRange,
+    ) -> FilteredQueryBuilder<SetEnd<SetStart<S>>>
+    where
+        S::Start: IsUnset,
+        S::End: IsUnset,
+    {
+        self.start(time_range.start).end(time_range.end)
+    }
+}
+
 impl<'a> FilteredQuery {
-    pub fn new() -> Self {
-        Self::default() // all None/false
-    }
-
-    pub fn start(mut self, start: time::OffsetDateTime) -> Self {
-        self.start = Some(start);
-        self
-    }
-    pub fn end(mut self, end: time::OffsetDateTime) -> Self {
-        self.end = Some(end);
-        self
-    }
-    pub fn time_range(mut self, time_range: TimeRange) -> Self {
-        self.start = Some(time_range.start);
-        self.end = Some(time_range.end);
-        self
-    }
-    pub fn filters(mut self, filters: Vec<Filter>) -> Self {
-        self.filters = Some(filters);
-        self
-    }
-    /// Set the lnglat bounds for the query
-    pub fn bounds(mut self, bounds: LngLatBounds) -> Self {
-        self.bounds = Some(bounds);
-        self
-    }
-    /// Whether to get the next/previous point just outside the lnglat
-    /// bounds (only works for decimation queries)
-    ///
-    /// Does not affect the decimation factor.
-    pub fn get_adjacent(mut self, get_adjacent: bool) -> Self {
-        self.get_adjacent = get_adjacent;
-        self
-    }
-
-    /// Set the limit on the number of data points returned. This drives the
-    /// decimation factor for decimation queries, and the number of points
-    /// returned for first_n queries.
-    pub fn limit(mut self, limit: u64) -> Self {
-        self.limit = Some(limit);
-        self
-    }
-
     /// Create a query that counts the number of records inside the view bounds
     fn count_query(
         &self,
@@ -856,7 +901,10 @@ impl<'a> FilteredQuery {
     }
 
     pub async fn fetch_decimated(&self) -> Vec<common::Location> {
-        self.fetch_decimated_with_db(&get_db_pool()).await
+        let Ok(conn) = get_main_db_pool() else {
+            return Vec::new();
+        };
+        self.fetch_decimated_with_db(&conn).await
     }
 
     fn first_n_query(
@@ -872,11 +920,21 @@ impl<'a> FilteredQuery {
         q
     }
 
-    pub async fn fetch_first_n(&self) -> Vec<common::Location> {
+    pub async fn fetch_first_n_with_db(
+        &self,
+        conn: &SqlitePool,
+    ) -> Vec<common::Location> {
         let mut q = self.first_n_query(false);
         let query_as = q.build_query_as::<LocationRow>();
-        let recs = query_as.fetch_all(&get_db_pool()).await.unwrap();
+        let recs = query_as.fetch_all(conn).await.unwrap();
         to_common_locations(recs)
+    }
+
+    pub async fn fetch_first_n(&self) -> Vec<common::Location> {
+        let Ok(conn) = get_main_db_pool() else {
+            return Vec::new();
+        };
+        self.fetch_first_n_with_db(&conn).await
     }
 
     /// Determine the LngLatBounds that encompass the data, ignoring any lnglat
@@ -896,10 +954,13 @@ impl<'a> FilteredQuery {
         q
     }
 
-    pub async fn fetch_bounds(&self) -> Option<LngLatBounds> {
+    pub async fn fetch_bounds_with_db(
+        &self,
+        conn: &SqlitePool,
+    ) -> Option<LngLatBounds> {
         let mut q = self.get_bounds_query(false);
         let query_as = q.build_query_as::<LngLatBoundsResult>();
-        match query_as.fetch_one(&get_db_pool()).await {
+        match query_as.fetch_one(conn).await {
             Ok(LngLatBoundsResult(
                 Some(swlng),
                 Some(swlat),
@@ -921,6 +982,11 @@ impl<'a> FilteredQuery {
                 None
             }
         }
+    }
+
+    pub async fn fetch_bounds(&self) -> Option<LngLatBounds> {
+        let conn = get_main_db_pool().ok()?;
+        self.fetch_bounds_with_db(&conn).await
     }
 }
 
@@ -950,7 +1016,10 @@ fn new_query<'a>(explain_query_plan: bool) -> QueryBuilder<'a, Sqlite> {
 #[allow(unused)]
 async fn explain_query(mut q: QueryBuilder<'_, Sqlite>) {
     let query = q.build_query_as::<ExplainQueryPlan>();
-    let rows = query.fetch_all(&get_db_pool()).await.unwrap();
+    let Ok(conn) = get_main_db_pool() else {
+        return;
+    };
+    let rows = query.fetch_all(&conn).await.unwrap();
     let roots = rows.iter().filter(|x| x.parent == 0);
     for root in roots {
         root.print(&rows, "");
@@ -992,12 +1061,12 @@ impl ExplainQueryPlan {
 /// index. Small p means the condition would be selective, and that an index
 /// should be used. Valid values are in the range [0.0, 1.0].
 fn add_start_time_to_query(
-    start_time: &Option<time::OffsetDateTime>,
+    start_time: &Option<jiff::Timestamp>,
     query: &mut QueryBuilder<Sqlite>,
 ) {
     if let Some(start) = start_time {
         query.push(" AND likelihood(timestamp >= ");
-        query.push_bind(start.unix_timestamp());
+        query.push_bind(start.as_second());
         query.push(", 1.0)");
     }
 }
@@ -1005,12 +1074,12 @@ fn add_start_time_to_query(
 /// Add a ending timestamp constraint to a WHERE clause that already has a
 /// condition. End time is exclusive.
 fn add_end_time_to_query(
-    end_time: &Option<time::OffsetDateTime>,
+    end_time: &Option<jiff::Timestamp>,
     query: &mut QueryBuilder<Sqlite>,
 ) {
     if let Some(end) = end_time {
         query.push(" AND likelihood(timestamp < ");
-        query.push_bind(end.unix_timestamp());
+        query.push_bind(end.as_second());
         query.push(", 1.0)");
     }
 }
@@ -1130,8 +1199,11 @@ fn stream_column_name(filter: &Filter) -> &str {
 
 #[cfg(test)]
 pub mod tests {
+    use std::str::FromStr;
+
     use common::pin::Pin;
     use pretty_assertions::assert_eq;
+    use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode};
 
     use crate::app_state::get_derived_state;
     use crate::map::automap::{get_last_automap_update, update_automap};
@@ -1142,7 +1214,7 @@ pub mod tests {
     #[tokio::test]
     async fn test_get_db_pool() {
         test_setup("test_get_db_pool/").await;
-        get_db_pool();
+        assert!(get_main_db_pool().is_ok());
     }
 
     /// Generate location data that is different for each idx. SQLite will start
@@ -1183,17 +1255,19 @@ pub mod tests {
             },
             ne: LngLat { lng: 5.5, lat: 5.5 },
         };
-        let records = FilteredQuery::new()
+        let records = FilteredQuery::builder()
             .bounds(bounds)
             .limit(10000)
+            .build()
             .fetch_decimated()
             .await;
         assert_eq!(records.len(), 6);
 
-        let records = FilteredQuery::new()
+        let records = FilteredQuery::builder()
             .bounds(bounds)
             .get_adjacent(true)
             .limit(10000)
+            .build()
             .fetch_decimated()
             .await;
         assert_eq!(records.len(), 7);
@@ -1226,17 +1300,19 @@ pub mod tests {
                 lat: 5.5,
             },
         };
-        let records = FilteredQuery::new()
+        let records = FilteredQuery::builder()
             .bounds(bounds)
             .limit(10000)
+            .build()
             .fetch_decimated()
             .await;
         assert_eq!(records.len(), 2);
 
-        let records = FilteredQuery::new()
+        let records = FilteredQuery::builder()
             .bounds(bounds)
             .get_adjacent(true)
             .limit(10000)
+            .build()
             .fetch_decimated()
             .await;
         assert_eq!(records.len(), 5);
@@ -1249,13 +1325,14 @@ pub mod tests {
         // 5 and 10 seconds past the epoch
         log_location(get_test_data(1)).await.unwrap(); // timestamp: 5
         log_location(get_test_data(2)).await.unwrap(); // timestamp: 10
-        let start = time::OffsetDateTime::from_unix_timestamp(3).unwrap();
-        let end = time::OffsetDateTime::from_unix_timestamp(7).unwrap();
+        let start = jiff::Timestamp::from_second(3).unwrap();
+        let end = jiff::Timestamp::from_second(7).unwrap();
         // get the first
-        let records = FilteredQuery::new()
+        let records = FilteredQuery::builder()
             .start(start)
             .end(end)
             .limit(1_000)
+            .build()
             .fetch_first_n()
             .await;
         assert_eq!(records.len(), 1);
@@ -1358,12 +1435,13 @@ pub mod tests {
         // import records
         import_database_records(db_path).await;
 
-        let start = time::OffsetDateTime::from_unix_timestamp(0).unwrap();
-        let end = time::OffsetDateTime::from_unix_timestamp(20).unwrap();
-        let records = FilteredQuery::new()
+        let start = jiff::Timestamp::from_second(0).unwrap();
+        let end = jiff::Timestamp::from_second(20).unwrap();
+        let records = FilteredQuery::builder()
             .start(start)
             .end(end)
             .limit(1_000)
+            .build()
             .fetch_first_n()
             .await;
 

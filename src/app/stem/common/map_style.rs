@@ -23,6 +23,7 @@ pub struct MapStyle {
     pub automap_opacity: f64,
     pub show_last_location: bool,
     pub pins_below_data: bool, // display pins below log data
+    pub hide_points_outside_viewbounds: bool,
 }
 
 impl MapStyle {
@@ -51,6 +52,7 @@ impl Default for MapStyle {
             automap_opacity: 0.5,
             show_last_location: true,
             pins_below_data: false,
+            hide_points_outside_viewbounds: false,
         }
     }
 }
@@ -208,13 +210,8 @@ impl ColoredDataStream {
     pub fn get_stream(
         &self,
         loc: &Location,
-        offset: &time::UtcOffset,
+        time_of_day_to_seconds: impl Fn(&Location) -> Option<f64>,
     ) -> Option<f64> {
-        // TODO: convert to utc offset at the data point's location
-        let time_of_day_to_seconds = |timestamp: &time::OffsetDateTime| {
-            let hms = timestamp.to_offset(*offset).time().as_hms();
-            (hms.0 as f64) * 60. * 60. + (hms.1 as f64) * 60. + (hms.2 as f64)
-        };
         match self {
             Self::None => None,
             Self::HorizAccuracy => Some(loc.horizontal_accuracy),
@@ -225,7 +222,7 @@ impl ColoredDataStream {
             Self::Course => loc.course,
             Self::CourseAccuracy => loc.course_accuracy,
             Self::Time => Some(loc.timestamp.unix_timestamp() as f64),
-            Self::TimeOfDay => Some(time_of_day_to_seconds(&loc.timestamp)),
+            Self::TimeOfDay => time_of_day_to_seconds(loc),
             // computed on multiple locations, not on a single point
             Self::ShortDwellDetection
             | Self::LongDwellDetection

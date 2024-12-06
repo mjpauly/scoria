@@ -14,7 +14,7 @@ public func startup() {
     let app_version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown"
     set_app_dirs(getDocumentsDirectory().path(),
                  getLibraryDirectory().path(),
-                 getTemporaryDirectoryPath(),
+                 getTemporaryDirectory().path(),
                  getBundlePath(),
                  app_version)
     myLocationManager.touch()  // initialize the lazy global var
@@ -33,6 +33,8 @@ public func handle_poke(viewController: MyViewControllerProtocol) {
     check_export_sqlite_log(viewController: viewController)
     check_import(viewController: viewController)
     check_export_track(viewController: viewController)
+    check_export_image(viewController: viewController)
+    check_request_notifications()
 }
 
 public func is_location_on() -> Bool {
@@ -93,6 +95,10 @@ func check_import(viewController: MyViewControllerProtocol) {
         importFile(
             viewController: viewController, presentationSource: .database
         )
+    } else if should_import_mounted_db() {
+        importFile(
+            viewController: viewController, presentationSource: .mountedDatabase
+        )
     } else if should_import_places_geojson() {
         importFile(
             viewController: viewController, presentationSource: .placesGeojson
@@ -127,9 +133,36 @@ func check_export_track(viewController: UIViewController) {
     }
 }
 
+func check_export_image(viewController: UIViewController) {
+    if should_export_image() {
+        do {
+            let dir = getTemporaryDirectory()
+            let track_fname: String = "image_export.jpeg"
+            let url = dir.appendingPathComponent(track_fname)
+            let desiredFilename = "Scoria_Image_\(getFormattedDateTime()).jpeg"
+            let new_url = dir.appendingPathComponent(desiredFilename)
+            try FileManager.default.moveItem(at: url, to: new_url)
+            shareFile(file: new_url, viewController: viewController, deleteAfterShare: true)
+        } catch {
+            print_and_log_error(s: "failed to rename image export file")
+        }
+    }
+}
+
+public func handle_import(fileURL: URL, presentationSource: PresentationSource) {
+    switch presentationSource {
+        case .database:
+            handle_database_import(fileURL: fileURL)
+        case .mountedDatabase:
+            handle_mounted_database_import(fileURL: fileURL)
+        case .placesGeojson:
+            handle_places_geojson_import(fileURL: fileURL)
+    }
+}
+
 // Database imports have to copy the import database to a new location so that
 // the database can be migrated.
-public func handle_database_import(fileURL: URL) {
+func handle_database_import(fileURL: URL) {
     let temporaryDirectory = FileManager.default.temporaryDirectory
     let temporaryURL = temporaryDirectory.appendingPathComponent("data_import.db")
     let fileManager = FileManager.default
@@ -166,11 +199,63 @@ public func handle_database_import(fileURL: URL) {
     }
 }
 
-public func handle_places_geojson_import(fileURL: URL) {
+func handle_mounted_database_import(fileURL: URL) {
+    if !fileURL.startAccessingSecurityScopedResource() {
+        print_and_log_error(s: "Failed to access import file")
+        return
+    }
+    import_mounted_db(fileURL.path)
+    fileURL.stopAccessingSecurityScopedResource()
+}
+
+func handle_places_geojson_import(fileURL: URL) {
     if !fileURL.startAccessingSecurityScopedResource() {
         print_and_log_error(s: "Failed to access import file")
         return
     }
     import_places_geojson(fileURL.path);
     fileURL.stopAccessingSecurityScopedResource()
+}
+
+// ask for user permission to show notifications when the app is quit
+func check_request_notifications() {
+    if should_notify_on_stop() {
+        UNUserNotificationCenter.current().requestAuthorization(
+            options: [.alert, .sound]
+        ) { granted, error in
+            if let error = error {
+                print("Error requesting notification permissions: \(error)")
+            }
+        }
+    }
+}
+
+public func scheduleStopNotification() {
+    // only notify if user has enabled locations and granted always
+    // authorization
+    if should_notify_on_stop() && myLocationManager.isOn() {
+        // Create a notification content object
+        let content = UNMutableNotificationContent()
+        content.title = "Scoria Stopped"
+        content.body = "Keep Scoria open in the background to log locations."
+        content.sound = UNNotificationSound.default
+
+        // Create a notification trigger
+        let trigger =
+            UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
+
+        // Create a notification request
+        let request = UNNotificationRequest(
+            identifier: "scoria",
+            content: content,
+            trigger: trigger
+        )
+
+        // Add the notification request to the notification center
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error = error {
+                print_and_log_error(s: "Error scheduling notification: \(error)")
+            }
+        }
+    }
 }

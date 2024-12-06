@@ -54,11 +54,13 @@ rust_library(
     ],
     deps = [
         "//src/app/stem:common",
+        "@stem_crate_index//:anyhow",
         "@stem_crate_index//:bincode",
         "@stem_crate_index//:futures",
         "@stem_crate_index//:gloo-net",
         "@stem_crate_index//:humantime",
         "@stem_crate_index//:itertools",
+        "@stem_crate_index//:jiff",
         "@stem_crate_index//:js-sys",
         "@stem_crate_index//:obfstr",
         "@stem_crate_index//:plotly",

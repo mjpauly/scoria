@@ -23,13 +23,17 @@ val TAG = "ScoriaFiles"
 val SHARE_CODE = 5 // identifies this sharing action (our choice)
 val IMPORT_SQLITE_CODE = 6 // identifies the import sqlite action (our choice)
 val IMPORT_PLACES_GEOJSON_CODE = 7 // same as above, but for places
+val IMPORT_MOUNTED_DB_CODE = 8 // for mounting a database
 val SHARE_DEL_FILE_DELAY: Long = 10000 // how long after share action to wait
                                        // before deleting the file
 val DB_EXPORT_PREFIX = "Scoria_Export_"
 val TRACK_EXPORT_PREFIX = "Scoria_Track_"
 val TRACK_TEMP_PREFIX = "track_export"
+val IMAGE_EXPORT_PREFIX = "Scoria_Image_"
+val IMAGE_TEMP_NAME = "image_export.jpeg"
 val DB_IMPORT_NAME = "scoria_import.db"
 val PLACES_GEOJSON_IMPORT_NAME = "places.geojson"
+val MOUNTED_DB_IMPORT_NAME_FALLBACK = "import.db"
 val MIME_TYPE = "*/*" // Not all file manager apps seem to accept any mime
                       // type. Ideally we'd use "application/x-sqlite3", but
                       // "*/*" has the most compatibility
@@ -48,6 +52,11 @@ public fun getDbExportName(): String {
 // Get the new track export name without an extension
 public fun getTrackExportName(): String {
     return TRACK_EXPORT_PREFIX + getFormattedDateTime()
+}
+
+// Get the new image export name
+public fun getImageExportName(): String {
+    return IMAGE_EXPORT_PREFIX + getFormattedDateTime() + ".jpeg"
 }
 
 public fun getFormattedDateTime(): String {
@@ -89,7 +98,7 @@ public fun shareFile(activity: Activity, path: Path) {
     }
     sendIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     // create a chooser around the intent to let the user pick how to open it
-    val shareIntent = Intent.createChooser(sendIntent, "Save your log to:")
+    val shareIntent = Intent.createChooser(sendIntent, "Save to:")
     activity.startActivityForResult(shareIntent, SHARE_CODE)
 
     ScoriaFileProvider.sharedFileToCleanup = path
@@ -97,7 +106,7 @@ public fun shareFile(activity: Activity, path: Path) {
 
 // Initiate a file request. The result is handled in `onActivityResult`.
 //
-// Valid request codes are IMPORT_SQLITE_CODE and IMPORT_PLACES_GEOJSON_CODE.
+// Valid request codes are IMPORT_SQLITE_CODE, IMPORT_PLACES_GEOJSON_CODE, etc.
 public fun initiateImport(activity: Activity, code: Int) {
     val requestFileIntent = Intent(Intent.ACTION_GET_CONTENT).apply {
         type = MIME_TYPE
@@ -116,6 +125,14 @@ public fun completeSqliteImport(activity: Activity, uri: Uri) {
 public fun completePlacesGeojsonImport(activity: Activity, uri: Uri) {
     readURIToFile(activity, uri, PLACES_GEOJSON_IMPORT_NAME)?.also { tempFile ->
         Stem.importFromPlacesGeojson(tempFile.absolutePath);
+        tempFile.delete();
+    }
+}
+
+public fun completeMountedDBImport(activity: Activity, uri: Uri) {
+    val fname = uri.getLastPathSegment() ?: MOUNTED_DB_IMPORT_NAME_FALLBACK;
+    readURIToFile(activity, uri, fname)?.also { tempFile ->
+        Stem.importMountedDB(tempFile.absolutePath);
         tempFile.delete();
     }
 }
@@ -174,6 +191,19 @@ public fun exportTrack(activity: Activity) {
     }
 }
 
+public fun exportImage(activity: Activity) {
+    val dir = activity.getCacheDir()
+    val file = File(dir, IMAGE_TEMP_NAME)
+    val renamed = File(file.parent, getImageExportName())
+    val isRenamed = file.renameTo(renamed)
+    Log.i(TAG, "src: $file, renamed: $renamed")
+    if (!isRenamed) {
+        Stem.logError("Failed to rename export image file")
+        return
+    }
+    shareFile(activity, renamed.toPath())
+}
+
 // Upon starting of the app we 
 public fun cleanupSharedFile() {
     val handler = Handler(Looper.getMainLooper())
@@ -198,7 +228,9 @@ public fun cleanupAllSharedFiles(activity: Activity) {
         DB_EXPORT_PREFIX,
         TRACK_EXPORT_PREFIX,
         TRACK_TEMP_PREFIX,
-        DB_IMPORT_NAME
+        DB_IMPORT_NAME,
+        IMAGE_TEMP_NAME,
+        IMAGE_EXPORT_PREFIX,
     )
 
     val files = dir.listFiles()

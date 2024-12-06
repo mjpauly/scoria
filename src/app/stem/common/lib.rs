@@ -2,6 +2,7 @@
 //!
 //! Messages are serialized with bincode.
 
+pub mod bool_expr;
 pub mod cmaps;
 pub mod dashboard_metrics;
 pub mod export_options;
@@ -11,6 +12,8 @@ pub mod lnglat;
 pub mod location;
 pub mod location_config;
 pub mod map_style;
+pub mod mounted;
+pub mod notif_pref;
 pub mod pin;
 pub mod plot_data;
 pub mod popups;

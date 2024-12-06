@@ -4,7 +4,7 @@
 <div class="flex my-6 justify-center">
     <div class="flex flex-col items-center">
         <span class="text-lg font-medium text-neutral-200">
-            Scoria 1.4.2
+            Scoria 1.4.3
         </span>
         <a 
             class="underline font-light text-sm mb-6 text-neutral-200"
@@ -19,7 +19,7 @@
             Download APK
         </a>
         <span class="text-sm text-neutral-400 mt-2">
-            Works on Andriod 10+
+            Works on Andriod 12+
         </span>
     </div>
 </div>

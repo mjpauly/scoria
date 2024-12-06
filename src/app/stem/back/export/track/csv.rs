@@ -1,34 +1,30 @@
 use std::io::BufWriter;
 use std::{fs::File, path::PathBuf};
 
-use common::state::MapState;
+use jiff::Zoned;
 use serde::Serialize;
-use time::format_description::well_known::Iso8601;
 
 use common::Location;
 
+use crate::tz::datetime_fn_infallible;
 use crate::ws_session::send_error_popup;
 
 use super::ExportData;
 
-pub fn export(mut fname: PathBuf, data: ExportData, map_state: &MapState) {
+pub(super) fn export(mut fname: PathBuf, data: ExportData) {
     fname.set_extension("csv");
-    if let Err(e) = write_csv(&fname, data, map_state) {
+    if let Err(e) = write_csv(&fname, data) {
         tracing::error!("Failed to write CSV file: {e}");
         send_error_popup("Failed to write CSV file.");
     }
 }
 
-fn write_csv(
-    out_path: &PathBuf,
-    data: ExportData,
-    map_state: &MapState,
-) -> anyhow::Result<()> {
-    let local_offset = map_state.time_range.start.offset();
+fn write_csv(out_path: &PathBuf, data: ExportData) -> anyhow::Result<()> {
+    let datetime_fn = datetime_fn_infallible();
     let records = data
         .records
         .iter()
-        .map(|r| CSVLocationRecord::from_location(r, &local_offset))
+        .map(|r| CSVLocationRecord::from_location(r, &datetime_fn))
         .collect::<Vec<CSVLocationRecord>>();
     let csv_file = File::create(out_path)?;
     let buf = BufWriter::new(csv_file);
@@ -47,36 +43,32 @@ fn write_csv(
 /// timestamp, which is given both as a string and as unix epoch seconds.
 #[derive(Serialize)]
 struct CSVLocationRecord<'a> {
-    pub timestamp: String,
-    pub timestamp_as_seconds: i64,
+    timestamp: String,
+    timestamp_as_seconds: i64,
 
-    pub latitude: &'a f64,
-    pub longitude: &'a f64,
-    pub horizontal_accuracy: &'a f64,
+    latitude: &'a f64,
+    longitude: &'a f64,
+    horizontal_accuracy: &'a f64,
 
-    pub msl_altitude: &'a Option<f64>,
-    pub ellipsoid_altitude: &'a Option<f64>,
-    pub vertical_accuracy: &'a Option<f64>,
-    pub story: &'a Option<i64>,
+    msl_altitude: &'a Option<f64>,
+    ellipsoid_altitude: &'a Option<f64>,
+    vertical_accuracy: &'a Option<f64>,
+    story: &'a Option<i64>,
 
-    pub speed: &'a Option<f64>,
-    pub speed_accuracy: &'a Option<f64>,
+    speed: &'a Option<f64>,
+    speed_accuracy: &'a Option<f64>,
 
-    pub course: &'a Option<f64>,
-    pub course_accuracy: &'a Option<f64>,
+    course: &'a Option<f64>,
+    course_accuracy: &'a Option<f64>,
 }
 
 impl<'a> CSVLocationRecord<'a> {
     fn from_location(
         other: &'a Location,
-        local_offset: &time::UtcOffset,
+        datetime_fn: &impl Fn(&Location) -> Zoned,
     ) -> Self {
         Self {
-            timestamp: other
-                .timestamp
-                .to_offset(*local_offset) // TODO: check
-                .format(&Iso8601::DEFAULT)
-                .unwrap(),
+            timestamp: datetime_fn(other).to_string(),
             timestamp_as_seconds: other.timestamp.unix_timestamp(),
 
             latitude: &other.latitude,

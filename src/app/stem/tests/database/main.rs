@@ -13,7 +13,7 @@ use sqlx::{
 use time::macros::datetime;
 
 use common::filters::{DataStream, Filter, FilterOp};
-use stem::database::{init_db, FilteredQuery, LocationRow};
+use stem::database::{open_db, FilteredQuery, LocationRow};
 use stem::map::geojson::DECIMATION_THRESHOLD;
 
 static WORKDIR: &str = "workdir";
@@ -26,7 +26,7 @@ async fn main() {
     // print_db_size();
 
     // println!("Connecting to database");
-    let conn = init_db(db_file(DB_FILES[0])).await.unwrap();
+    let conn = open_db(db_file(DB_FILES[0])).await.unwrap();
     // print_db_size();
 
     // println!("Checkpointing database");
@@ -151,11 +151,18 @@ pub async fn filter_during_query(
     filters: &[Filter],
 ) -> std::time::Duration {
     let now = Instant::now();
-    let recs = FilteredQuery::new()
-        .start(*start_time)
-        .end(*end_time)
+    let recs = FilteredQuery::builder()
+        .start(
+            jiff::Timestamp::from_nanosecond(start_time.unix_timestamp_nanos())
+                .unwrap(),
+        )
+        .end(
+            jiff::Timestamp::from_nanosecond(end_time.unix_timestamp_nanos())
+                .unwrap(),
+        )
         .filters(filters.to_owned())
         .limit(DECIMATION_THRESHOLD)
+        .build()
         .fetch_decimated_with_db(conn)
         .await;
     let elapsed = now.elapsed();

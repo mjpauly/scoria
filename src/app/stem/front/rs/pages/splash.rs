@@ -19,8 +19,14 @@ pub fn Splash() -> Html {
     let front_dispatch = Dispatch::<FrontState>::new();
     let on_get_state = {
         move |msg: &ToFront| {
-            if let ToFront::Startup(state, events) = msg {
-                init_state(state, events);
+            if let ToFront::Startup(
+                front_state,
+                back_state,
+                derived_state,
+                events,
+            ) = msg
+            {
+                init_state(front_state, back_state, derived_state, events);
                 navigate_to_last_page(&front_dispatch.get(), &navigator);
             }
         }

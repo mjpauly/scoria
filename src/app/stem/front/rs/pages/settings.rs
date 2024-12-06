@@ -17,14 +17,15 @@ use yewdux::prelude::*;
 use crate::components::map_settings::{
     AutomapSetting, CacheSetting, MiscMapSettings,
 };
-use crate::components::time_preference::TwelveHourPreference;
+use crate::components::mounted_db_list::MountedDBList;
+use crate::components::time_preference::TimeSettings;
 use crate::components::timeline_config::TimelineConfig;
 use crate::components::unit_picker::UnitPicker;
 use crate::components::{
     AfterCardParagraph, BouncyScrollContainer, DoneButton, MainSettingsButton,
     SettingsCard, SettingsCardButtonWithChildren, SettingsCardExternalLink,
     SettingsCardPageButton, SettingsCardPageButtonWithLabel,
-    SettingsCardSimpleButton, WarningMessage, H1, H2,
+    SettingsCardSimpleButton, SettingsCardToggle, WarningMessage, H1, H2,
 };
 use crate::components::{HomeBarSpacer, TopNav};
 use crate::pages::update::{
@@ -79,6 +80,9 @@ pub fn Settings() -> Html {
                         text="Map"
                         route={SettingsRoute::MapSettings}
                     />
+                </SettingsCard>
+
+                <SettingsCard class="my-4">
                     <SettingsCardPageButton<SettingsRoute>
                         text="Import Places"
                         route={SettingsRoute::Import}
@@ -87,11 +91,12 @@ pub fn Settings() -> Html {
                         text="Export Track"
                         route={SettingsRoute::Export}
                     />
-                </SettingsCard>
-
-                <SettingsCard class="my-4">
                     <SettingsCardPageButton<SettingsRoute>
-                        text="Database"
+                        text="Mounted Databases"
+                        route={SettingsRoute::Mounted}
+                    />
+                    <SettingsCardPageButton<SettingsRoute>
+                        text="Main Database"
                         route={SettingsRoute::Data}
                     />
                 </SettingsCard>
@@ -160,17 +165,47 @@ pub fn General() -> Html {
             <BouncyScrollContainer class="pb-8">
                 <H1> {"General"} </H1>
 
+                <H2> {"Notifications"} </H2>
+                <NotificationSettings />
+
                 <H2> {"Units"} </H2>
                 <UnitPicker />
 
                 <H2> {"Time"} </H2>
-                <TwelveHourPreference />
+                <TimeSettings />
 
                 <H2> {"Timeline"} </H2>
                 <TimelineConfig />
             </BouncyScrollContainer>
 
             <HomeBarSpacer />
+        </>
+    }
+}
+
+#[function_component]
+pub fn NotificationSettings() -> Html {
+    let dispatch = Dispatch::<FrontState>::new();
+    let notif_pref = use_selector(|s: &FrontState| s.notif_pref);
+    let should_notify_onclick =
+        dispatch.reduce_mut_callback(move |s: &mut FrontState| {
+            s.notif_pref.should_notify_on_stop =
+                !s.notif_pref.should_notify_on_stop;
+            swift_poke::poke();
+        });
+    html! {
+        <>
+            <SettingsCard>
+                <SettingsCardToggle
+                    checked={notif_pref.should_notify_on_stop}
+                    onclick={should_notify_onclick}
+                    text={"Notify on Stop"}
+                />
+            </SettingsCard>
+            <AfterCardParagraph>
+                {"Notify if Scoria stops logging locations when logging is
+                enabled. Might not catch all cases when logging stops."}
+            </AfterCardParagraph>
         </>
     }
 }
@@ -201,6 +236,38 @@ pub fn MapSettings() -> Html {
 }
 
 #[function_component]
+pub fn MountedDBSettings() -> Html {
+    html! {
+        <>
+            <TopNav>
+                <MainSettingsButton />
+                <DoneButton />
+            </TopNav>
+
+            <BouncyScrollContainer class="pb-8">
+                <H1> {"Mounted Databases"} </H1>
+
+                <p class="mt-2 mx-2 text-left">
+                    {"The main database stores your location and place data.
+                    External database files can be mounted and viewed together.
+                    Currently, only the viewing of location tracks on the map is
+                    supported for mounted databases."}
+                </p>
+                <p class="mt-2 mx-2 text-left">
+                    {"You can set databse names and whether they are enabled on
+                    the map."}
+                </p>
+
+                <MountedDBList />
+
+            </BouncyScrollContainer>
+
+            <HomeBarSpacer />
+        </>
+    }
+}
+
+#[function_component]
 pub fn DataSettings() -> Html {
     let wss = use_context::<WebsocketService>().unwrap();
     let export_onclick = {
@@ -222,11 +289,14 @@ pub fn DataSettings() -> Html {
             </TopNav>
 
             <BouncyScrollContainer class="pb-8">
-                <H1> {"Database"} </H1>
+                <H1> {"Main Database"} </H1>
 
                 <WarningMessage class="mb-6 mt-2" >
-                    {"Your database contains your complete location history.
-                    For privacy, avoid sharing it with others."}
+                    {"Your database contains your complete location history and
+                    all your saved places. For privacy, avoid sharing it with
+                    others. To just share a segment of movement, use "}
+                    <span class="font-mono">{"Settings > Export Track"}</span>
+                    {"."}
                 </WarningMessage>
 
                 <SettingsCard>
@@ -236,9 +306,9 @@ pub fn DataSettings() -> Html {
                     />
                 </SettingsCard>
                 <AfterCardParagraph>
-                    {"An exported database can be imported back into Scoria. You
-                    can use this function to backup your data or migrate between
-                    devices."}
+                    {"Export your complete database file. An exported database
+                    can be imported back into Scoria. You can use this function
+                    to backup your data or migrate between devices."}
                 </AfterCardParagraph>
 
                 <SettingsCard class="mt-4">
@@ -254,9 +324,13 @@ pub fn DataSettings() -> Html {
                     imported."}
                 </AfterCardParagraph>
                 <AfterCardParagraph>
-                    {"Since imported data is irreversibly added to your
-                    database, using this feature for looking at data that is not
-                    your own is not recommended."}
+                    {"Imported data is irreversibly added to your database. To
+                    look at data that is not your own, mount the database file
+                    as an external database using "}
+                    <span class="font-mono">
+                        {"Settings > Mounted Databases"}
+                    </span>
+                    {"."}
                 </AfterCardParagraph>
 
             </BouncyScrollContainer>

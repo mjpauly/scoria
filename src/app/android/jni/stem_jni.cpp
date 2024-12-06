@@ -268,6 +268,12 @@ JNIEXPORT void JNICALL Java_info_scoria_Stem_importFromSqliteLog
     import_from_sqlite_log(converted.c_str());
 }
 
+JNIEXPORT jboolean JNICALL Java_info_scoria_Stem_shouldExportTrack
+  (JNIEnv *, jclass)
+{
+    return should_export_track();
+}
+
 JNIEXPORT jboolean JNICALL Java_info_scoria_Stem_shouldImportPlacesGeojson
   (JNIEnv *, jclass)
 {
@@ -281,10 +287,29 @@ JNIEXPORT void JNICALL Java_info_scoria_Stem_importFromPlacesGeojson
     import_places_geojson(converted.c_str());
 }
 
-JNIEXPORT jboolean JNICALL Java_info_scoria_Stem_shouldExportTrack
+JNIEXPORT jboolean JNICALL Java_info_scoria_Stem_shouldImportMountedDB
   (JNIEnv *, jclass)
 {
-    return should_export_track();
+    return should_import_mounted_db();
+}
+
+JNIEXPORT void JNICALL Java_info_scoria_Stem_importMountedDB
+  (JNIEnv *, jclass, jstring path)
+{
+    std::string converted{LocalString{path}.Pin().ToString()};
+    import_mounted_db(converted.c_str());
+}
+
+JNIEXPORT jboolean JNICALL Java_info_scoria_Stem_shouldExportImage
+  (JNIEnv *, jclass)
+{
+    return should_export_image();
+}
+
+JNIEXPORT jboolean JNICALL Java_info_scoria_Stem_shouldNotifyOnStop
+  (JNIEnv *, jclass)
+{
+    return should_notify_on_stop();
 }
 
 JNIEXPORT void JNICALL Java_info_scoria_Stem_urlScheme

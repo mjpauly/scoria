@@ -24,7 +24,7 @@ macro_rules! unwrap_result_or_log {
         match $res {
             Ok(v) => v,
             Err(e) => {
-                tracing::error!("Tried to unwrap Err: {}", e);
+                tracing::error!("Tried to unwrap Err: {e:?}");
                 return;
             }
         }

@@ -140,19 +140,22 @@ crates_repository(
         )],
     },
     packages = {
+        "android-tzdata": crate.spec(version = "0.1.1"),
         "approx": crate.spec(version = "0.5.1"),
         "base64": crate.spec(version = "0.22.0"),
-        "coord_transforms": crate.spec(version = "1.4.0"),
+        "bon": crate.spec(version = "3.0.1"),
         "csv": crate.spec(version = "1.3.0"),
         "futures-core": crate.spec(version = "0.3.28"),
         "geo": crate.spec(version = "0.26.0"),
         "geo-clipper": crate.spec(version = "0.7.3"),
         "geojson": crate.spec(version = "0.24.1", features = ["geo-types"]),
         "gpx": crate.spec(version = "0.9.1"),
+        "iana-time-zone": crate.spec(version = "0.1.61"),
         "itertools": crate.spec(version = "0.13.0"),
+        "jiff": crate.spec(version = "0.1.13", features = ["js", "serde"]),
         "log-panics": crate.spec(version = "2.1.0"),
         "mvt": crate.spec(version = "0.8.1"),
-        "nalgebra": crate.spec(version = "0.31.4"), # for coord_transforms
+        "nalgebra": crate.spec(version = "0.31.4"),
         "nav-types": crate.spec(version = "0.5.2"),
         "pointy": crate.spec(version = "0.4.0"),
         "rand": crate.spec(version = "0.8.5"),
@@ -168,9 +171,8 @@ crates_repository(
         ),
         "serde_qs": crate.spec(version = "0.13.0"),
         "sqlx": crate.spec(
-            version = "0.6.2",
-            # features = ["runtime-tokio-native-tls", "sqlite", "time", "macros"],
-            # toggle the next/prev lines to use system-provided TLS for iOS
+            version = "0.8.2",
+            # can't use system TLS on Android, so use rustls
             features = ["runtime-tokio-rustls", "sqlite", "time", "macros"],
         ),
         "strum": crate.spec(
@@ -193,6 +195,7 @@ crates_repository(
             features = ["env-filter", "tracing-log"],
         ),
         "tracing-web": crate.spec(version = "0.1.3"),
+        "tzf-rs": crate.spec(version = "0.4.9"),
         "url": crate.spec(version = "2.5.2"),
         "walkdir": crate.spec(version = "2.3.3"),
         "anyhow": crate.spec(
@@ -217,7 +220,7 @@ crates_repository(
         ),
         "mime": crate.spec(version = "0.3.17"),
         "serde": crate.spec(
-            version = "1.0.152",
+            version = "1.0.203",
         ),
         "bincode": crate.spec(version = "1.3.3"),
         "once_cell": crate.spec(version = "1.17.1"),
@@ -290,6 +293,7 @@ crates_repository(
                 "BootstrapBoxArrowUpRight",
                 "BootstrapBrush",
                 "BootstrapCalendarRange",
+                "BootstrapCameraFill",
                 "BootstrapCheck",
                 "BootstrapCheckCircle",
                 "BootstrapCheckCircleFill",

@@ -17,16 +17,26 @@
 //!     .await;
 //! ```
 
+use std::collections::BTreeMap;
+
 use actix_identity::Identity;
-use actix_web::{http::header::ContentType, routes, HttpResponse, Responder};
+use actix_web::{
+    http::header::ContentType, routes, web, HttpResponse, Responder,
+};
+use common::cmaps::CmapParams;
+use common::mounted::{EnabledDBs, MountID};
 use common::view_position::LngLatBounds;
 use geojson::{Feature, FeatureCollection, GeoJson, JsonObject, Value};
+use sqlx::SqlitePool;
 
 use crate::app_state::{get_front_state, set_back_state};
 use crate::core::new_data_is_visible;
+use crate::database::get_db_for_id;
 use crate::map::coords::TileXYZ;
 use crate::metrics::color::get_cmap_data;
+use crate::metrics::dashboard::update_timeseries_plot_data;
 use crate::server::no_caching_directives;
+use crate::tz::datetime_fn_infallible;
 use crate::{app_state::AppState, database, ws_session};
 use common::{
     cmaps,
@@ -46,38 +56,27 @@ pub static DECIMATION_THRESHOLD: u64 = 10_000;
 /// the view window.
 pub const BOUND_EXPANSION: f64 = 0.04;
 
+/// Route for points and lines from a mounted database.
 #[routes]
-#[get("/points.geojson")]
-#[get("/analyze/points.geojson")]
-pub async fn points_geojson_route(_: Identity) -> impl Responder {
+#[get("/{mount_id}/{points_lines}.geojson")]
+#[get("/analyze/{mount_id}/{points_lines}.geojson")]
+pub async fn geojson_route(
+    _: Identity,
+    path: web::Path<(MountID, String)>,
+) -> impl Responder {
+    let (mount_id, points_or_lines) = path.into_inner();
+    let app_state = AppState::global();
+    let geojsons = app_state.map_data.mount_geojsons.lock().await;
+    let geojson_str = match (geojsons.get(&mount_id), points_or_lines.as_str())
+    {
+        (Some((points, _)), "points") => points.clone(),
+        (Some((_, lines)), "lines") => lines.clone(),
+        (None, _) | (Some((..)), _) => empty_geojson().to_string(),
+    };
     HttpResponse::Ok()
         .content_type(ContentType(mime::APPLICATION_JSON))
         .insert_header(no_caching_directives())
-        .body(
-            AppState::global()
-                .map_data
-                .points_geojson
-                .lock()
-                .await
-                .clone(),
-        )
-}
-
-#[routes]
-#[get("/lines.geojson")]
-#[get("/analyze/lines.geojson")]
-pub async fn lines_geojson_route(_: Identity) -> impl Responder {
-    HttpResponse::Ok()
-        .content_type(ContentType(mime::APPLICATION_JSON))
-        .insert_header(no_caching_directives())
-        .body(
-            AppState::global()
-                .map_data
-                .lines_geojson
-                .lock()
-                .await
-                .clone(),
-        )
+        .body(geojson_str)
 }
 
 pub fn empty_geojson() -> GeoJson {
@@ -105,6 +104,7 @@ fn map_state_is_different(prev: &MapState, curr: &MapState) -> bool {
         // size sliders rapidly, so we'll save compute when next updating
         || ((prev.style.marker_size == 0) && (curr.style.marker_size != 0))
         || ((prev.style.line_size == 0) && (curr.style.line_size != 0))
+        || (prev.style.hide_points_outside_viewbounds != curr.style.hide_points_outside_viewbounds)
         || prev.timeline_config != curr.timeline_config
 }
 
@@ -157,7 +157,6 @@ async fn should_update_geojson(
     // -> Should update if we get here <-
     // store the current state as the previous state
     *prev_map_data_guard = Some(map_state.clone());
-    println!("prev map state");
     Some(map_state.clone())
 }
 
@@ -185,7 +184,6 @@ pub async fn update_geojson(new_data: Option<Location>, force_update: bool) {
     else {
         return;
     };
-    let colored_datastream = &map_state.style.colored_datastream;
 
     // The things that take the longest are the queries (this part, up to
     // 500ms), and stringifying the geojson, which is about 150ms for 10k pts.
@@ -195,21 +193,102 @@ pub async fn update_geojson(new_data: Option<Location>, force_update: bool) {
     let bounds = map_state.view_pos.bounds.expand(BOUND_EXPANSION);
     let make_points = map_state.style.marker_size > 0;
     let make_lines = map_state.style.line_size > 0;
+    let params = DerivedParams {
+        bounds,
+        make_points,
+        make_lines,
+    };
+
+    let Some(mount_ids) =
+        get_front_state(|s| s.mounted_db_settings.enabled_dbs())
+    else {
+        return;
+    };
+
+    let mut records_and_cmap_data = BTreeMap::new();
+    let mut global_cmap_params: Option<CmapParams> = None;
+    for id in mount_ids {
+        let Some(conn) = get_db_for_id(id) else {
+            records_and_cmap_data.insert(id, (Vec::new(), None));
+            continue;
+        };
+        // TODO: parallelize
+        let (records, cmap_data) =
+            get_records_and_cmap_data(&conn, &map_state, &params).await;
+        match (global_cmap_params, &cmap_data) {
+            (Some(global), Some((new_params, _))) => {
+                global_cmap_params = Some(global.merge(new_params))
+            }
+            (None, Some((new_params, _))) => {
+                global_cmap_params = Some(*new_params)
+            }
+            _ => (),
+        }
+        records_and_cmap_data.insert(id, (records, cmap_data));
+    }
+    if let Some(cmap_params) = global_cmap_params {
+        // update the cmap parameters
+        let mut persistent_guard = app_state.persistent.lock().unwrap();
+        persistent_guard.back.cmap_params = cmap_params;
+        ws_session::send_back_state_to_front();
+        // update parameters in each database set
+        for (_, maybe_cmap_data) in records_and_cmap_data.values_mut() {
+            if let Some((cparams, _)) = maybe_cmap_data.as_mut() {
+                *cparams = cmap_params;
+            }
+        }
+    }
+    if get_front_state(|s| s.map.settings_tab.clone())
+        == Some(common::state::MapSettingsTab::TimeSeriesPlot)
+    {
+        update_timeseries_plot_data(
+            &records_and_cmap_data,
+            &map_state.style.colored_datastream,
+        );
+    }
+    for (id, (records, cmap_data)) in records_and_cmap_data.into_iter() {
+        // TODO: parallelize?
+        make_geojson(id, &params, records, cmap_data).await;
+    }
+    ws_session::send_message_to_front(ToFront::GeojsonUpdated);
+    update_zoom_all_data(&map_state);
+}
+
+/// Parameters derived from map state which are used in multiple places.
+struct DerivedParams {
+    bounds: LngLatBounds,
+    make_points: bool,
+    make_lines: bool,
+}
+
+async fn get_records_and_cmap_data(
+    conn: &SqlitePool,
+    map_state: &MapState,
+    params: &DerivedParams,
+) -> (Vec<Location>, Option<(CmapParams, Vec<Option<f64>>)>) {
+    let DerivedParams {
+        bounds,
+        make_points: _,
+        make_lines,
+    } = *params;
+    let colored_datastream = &map_state.style.colored_datastream;
 
     // only bother with the performance overhead of getting points adjacent
     // to the viewbounds if lines are actually drawn
     // OR if the colormapping relies on the existence of out-of-bounds points to
     // improve colormapping (as is the case for dwells)
-    let get_adjacent = make_lines || colored_datastream.should_get_adjacent();
+    let get_adjacent = !map_state.style.hide_points_outside_viewbounds
+        && (make_lines || colored_datastream.should_get_adjacent());
 
     // let before = std::time::Instant::now();
-    let records = database::FilteredQuery::new()
+    let records = database::FilteredQuery::builder()
         .time_range(map_state.time_range)
         .filters(map_state.filters.clone())
         .bounds(bounds)
         .get_adjacent(get_adjacent)
         .limit(DECIMATION_THRESHOLD)
-        .fetch_decimated()
+        .build()
+        .fetch_decimated_with_db(conn)
         .await;
     // tracing::info!("Full query took {:.6?}", before.elapsed());
 
@@ -222,15 +301,22 @@ pub async fn update_geojson(new_data: Option<Location>, force_update: bool) {
                 && bounds.contains(&records[i + 1].lnglat()));
         cmap_records.push((&records[i], should_keep));
     }
-    let offset = map_state.time_range.start.offset();
-    let cmap_data = get_cmap_data(colored_datastream, &cmap_records, &offset);
+    let cmap_data = get_cmap_data(colored_datastream, &cmap_records);
 
-    if let Some((cmap_params, _)) = cmap_data {
-        // update the cmap parameters
-        let mut persistent_guard = app_state.persistent.lock().unwrap();
-        persistent_guard.back.cmap_params = cmap_params;
-        ws_session::send_back_state_to_front();
-    }
+    (records, cmap_data)
+}
+
+async fn make_geojson(
+    mount_id: MountID,
+    params: &DerivedParams,
+    records: Vec<Location>,
+    cmap_data: Option<(CmapParams, Vec<Option<f64>>)>,
+) {
+    let DerivedParams {
+        bounds,
+        make_points,
+        make_lines,
+    } = *params;
 
     let mut points = Vec::new();
     let mut lines = Vec::new();
@@ -271,9 +357,10 @@ pub async fn update_geojson(new_data: Option<Location>, force_update: bool) {
     let lines_geojson = GeoJson::from(feature_collection_from_vec(lines));
     // Stringifying the geojson takes a while, so we create two tasks to do it
     // concurrently. We also spawn a task to determine the all-data view pos.
-    let points_task = tokio::spawn(update_points_geojson(points_geojson));
-    let lines_task = tokio::spawn(update_lines_geojson(lines_geojson));
-    update_zoom_all_data(&map_state);
+    let points_task =
+        tokio::spawn(update_geojson_string(mount_id, points_geojson, true));
+    let lines_task =
+        tokio::spawn(update_geojson_string(mount_id, lines_geojson, false));
     let (points_handle, lines_handle) = tokio::join!(points_task, lines_task);
     if let Err(e) = points_handle {
         tracing::error!("Points task join failure: {e}");
@@ -281,19 +368,28 @@ pub async fn update_geojson(new_data: Option<Location>, force_update: bool) {
     if let Err(e) = lines_handle {
         tracing::error!("Lines task join failure: {e}");
     }
-    ws_session::send_message_to_front(ToFront::GeojsonUpdated);
 }
 
-async fn update_points_geojson(points_geojson: GeoJson) {
-    let points_geojson = points_geojson.to_string();
+async fn update_geojson_string(
+    mount_id: MountID,
+    geojson: GeoJson,
+    points: bool,
+) {
+    let geojson = geojson.to_string();
     let app_state = AppState::global();
-    *app_state.map_data.points_geojson.lock().await = points_geojson;
-}
-
-async fn update_lines_geojson(lines_geojson: GeoJson) {
-    let lines_geojson = lines_geojson.to_string();
-    let app_state = AppState::global();
-    *app_state.map_data.lines_geojson.lock().await = lines_geojson;
+    let mut mount_geojsons = app_state.map_data.mount_geojsons.lock().await;
+    match (mount_geojsons.get_mut(&mount_id), points) {
+        (Some((points, _)), true) => *points = geojson,
+        (Some((_, lines)), false) => *lines = geojson,
+        (None, true) => {
+            mount_geojsons
+                .insert(mount_id, (geojson, empty_geojson().to_string()));
+        }
+        (None, false) => {
+            mount_geojsons
+                .insert(mount_id, (empty_geojson().to_string(), geojson));
+        }
+    }
 }
 
 /// Determine the center and zoom level for the `zoom all data` button and
@@ -302,9 +398,10 @@ fn update_zoom_all_data(map_state: &MapState) {
     let time_range = map_state.time_range;
     let filters = map_state.filters.clone();
     tokio::spawn(async move {
-        let data_bounds = database::FilteredQuery::new()
+        let data_bounds = database::FilteredQuery::builder()
             .time_range(time_range)
             .filters(filters)
+            .build()
             .fetch_bounds()
             .await;
         let view_params = get_view_params(&data_bounds);
@@ -431,16 +528,23 @@ fn get_view_params(bounds: &Option<LngLatBounds>) -> Option<(LngLat, f64)> {
 /// Get the popup text for a click at a given location. Also takes the point's
 /// color if it exists. Returns the location to put the popup, the text,
 /// and the desired color of the popup's background
-pub async fn get_location_near(lnglat: LngLat) -> Option<ToFront> {
+pub async fn get_location_near(
+    mount_id: MountID,
+    lnglat: LngLat,
+) -> Option<ToFront> {
     let map_state = get_front_state(|front| front.map.clone())?;
 
+    let Some(db) = get_db_for_id(mount_id) else {
+        return None;
+    };
     // use the bound expansion so the decimation is identical
-    let records = database::FilteredQuery::new()
+    let mut records = database::FilteredQuery::builder()
         .time_range(map_state.time_range)
         .filters(map_state.filters.clone())
         .bounds(map_state.view_pos.bounds.expand(BOUND_EXPANSION))
         .limit(DECIMATION_THRESHOLD)
-        .fetch_decimated()
+        .build()
+        .fetch_decimated_with_db(&db)
         .await;
 
     let calc_dist = |loc: &common::Location| {
@@ -450,10 +554,15 @@ pub async fn get_location_near(lnglat: LngLat) -> Option<ToFront> {
     let mut argmin = 0;
     for (i, loc) in records.iter().enumerate() {
         let dist = calc_dist(loc);
-        if dist < min_distance {
+        // leq so if multiple points on the same spot, the last one is sent back
+        // to the frontend, corresponding to the point that would be higher in
+        // the map layers
+        if dist <= min_distance {
             min_distance = dist;
             argmin = i;
         }
     }
-    Some(ToFront::NearestLocation(records.get(argmin)?.clone()))
+    let nearest = records.remove(argmin);
+    let zdt = datetime_fn_infallible()(&nearest);
+    Some(ToFront::NearestLocation(mount_id, nearest, zdt))
 }

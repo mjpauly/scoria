@@ -1,15 +1,17 @@
 //! Updater for dashboard statistics.
 
-use std::cmp::Ordering;
+use std::{cmp::Ordering, collections::BTreeMap};
 
 use common::{
+    cmaps::CmapParams,
     dashboard_metrics::DashboardMetrics,
     map_style::ColoredDataStream,
+    mounted::MountID,
     pin::Pin,
     plot_data::TimeSeriesPlot,
     state::{MapState, PersistedRoute},
     timeline::{Dwell, Movement, Period, PeriodKind, Timeline},
-    LngLat, Location, TimeRange,
+    LngLat, Location,
 };
 use itertools::Itertools;
 use nav_types::WGS84;
@@ -23,10 +25,10 @@ use crate::{
     database,
     map::geojson::{BOUND_EXPANSION, DECIMATION_THRESHOLD},
     metrics::distance::straight_distance,
+    tz::{datetime_fn_infallible, location_datetime_fn},
 };
 
 use super::{
-    color::get_colored_data_vals,
     distance::distance_between_locations,
     dwells::{
         dwell_score, long_dwell_threshold, segment_on_visibility,
@@ -81,12 +83,13 @@ pub async fn update_dashboard(new_loc: Option<Location>) {
         return;
     };
     // fetch the records, sorted by timestamp
-    let records = database::FilteredQuery::new()
+    let records = database::FilteredQuery::builder()
         .time_range(map_state.time_range)
         .filters(map_state.filters.clone())
         .bounds(map_state.view_pos.bounds.expand(BOUND_EXPANSION))
         .get_adjacent(true)
         .limit(DECIMATION_THRESHOLD)
+        .build()
         .fetch_decimated()
         .await;
 
@@ -121,7 +124,14 @@ fn should_update(new_loc: &Option<Location>, map_state: &MapState) -> bool {
 fn update_stats(segments: &[(bool, Vec<&Location>)]) {
     let mut total_stats = DashboardMetrics::default();
     let mut timeline = Timeline::new();
-    let pins = get_derived_state(|s| s.pins.clone());
+    let mut pins = get_derived_state(|s| s.pins.clone());
+    let pin_filters = get_front_state(|s| s.pin_settings.filters.clone());
+    if let Some(filters) = pin_filters {
+        pins = pins
+            .into_iter()
+            .filter(|p| p.passes_filters(&filters))
+            .collect::<Vec<_>>();
+    }
     for (visible, seg) in segments.iter() {
         if *visible {
             let is_dwell = long_dwell_threshold(dwell_score(seg).into_iter());
@@ -148,11 +158,9 @@ fn update_stats(segments: &[(bool, Vec<&Location>)]) {
                     // anytime the location track leaves the view bounds we have
                     // a Period::Unknown
                     timeline.push(Period {
-                        time: TimeRange {
-                            start: last.time.end,
-                            end: next.time.start,
-                        },
                         kind: PeriodKind::Unknown,
+                        start: last.end.clone(),
+                        end: next.start.clone(),
                     });
                 }
             }
@@ -227,18 +235,17 @@ fn resolve_timeline_activities(
     pins: &[Pin],
 ) -> Timeline {
     let mut timeline = Timeline::new();
+    let datetime_f = datetime_fn_infallible();
     let chunker = records
         .iter()
         .tuple_windows::<(_, _)>()
         .chunk_by(|((_, da), _)| *da);
     for (isdwell, chunk) in chunker.into_iter() {
         let chunk = chunk.map(|((a, _), (b, _))| (a, b)).collect::<Vec<_>>();
-        let first_span = chunk.first().unwrap(); // should exist
-        let start = first_span.0.timestamp;
-        let end = chunk
-            .last()
-            .map(|(_, b)| b.timestamp)
-            .unwrap_or(first_span.1.timestamp);
+        let first_pt = chunk.first().unwrap().0; // must exist
+        let last_pt = chunk.last().unwrap().1; // must exist
+        let start = datetime_f(first_pt);
+        let end = datetime_f(last_pt);
         if isdwell {
             let lnglats_and_weights = chunk.iter().map(|(a, b)| {
                 (a.lnglat(), (b.timestamp - a.timestamp).as_seconds_f64())
@@ -250,12 +257,13 @@ fn resolve_timeline_activities(
                 );
             let detected_pin = detect_pin(&lnglat, deviation, pins);
             timeline.push(Period {
-                time: TimeRange { start, end },
                 kind: PeriodKind::Dwell(Dwell {
                     lnglat,
                     deviation,
                     detected_pin,
                 }),
+                start,
+                end,
             });
         } else {
             let distance: f64 = chunk
@@ -263,8 +271,9 @@ fn resolve_timeline_activities(
                 .map(|(a, b)| distance_between_locations(a, b))
                 .sum();
             timeline.push(Period {
-                time: TimeRange { start, end },
                 kind: PeriodKind::Movement(Movement { distance }),
+                start,
+                end,
             });
         }
     }
@@ -300,42 +309,36 @@ fn detect_pin(
         })
 }
 
-// #[instrument(skip_all, level = Level::TRACE)]
-// fn update_timeline(records: &[Location]) {
-// let recs = records.iter().map(|l| (l, true)).collect::<Vec<_>>();
-// let is_dwell = long_dwell_detect(&recs);
-// let zipped = records.iter().zip(is_dwell.into_iter()).collect::<Vec<_>>();
-// }
+/// Type as returned by get_cmap_data
+pub type CmapData = Option<(CmapParams, Vec<Option<f64>>)>;
 
 #[instrument(skip_all, level = Level::TRACE)]
-fn update_plot(records: &[Location], map_state: &MapState) {
-    let colored_datastream = &map_state.style.colored_datastream;
-    if !colored_datastream.is_some() {
-        return;
-    }
-    let recs = records.iter().map(|l| (l, true)).collect::<Vec<_>>();
-    let offset = map_state.time_range.start.offset();
-    let cmap_vals = get_colored_data_vals(colored_datastream, &recs, &offset);
-
-    update_timeseries_plot_data(records.iter(), &cmap_vals, colored_datastream);
-}
-
-/// Update timeseries plot data with the current data stream coloring.
-///
-/// Only points with a valid colorval are included.
-#[instrument(skip_all, level = Level::TRACE)]
-pub fn update_timeseries_plot_data<'a>(
-    records: impl Iterator<Item = &'a Location>,
-    cmap_vals: &[Option<f64>],
+pub fn update_timeseries_plot_data(
+    records_and_cmap_data: &BTreeMap<MountID, (Vec<Location>, CmapData)>,
     colored_datastream: &ColoredDataStream,
 ) {
-    let (t, y): (Vec<_>, Vec<_>) = records
-        .zip(cmap_vals.iter())
-        .filter_map(|(l, cval)| cval.map(|v| (l.timestamp, v)))
-        .unzip();
-    let ylabel = get_front_state(|front| front.unit_pref)
-        .map(|unit_pref| colored_datastream.name_with_unit(&unit_pref))
-        .unwrap_or_else(|| colored_datastream.to_string());
-    let timeseries_plot = TimeSeriesPlot { t, y, ylabel };
-    set_derived_state(|state| state.colored_timeseries_plot = timeseries_plot);
+    let zdt_f = location_datetime_fn();
+    let result: BTreeMap<MountID, TimeSeriesPlot> = records_and_cmap_data
+        .iter()
+        .filter_map(|(mount_id, (records, cmap_data))| {
+            // only if there's cmap data
+            cmap_data.as_ref().map(|(_params, cmap_vals)| {
+                let (t, y): (Vec<_>, Vec<_>) = records
+                    .iter()
+                    .zip(cmap_vals.iter())
+                    .filter_map(|(l, cval)| {
+                        cval.and_then(|v| zdt_f(l).ok().map(|zdt| (zdt, v)))
+                    })
+                    .unzip();
+                let ylabel = get_front_state(|front| front.unit_pref)
+                    .map(|unit_pref| {
+                        colored_datastream.name_with_unit(&unit_pref)
+                    })
+                    .unwrap_or_else(|| colored_datastream.to_string());
+                let timeseries_plot = TimeSeriesPlot { t, y, ylabel };
+                (*mount_id, timeseries_plot)
+            })
+        })
+        .collect();
+    set_derived_state(|state| state.colored_timeseries_plot = result);
 }

@@ -51,8 +51,9 @@ pub fn ExportTrack() -> Html {
                 <H1> {"Export Track"} </H1>
 
                 <p class="mt-2 mx-2 text-left">
-                    {"Export the data that is visible in the map view, using the
-                    selected time range and currently active filters."}
+                    {"Export the location data that is visible in the map view,
+                    using the selected time range and currently active
+                    filters. Saved places are not included."}
                 </p>
 
                 <SettingsCard class="mt-4">

@@ -38,5 +38,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         app_shutdown()
         // let widget know that the app shut down and that logging is not on
         updateWidget(is_on: false)
+        scheduleStopNotification()
+    }
+
+    func applicationWillTerminate(_ application: UIApplication) {
+        scheduleStopNotification()
     }
 }

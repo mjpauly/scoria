@@ -1,5 +1,19 @@
 # Android Release Notes
 
+## 1.4.3
+
+*Nov 27, 2024*
+
+- export current map view as an image
+- time zone awareness
+- export track as Scoria database
+- mount multiple Scoria databases to view simultaneously
+- filter which places are visible on the map
+- receive a notification if logging is stopped
+- hide lines to points outside map view
+
+[Download APK](/download/apk/Scoria_1.4.3.apk)
+
 ## 1.4.2
 
 *Aug 20, 2024*

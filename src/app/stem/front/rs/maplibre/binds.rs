@@ -24,7 +24,9 @@ extern "C" {
     #[wasm_bindgen(method, js_name = once)]
     pub fn once_layer(this: &Map, event: &str, layer: &str, listener: &JsValue);
     #[wasm_bindgen(method)]
-    pub fn off(this: &Map, event: &str);
+    // NOTE: off() must use the same set of parameters as the on() call that is
+    // used. specifically meaning the on()/off() overloading in JS
+    pub fn off(this: &Map, event: &str, layer: &str, listener: &JsValue);
     #[wasm_bindgen(method, js_name = isSourceLoaded)]
     pub fn is_source_loaded(this: &Map, source: &str) -> bool;
 
@@ -61,6 +63,9 @@ extern "C" {
     pub fn add_image(this: &Map, id: &str, elem: &JsValue);
     #[wasm_bindgen(method, js_name = hasImage)]
     pub fn has_image(this: &Map, id: &str) -> bool;
+
+    #[wasm_bindgen(method, js_name = getCanvas)]
+    pub fn get_canvas(this: &Map) -> web_sys::HtmlCanvasElement;
 
     pub type Source;
 

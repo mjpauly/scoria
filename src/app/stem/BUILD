@@ -58,16 +58,16 @@ rust_library(
         ":common",
         ":alloc",
         "@stem_crate_index//:base64",
-        "@stem_crate_index//:coord_transforms",
+        "@stem_crate_index//:bon",
         "@stem_crate_index//:csv",
         "@stem_crate_index//:geo",
         "@stem_crate_index//:geo-clipper",
         "@stem_crate_index//:geojson",
         "@stem_crate_index//:gpx",
         "@stem_crate_index//:itertools",
+        "@stem_crate_index//:jiff",
         "@stem_crate_index//:log-panics",
         "@stem_crate_index//:mvt",
-        "@stem_crate_index//:nalgebra",
         "@stem_crate_index//:nav-types",
         "@stem_crate_index//:obfstr",
         "@stem_crate_index//:pointy",
@@ -77,6 +77,7 @@ rust_library(
         "@stem_crate_index//:tracing",
         "@stem_crate_index//:tracing-appender",
         "@stem_crate_index//:tracing-subscriber",
+        "@stem_crate_index//:tzf-rs",
         "@stem_crate_index//:tokio",
         "@stem_crate_index//:walkdir",
         "@stem_crate_index//:anyhow",
@@ -92,7 +93,13 @@ rust_library(
         "@stem_crate_index//:bincode",
         "@stem_crate_index//:time",
         "@stem_crate_index//:once_cell",
-    ],
+    ] + select({
+        "//:android_config": [
+            "@stem_crate_index//:android-tzdata",
+            "@stem_crate_index//:iana-time-zone",
+        ],
+        "//conditions:default": [],
+    }),
     visibility = [":__subpackages__"],
 )
 
@@ -104,6 +111,7 @@ rust_test(
     crate_features = platform_features,
     deps = [
         "@stem_crate_index//:approx",
+        "@stem_crate_index//:nalgebra",
         "@stem_crate_index//:reqwest", # for server health check unit test
         "@stem_crate_index//:futures-core",
         "@stem_crate_index//:pretty_assertions",
@@ -117,11 +125,13 @@ rust_library(
     edition = "2021",
     deps = [
         "@stem_crate_index//:anyhow",
+        "@stem_crate_index//:jiff",
         "@stem_crate_index//:serde",
         "@stem_crate_index//:strum",
         "@stem_crate_index//:time",
         "@stem_crate_index//:unicode-segmentation",
         "@stem_crate_index//:uom",
+        "@stem_crate_index//:serde_json",
         "@stem_crate_index//:serde_qs",
     ],
     visibility = ["//visibility:public"],
@@ -148,6 +158,7 @@ rust_test(
         "@stem_crate_index//:bincode",
         "@stem_crate_index//:fantoccini",
         "@stem_crate_index//:futures-util",
+        "@stem_crate_index//:jiff",
         "@stem_crate_index//:rusty-fork",
         "@stem_crate_index//:time",
         "@stem_crate_index//:tokio",
@@ -165,6 +176,7 @@ rust_binary(
     data = [
         "db/data.db",
         # "db_full/saved_places.json",
+        # "db_full/import_seg.db",
     ] + select({
         # make the static files available as runfiles
         "//:autoreload_on": static_file_targets,
@@ -172,6 +184,7 @@ rust_binary(
     }),
     deps = [
         ":stem",
+        "@stem_crate_index//:jiff",
         "@stem_crate_index//:tokio",
         "@stem_crate_index//:log",
         "@stem_crate_index//:time",

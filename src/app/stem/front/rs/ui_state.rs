@@ -9,15 +9,19 @@
 //! arrives.
 
 use std::{
+    collections::BTreeMap,
     ops::{Deref, DerefMut},
     rc::Rc,
 };
 
-use common::state::{MapState, PendingEvents};
+use common::{
+    mounted::{MountID, MountedDB, MAIN_DB_MOUNT_ID, MAIN_DB_NAME},
+    state::{MapState, PendingEvents},
+    time_range::TimeDeltaRange,
+};
 use yewdux::prelude::*;
 
 use crate::{
-    components::time_range_picker::{local_offset, time_delta_range_today},
     router::Route,
     swift_poke,
     websocket::{Callback, ToBack, ToFront, WebsocketService},
@@ -32,11 +36,12 @@ impl Default for FrontState {
     fn default() -> Self {
         Self(common::FrontState {
             map: MapState {
-                // timezone-aware time_delta_range, which is preferred over the
-                // default implementation in common::state, which is a backup
-                // the backend can run if deserialization fails.
-                time_delta_range: time_delta_range_today(),
-                time_range: (&time_delta_range_today()).into(),
+                // the real default for the time range. serde annotations just
+                // pick values for cases when deserialization fails.
+                time_delta_range: TimeDeltaRange::today(),
+                time_range: TimeDeltaRange::today()
+                    .to_time_range("UTC")
+                    .unwrap(),
                 ..Default::default()
             },
             ..Default::default()
@@ -95,32 +100,38 @@ impl DerefMut for DerivedState {
 /// Initialize the frontend state and handle pending events upon receiving the
 /// ToFront::Startup websocket message.
 pub fn init_state(
-    state: &Option<common::FrontState>,
+    front_state: &Option<common::FrontState>,
+    back_state: &common::state::BackState,
+    derived_state: &common::state::DerivedState,
     events: &Option<PendingEvents>,
 ) {
-    init_front_state(state);
+    do_init_state(front_state, back_state, derived_state);
     handle_pending_events(events);
+    init_derived_listener();
 }
 
 /// Initialize the front state as received from the backend.
-fn init_front_state(state: &Option<common::FrontState>) {
+fn do_init_state(
+    front_state: &Option<common::FrontState>,
+    back_state: &common::state::BackState,
+    derived_state: &common::state::DerivedState,
+) {
     let front_dispatch = Dispatch::<FrontState>::new();
-    if let Some(mut state) = state.clone() {
-        // logic for setting the front state when it's received from the backend
-        if state.map.time_delta_range.offset.is_none() {
-            // Backend failed to deserialize -> set to correct offset
-            state.map.time_delta_range = time_delta_range_today();
-        }
-        // Always ensure the UTC offset is up-to-date
-        state.map.time_delta_range.offset = Some(local_offset());
+    if let Some(mut state) = front_state.clone() {
         // Update our "static" time_range to match the delta range
         // This way the selected time_range doesn't abruptly change on
         // the user as time passes while the app is open, but updates
         // between app launches
+        if let Ok(new_time_range) =
+            state.map.time_delta_range.to_time_range(&back_state.map_tz)
+        {
+            state.map.time_range = new_time_range;
+        }
         // TODO: reset to today if they've been away for 1+ hour
-        state.map.time_range = (&state.map.time_delta_range).into();
         front_dispatch.reduce_mut(|s| **s = state);
     }
+    Dispatch::<BackState>::new().reduce_mut(|s| **s = back_state.clone());
+    Dispatch::<DerivedState>::new().reduce_mut(|s| **s = derived_state.clone());
 }
 
 /// Update state according to pending events received at initialization, or
@@ -163,7 +174,6 @@ pub fn get_update_callback() -> Callback {
     let back_dispatch = Dispatch::<BackState>::new();
     let derived_dispatch = Dispatch::<DerivedState>::new();
     let callback = move |msg: &ToFront| match msg {
-        ToFront::Startup(_, _) => (),
         ToFront::BackState(val) => {
             // update our known backend state
             back_dispatch.reduce_mut(|s| **s = val.clone())
@@ -171,22 +181,23 @@ pub fn get_update_callback() -> Callback {
         ToFront::DerivedState(val) => {
             derived_dispatch.reduce_mut(|s| **s = val.clone())
         }
-        ToFront::PendingEvents(_) => (),
-        // These messages handled by other callbacks, and not stored globally
-        ToFront::GeojsonUpdated => (),
-        ToFront::NearestLocation(_) => (),
-        ToFront::NewPinId(_) => (),
         ToFront::SwiftPoke => swift_poke::poke(),
+        // These messages handled by other message listeners
+        ToFront::Startup(..) => (),
+        ToFront::PendingEvents(_) => (),
+        ToFront::GeojsonUpdated => (),
+        ToFront::NearestLocation(..) => (),
+        ToFront::NewPinId(_) => (),
         ToFront::PopUp(_) => (),
     };
     Box::new(callback)
 }
 
 /// Send changes to the FrontState to the backend
-struct StateListener {
+struct FrontStateListener {
     pub wss: WebsocketService,
 }
-impl Listener for StateListener {
+impl Listener for FrontStateListener {
     type Store = FrontState;
 
     fn on_change(&mut self, state: Rc<Self::Store>) {
@@ -195,7 +206,67 @@ impl Listener for StateListener {
     }
 }
 
-pub fn init_backend_listener(wss: WebsocketService) {
-    let state_listener = StateListener { wss };
+pub fn init_front_listener(wss: WebsocketService) {
+    let state_listener = FrontStateListener { wss };
     init_listener(state_listener);
+}
+
+fn init_derived_listener() {
+    // derived state may arrive before front state, so do a manual update
+    let mut derived_listener = DerivedStateListener {
+        previous_dbs_on_disk: Default::default(),
+    };
+    let derived_state = Dispatch::<DerivedState>::new().get();
+    derived_listener.on_change(derived_state);
+    init_listener(derived_listener);
+}
+
+/// This listener updates the front state with database settings. It listens for
+/// changes to dbs_on_disk, and adds/removes dbs from the front state as needed.
+struct DerivedStateListener {
+    previous_dbs_on_disk: BTreeMap<MountID, Option<String>>,
+}
+impl Listener for DerivedStateListener {
+    type Store = DerivedState;
+
+    fn on_change(&mut self, state: Rc<Self::Store>) {
+        let dbs_on_disk = &state.mounted_dbs_on_disk;
+        let last_mounted = &state.last_mounted;
+        if self.previous_dbs_on_disk == *dbs_on_disk {
+            return;
+        }
+        self.previous_dbs_on_disk = dbs_on_disk.clone();
+        let dispatch = Dispatch::<FrontState>::new();
+        let mounted_db_settings = &dispatch.get().mounted_db_settings;
+        // if there's a database on disk that's not in the front state, add it
+        for id in dbs_on_disk.keys() {
+            if mounted_db_settings.get(id).is_none() {
+                // not listed in the named databases in the front state, add it
+                let name = match last_mounted {
+                    // use fname as name if it's the last db mounted
+                    Some((last_id, name)) if last_id == id => name.clone(),
+                    _ if *id == MAIN_DB_MOUNT_ID => MAIN_DB_NAME.to_string(),
+                    _ => "?".to_string(),
+                };
+                dispatch.reduce_mut(|s| {
+                    s.mounted_db_settings.insert(
+                        *id,
+                        MountedDB {
+                            name,
+                            enabled: true,
+                        },
+                    )
+                });
+            }
+        }
+        // if a db is in the front state but not on disk, remove it
+        for id in mounted_db_settings.keys() {
+            if dbs_on_disk.get(id).is_none() {
+                // database no longer on disk, remove from ui state
+                dispatch.reduce_mut(|s| {
+                    s.mounted_db_settings.remove(id);
+                });
+            }
+        }
+    }
 }

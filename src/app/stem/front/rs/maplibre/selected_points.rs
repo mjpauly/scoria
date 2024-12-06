@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use common::{map_style::MapStyle, LngLat};
+use common::{map_style::MapStyle, mounted::MountID, LngLat};
 use serde_json::{json, Value};
 use wasm_bindgen::prelude::*;
 
@@ -36,7 +36,7 @@ pub fn make_layer(map_style: &MapStyle) -> Value {
 
 pub fn update_selected(
     map: &Rc<binds::Map>,
-    selected: &[(time::OffsetDateTime, LngLat)],
+    selected: &[((MountID, time::OffsetDateTime), LngLat)],
 ) -> Result<(), JsValue> {
     map.get_source(SOURCE_ID)
         .set_data(&val_to_jsval(&make_selected_geojson(selected)));
@@ -45,7 +45,7 @@ pub fn update_selected(
 
 pub fn update_after_restyle(
     map: Rc<binds::Map>,
-    selected: Vec<(time::OffsetDateTime, LngLat)>,
+    selected: Vec<((MountID, time::OffsetDateTime), LngLat)>,
 ) {
     map.clone().once(
         "styledata",
@@ -57,7 +57,9 @@ pub fn update_after_restyle(
 }
 
 /// Make the selected points geojson source
-fn make_selected_geojson(selected: &[(time::OffsetDateTime, LngLat)]) -> Value {
+fn make_selected_geojson(
+    selected: &[((MountID, time::OffsetDateTime), LngLat)],
+) -> Value {
     let features = selected
         .iter()
         .map(|p| {
