@@ -83,6 +83,7 @@ static_file_targets, static_file_envs = files_and_envs({
     "static/apk/Scoria_1.4.0.apk": "SCORIA_1_4_0",
     "static/apk/Scoria_1.4.2.apk": "SCORIA_1_4_2",
     "static/apk/Scoria_1.4.3.apk": "SCORIA_1_4_3",
+    "static/apk/Scoria_1.4.4.apk": "SCORIA_1_4_4",
 })
 
 rust_binary(

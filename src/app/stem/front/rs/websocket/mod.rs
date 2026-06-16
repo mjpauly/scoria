@@ -120,7 +120,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::time::Duration;
 
-use futures::channel::mpsc::{Receiver, Sender};
+use futures::channel::{mpsc, oneshot};
 use futures::stream::{SplitSink, SplitStream};
 use futures::{SinkExt, StreamExt};
 use gloo_net::websocket::WebSocketError;
@@ -131,7 +131,10 @@ use wasm_bindgen_futures::spawn_local;
 use yew::functional::{hook, use_context, use_effect_with_deps};
 
 use crate::router::get_scoped_host;
+use common::ws_messages::Response;
 pub use common::{ToBack, ToFront}; // Re-export the message types
+
+mod functional;
 
 /// Subscribe to backend events.
 ///
@@ -187,6 +190,8 @@ where
 
 pub type Callback = Box<dyn Fn(&ToFront)>;
 
+type PendingRequests = Rc<RefCell<HashMap<Uuid, oneshot::Sender<Response>>>>;
+
 /// Shared WebsocketService instance.
 #[derive(Clone)]
 pub struct WebsocketService {
@@ -194,10 +199,14 @@ pub struct WebsocketService {
     // interior mutability for sending messages.
 
     // handle for sending a message to the backend through the websocket
-    tx: Rc<RefCell<Sender<ToBack>>>,
+    tx: Rc<RefCell<mpsc::Sender<ToBack>>>,
 
     // list of component subscribers to update on message received from backend
     subscribers: Rc<RefCell<HashMap<Uuid, Callback>>>,
+
+    // paired Request and Response
+    #[allow(dead_code)] // read by the clone, dead code warning is false alarm
+    pending_requests: PendingRequests,
 }
 
 impl WebsocketService {
@@ -207,7 +216,7 @@ impl WebsocketService {
     }
 
     /// Return a clone of the mpsc::Sender for writing messages to the backend.
-    pub fn get_sender(&self) -> Sender<ToBack> {
+    pub fn get_sender(&self) -> mpsc::Sender<ToBack> {
         self.tx.borrow().clone()
     }
 
@@ -229,8 +238,8 @@ impl WebsocketService {
     fn connect() -> (
         SplitSink<WebSocket, Message>,
         SplitStream<WebSocket>,
-        Sender<ToBack>,
-        Receiver<ToBack>,
+        mpsc::Sender<ToBack>,
+        mpsc::Receiver<ToBack>,
     ) {
         // The location of the websocket endpoint on the backend
         let address = format!("ws://{}/ws", get_scoped_host());
@@ -252,6 +261,8 @@ impl WebsocketService {
         let tx = Rc::new(RefCell::new(yew_tx));
         let subscribers =
             Rc::new(RefCell::new(HashMap::<Uuid, Callback>::new()));
+        let pending_requests: PendingRequests =
+            Rc::new(RefCell::new(HashMap::new()));
 
         let reconnect_needed = Rc::new(RefCell::new(false));
 
@@ -260,18 +271,23 @@ impl WebsocketService {
             subscribers.clone(),
             #[allow(clippy::redundant_clone)]
             reconnect_needed.clone(),
+            pending_requests.clone(),
         );
         Self::spawn_websocket_writer(yew_rx, ws_write);
         // In development, we spawn a task to reload if the websocket drops.
         #[cfg(feature = "dev_autoreload")]
         Self::spawn_autoreloader(reconnect_needed);
-        Self { tx, subscribers }
+        Self {
+            tx,
+            subscribers,
+            pending_requests,
+        }
     }
 
     /// Spawn the future that gets data from the mpsc channel and sends it
     /// through the websocket to the backend.
     fn spawn_websocket_writer(
-        mut yew_rx: Receiver<ToBack>,
+        mut yew_rx: mpsc::Receiver<ToBack>,
         mut ws_write: SplitSink<WebSocket, Message>,
     ) {
         spawn_local(async move {
@@ -290,6 +306,7 @@ impl WebsocketService {
         // Handle to the subscriberes to notify
         subscribers: Rc<RefCell<HashMap<Uuid, Callback>>>,
         reconnect_needed: Rc<RefCell<bool>>,
+        pending_requests: PendingRequests,
     ) {
         spawn_local(async move {
             while let Some(msg) = ws_read.next().await {
@@ -297,8 +314,18 @@ impl WebsocketService {
                     Ok(Message::Bytes(b)) => {
                         match bincode::deserialize::<ToFront>(&b[..]) {
                             Ok(val) => {
-                                for (_id, cb) in subscribers.borrow().iter() {
-                                    (*cb)(&val);
+                                if let ToFront::Response(id, response) = val {
+                                    if let Some(sender) = pending_requests
+                                        .borrow_mut()
+                                        .remove(&id)
+                                    {
+                                        let _ = sender.send(response);
+                                    }
+                                } else {
+                                    for (_id, cb) in subscribers.borrow().iter()
+                                    {
+                                        (*cb)(&val);
+                                    }
                                 }
                             }
                             Err(e) => {

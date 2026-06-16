@@ -93,6 +93,7 @@ rust_library(
         "@stem_crate_index//:bincode",
         "@stem_crate_index//:time",
         "@stem_crate_index//:once_cell",
+        "@stem_crate_index//:uuid",
     ] + select({
         "//:android_config": [
             "@stem_crate_index//:android-tzdata",
@@ -131,6 +132,7 @@ rust_library(
         "@stem_crate_index//:time",
         "@stem_crate_index//:unicode-segmentation",
         "@stem_crate_index//:uom",
+        "@stem_crate_index//:uuid",
         "@stem_crate_index//:serde_json",
         "@stem_crate_index//:serde_qs",
     ],

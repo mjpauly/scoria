@@ -5,12 +5,14 @@ use crate::{
     pin::Pin,
     popups::PopUp,
     state::{DerivedState, PendingEvents},
-    BackState, FrontState, LngLat, Location,
+    BackState, FrontState, LngLat, Location, TimeRange,
 };
 
 /// Messages from the frontend to the backend over the websocket
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum ToBack {
+    Request(uuid::Uuid, Request),
+
     LogError(String),
 
     // Frontend requests frontend state at startup, once
@@ -42,6 +44,8 @@ pub enum ToBack {
 /// Messages from the backend to the frontend
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum ToFront {
+    Response(uuid::Uuid, Response),
+
     Startup(
         Box<Option<FrontState>>,
         BackState,
@@ -56,4 +60,16 @@ pub enum ToFront {
     SwiftPoke,
     PendingEvents(PendingEvents),
     PopUp(PopUp), // message from backend to display
+}
+
+/// A request that has a corresponding response.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum Request {
+    // Get the time range that encompasses all location data of mounted DBs
+    DBFullTimeRange,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum Response {
+    DBFullTimeRange(Result<Option<TimeRange>, String>),
 }

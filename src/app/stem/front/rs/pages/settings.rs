@@ -254,7 +254,7 @@ pub fn MountedDBSettings() -> Html {
                     supported for mounted databases."}
                 </p>
                 <p class="mt-2 mx-2 text-left">
-                    {"You can set databse names and whether they are enabled on
+                    {"You can set database names and whether they are enabled on
                     the map."}
                 </p>
 

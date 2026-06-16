@@ -196,16 +196,14 @@ fn CopyPoints() -> Html {
                 />
             }
             <div class="flex justify-between items-center">
-                <div class="flex items-center">
-                    <p> {"Copy to: "} </p>
-                    <Select<String>
-                        selection={dest_db_name}
-                        choices={db_choices}
-                        onchange={db_choice_onchange}
-                        class="mx-2"
-                        id="copy_destination_database"
-                    />
-                </div>
+                <p> {"Copy to: "} </p>
+                <Select<String>
+                    selection={dest_db_name}
+                    choices={db_choices}
+                    onchange={db_choice_onchange}
+                    class="mx-2 text-wrap w-[50vw] grow"
+                    id="copy_destination_database"
+                />
                 <button
                     class="px-3 py-1.5 rounded-lg bg-neutral-800 \
                         text-primary disabled:text-neutral-500 flex \

@@ -15,7 +15,10 @@
 //!
 //! Timezone (localized, system / fixed) (just use setting?)
 
-use jiff::{civil::Date, Span, Timestamp};
+use jiff::{
+    civil::{Date, Time},
+    Span, Timestamp,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::state::ok_or_default;
@@ -58,7 +61,9 @@ impl TimeRange {
 
 impl Default for TimeRange {
     fn default() -> Self {
-        TimeDeltaRange::default().to_time_range("UTC").unwrap()
+        TimeDeltaRange::default()
+            .to_time_range("UTC", Time::MIN)
+            .unwrap()
     }
 }
 
@@ -77,15 +82,38 @@ pub struct TimeDeltaRange {
 }
 
 impl TimeDeltaRange {
-    pub fn to_time_range(&self, tz: &str) -> Result<TimeRange, jiff::Error> {
+    pub fn to_time_range(
+        &self,
+        tz: &str,
+        day_separation_time: Time,
+    ) -> Result<TimeRange, jiff::Error> {
         let now = Timestamp::now().intz(tz)?;
         let mut start = &now + self.start_offset;
         let mut end = &now + self.end_offset;
         if self.snap_start_to_day {
-            start = start.start_of_day()?;
+            let delta = start.time() - day_separation_time;
+            // need to provide the Zoned reference time for comparison
+            start = if delta.compare((Span::new(), &start))?
+                != std::cmp::Ordering::Less
+            {
+                // delta >= 0; past day separator
+                &start - delta
+            } else {
+                // delta < 0; not yet at day separator
+                &(&start - delta) - Span::new().days(1)
+            }
         }
         if self.snap_end_to_day {
-            end = end.tomorrow()?.start_of_day()?;
+            let delta = end.time() - day_separation_time;
+            end = if delta.compare((Span::new(), &end))?
+                != std::cmp::Ordering::Less
+            {
+                // delta >= 0; past day separator
+                &(&end - delta) + Span::new().days(1)
+            } else {
+                // delta < 0; not yet at day separator
+                &end - delta
+            }
         }
         Ok(TimeRange {
             start: start.timestamp(),
@@ -132,12 +160,10 @@ impl TimeDeltaRange {
         })
     }
 
-    pub fn all() -> Result<Self, jiff::Error> {
-        let start = Date::new(2023, 1, 1)?.at(12, 0, 0, 0).intz("UTC").unwrap();
-        let end = &start + Span::new().years(10);
-        let now = Timestamp::now().intz("UTC").unwrap();
-        let start_delta = now.until(&start)?;
-        let end_delta = now.until(&end)?;
+    pub fn range(tr: TimeRange) -> Result<Self, jiff::Error> {
+        let now = Timestamp::now();
+        let start_delta = now.until(tr.start)?;
+        let end_delta = now.until(tr.end)?;
         Ok(Self {
             start_offset: start_delta,
             end_offset: end_delta,

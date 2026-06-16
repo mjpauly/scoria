@@ -142,7 +142,13 @@ pub fn LocationConfigurator() -> Html {
                 while moving (Best)."}
             </AfterCardParagraph>
             <AfterCardParagraph>
-                {"If you want to lower power use, switch to Reduced mode."}
+                {"To lower power use, switch to Reduced mode."}
+            </AfterCardParagraph>
+            <AfterCardParagraph>
+                {"To keep accuracy and power use high, switch to Custom mode
+                with an accuracy of Best. This is useful when low-power location
+                services like WiFi are unavailable, and a change from
+                stationarity to movement might not be detected."}
             </AfterCardParagraph>
         } else if *show_help && config.is_reduced() {
             <AfterCardParagraph>
@@ -152,8 +158,8 @@ pub fn LocationConfigurator() -> Html {
                 you move."}
             </AfterCardParagraph>
             <AfterCardParagraph>
-                {"If you wish to lower power use, switch to Infrequent mode or
-                Custom mode with an accuracy level of 1 km."}
+                {"To lower power use, switch to Infrequent mode or Custom mode
+                with an accuracy level of 1 km."}
             </AfterCardParagraph>
         } else if *show_help && standard_mode {
             <AfterCardParagraph>
@@ -170,7 +176,7 @@ pub fn LocationConfigurator() -> Html {
             </AfterCardParagraph>
         } else if *show_help && config.is_infrequent() {
             <AfterCardParagraph>
-                {"Infrequent mode records location only when you move a
+                {"Infrequent mode records locations only when you move a
                 significant distance, like when you visit a new place. It
                 saves more power than any of the other modes at the
                 cost of a substantially reduced update rate."}

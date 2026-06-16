@@ -1,5 +1,5 @@
 {
-  "checksum": "7844daadc10b4e98471664f20a3de6f8aa51ddad2a6e2eaa19c310a0eff6d01b",
+  "checksum": "d73fa682824664318bebdbf0073d4cef4fa8b43a7fa8996f9ac4429bba56c157",
   "crates": {
     "actix 0.13.0": {
       "name": "actix",
@@ -26160,6 +26160,7 @@
             "macro-diagnostics",
             "rand",
             "rng",
+            "serde",
             "std",
             "uuid-macro-internal",
             "v4"
@@ -26175,6 +26176,10 @@
             {
               "id": "rand 0.8.5",
               "target": "rand"
+            },
+            {
+              "id": "serde 1.0.210",
+              "target": "serde"
             }
           ],
           "selects": {}

@@ -3,11 +3,15 @@
 use std::fmt::{Debug, Display};
 use std::str::FromStr;
 
+use jiff::civil::Time;
+use web_sys::HtmlInputElement;
 use yew::prelude::*;
 use yew_icons::{Icon, IconId};
 use yew_router::prelude::*;
 
-use crate::components::{Select, ShortInput, ToggleSwitch};
+use crate::components::{
+    Select, ShortInput, ToggleSwitch, DATETIME_INPUT_STYLE,
+};
 
 // A line on a settings card that is a horizontal flexbox that takes the full
 // width and separates the elements to the ends of the line.
@@ -248,6 +252,44 @@ pub fn SettingsCardInput(p: &SettingsCardInputProps) -> Html {
                 )}
                 value={p.value.clone()}
                 onchange={p.onchange.clone()}
+                id={p.id.clone()}
+            />
+        </label>
+    }
+}
+
+#[derive(Properties, PartialEq)]
+pub struct SettingsCardTimeInputProps {
+    pub text: String,             // the label for the input
+    pub value: Time,              // value contents
+    pub onchange: Callback<Time>, // the callback to emit
+    #[prop_or_default]
+    pub class: Classes, // classes to pass to the input itself, e.g. w-24
+    #[prop_or_default]
+    pub id: AttrValue,
+}
+
+#[function_component]
+pub fn SettingsCardTimeInput(p: &SettingsCardTimeInputProps) -> Html {
+    let cb = p.onchange.clone();
+    let onchange = Callback::from(move |e: Event| {
+        let elem: HtmlInputElement = e.target_dyn_into().unwrap();
+        if let Ok(val) = elem.value().parse() {
+            cb.emit(val);
+        }
+    });
+    html! {
+        <label class={SETTINGS_LINE_STYLE}>
+            {p.text.clone()}
+            <input
+                type="time"
+                class={classes!(
+                    Classes::from("ml-4 w-min text-right"),
+                    Classes::from(DATETIME_INPUT_STYLE),
+                    p.class.clone()
+                )}
+                value={format!("{:02}:{:02}", p.value.hour(), p.value.minute())}
+                onchange={onchange}
                 id={p.id.clone()}
             />
         </label>

@@ -42,7 +42,7 @@ pub fn Intro() -> Html {
     let prev_page_onclick =
         dispatch.reduce_mut_callback(|s: &mut FrontState| s.intro_page -= 1);
 
-    const LAST_PAGE: u32 = 8;
+    const LAST_PAGE: u32 = 6; // index of the last page
     html! {
         <>
             <TopNav>
@@ -56,18 +56,14 @@ pub fn Intro() -> Html {
                     } else if *subpage == 1 {
                         <HowItWorks />
                     } else if *subpage == 2 {
-                        <HoldUp />
-                    } else if *subpage == 3 {
-                        <SeePrivacyPolicy />
-                    } else if *subpage == 4 {
                         <LoggingMode />
-                    } else if *subpage == 5 {
+                    } else if *subpage == 3 {
                         <EnableLocation />
-                    } else if *subpage == 6 {
+                    } else if *subpage == 4 {
                         <EnableLocationPartTwo />
-                    } else if *subpage == 7 {
+                    } else if *subpage == 5 {
                         <PickUnits />
-                    } else if *subpage == 8 {
+                    } else {
                         <IntroFinish />
                     }
                 </div>
@@ -99,48 +95,6 @@ pub fn Intro() -> Html {
 }
 
 #[function_component]
-fn BackupNotice() -> Html {
-    let wss = use_context::<WebsocketService>().unwrap();
-    let export_onclick = Callback::from(move |_e: MouseEvent| {
-        wss.send_msg(ToBack::ExportSqliteLog);
-        swift_poke::poke();
-    });
-    html! {
-        <>
-            <p class="text-primary text-2xl mb-3">
-                {"🛟 Data Backup Recommended"}
-            </p>
-            <p class="mb-3">
-                {"You can now export your location log."}
-            </p>
-            <p class="mb-3">
-                {"If you'd like to reduce the risk of losing your data, we
-                recommend that you make a backup. Just tap the button below
-                and save your log to the Files app on your device."}
-            </p>
-
-            <div class="my-4 flex px-4">
-            <div class="grow max-w-prose mx-auto">
-            <div class="bg-neutral-900 rounded-lg px-4 py-1 mt-2">
-                <button onclick={export_onclick}
-                    class="flex items-center justify-between py-2 w-full">
-                    <span class="text-primary">
-                        {"Export Log"}
-                    </span>
-                </button>
-            </div>
-            </div>
-            </div>
-
-            <p class="mb-3">
-                {"This option is also accessible from the settings."}
-            </p>
-
-        </>
-    }
-}
-
-#[function_component]
 fn IntroStart() -> Html {
     html! {
         <>
@@ -152,8 +106,8 @@ fn IntroStart() -> Html {
                 your location history."}
             </p>
             <p class="mb-3">
-                {"🔒 Data is stored only on your device and is not accessible to
-                anyone except you."}
+                {"🔒 Data is stored only on your device and is never shared
+                without your explicit permission."}
             </p>
         </>
     }
@@ -175,49 +129,6 @@ fn HowItWorks() -> Html {
             <p class="mb-3">
                 {"🛤️ See where you've been, the routes you've taken, time spent at destinations and during travel, and much more. Scoria is an automatic spatial activity journal."}
             </p>
-        </>
-    }
-}
-
-#[function_component]
-fn HoldUp() -> Html {
-    html! {
-        <>
-            <p class="text-primary text-2xl mb-6">
-                {"✋ Hold Up"}
-            </p>
-            <p class="mb-3">
-                {"Let's take a moment to appreciate the importance of privacy here. Scoria is designed to help you record detailed location data about your life, "} <span class="italic">{"continuously."}</span>
-            </p>
-            <p class="mb-3">
-                {"This information is deeply personal, private, and sensitive. It reveals a tremendous amount about who you are. We, the developers, approach this matter seriously. We created Scoria because we believe everyone deserves privacy, and because we felt there were gaps in the space of personal data tools."}
-            </p>
-            <p class="mb-3">
-                {"Data logged by Scoria is kept on your device and is only accessible to you. We don't automatically collect any information about you or how you use the app. We make no assumptions about what data is sensitive and what data isn't. We do not know if you use the app or not, how you use the app, or if the app crashes while you're using it. (If the app crashes, let us know through the feedback form so we can fix it.) All data is private by default."}
-            </p>
-
-        </>
-    }
-}
-
-#[function_component]
-fn SeePrivacyPolicy() -> Html {
-    html! {
-        <>
-            <p class="text-primary text-2xl mb-6">
-                {"The Privacy Policy"}
-            </p>
-            <p class="mb-3">
-                {"The privacy policy is short and easy to read, and goes into more detail."}
-            </p>
-            <p class="mb-3">
-                {"Check it out "}
-                <a href="https://scoria.info/privacy" class="underline text-blue-500">
-                    {"here"}
-                </a>
-                {", or find it anytime from the Settings menu."}
-            </p>
-
         </>
     }
 }
@@ -280,7 +191,7 @@ fn LoggingMode() -> Html {
                 {"⛅️ Use \"Reduced\" if you want a lower level of power draw and don't mind lower accuracy data, have an older device model, or spend most of the day in motion without the ability to recharge your device."}
             </p>
             <p class="mb-3">
-                {"🌧️ Choose \"Infrequent\" mode if battery life is critical. Data is logged very rarely with this mode, and is the least detailed. Battery drain is negligible."}
+                {"🌧️ Choose \"Infrequent\" mode if battery life is critical. Data is logged only if you move a significant distance. Battery drain is negligible."}
             </p>
 
             <div class={"bg-neutral-900 rounded-lg px-4 mt-2 flex items-center justify-between py-2"}>

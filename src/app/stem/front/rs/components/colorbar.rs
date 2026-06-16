@@ -5,7 +5,7 @@ use yew::prelude::*;
 use yewdux::prelude::*;
 
 use crate::ui_state::{BackState, FrontState};
-use common::map_style::ColoredDataStream;
+use common::{cmaps::Cminmax, map_style::ColoredDataStream};
 
 pub fn cmap_to_plotly(cmap: &[(f64, &'static str)]) -> ColorScale {
     let mut scale: Vec<_> = cmap
@@ -28,22 +28,19 @@ pub fn Colorbar() -> Html {
 
     use_effect_with_deps(
         move |(cmap_params, colored_datastream)| {
-            let mut cmap_params = **cmap_params;
+            let Cminmax { mut cmin, mut cmax } =
+                cmap_params.cminmax.unwrap_or_default();
             // Convert cmax/cmin to preferred units
             match **colored_datastream {
                 ColoredDataStream::HorizAccuracy
                 | ColoredDataStream::Altitude
                 | ColoredDataStream::VertAccuracy => {
-                    cmap_params.cmin =
-                        unit_pref.small_length.from_base_unit(cmap_params.cmin);
-                    cmap_params.cmax =
-                        unit_pref.small_length.from_base_unit(cmap_params.cmax);
+                    cmin = unit_pref.small_length.from_base_unit(cmin);
+                    cmax = unit_pref.small_length.from_base_unit(cmax);
                 }
                 ColoredDataStream::Speed | ColoredDataStream::SpeedAccuracy => {
-                    cmap_params.cmin =
-                        unit_pref.velocity.from_base_unit(cmap_params.cmin);
-                    cmap_params.cmax =
-                        unit_pref.velocity.from_base_unit(cmap_params.cmax);
+                    cmin = unit_pref.velocity.from_base_unit(cmin);
+                    cmax = unit_pref.velocity.from_base_unit(cmax);
                 }
                 _ => (),
             };
@@ -52,9 +49,9 @@ pub fn Colorbar() -> Html {
             // In this case the binary_search_by using partial_cmp will
             // default to picking the middle color in the colormap, so we just
             // need to make it symmetric around the cmin/cmax value.
-            if cmap_params.cmin == cmap_params.cmax {
-                cmap_params.cmin -= 1.;
-                cmap_params.cmax += 1.;
+            if cmin == cmax {
+                cmin -= 1.;
+                cmax += 1.;
             }
 
             // calculate font sizes for responsive sizing
@@ -112,8 +109,8 @@ pub fn Colorbar() -> Html {
             // on doing a colorbar for time (plotly doesn't handle it well)
             let marker = plotly::common::Marker::new()
                 .color_scale(cmap_to_plotly(cmap_params.cmap.cmap_array()))
-                .cmin(cmap_params.cmin)
-                .cmax(cmap_params.cmax)
+                .cmin(cmin)
+                .cmax(cmax)
                 .color_bar(colorbar)
                 .opacity(0.0); // hide the single data point
 

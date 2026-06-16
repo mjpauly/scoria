@@ -37,7 +37,7 @@
 //! tracing-subscriber's default feature `tracing-log` allows
 //! SubscriberInitExt::init() to enable `log` crate compatibility.
 
-use std::cmp::Ordering;
+use std::{cmp::Ordering, fmt::Display};
 
 use tracing::Subscriber;
 use tracing_appender::rolling::{RollingFileAppender, Rotation};
@@ -49,6 +49,21 @@ use crate::{
     app_state::AppState,
     paths::{get_logs_dir, get_logs_dir_helper, Paths},
 };
+
+/// Take a non-essential operation and log the error without altering control flow or showing a popup to the user.
+pub trait LogErrorAndContinue {
+    fn log_error_and_continue(&self);
+}
+
+impl<T, E: Display> LogErrorAndContinue for std::result::Result<T, E> {
+    fn log_error_and_continue(&self) {
+        if let Err(e) = self {
+            // use the alternate display implementation to show error source
+            // details for anyhow errors, not just top-level error
+            tracing::error!("{e:#}");
+        }
+    }
+}
 
 /// Default subscriber for when the app is running
 pub fn get_subscriber(paths: &Paths) -> impl Subscriber + Send + Sync {

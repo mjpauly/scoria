@@ -1,3 +1,6 @@
+# for bazel run --config=rustfmt @rules_rust//:rustfmt
+run:rustfmt --@rules_rust//:rustfmt.toml=//:rustfmt.toml
+
 # For hermetic_cc_toolchain
 common --enable_platform_specific_config
 build:linux --sandbox_add_mount_pair=/tmp

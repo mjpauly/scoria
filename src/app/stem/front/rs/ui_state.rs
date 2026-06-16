@@ -40,7 +40,7 @@ impl Default for FrontState {
                 // pick values for cases when deserialization fails.
                 time_delta_range: TimeDeltaRange::today(),
                 time_range: TimeDeltaRange::today()
-                    .to_time_range("UTC")
+                    .to_time_range("UTC", jiff::civil::Time::MIN)
                     .unwrap(),
                 ..Default::default()
             },
@@ -122,9 +122,10 @@ fn do_init_state(
         // This way the selected time_range doesn't abruptly change on
         // the user as time passes while the app is open, but updates
         // between app launches
-        if let Ok(new_time_range) =
-            state.map.time_delta_range.to_time_range(&back_state.map_tz)
-        {
+        if let Ok(new_time_range) = state.map.time_delta_range.to_time_range(
+            &back_state.map_tz,
+            state.time_pref.day_separation_time,
+        ) {
             state.map.time_range = new_time_range;
         }
         // TODO: reset to today if they've been away for 1+ hour
@@ -174,6 +175,7 @@ pub fn get_update_callback() -> Callback {
     let back_dispatch = Dispatch::<BackState>::new();
     let derived_dispatch = Dispatch::<DerivedState>::new();
     let callback = move |msg: &ToFront| match msg {
+        ToFront::Response(_, _) => (),
         ToFront::BackState(val) => {
             // update our known backend state
             back_dispatch.reduce_mut(|s| **s = val.clone())

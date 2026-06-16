@@ -71,15 +71,17 @@ use actix_web::http::header::{
 };
 use actix_web::HttpRequest;
 use actix_web::{routes, web, HttpResponse, Responder};
+use anyhow::Context;
 use obfstr::obfstr;
 use tokio::sync::OnceCell;
-use tracing::{debug, error, info, trace};
+use tracing::{debug, info, trace};
 use walkdir::WalkDir;
 
 use super::automap::{automap_is_opaque, tile_has_been_visited};
 use super::coords::TileXYZ;
 use crate::app_state::{set_back_state, AppState};
 use crate::files::get_blank_png;
+use crate::logs::LogErrorAndContinue;
 use crate::paths::get_map_cache_dir;
 use crate::server::no_caching_directives;
 
@@ -417,9 +419,9 @@ pub async fn evict_old_map_data() {
             "Evicting file with access time {:?} and path {:?}",
             to_evict.atime, to_evict.path,
         );
-        if let Err(e) = std::fs::remove_file(to_evict.path) {
-            error!("Failed to evict file: {e}");
-        }
+        std::fs::remove_file(to_evict.path)
+            .context("evicting cached map data file")
+            .log_error_and_continue();
     }
     let final_size = cache_size(&files);
     // update the cache size state so it can be displayed in the frontend

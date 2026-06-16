@@ -27,9 +27,16 @@ impl Cmap {
 /// a reference to the colormap itself.
 #[derive(PartialEq, Debug, Default, Copy, Clone, Serialize, Deserialize)]
 pub struct CmapParams {
+    /// If all locations are missing the data to be colormapped, we might not
+    /// have a cmin/cmax
+    pub cminmax: Option<Cminmax>,
+    pub cmap: Cmap,
+}
+
+#[derive(PartialEq, Debug, Default, Copy, Clone, Serialize, Deserialize)]
+pub struct Cminmax {
     pub cmin: f64,
     pub cmax: f64,
-    pub cmap: Cmap,
 }
 
 impl CmapParams {
@@ -37,9 +44,17 @@ impl CmapParams {
     /// covers all data without saturating. Useful if params are derived for the
     /// data in different chunks, but need to be displayed together.
     pub fn merge(&self, other: &Self) -> Self {
+        let cminmax = match (self.cminmax, other.cminmax) {
+            (Some(a), Some(b)) => Some(Cminmax {
+                cmin: a.cmin.min(b.cmin),
+                cmax: a.cmax.max(b.cmax),
+            }),
+            (Some(a), None) => Some(a),
+            (None, Some(b)) => Some(b),
+            (None, None) => None,
+        };
         Self {
-            cmin: self.cmin.min(other.cmin),
-            cmax: self.cmax.max(other.cmax),
+            cminmax,
             cmap: self.cmap,
         }
     }
@@ -75,9 +90,12 @@ pub fn find_nearest(cmap: &'static [(f64, &str)], val: f64) -> &'static str {
 
 /// Get the color of a data point inside the range [cmin-cmax]
 pub fn get_data_color(val: f64, params: &CmapParams) -> &'static str {
+    // We don't expect this to get called if cmax and cmin are undefined, since
+    // that happens where there is no value to colormap.
+    let Cminmax { cmin, cmax } = params.cminmax.unwrap_or_default();
     // If cmax==cmin this will return NaN, which means partial_cmp's Option will
     // default to Equal, giving us the middle value in the colormap.
-    let normalized = (val - params.cmin) / (params.cmax - params.cmin);
+    let normalized = (val - cmin) / (cmax - cmin);
     find_nearest(params.cmap.cmap_array(), normalized)
 }
 

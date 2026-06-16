@@ -14,6 +14,7 @@ use sqlx::{
 
 use crate::{
     app_state::{set_derived_state, AppState},
+    logs::LogErrorAndContinue,
     paths::get_db_path,
 };
 
@@ -56,12 +57,11 @@ pub async fn open_db(db_path: String) -> Result<SqlitePool> {
         .await
         .context("connecting to database")?;
     MIGRATOR.run(&conn).await.context("running migrations")?;
-    if let Err(e) = sqlx::query("PRAGMA secure_delete = on;")
+    sqlx::query("PRAGMA secure_delete = on;")
         .execute(&conn)
         .await
-    {
-        tracing::error!("Failed to set secure delete on: {e}");
-    }
+        .context("setting secure delete on")
+        .log_error_and_continue();
     Ok(conn)
 }
 
@@ -69,12 +69,10 @@ pub async fn open_db(db_path: String) -> Result<SqlitePool> {
 pub async fn increase_db_cache_sizes() {
     let dbs = AppState::global().dbs.lock().unwrap().clone();
     for (id, db) in dbs.iter() {
-        if let Err(e) = increase_db_cache_size(db)
+        increase_db_cache_size(db)
             .await
-            .with_context(|| format!("increase cache size of database {id}"))
-        {
-            tracing::error!("{e}");
-        }
+            .with_context(|| format!("increasing cache size of database {id}"))
+            .log_error_and_continue();
     }
 }
 
@@ -82,12 +80,10 @@ pub async fn increase_db_cache_sizes() {
 pub async fn reduce_db_cache_sizes() {
     let dbs = AppState::global().dbs.lock().unwrap().clone();
     for (id, db) in dbs.iter() {
-        if let Err(e) = reduce_db_cache_size(db)
+        reduce_db_cache_size(db)
             .await
-            .with_context(|| format!("reduce cache size of database {id}"))
-        {
-            tracing::error!("{e}");
-        }
+            .with_context(|| format!("reducing cache size of database {id}"))
+            .log_error_and_continue();
     }
 }
 

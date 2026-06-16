@@ -24,6 +24,7 @@ use common::mounted::{MountID, MAIN_DB_MOUNT_ID};
 use crate::app_state::{
     get_derived_state, get_front_state, set_derived_state, AppState,
 };
+use crate::logs::LogErrorAndContinue;
 use crate::paths::{get_mount_root_dir, DB_FNAME};
 use crate::tz::get_system_tz;
 use crate::ws_session;
@@ -34,9 +35,10 @@ use super::open_db;
 /// main database. This is run on foregrounding, since the mounted databases are
 /// just for viewing, not logging new data.
 pub async fn open_all_mounted() {
-    if let Err(e) = try_open_all_mounted().await.context("init mounted dbs") {
-        error!("{e:?}");
-    }
+    try_open_all_mounted()
+        .await
+        .context("init mounted dbs")
+        .log_error_and_continue();
 }
 
 /// Fallible routine for opening connections to each database.
@@ -145,10 +147,9 @@ async fn try_open_db(mount_dir: &Path) -> Result<SqlitePool> {
 /// Remove a mount directory, without any special error handling other than
 /// logging. Used to cancel an already failing mount process.
 fn remove_mount_dir(mount_dir: &Path) {
-    if let Err(e) = fs::remove_dir_all(mount_dir).context("removing mount dir")
-    {
-        error!("{e:?}");
-    }
+    fs::remove_dir_all(mount_dir)
+        .context("removing mount dir")
+        .log_error_and_continue();
 }
 
 /// Mount a database from a path.

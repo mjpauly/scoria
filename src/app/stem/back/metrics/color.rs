@@ -1,7 +1,7 @@
 //! Colormap calculations for data.
 
 use common::{
-    cmaps::{Cmap, CmapParams},
+    cmaps::{Cmap, CmapParams, Cminmax},
     float,
     map_style::ColoredDataStream,
     Location,
@@ -29,19 +29,26 @@ pub fn get_cmap_data(
     let cmap_vals = get_colored_data_vals(colored_datastream, records);
     let mut params = CmapParams::default();
     if *colored_datastream == ColoredDataStream::Course {
-        params.cmax = 360.;
+        params.cminmax = Some(Cminmax {
+            cmin: 0.,
+            cmax: 360.,
+        });
         params.cmap = Cmap::Twilight;
     } else if *colored_datastream == ColoredDataStream::TimeOfDay {
-        params.cmax = 24. * 60. * 60.;
+        params.cminmax = Some(Cminmax {
+            cmin: 0.,
+            cmax: 24. * 60. * 60.,
+        });
         params.cmap = Cmap::TwilightShifted;
     } else if *colored_datastream == ColoredDataStream::ShortDwellDetection
         || *colored_datastream == ColoredDataStream::LongDwellDetection
     {
-        params.cmax = 1.0
+        params.cminmax = Some(Cminmax { cmin: 0., cmax: 1. });
     } else {
         let only_valid_data = cmap_vals.iter().filter_map(|x| (*x).as_ref());
-        params.cmin = float::min(only_valid_data.clone());
-        params.cmax = float::max(only_valid_data);
+        params.cminmax = float::min(only_valid_data.clone())
+            .zip(float::max(only_valid_data))
+            .map(|(cmin, cmax)| Cminmax { cmin, cmax });
     }
     debug_assert_eq!(records.len(), cmap_vals.len());
     Some((params, cmap_vals))

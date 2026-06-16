@@ -18,6 +18,7 @@ use std::io::Write;
 use std::sync::{Arc, Mutex};
 
 use actix_web::dev::ServerHandle;
+use anyhow::Context;
 use common::mounted::MountID;
 use common::state::{ok_or_default, DerivedState, MapState, PendingEvents};
 use once_cell::sync::OnceCell;
@@ -26,6 +27,7 @@ use sqlx::SqlitePool;
 use tokio::sync::Mutex as AsyncMutex;
 use tracing::error;
 
+use crate::logs::LogErrorAndContinue;
 use crate::paths::{get_library_dir, Paths};
 use crate::ws_session::{self, send_derived_state_to_front};
 use common::{BackState, FrontState};
@@ -284,9 +286,9 @@ impl AppState {
                 return;
             }
         };
-        if let Err(e) = file.write_all(state_str.as_bytes()) {
-            error!("Failed to write persistent state to file: {e}.");
-        }
+        file.write_all(state_str.as_bytes())
+            .context("writing persistent state to file")
+            .log_error_and_continue();
     }
 }
 

@@ -61,12 +61,14 @@ use common::{
     view_position::LngLatBounds,
     LngLat, TimeRange, ToFront,
 };
+use jiff::Timestamp;
 use sqlx::{migrate::Migrator, FromRow, QueryBuilder, Sqlite, SqlitePool};
 use tracing::{error, info};
 
 use crate::{
     app_state::{get_front_state, AppState},
     database::{mounted::db_debug_name, pins::update_derived_pins},
+    logs::LogErrorAndContinue,
     map::geojson::update_geojson,
     runtime::get_runtime,
     ws_session::{send_error_popup, send_message_to_front, send_success_popup},
@@ -202,13 +204,11 @@ pub fn get_db_for_id(id: MountID) -> Option<SqlitePool> {
 /// during app startup since migrations can cause large amounts of space to be
 /// unused if they involve copying data to a new table.
 pub async fn checkpoint_db(conn: &SqlitePool) {
-    if let Err(e) = sqlx::query("VACUUM; PRAGMA wal_checkpoint(TRUNCATE);")
+    sqlx::query("VACUUM; PRAGMA wal_checkpoint(TRUNCATE);")
         .execute(conn)
         .await
-    {
-        error!("Failed to checkpoint/vacuum db: {e}.");
-        // not a fatal error, continue onwards
-    }
+        .context("checkpointing and vacuuming db")
+        .log_error_and_continue();
 }
 
 /// Log a location event in the database.
@@ -327,6 +327,22 @@ async fn count_all_records(conn: &SqlitePool) -> i32 {
             0
         }
     }
+}
+
+/// Get the range of times that encompasses all the data.
+pub async fn get_time_span(conn: &SqlitePool) -> Result<Option<TimeRange>> {
+    let (opt_start, opt_end) = sqlx::query_as::<_, (Option<i64>, Option<i64>)>(
+        "SELECT MIN(timestamp), MAX(timestamp) FROM location",
+    )
+    .fetch_one(conn)
+    .await?;
+    let Some((start, end)) = opt_start.zip(opt_end) else {
+        return Ok(None);
+    };
+    Ok(Some(TimeRange {
+        start: Timestamp::from_second(start)?,
+        end: Timestamp::from_second(end)?,
+    }))
 }
 
 /// Get the timestamp of the first record in a database. Used to reset the

@@ -1,12 +1,14 @@
 //! Picker for time preferences
 
 use common::units::time::TimeZonePreference;
+use jiff::civil::Time;
 use strum::IntoEnumIterator;
 use yew::prelude::*;
 use yewdux::prelude::*;
 
 use crate::components::{
-    AfterCardParagraph, SettingsCard, SettingsCardSelect, SettingsCardToggle,
+    AfterCardParagraph, SettingsCard, SettingsCardSelect,
+    SettingsCardTimeInput, SettingsCardToggle,
 };
 use crate::ui_state::FrontState;
 
@@ -19,6 +21,12 @@ pub fn TimeSettings() -> Html {
         dispatch.reduce_mut_callback(move |s: &mut FrontState| {
             s.time_pref.twelve_hour_clock = !s.time_pref.twelve_hour_clock;
         });
+
+    let day_sep_onchange = dispatch.reduce_mut_callback_with(
+        move |s: &mut FrontState, new_pref: Time| {
+            s.time_pref.day_separation_time = new_pref;
+        },
+    );
 
     let tz_pref_choices = TimeZonePreference::iter().collect::<Vec<_>>();
     let tz_pref_onchange = dispatch.reduce_mut_callback_with(
@@ -44,6 +52,11 @@ pub fn TimeSettings() -> Html {
                     checked={time_pref.twelve_hour_clock}
                     onclick={twelve_hour_onlick}
                     text={"Use 12-Hour Clock"}
+                />
+                <SettingsCardTimeInput
+                    text={"Day Separation Time"}
+                    value={time_pref.day_separation_time}
+                    onchange={day_sep_onchange}
                 />
                 <SettingsCardSelect<TimeZonePreference>
                     selection={time_pref.tz_pref}

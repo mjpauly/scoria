@@ -12,6 +12,7 @@ use actix_web::{web, Error, HttpRequest, HttpResponse};
 use actix_web_actors::ws;
 use common::popups;
 use common::state::{PersistedRoute, PersistedSettingsRoute};
+use common::ws_messages::Request;
 use common::{ToBack, ToFront};
 use tracing::{info, warn};
 
@@ -127,6 +128,9 @@ impl WsSession {
     fn handle_msg(&self, msg: ToBack, ctx: &mut ws::WebsocketContext<Self>) {
         // dbg!(msg.clone());
         match msg {
+            ToBack::Request(id, request) => {
+                self.handle_request(ctx, id, request)
+            }
             ToBack::LogError(s) => logs::log_frontend_error(s),
             ToBack::GetStartupState => {
                 // at startup we send the FrontState and PendingEvents
@@ -298,6 +302,24 @@ impl WsSession {
             )));
         });
     }
+
+    /// Sends all UI state values, used at startup.
+    fn handle_request(
+        &self,
+        ctx: &mut ws::WebsocketContext<Self>,
+        id: uuid::Uuid,
+        request: Request,
+    ) {
+        let recipient = ctx.address().recipient();
+        get_runtime().spawn(async move {
+            let response = match request {
+                Request::DBFullTimeRange => {
+                    requests::get_db_full_time_range().await
+                }
+            };
+            recipient.do_send(MsgToFront(ToFront::Response(id, response)));
+        });
+    }
 }
 
 /// Send a particular message to the frontend.
@@ -384,5 +406,43 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsSession {
             }
             ws::Message::Nop => (),
         }
+    }
+}
+
+mod requests {
+    use crate::app_state::{get_front_state, AppState};
+    use crate::database::get_time_span;
+    use common::mounted::EnabledDBs;
+    use common::ws_messages::Response;
+    use common::TimeRange;
+
+    pub async fn get_db_full_time_range() -> Response {
+        let dbs = AppState::global().dbs.lock().unwrap().clone();
+        let Some(enabled) =
+            get_front_state(|s| s.mounted_db_settings.enabled_dbs())
+        else {
+            return Response::DBFullTimeRange(Err("No front".into()));
+        };
+        let mut time_spans = vec![];
+        for (id, conn) in dbs {
+            if enabled.contains(&id) {
+                if let Some(time_span) =
+                    get_time_span(&conn).await.ok().flatten()
+                {
+                    time_spans.push(time_span);
+                }
+            }
+        }
+        let time_range_all =
+            time_spans
+                .into_iter()
+                .fold(None, |all: Option<TimeRange>, new| match all {
+                    None => Some(new),
+                    Some(all) => Some(TimeRange {
+                        start: all.start.min(new.start),
+                        end: all.end.max(new.end),
+                    }),
+                });
+        Response::DBFullTimeRange(Ok(time_range_all))
     }
 }

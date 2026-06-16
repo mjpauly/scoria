@@ -23,6 +23,7 @@ use actix_identity::Identity;
 use actix_web::{
     http::header::ContentType, routes, web, HttpResponse, Responder,
 };
+use anyhow::Context;
 use common::cmaps::CmapParams;
 use common::mounted::{EnabledDBs, MountID};
 use common::view_position::LngLatBounds;
@@ -32,6 +33,7 @@ use sqlx::SqlitePool;
 use crate::app_state::{get_front_state, set_back_state};
 use crate::core::new_data_is_visible;
 use crate::database::get_db_for_id;
+use crate::logs::LogErrorAndContinue;
 use crate::map::coords::TileXYZ;
 use crate::metrics::color::get_cmap_data;
 use crate::metrics::dashboard::update_timeseries_plot_data;
@@ -362,12 +364,12 @@ async fn make_geojson(
     let lines_task =
         tokio::spawn(update_geojson_string(mount_id, lines_geojson, false));
     let (points_handle, lines_handle) = tokio::join!(points_task, lines_task);
-    if let Err(e) = points_handle {
-        tracing::error!("Points task join failure: {e}");
-    }
-    if let Err(e) = lines_handle {
-        tracing::error!("Lines task join failure: {e}");
-    }
+    points_handle
+        .context("points task join")
+        .log_error_and_continue();
+    lines_handle
+        .context("lines task join")
+        .log_error_and_continue();
 }
 
 async fn update_geojson_string(

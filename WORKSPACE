@@ -81,7 +81,7 @@ rules_rust_dependencies()
 
 rust_register_toolchains(
     edition = "2021",
-    versions = ["1.74.0"],
+    versions = ["1.74.1"],
     extra_target_triples = [
         "aarch64-apple-ios-sim",
         "aarch64-apple-ios",
@@ -267,7 +267,7 @@ crates_repository(
         ),
         "uuid": crate.spec(
             version = "1.3.0",
-            features = ["v4", "fast-rng", "macro-diagnostics",]
+            features = ["v4", "fast-rng", "macro-diagnostics", "serde"]
         ),
         "web-sys": crate.spec(  # tied to wasm-bindgen
             version = "0.3.66",

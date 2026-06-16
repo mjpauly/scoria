@@ -11,6 +11,7 @@ use yewdux::prelude::*;
 use crate::components::{DATETIME_INPUT_STYLE, SECONDARY_BUTTON_STYLE};
 use crate::ui_state::{BackState, FrontState};
 use crate::unwrapping::unwrap_result_or_log;
+use crate::websocket::WebsocketService;
 
 /// Format a timestamp in a timezone, falling back to UTC on failure
 fn format_timestamp(ts: &Timestamp, tz: &str) -> String {
@@ -90,11 +91,18 @@ pub fn TimeRangePicker() -> Html {
         map_tz.clone(),
         map_tz.clone(),
     );
+    let wss = use_context::<WebsocketService>().unwrap();
     let all_onclick =
-        dispatch.reduce_mut_callback(move |s: &mut FrontState| {
-            s.map.time_delta_range =
-                unwrap_result_or_log!(TimeDeltaRange::all());
-            update_time_range(s, &tz0);
+        dispatch.reduce_mut_future_callback(move |s: &mut FrontState| {
+            let wss = wss.clone();
+            let tz0 = tz0.clone();
+            Box::pin(async move {
+                if let Ok(Some(tr)) = wss.get_db_full_time_range().await {
+                    s.map.time_delta_range =
+                        unwrap_result_or_log!(TimeDeltaRange::range(tr));
+                    update_time_range(s, &tz0);
+                }
+            })
         });
     let week_onclick =
         dispatch.reduce_mut_callback(move |s: &mut FrontState| {
@@ -162,7 +170,11 @@ pub fn TimeRangePicker() -> Html {
 
 /// Update the map.time_range based on a new value for map.time_delta_range.
 pub fn update_time_range(s: &mut FrontState, tz: &str) {
-    if let Ok(new_range) = s.map.time_delta_range.to_time_range(tz) {
+    if let Ok(new_range) = s
+        .map
+        .time_delta_range
+        .to_time_range(tz, s.time_pref.day_separation_time)
+    {
         s.map.time_range = new_range;
     }
 }

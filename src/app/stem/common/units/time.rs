@@ -1,4 +1,8 @@
-use jiff::{civil::Date, tz::TimeZone, Zoned};
+use jiff::{
+    civil::{Date, Time},
+    tz::TimeZone,
+    Zoned,
+};
 use serde::{Deserialize, Serialize};
 use std::fmt::Write;
 use strum::{Display, EnumIter, EnumString};
@@ -13,7 +17,8 @@ use crate::state::ok_or_default;
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct TimePreference {
-    pub twelve_hour_clock: bool, // use 12-hour clock
+    pub twelve_hour_clock: bool,   // use 12-hour clock
+    pub day_separation_time: Time, // when one day ends and another begins
     #[serde(deserialize_with = "ok_or_default")]
     pub tz_pref: TimeZonePreference,
     pub fixed_tz: String, // when using fixed offset, use this tz name
@@ -23,6 +28,7 @@ impl Default for TimePreference {
     fn default() -> Self {
         Self {
             twelve_hour_clock: true,
+            day_separation_time: Time::MIN, // 00:00
             tz_pref: Default::default(),
             fixed_tz: "UTC".to_string(),
         }

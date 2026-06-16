@@ -1,5 +1,15 @@
 # Android Release Notes
 
+## 1.4.4
+
+*Mar 21, 2025*
+
+- customizable day separation time
+- "All" time range now uses the time range of the databases
+- fixed color mapping with multiple enabled databases
+
+[Download APK](/download/apk/Scoria_1.4.4.apk)
+
 ## 1.4.3
 
 *Nov 27, 2024*
