@@ -18,9 +18,6 @@ user.bazelrc
 # bazel profiling
 /profile.json
 
-# dependency graph
-/graph_pruned.png
-
 # generated development database
 /src/app/stem/db
 /src/app/stem/.env

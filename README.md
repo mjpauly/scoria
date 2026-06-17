@@ -1,5 +1,13 @@
 # Scoria App
 
+Scoria is your toolkit for privately collecting and analyzing your location history, helping you track activity, travel, and places visited. Make detailed and beautiful maps of your movement without your data ever leaving your device.
+
+[Website](https://scoria.info/)
+
+## Project Status
+
+Scoria is now a hobby project. I originally developed it to serve a larger mission, but changing priorities led to a pause in development. I look forward to finding time again for the things that make Scoria fun.
+
 ## To Do
 
 Current:
