@@ -14,7 +14,7 @@
 - new contrast reserve setting
 - minimum point size reduced from 2px to 1px
 - improved safe area inset handling for camera notches and home bars
-- map image captures now automatically save to Pictures/Scoria (Android)
+- map image captures now automatically save to Pictures/Scoria
 - improved peak and background memory usage
 - fixed last location disappearing after adjusting map style
 - fixed rendering bugs at tile boundaries
