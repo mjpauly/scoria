@@ -33,14 +33,18 @@ use crate::pages::update::{
 };
 use crate::router::{Route, SettingsRoute};
 use crate::swift_poke;
-use crate::ui_state::{BackState, FrontState};
+use crate::ui_state::{BackState, DerivedState, FrontState};
 use crate::websocket::{ToBack, WebsocketService};
 
 #[function_component]
 pub fn Settings() -> Html {
-    let last_error_reviewed = use_selector(|s: &BackState| {
-        s.last_logged_error.as_ref().map(|x| x.1).unwrap_or(true)
+    let last_error_log = use_selector(|s: &DerivedState| {
+        s.last_logged_error.as_ref().map(|e| e.log_file.clone())
     });
+    let reviewed_log =
+        use_selector(|s: &BackState| s.reviewed_error_log.clone());
+    let last_error_reviewed =
+        last_error_log.is_none() || *last_error_log == *reviewed_log;
     let app_version = use_selector(|s: &BackState| s.app_version.clone());
 
     let navigator = use_navigator().unwrap();
@@ -123,7 +127,7 @@ pub fn Settings() -> Html {
                     >
                         <label class="flex items-center">
                             {"Report a Problem"}
-                            if !*last_error_reviewed {
+                            if !last_error_reviewed {
                                 // show a icon if there is an error to review
                                 <Icon
                                     icon_id={IconId::BootstrapInfoCircle}

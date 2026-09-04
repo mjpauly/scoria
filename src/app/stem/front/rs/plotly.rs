@@ -19,6 +19,33 @@ extern "C" {
         layout: &JsValue,
         config: &JsValue,
     );
+
+    /// Tear down a plot. Required on unmount: `responsive: true` registers
+    /// a window resize listener that otherwise retains the graph div -- and
+    /// through the detached DOM tree, everything else on the page (the
+    /// analyze-page leak in doc/decimation/probe-results/churn.md).
+    ///
+    /// Takes the element, not its id: yew runs a child's effect destructors
+    /// after the parent's DOM is already detached, so an id lookup fails
+    /// there and Plotly throws. The exception unwinds through wasm with
+    /// yew's hook context still borrowed, leaving the app dead (blank UI
+    /// until reload). See purge_element.
+    #[wasm_bindgen(catch, js_namespace = Plotly, js_name = purge)]
+    fn purge_(gd: &web_sys::Element) -> Result<JsValue, JsValue>;
+}
+
+/// The graph div for `div_id`, looked up while it is still in the document
+/// (i.e. inside the effect, not its destructor).
+pub fn graph_div(div_id: &str) -> Option<web_sys::Element> {
+    web_sys::window()?.document()?.get_element_by_id(div_id)
+}
+
+/// Purge a plot by element; works whether or not the element is still
+/// attached. Errors are logged rather than propagated (see purge_).
+pub fn purge_element(gd: &web_sys::Element) {
+    if let Err(e) = purge_(gd) {
+        tracing::error!("Plotly.purge failed: {e:?}");
+    }
 }
 
 /// Generate iso 8601-style timestamps for plotly x axis.

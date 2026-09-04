@@ -29,6 +29,33 @@
         @apply h-full;
     }
 
+    /* Safe-area insets, consolidated here so the var()/env() pairing lives
+     * in one place. --safe-* are injected by the Android app
+     * (MainActivity.setInsets), since old Android WebViews report env() as 0;
+     * iOS and browsers get env() directly. */
+    :root {
+        --safe-area-top: max(var(--safe-top, 0px),
+            env(safe-area-inset-top, 0px), var(--sim-safe-top, 0px));
+        --safe-area-left: max(var(--safe-left, 0px),
+            env(safe-area-inset-left, 0px));
+        --safe-area-right: max(var(--safe-right, 0px),
+            env(safe-area-inset-right, 0px));
+        --safe-area-bottom: max(var(--safe-bottom, 0px),
+            env(safe-area-inset-bottom, 0px), var(--sim-safe-bottom, 0px));
+        /* Left inset with a minimum gutter, shared by the maplibre controls
+         * and the map overlay buttons in analyze.rs. */
+        --map-ctrl-left: max(var(--safe-area-left), 0.625rem);
+    }
+
+    /* Fallback insets matching the pre-env() hardcoded values, for taking
+     * screenshots in Firefox's device simulation, which reports env() as 0.
+     * The class is added in debug builds when the real insets all resolve
+     * to zero (web/sim_insets.rs). */
+    :root.sim-insets {
+        --sim-safe-top: 48px;
+        --sim-safe-bottom: 24px;
+    }
+
     body {
         @apply bg-neutral-900 min-w-min min-h-full flex flex-col;
     }
@@ -108,7 +135,8 @@
 /* Remove the box shadow and do rem scaling */
 .mapboxgl-ctrl-group:not(:empty), .maplibregl-ctrl-group:not(:empty) {
     box-shadow: none;
-    @apply ml-safe-or-2.5 mb-2.5;
+    margin-left: var(--map-ctrl-left);
+    @apply mb-2.5;
 }
 
 /* Make the compass a little bigger */

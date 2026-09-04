@@ -10,19 +10,19 @@
 # synced, even if a release is not created.
 
 # Public version used in iOS.
-IOS_VERSION_NAME = "1.4.4"
+IOS_VERSION_NAME = "1.5.0"
 
 # Beta/build version used in iOS testing. Can add more number segments
 # separated by dots to further distinguish build versions.
-IOS_BUILD_VERSION = "3"
+IOS_BUILD_VERSION = "12"
 
 
 # Public semver version, only used for display. The patch version increments
 # when android updates are not timed exactly with iOS, allowing slip for
 # synchronizing on the major/minor version numbers.
-ANDROID_VERSION_NAME = "1.4.4" # beta format: "1.4.0-beta.x"
+ANDROID_VERSION_NAME = "1.5.0" # beta format: "1.4.0-beta.x"
 
 # Monotonic version code for use in Android. Bump on each release along with
 # the patch version, since it is used to determine if a new update exists.
 # Increases prevent downgrading.
-ANDROID_VERSION_CODE = "6"
+ANDROID_VERSION_CODE = "8"

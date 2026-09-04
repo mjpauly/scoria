@@ -1,9 +1,14 @@
 use std::str::FromStr;
 
+use common::map_style::{
+    ContrastReserve, DecimationMode, SpatialCellPitch, TemporalMaxPoints,
+};
+use strum::IntoEnumIterator;
 use uom::fmt::DisplayStyle;
 use uom::si::information;
 use uom::si::u64::*;
 use uom::str::ParseQuantityError;
+use wasm_bindgen::JsCast;
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
 use yew_icons::Icon;
@@ -12,7 +17,8 @@ use yewdux::prelude::*;
 
 use crate::components::RANGE_INPUT_STYLE;
 use crate::components::{
-    AfterCardParagraph, SettingsCard, SettingsCardInput, SettingsCardToggle,
+    AfterCardParagraph, SettingsCard, SettingsCardInput, SettingsCardSelect,
+    SettingsCardToggle,
 };
 use crate::ui_state::{BackState, FrontState};
 
@@ -40,6 +46,31 @@ pub fn MiscMapSettings() -> Html {
             s.map.style.hide_points_outside_viewbounds =
                 !s.map.style.hide_points_outside_viewbounds;
         });
+    let decimation_mode_onchange = dispatch.reduce_mut_callback_with(
+        move |s: &mut FrontState, mode: DecimationMode| {
+            s.map.style.decimation_mode = mode;
+        },
+    );
+    let max_points_onchange = dispatch.reduce_mut_callback_with(
+        move |s: &mut FrontState, max: TemporalMaxPoints| {
+            s.map.style.temporal_max_points = max;
+        },
+    );
+    let cell_pitch_onchange = dispatch.reduce_mut_callback_with(
+        move |s: &mut FrontState, pitch: SpatialCellPitch| {
+            s.map.style.spatial_cell_pitch = pitch;
+        },
+    );
+    let contrast_reserve_onchange = dispatch.reduce_mut_callback_with(
+        move |s: &mut FrontState, reserve: ContrastReserve| {
+            s.map.style.contrast_reserve = reserve;
+        },
+    );
+    let contrast_reserve_choices = ContrastReserve::iter().collect::<Vec<_>>();
+    let decimation_mode_choices = DecimationMode::iter().collect::<Vec<_>>();
+    let max_points_choices = TemporalMaxPoints::iter().collect::<Vec<_>>();
+    let cell_pitch_choices = SpatialCellPitch::iter().collect::<Vec<_>>();
+    let last_map_query = use_selector(|s: &BackState| s.last_map_query);
 
     html! {
         <>
@@ -64,9 +95,85 @@ pub fn MiscMapSettings() -> Html {
                 <SettingsCardToggle
                     checked={map.style.hide_points_outside_viewbounds}
                     onclick={hide_points_outside_viewbounds_onclick}
-                    text={"Hide Points Outside Viewbounds"}
+                    text={"Hide Lines to Off-screen Points"}
+                />
+                <SettingsCardSelect<ContrastReserve>
+                    selection={map.style.contrast_reserve}
+                    choices={contrast_reserve_choices}
+                    onchange={contrast_reserve_onchange}
+                    text="Color Contrast Reserve"
+                    id="contrast_reserve"
                 />
             </SettingsCard>
+            <AfterCardParagraph>
+                {"Contrast reserve leaves part of the colormap unused to improve
+                visibility against the basemap: the dark end on dark basemaps
+                and the light end on light basemaps. Satellite basemaps and
+                wrapping colormaps (course, time) are unaffected."}
+            </AfterCardParagraph>
+            <SettingsCard class="mt-4">
+                <SettingsCardSelect<DecimationMode>
+                    selection={map.style.decimation_mode}
+                    choices={decimation_mode_choices}
+                    onchange={decimation_mode_onchange}
+                    text="Decimation"
+                    id="decimation_mode"
+                />
+                if map.style.decimation_mode == DecimationMode::Spatial {
+                    <SettingsCardSelect<SpatialCellPitch>
+                        selection={map.style.spatial_cell_pitch}
+                        choices={cell_pitch_choices}
+                        onchange={cell_pitch_onchange}
+                        text="Decimation Cell Size"
+                        id="spatial_cell_pitch"
+                    />
+                } else {
+                    <SettingsCardSelect<TemporalMaxPoints>
+                        selection={map.style.temporal_max_points}
+                        choices={max_points_choices}
+                        onchange={max_points_onchange}
+                        text="Decimation Max Points"
+                        id="temporal_max_points"
+                    />
+                }
+            </SettingsCard>
+            <AfterCardParagraph>
+                {"When looking at large data, decimation reduces the number of
+                data points to maintain performance. Spatial decimation
+                keeps the most recent point in each screen cell, but lines are
+                not drawn. Smaller cells keep more detail while larger cells
+                draw faster. Temporal decimation retrieves every nth
+                point and can draw lines, but sparse and dense areas thin out at
+                the same rate. A higher max shows more time detail but draws
+                slower."}
+            </AfterCardParagraph>
+            if let Some(stats) = *last_map_query {
+                <AfterCardParagraph>
+                    {format!(
+                        "Last map query: {} pts, {} segs, {} tileset, \
+                        {} ms{}{}.",
+                        stats.n_points,
+                        stats.n_segs,
+                        format_bytes(stats.tileset_bytes),
+                        stats.duration_ms,
+                        if stats.decimated { ", decimated" } else { "" },
+                        match (stats.memory_capped, map.style.decimation_mode) {
+                            (false, _) => "",
+                            (true, DecimationMode::Spatial) =>
+                                ", memory cap hit: oldest cells dropped",
+                            (true, DecimationMode::Temporal) =>
+                                ", memory cap hit: decimated further",
+                        },
+                    )}
+                    {(stats.footprint_bytes > 0).then(|| format!(
+                        " App memory: {}.",
+                        format_bytes(stats.footprint_bytes),
+                    ))}
+                    {wasm_memory_bytes().map(|b| format!(
+                        " Wasm memory: {}.", format_bytes(b as u64),
+                    ))}
+                </AfterCardParagraph>
+            }
         </>
     }
 }
@@ -150,6 +257,29 @@ pub fn AutomapSetting() -> Html {
                 </AfterCardParagraph>
             }
         </>
+    }
+}
+
+/// Size of the frontend's wasm linear memory, the one memory signal
+/// available inside a WKWebView. Never shrinks; its high-water mark feeds the
+/// memory budget work (doc/decimation/memory-limits.md).
+fn wasm_memory_bytes() -> Option<usize> {
+    let mem = wasm_bindgen::memory()
+        .dyn_into::<js_sys::WebAssembly::Memory>()
+        .ok()?;
+    let buf = mem.buffer().dyn_into::<js_sys::ArrayBuffer>().ok()?;
+    Some(buf.byte_length() as usize)
+}
+
+/// Compact byte size, e.g. "310 kB" or "2.1 MB".
+// u64, not usize: wasm's 32-bit usize truncates multi-GB values (the
+// backend footprint can exceed 4 GB)
+fn format_bytes(bytes: u64) -> String {
+    let b = bytes as f64;
+    if b < 1e6 {
+        format!("{:.0} kB", b / 1e3)
+    } else {
+        format!("{:.1} MB", b / 1e6)
     }
 }
 

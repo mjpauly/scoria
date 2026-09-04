@@ -47,12 +47,12 @@ pub fn update_after_restyle(
     map: Rc<binds::Map>,
     selected: Vec<((MountID, time::OffsetDateTime), LngLat)>,
 ) {
+    // once_into_js frees the closure after its single invocation
     map.clone().once(
         "styledata",
-        &Closure::wrap(Box::new(move || {
+        &Closure::once_into_js(move || {
             update_selected(&map, &selected).unwrap();
-        }) as Box<dyn Fn()>)
-        .into_js_value(),
+        }),
     );
 }
 

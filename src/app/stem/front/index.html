@@ -24,6 +24,20 @@
                     }
                 }
             }
+            // Fire-and-forget haptic feedback in the native layer. Silently
+            // does nothing in a plain browser; kinds are "prepare", "tick",
+            // and "hold".
+            function native_haptic(kind) {
+                try {
+                    window.webkit.messageHandlers.hapticMessageHandler.postMessage({
+                        "kind": kind
+                    });
+                } catch (error) {
+                    try {
+                        Android.haptic(kind);
+                    } catch (error) {}
+                }
+            }
         </script>
         <script src="./plotly.min.js"></script>
         <script src='./maplibre-gl.js'></script>

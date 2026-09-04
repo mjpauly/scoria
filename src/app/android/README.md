@@ -50,10 +50,10 @@ apksigner sign --ks ~/keystores/distribution_keystore.jks --out release/Scoria_1
 
 # Save the unsigned app, proguard mapping, etc for future debug
 bazel build package_release --config=android_release
-cp bazel-bin/src/app/andriod/android_relase_x.y.zip release/
+cp bazel-bin/src/app/android/android_relase_x.y.zip release/
 
 # Check signature
-apksigner verify -v release/scoria.apk
+apksigner verify -v --print-certs release/scoria.apk
 ```
 
 View the cert with `keytool -printcert -jarfile scoria_1_3_g.apk`. Or for in
@@ -86,7 +86,7 @@ jarsigner -verify app_deployable.aab
 ## Install on Device
 
 ```
-$ANDROID_HOME/platform-tools/adb install Scoria.apk
+$ANDROID_HOME/platform-tools/adb install -r Scoria.apk
 ```
 
 Enable developer options and usb debugging. Can check if device is detected

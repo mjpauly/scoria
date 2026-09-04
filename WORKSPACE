@@ -277,7 +277,7 @@ crates_repository(
                 "StyleSheetList", "CssRuleList", "CssStyleDeclaration",
                 "HtmlImageElement", "HtmlCanvasElement",
                 "CanvasRenderingContext2d", "ImageData", "HtmlTextAreaElement",
-                "Navigator", "Clipboard",
+                "Navigator", "Clipboard", "TextMetrics",
             ],
         ),
         "log": crate.spec(
@@ -499,61 +499,32 @@ rules_pkg_dependencies()
 
 # === Docker Containers === #
 
-# Go required for docker-less container operations
 http_archive(
-    name = "io_bazel_rules_go",
-    sha256 = "6dc2da7ab4cf5d7bfc7c949776b1b7c733f05e56edc4bcd9022bb249d2e2a996",
-    urls = [
-        "https://github.com/bazelbuild/rules_go/releases/download/v0.39.1/rules_go-v0.39.1.zip",
-    ],
+    name = "rules_oci",
+    sha256 = "46ce9edcff4d3d7b3a550774b82396c0fa619cc9ce9da00c1b09a08b45ea5a14",
+    strip_prefix = "rules_oci-1.8.0",
+    url = "https://github.com/bazel-contrib/rules_oci/releases/download/v1.8.0/rules_oci-v1.8.0.tar.gz",
 )
 
-# Gazelle required for container_push
-http_archive(
-    name = "bazel_gazelle",
-    sha256 = "727f3e4edd96ea20c29e8c2ca9e8d2af724d8c7778e7923a854b2c80952bc405",
-    urls = [
-        "https://github.com/bazelbuild/bazel-gazelle/releases/download/v0.30.0/bazel-gazelle-v0.30.0.tar.gz",
-    ],
+load("@rules_oci//oci:dependencies.bzl", "rules_oci_dependencies")
+
+rules_oci_dependencies()
+
+load("@rules_oci//oci:repositories.bzl", "LATEST_CRANE_VERSION", "oci_register_toolchains")
+
+oci_register_toolchains(
+    name = "oci",
+    crane_version = LATEST_CRANE_VERSION,
 )
 
+load("@rules_oci//oci:pull.bzl", "oci_pull")
 
-load("@io_bazel_rules_go//go:deps.bzl", "go_register_toolchains", "go_rules_dependencies")
-load("@bazel_gazelle//:deps.bzl", "gazelle_dependencies", "go_repository")
-
-go_rules_dependencies()
-
-go_register_toolchains(version = "1.20.5")
-
-gazelle_dependencies()
-
-
-# docker
-http_archive(
-    name = "io_bazel_rules_docker",
-    sha256 = "b1e80761a8a8243d03ebca8845e9cc1ba6c82ce7c5179ce2b295cd36f7e394bf",
-    urls = ["https://github.com/bazelbuild/rules_docker/releases/download/v0.25.0/rules_docker-v0.25.0.tar.gz"],
-)
-
-load(
-    "@io_bazel_rules_docker//repositories:repositories.bzl",
-    container_repositories = "repositories",
-)
-
-container_repositories()
-
-load("@io_bazel_rules_docker//repositories:deps.bzl", container_deps = "deps")
-
-container_deps()
-
-load("@io_bazel_rules_docker//container:container.bzl", "container_pull")
-
-container_pull(
+oci_pull(
     name = "busybox_base",
-    architecture = "amd64",
-    registry = "registry.hub.docker.com/library",
-    repository = "busybox",
-    tag = "1.36.1-glibc",
+    # busybox:1.36.1-glibc, pinned by digest for reproducibility
+    digest = "sha256:7e567dff0fbaa48cddc5f52ae5201a7f417436aa20e70c8750814692043dfa38",
+    image = "index.docker.io/library/busybox",
+    platforms = ["linux/amd64"],
 )
 
 

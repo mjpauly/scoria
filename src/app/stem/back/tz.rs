@@ -3,9 +3,9 @@
 //! On Android the system time zone and using the Time Zone Database require a
 //! different API.
 
-use crate::app_state::{get_front_state, set_back_state};
+use crate::app_state::{get_back_state, get_front_state, set_back_state};
 use anyhow::Result;
-use common::{units::time::TimeZonePreference, FrontState, LngLat, Location};
+use common::{units::time::TimeZonePreference, FrontState, LngLat};
 use jiff::{tz::TimeZone, Timestamp, Zoned};
 use once_cell::sync::Lazy;
 use tzf_rs::DefaultFinder;
@@ -36,23 +36,25 @@ pub fn update_map_tz(old_front: &Option<FrontState>) {
     }
 }
 
-pub fn datetime_fn_infallible() -> impl Fn(&Location) -> Zoned {
+pub fn datetime_fn_infallible() -> impl Fn(time::OffsetDateTime, LngLat) -> Zoned
+{
     let f = location_datetime_fn();
-    move |l| {
-        f(l).unwrap_or_else(|_| {
-            jiff::Timestamp::from_nanosecond(l.timestamp.unix_timestamp_nanos())
+    move |ts, lnglat| {
+        f(ts, lnglat).unwrap_or_else(|_| {
+            jiff::Timestamp::from_nanosecond(ts.unix_timestamp_nanos())
                 .unwrap()
                 .to_zoned(jiff::tz::TimeZone::UTC)
         })
     }
 }
 
-/// Makes a function that takes a Location and returns the Zoned datetime
-/// according to the user's time zone preference.
+/// Makes a function that takes a point's timestamp and position and returns
+/// the Zoned datetime according to the user's time zone preference.
 ///
 /// Efforts are made to minimize the amount of work done in the closure, which
 /// runs much more often.
-pub fn location_datetime_fn() -> impl Fn(&Location) -> Result<Zoned> {
+pub fn location_datetime_fn(
+) -> impl Fn(time::OffsetDateTime, LngLat) -> Result<Zoned> {
     let pref = get_front_state(|s| s.time_pref.clone()).unwrap_or_default();
     // Some(tz) if a single time zone, and None if localized.
     // Failure fallbacks:
@@ -73,15 +75,33 @@ pub fn location_datetime_fn() -> impl Fn(&Location) -> Result<Zoned> {
         ),
     };
     // no error logging inside closure, since it runs many times.
-    move |l: &Location| {
-        let ts = Timestamp::from_nanosecond(l.timestamp.unix_timestamp_nanos())
-            .unwrap();
+    move |ts: time::OffsetDateTime, lnglat: LngLat| {
+        let ts = Timestamp::from_nanosecond(ts.unix_timestamp_nanos()).unwrap();
         let tz = match &single_tz {
             Some(tz) => tz.clone(),
-            None => get_tz(get_location_tz_name(l.lnglat()))?,
+            None => get_tz(get_location_tz_name(lnglat))?,
         };
         Ok(ts.to_zoned(tz))
     }
+}
+
+/// The single time zone to use for a plot's time axis, following the time
+/// zone preference. Points localized each in their own zone cannot share one
+/// axis (the plot overlaps or gaps at zone crossings), so Localized uses the
+/// map center's zone, matching the time range UI.
+pub fn plot_axis_tz() -> TimeZone {
+    let pref = get_front_state(|s| s.time_pref.clone()).unwrap_or_default();
+    let tz = match pref.tz_pref {
+        TimeZonePreference::Localized => {
+            get_tz(&get_back_state(|s| s.map_tz.clone()))
+        }
+        TimeZonePreference::Current => get_system_tz(),
+        TimeZonePreference::Fixed => get_tz(&pref.fixed_tz),
+    };
+    tz.map_err(|e| {
+        tracing::error!("Failed to get plot axis tz, using UTC: {e}")
+    })
+    .unwrap_or(TimeZone::UTC)
 }
 
 pub fn get_location_tz_name(x: LngLat) -> &'static str {

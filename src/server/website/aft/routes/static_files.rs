@@ -28,6 +28,9 @@ static SCREENSHOT6: &[u8] = include_bytes!(env!("SCREENSHOT6"));
 static SCREENSHOT7: &[u8] = include_bytes!(env!("SCREENSHOT7"));
 static APP_STORE_BADGE: &[u8] = include_bytes!(env!("APP_STORE_BADGE"));
 
+/// Keeps well-behaved crawlers from downloading every APK on each visit.
+static ROBOTS_FILE: &str = "User-agent: *\nDisallow: /download/apk/\n";
+
 /// Max 12 elements can be grouped together
 pub fn get_static_file_services() -> impl HttpServiceFactory {
     (
@@ -41,6 +44,7 @@ pub fn get_static_file_services() -> impl HttpServiceFactory {
         favicon,
         screenshots,
         app_store_badge,
+        robots,
     )
 }
 
@@ -178,4 +182,11 @@ async fn app_store_badge() -> impl Responder {
     HttpResponse::Ok()
         .content_type(ContentType(mime::IMAGE_SVG))
         .body(APP_STORE_BADGE)
+}
+
+#[get("/robots.txt")]
+async fn robots() -> impl Responder {
+    HttpResponse::Ok()
+        .content_type(ContentType::plaintext())
+        .body(ROBOTS_FILE)
 }

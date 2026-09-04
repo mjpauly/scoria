@@ -11,12 +11,15 @@ curl -i -X POST -d 'subject=Test_subject_1&body=Body_1&email=' 127.0.0.1:8000/co
 
 # Cross Compiling
 
+The container image is always built for linux/amd64, regardless of the
+platform flags on the command line:
+
 ```
-bazel build --config=linux_amd64 :website_bin
+bazel build -c opt :image_amd64
 ```
 
-The config is defined in the `.bazelrc`. It just sets these flags for each bazel
-invocation:
+The `linux_amd64_files` rule in `//src/bzl:platforms.bzl` applies the
+transition. It is equivalent to passing these flags:
 ```
 --platforms @zig_sdk//platform:linux_amd64
 --extra_toolchains @zig_sdk//toolchain:linux_amd64_gnu.2.34
@@ -25,8 +28,8 @@ invocation:
 ## Running the amd64 Container Locally
 
 ```
-bazel run --config=linux_amd64 -c opt :image_amd64
-docker run -p 8000:8000 -it bazel/src/server/website:image_amd64
+bazel run -c opt :load_amd64
+docker run -p 8000:8000 -it epsln/site:latest
 ```
 
 (-it makes it interactive, so CTRL-C works)
@@ -49,7 +52,7 @@ and then `colima start`.
 
 ```
 doctl auth init && doctl registry login
-bazel run --config=linux_amd64 -c opt :push_amd64
+bazel run -c opt :push_amd64
 ```
 
 Follow logs:

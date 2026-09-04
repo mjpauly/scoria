@@ -12,6 +12,7 @@
 
 use nav_types::{ECEF, WGS84};
 
+use crate::database::NarrowPoint;
 use common::Location;
 
 // Threshold above which the distance on the curved surface of the earth should
@@ -32,6 +33,20 @@ pub fn distance_between_locations(a: &Location, b: &Location) -> f64 {
     };
     let a_wgs84 = location_to_wgs84(a, a_alt);
     let b_wgs84 = location_to_wgs84(b, b_alt);
+    distance_between_points(&a_wgs84, &b_wgs84)
+}
+
+/// distance_between_locations for narrow points. field1 must carry
+/// ellipsoid_altitude, as the dwell/dashboard fetches select it.
+pub fn distance_between_narrow_points(a: &NarrowPoint, b: &NarrowPoint) -> f64 {
+    let (a_alt, b_alt) = match (a.field1, b.field1) {
+        (Some(a_alt), Some(b_alt)) => (a_alt, b_alt),
+        _ => (0., 0.),
+    };
+    let a_wgs84 =
+        WGS84::from_degrees_and_meters(a.latitude, a.longitude, a_alt);
+    let b_wgs84 =
+        WGS84::from_degrees_and_meters(b.latitude, b.longitude, b_alt);
     distance_between_points(&a_wgs84, &b_wgs84)
 }
 

@@ -1,5 +1,5 @@
 {
-  "checksum": "d73fa682824664318bebdbf0073d4cef4fa8b43a7fa8996f9ac4429bba56c157",
+  "checksum": "07a1660a0d56ebe41813f8b201d271d368a8c2f55d8b8800abbbd54ed44f8a0e",
   "crates": {
     "actix 0.13.0": {
       "name": "actix",
@@ -27124,6 +27124,7 @@
             "StyleSheetList",
             "SubmitEvent",
             "Text",
+            "TextMetrics",
             "TimeRanges",
             "Touch",
             "TouchEvent",

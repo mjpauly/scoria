@@ -72,7 +72,6 @@ rust_library(
         "@stem_crate_index//:tracing",
         "@stem_crate_index//:tracing-subscriber",
         "@stem_crate_index//:tracing-web",
-        "@stem_crate_index//:unicode-segmentation",
         "@stem_crate_index//:uom",
         "@stem_crate_index//:url",
         "@stem_crate_index//:uuid",
@@ -126,6 +125,7 @@ $(execpath @front_npm//tailwindcss/bin:tailwindcss) -i $(location styles.css) \
 sh_binary(
     name = "download_js_libs",
     srcs = ["download_js_libs.sh"],
+    data = ["patch_maplibre.sh"],
 )
 
 exports_files(

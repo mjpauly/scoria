@@ -1,5 +1,28 @@
 # Android Release Notes
 
+## 1.5.0
+
+*Sep 4, 2026*
+
+- new rendering path for displaying much more data at once
+- spatial decimation to show the most recent data point in each display pixel
+- significantly improved performance of data queries
+- re-renders now fire after map movement has stopped
+- new “show day” button on point popups
+- new time range stepping control
+- haptic feedback for sliders and tap-and-hold
+- new contrast reserve setting
+- minimum point size reduced from 2px to 1px
+- improved safe area inset handling for camera notches and home bars
+- map image captures now automatically save to Pictures/Scoria (Android)
+- improved peak and background memory usage
+- fixed last location disappearing after adjusting map style
+- fixed rendering bugs at tile boundaries
+- fixed time series plot data using multiple timezones
+- fixed popups losing their style when the time series plot data updates
+
+[Download APK](/download/apk/Scoria_1.5.0.apk)
+
 ## 1.4.4
 
 *Mar 21, 2025*

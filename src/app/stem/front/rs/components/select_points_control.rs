@@ -4,20 +4,28 @@ use std::rc::Rc;
 
 use common::mounted::{MountID, MAIN_DB_MOUNT_ID, MAIN_DB_NAME};
 use common::popups::{PopUp, PopUpCode};
+use common::time_range::TimeDeltaRange;
 use common::ToFront;
 use common::{state::MapSettingsTab, Location};
 use jiff::Zoned;
+use wasm_bindgen::{closure::Closure, JsCast};
+use web_sys::HtmlElement;
 use yew::prelude::*;
 use yew_icons::{Icon, IconId};
 use yewdux::prelude::*;
 
 use crate::components::confirm::Confirm;
+use crate::components::time_range_picker::update_time_range;
 use crate::components::Select;
+use crate::unwrapping::unwrap_result_or_log;
 use crate::websocket::{use_backend_event_with_deps, ToBack, WebsocketService};
 use crate::{
     maplibre::{add_popup, binds::Map},
-    ui_state::FrontState,
+    ui_state::{BackState, FrontState},
 };
+
+/// Element id of the popup's Show Day button.
+static SHOW_DAY_BTN_ID: &str = "popup_show_day_btn";
 
 #[function_component]
 pub fn SelectPointsControl() -> Html {
@@ -219,13 +227,14 @@ fn CopyPoints() -> Html {
 }
 
 /// Handle receipt of a location from the backend either by displaying a popup
-/// over it or selecting it.
+/// over it or selecting it. Returns the popup's Show Day click closure, which
+/// the caller must keep alive as long as the popup can be clicked.
 pub fn handle_nearest_location(
     map: Rc<Map>,
     mount_id: &MountID,
     loc: &Location,
     zdt: &Zoned,
-) {
+) -> Option<Closure<dyn Fn()>> {
     let front_dispatch = Dispatch::<FrontState>::new();
     let front_state = front_dispatch.get();
     if front_state.map.settings_tab == MapSettingsTab::SelectPoints {
@@ -240,7 +249,8 @@ pub fn handle_nearest_location(
                 s.selected_points
                     .push(((*mount_id, loc.timestamp), loc.lnglat()));
             }
-        })
+        });
+        None
     } else {
         let bg_color = front_state
             .map
@@ -249,7 +259,31 @@ pub fn handle_nearest_location(
             .unwrap_or(front_state.map.style.solid_color.rgb.clone());
         let text = popup_text(loc, zdt);
         add_popup(map, &loc.lnglat(), &text, &bg_color);
+        attach_show_day_onclick(zdt)
     }
+}
+
+/// Attach the click handler to the popup's Show Day button, which sets the
+/// time range to the day containing the point, honoring the day separation
+/// time.
+fn attach_show_day_onclick(zdt: &Zoned) -> Option<Closure<dyn Fn()>> {
+    let timestamp = zdt.timestamp();
+    let onclick = Closure::wrap(Box::new(move || {
+        let map_tz = Dispatch::<BackState>::new().get().map_tz.clone();
+        Dispatch::<FrontState>::new().reduce_mut(|s: &mut FrontState| {
+            s.map.time_delta_range = unwrap_result_or_log!(
+                TimeDeltaRange::day_containing(timestamp)
+            );
+            update_time_range(s, &map_tz);
+        });
+    }) as Box<dyn Fn()>);
+    let btn: HtmlElement = web_sys::window()?
+        .document()?
+        .get_element_by_id(SHOW_DAY_BTN_ID)?
+        .dyn_into()
+        .ok()?;
+    btn.set_onclick(Some(onclick.as_ref().unchecked_ref()));
+    Some(onclick)
 }
 
 pub fn popup_text(loc: &Location, zdt: &Zoned) -> String {
@@ -291,7 +325,9 @@ pub fn popup_text(loc: &Location, zdt: &Zoned) -> String {
         "{}<br>\
         {}<br>\
         {}\
-        {}",
+        {}<br>\
+        <button id=\"{SHOW_DAY_BTN_ID}\" \
+        style=\"text-decoration: underline;\">Show Day</button>",
         latlon,
         accuracy_speed_course,
         alt,

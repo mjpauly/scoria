@@ -2,48 +2,56 @@ load("@rules_rust//rust:defs.bzl", "rust_library", "rust_binary", "rust_test")
 load(":templates.bzl", "html_template", "md_template", "files")
 load("//src/bzl:files.bzl", "files_and_envs")
 load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
-load(
-    "@io_bazel_rules_docker//container:container.bzl",
-    "container_image",
-    "container_push",
-)
+load("@rules_oci//oci:defs.bzl", "oci_image", "oci_push", "oci_tarball")
+load("//src/bzl:platforms.bzl", "linux_amd64_files")
 
 # See the README in this directory for more docs
 
 # Push the container to our digitalocean registry
-container_push(
+oci_push(
     name = "push_amd64",
     image = ":image_amd64",
-    format = "Docker",
-    registry = "registry.digitalocean.com/epsln",
-    repository = "site", # name of the image
-    # tag = "latest", # latest is the default
-    tags = ["manual"], # only compatible with --config=linux_amd64, so we don't
-                       # want //:rustanalyzer to pick it up and error
+    repository = "registry.digitalocean.com/epsln/site",
+    remote_tags = ["latest"],
+    tags = ["manual"],
 )
 
-container_image(
+# Load the container into the local docker daemon
+oci_tarball(
+    name = "load_amd64",
+    image = ":image_amd64",
+    repo_tags = ["epsln/site:latest"],
+    tags = ["manual"],
+)
+
+# The image is always cross-compiled for linux/amd64, while push and load
+# above run under the host platform so their tools (crane, yq) resolve for
+# the host. Passing --platforms on the command line would break them.
+linux_amd64_files(
     name = "image_amd64",
-    architecture = "amd64",
-    # References container_pull from WORKSPACE (above)
-    base = "@busybox_base//image",
+    srcs = [":website_image"],
+    tags = ["manual"],
+)
+
+oci_image(
+    name = "website_image",
+    # References oci_pull from WORKSPACE
+    base = "@busybox_base",
     cmd = ["/app/website_bin"],
-    enable_mtime_preservation = True,
     env = {
         "INSIDE_DOCKER": "true",
     },
-    ports = ["8000"],
+    exposed_ports = ["8000"],
     tars = [":website_tar"],
     workdir = "/app",
-    tags = ["manual"], # same story as :push_amd64
+    tags = ["manual"],
 )
 
 pkg_tar(
     name = "website_tar",
     srcs = [":website_bin"],
     include_runfiles = True, # allows us to not compile static files into
-                             # the binary (not used yet), see rules_docker
-                             # README for more info.
+                             # the binary (not used yet).
     package_dir = "/app",
     stamp = 1,
 )
@@ -84,6 +92,7 @@ static_file_targets, static_file_envs = files_and_envs({
     "static/apk/Scoria_1.4.2.apk": "SCORIA_1_4_2",
     "static/apk/Scoria_1.4.3.apk": "SCORIA_1_4_3",
     "static/apk/Scoria_1.4.4.apk": "SCORIA_1_4_4",
+    "static/apk/Scoria_1.5.0.apk": "SCORIA_1_5_0",
 })
 
 rust_binary(

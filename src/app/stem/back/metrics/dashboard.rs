@@ -23,13 +23,17 @@ use crate::{
     },
     core::new_data_is_visible,
     database,
-    map::geojson::{BOUND_EXPANSION, DECIMATION_THRESHOLD},
+    map::map_data::{
+        backend_backstop_points, decimation_threshold, BOUND_EXPANSION_PX,
+    },
     metrics::distance::straight_distance,
-    tz::{datetime_fn_infallible, location_datetime_fn},
+    tz::{datetime_fn_infallible, plot_axis_tz},
 };
 
+use crate::database::NarrowPoint;
+
 use super::{
-    distance::distance_between_locations,
+    distance::distance_between_narrow_points,
     dwells::{
         dwell_score, long_dwell_threshold, segment_on_visibility,
         weighted_lnglat_mean_and_stddev_without_outliers,
@@ -82,13 +86,17 @@ pub async fn update_dashboard(new_loc: Option<Location>) {
     if !should_update(&new_loc, &map_state) {
         return;
     };
-    // fetch the records, sorted by timestamp
+    // fetch the records, sorted by timestamp; the stats need altitudes
+    // (distances) and speeds beyond the fixed narrow columns
     let records = database::FilteredQuery::builder()
         .time_range(map_state.time_range)
         .filters(map_state.filters.clone())
-        .bounds(map_state.view_pos.bounds.expand(BOUND_EXPANSION))
+        .bounds(map_state.view_pos.expanded_bounds(BOUND_EXPANSION_PX))
         .get_adjacent(true)
-        .limit(DECIMATION_THRESHOLD)
+        .decimation_threshold(decimation_threshold(&map_state.style))
+        .hard_cap(backend_backstop_points(1))
+        .field1("ellipsoid_altitude")
+        .field2("speed")
         .build()
         .fetch_decimated()
         .await;
@@ -121,7 +129,8 @@ fn should_update(new_loc: &Option<Location>, map_state: &MapState) -> bool {
 }
 
 /// Update the dashboard stats for all segments visible in the map view.
-fn update_stats(segments: &[(bool, Vec<&Location>)]) {
+/// The points' field1/field2 hold ellipsoid_altitude and speed.
+fn update_stats(segments: &[(bool, Vec<&NarrowPoint>)]) {
     let mut total_stats = DashboardMetrics::default();
     let mut timeline = Timeline::new();
     let mut pins = get_derived_state(|s| s.pins.clone());
@@ -175,13 +184,13 @@ fn update_stats(segments: &[(bool, Vec<&Location>)]) {
 
 /// Items are locations and whether the location is part of a dwell, where
 /// distances are not calculated due to excess dithering.
-fn get_segment_stats(records: &[(&Location, bool)]) -> DashboardMetrics {
+fn get_segment_stats(records: &[(&NarrowPoint, bool)]) -> DashboardMetrics {
     let count = records.len();
     let total_distance: f64 = records
         .iter()
         .filter(|(_, dwell)| !dwell) // don't consider points in dwells
         .tuple_windows::<(_, _)>()
-        .map(|((a, _), (b, _))| distance_between_locations(a, b))
+        .map(|((a, _), (b, _))| distance_between_narrow_points(a, b))
         .sum();
     let mut dwell_time = time::Duration::ZERO;
     let mut movement_time = time::Duration::ZERO;
@@ -203,10 +212,11 @@ fn get_segment_stats(records: &[(&Location, bool)]) -> DashboardMetrics {
     let avg_speed = (movement_time > time::Duration::ZERO)
         .then(|| total_distance / movement_time.as_seconds_f64());
 
+    // field2 holds the speed column
     let only_speeds =
         records
             .iter()
-            .filter_map(|(l, isdwell)| if !isdwell { l.speed } else { None });
+            .filter_map(|(l, isdwell)| if !isdwell { l.field2 } else { None });
     // TODO: throw out outliers?
     let min_speed = only_speeds
         .clone()
@@ -231,7 +241,7 @@ fn get_segment_stats(records: &[(&Location, bool)]) -> DashboardMetrics {
 /// and given a list of the pins to consider, extract a timeline of the
 /// activities.
 fn resolve_timeline_activities(
-    records: &[(&Location, bool)], // bool is whether it's a dwell
+    records: &[(&NarrowPoint, bool)], // bool is whether it's a dwell
     pins: &[Pin],
 ) -> Timeline {
     let mut timeline = Timeline::new();
@@ -244,8 +254,8 @@ fn resolve_timeline_activities(
         let chunk = chunk.map(|((a, _), (b, _))| (a, b)).collect::<Vec<_>>();
         let first_pt = chunk.first().unwrap().0; // must exist
         let last_pt = chunk.last().unwrap().1; // must exist
-        let start = datetime_f(first_pt);
-        let end = datetime_f(last_pt);
+        let start = datetime_f(first_pt.timestamp, first_pt.lnglat());
+        let end = datetime_f(last_pt.timestamp, last_pt.lnglat());
         if isdwell {
             let lnglats_and_weights = chunk.iter().map(|(a, b)| {
                 (a.lnglat(), (b.timestamp - a.timestamp).as_seconds_f64())
@@ -268,7 +278,7 @@ fn resolve_timeline_activities(
         } else {
             let distance: f64 = chunk
                 .iter()
-                .map(|(a, b)| distance_between_locations(a, b))
+                .map(|(a, b)| distance_between_narrow_points(a, b))
                 .sum();
             timeline.push(Period {
                 kind: PeriodKind::Movement(Movement { distance }),
@@ -314,20 +324,30 @@ pub type CmapData = Option<(CmapParams, Vec<Option<f64>>)>;
 
 #[instrument(skip_all, level = Level::TRACE)]
 pub fn update_timeseries_plot_data(
-    records_and_cmap_data: &BTreeMap<MountID, (Vec<Location>, CmapData)>,
+    mount_data: &BTreeMap<MountID, crate::map::map_data::MountMapData>,
     colored_datastream: &ColoredDataStream,
 ) {
-    let zdt_f = location_datetime_fn();
-    let result: BTreeMap<MountID, TimeSeriesPlot> = records_and_cmap_data
+    // A single zone for the whole axis: localizing each point in its own
+    // zone would make the plot overlap (westward travel) or gap (eastward)
+    // at zone crossings.
+    let axis_tz = plot_axis_tz();
+    let result: BTreeMap<MountID, TimeSeriesPlot> = mount_data
         .iter()
-        .filter_map(|(mount_id, (records, cmap_data))| {
+        .filter_map(|(mount_id, data)| {
             // only if there's cmap data
-            cmap_data.as_ref().map(|(_params, cmap_vals)| {
-                let (t, y): (Vec<_>, Vec<_>) = records
+            data.cmap_data.as_ref().map(|(_params, cmap_vals)| {
+                let (t, y): (Vec<_>, Vec<_>) = data
+                    .records
                     .iter()
                     .zip(cmap_vals.iter())
                     .filter_map(|(l, cval)| {
-                        cval.and_then(|v| zdt_f(l).ok().map(|zdt| (zdt, v)))
+                        cval.map(|v| {
+                            let ts = jiff::Timestamp::from_nanosecond(
+                                l.timestamp.unix_timestamp_nanos(),
+                            )
+                            .unwrap();
+                            (ts.to_zoned(axis_tz.clone()), v)
+                        })
                     })
                     .unzip();
                 let ylabel = get_front_state(|front| front.unit_pref)

@@ -302,7 +302,7 @@ async fn init_client() -> reqwest::Client {
 
 async fn fetch_and_cache_from_network(path: &str) -> Option<Vec<u8>> {
     let now = std::time::Instant::now();
-    debug!("retrieving from network: {path}");
+    trace!("retrieving from network: {path}");
 
     // construct the url to fetch the resource from
     let url = format!(
@@ -352,7 +352,7 @@ async fn fetch_and_cache_from_network(path: &str) -> Option<Vec<u8>> {
     std::fs::write(&dest_path, &body).unwrap(); // cache as-is
 
     let elapsed_time = now.elapsed();
-    debug!("Fetch took {} ms", elapsed_time.as_millis());
+    trace!("Fetch took {} ms", elapsed_time.as_millis());
 
     Some(body)
 }

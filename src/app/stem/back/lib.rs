@@ -138,7 +138,6 @@ pub extern "C" fn handle_enter_foreground() -> server::ServerConfig {
     tracing::info!("App Foregrounded");
     runtime::get_runtime().block_on(async {
         database::mounted::open_all_mounted().await;
-        database::increase_db_cache_sizes().await;
         server::run(0, true).await
     })
 }
@@ -154,8 +153,12 @@ pub extern "C" fn handle_enter_background() {
     runtime::get_runtime().block_on(async {
         server::shutdown().await;
         tokio::spawn(async {
-            database::reduce_db_cache_sizes().await;
             database::mounted::close_all_mounted().await;
+            // free the remaining pools' page caches (the main db stays
+            // open for background location logging)
+            database::shed_db_caches().await;
+            // drop derived map data; rebuilt on foregrounding
+            map::mvt::clear_tilesets().await;
         });
     });
     // save the app state to file
@@ -208,12 +211,12 @@ pub extern "C" fn should_export_sqlite_log() -> bool {
     // unset the setting if it was true
     guard.should_export_sqlite_log = false;
     if should_export {
-        // Checkpoint the database so all outstanding transactions move from the
-        // WAL file to the database
+        // Checkpoint so all committed data is in the database file. This
+        // opens its own connection rather than using the pool, so it works
+        // while the database is still opening or failed to migrate (the
+        // recovery case); Swift shares the -wal file too if any is left.
         runtime::get_runtime().block_on(async {
-            if let Ok(conn) = database::get_main_db_pool() {
-                database::checkpoint_db(&conn).await;
-            }
+            database::checkpoint_db_file(&paths::get_db_path()).await;
         });
     }
     should_export
@@ -358,6 +361,7 @@ pub mod local {
     pub async fn local_setup(dir: &str, port: u16) -> u16 {
         let paths = local_fs_setup(dir);
         init(paths, "1.test.0".into()).await;
+        super::database::wait_for_dbs().await;
         #[cfg(feature = "android_config")]
         super::set_app_version_code_helper(1).await;
         server::run(port, false).await.port
@@ -385,7 +389,6 @@ pub mod local {
         super::set_app_version_code_helper(1).await;
         // pre-foregrounding tasks
         super::database::mounted::open_all_mounted().await;
-        super::database::increase_db_cache_sizes().await;
         server::run(port, false).await.port
     }
 

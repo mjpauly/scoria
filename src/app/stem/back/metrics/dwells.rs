@@ -8,23 +8,26 @@
 //! non-dwell   x   x                     x   x
 //! all times           |                 |       (segmentation)
 //!
-use common::{LngLat, Location};
+use common::LngLat;
 use itertools::Itertools;
 use nav_types::WGS84;
 use tracing::{instrument, Level};
 
-use crate::app_state::get_front_state;
+use crate::{app_state::get_front_state, database::NarrowPoint};
 
 use super::{
-    distance::straight_distance, speed::avg_speed, stats::weighted_mean,
+    distance::{distance_between_narrow_points, straight_distance},
+    stats::weighted_mean,
 };
 
 /// Short dwell detection speed (0.5 m/s = 1.8 km/h = 1.1 mi/h)
 const SHORT_DWELL_SPEED_THRESH_MPS: f64 = 0.5;
 
 /// Detect if a dwell exists between two locations.
-pub fn short_dwell_detect(a: &Location, b: &Location) -> bool {
-    avg_speed(a, b) < SHORT_DWELL_SPEED_THRESH_MPS
+pub fn short_dwell_detect(a: &NarrowPoint, b: &NarrowPoint) -> bool {
+    let distance = distance_between_narrow_points(a, b); // m
+    let dt = (b.timestamp - a.timestamp).abs().as_seconds_f64(); // s
+    distance / dt < SHORT_DWELL_SPEED_THRESH_MPS
 }
 
 /// Segment a string of locations into continous segments without jumps at the
@@ -32,8 +35,8 @@ pub fn short_dwell_detect(a: &Location, b: &Location) -> bool {
 ///
 /// bool is if the point is visible.
 pub fn segment_on_visibility<'a>(
-    records: &[(&'a Location, bool)],
-) -> Vec<(bool, Vec<&'a Location>)> {
+    records: &[(&'a NarrowPoint, bool)],
+) -> Vec<(bool, Vec<&'a NarrowPoint>)> {
     let chunker = records.iter().chunk_by(|(_, d)| *d);
     chunker
         .into_iter()
@@ -56,7 +59,7 @@ pub fn long_dwell_threshold(
 
 /// Score dwells on a visible/non-visible segment.
 pub fn dwell_score_segment(
-    (visible, seg): &(bool, Vec<&Location>),
+    (visible, seg): &(bool, Vec<&NarrowPoint>),
 ) -> Vec<Option<f64>> {
     if *visible {
         dwell_score(seg)
@@ -73,14 +76,14 @@ const OUTLIER_Z_SCORE: f64 = 2.5;
 /// Center points and deviations are weighted by time spent at the point. Must
 /// be a continuous segment of data points (no jumps due to view bounds edges).
 #[instrument(skip_all, level = Level::TRACE)]
-pub fn dwell_score(records: &[&Location]) -> Vec<Option<f64>> {
+pub fn dwell_score(records: &[&NarrowPoint]) -> Vec<Option<f64>> {
     let long_dwell_width_secs =
         get_front_state(|s| s.map.timeline_config.clone())
             .unwrap_or_default()
             .long_dwell_width_secs;
     let mut min_stds = vec![Option::<f64>::None; records.len()];
     let mut ei = 0; // end index
-    let dur_gte_big_thresh = |start: &Location, end: &Location| {
+    let dur_gte_big_thresh = |start: &NarrowPoint, end: &NarrowPoint| {
         end.timestamp - start.timestamp
             > time::Duration::seconds(long_dwell_width_secs as i64)
     };

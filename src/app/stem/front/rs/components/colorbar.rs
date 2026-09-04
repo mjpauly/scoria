@@ -7,10 +7,16 @@ use yewdux::prelude::*;
 use crate::ui_state::{BackState, FrontState};
 use common::{cmaps::Cminmax, map_style::ColoredDataStream};
 
-pub fn cmap_to_plotly(cmap: &[(f64, &'static str)]) -> ColorScale {
+/// Convert the contrast-trimmed subrange (lo, hi) of a colormap to a plotly
+/// colorscale, renormalized so the trimmed colors span the full bar.
+pub fn cmap_to_plotly(
+    cmap: &[(f64, &'static str)],
+    (lo, hi): (f64, f64),
+) -> ColorScale {
     let mut scale: Vec<_> = cmap
         .iter()
-        .map(|x| ColorScaleElement(x.0, x.1.to_string()))
+        .filter(|x| x.0 >= lo && x.0 <= hi)
+        .map(|x| ColorScaleElement((x.0 - lo) / (hi - lo), x.1.to_string()))
         .collect();
     // Plotly requires the colorscale to go from 0 to 1 or it shows a default
     // colormap
@@ -108,7 +114,10 @@ pub fn Colorbar() -> Html {
             // see @maybe_useful_later/time_colorbar.rs for initial code
             // on doing a colorbar for time (plotly doesn't handle it well)
             let marker = plotly::common::Marker::new()
-                .color_scale(cmap_to_plotly(cmap_params.cmap.cmap_array()))
+                .color_scale(cmap_to_plotly(
+                    cmap_params.cmap.cmap_array(),
+                    cmap_params.subrange(),
+                ))
                 .cmin(cmin)
                 .cmax(cmax)
                 .color_bar(colorbar)
@@ -139,6 +148,17 @@ pub fn Colorbar() -> Html {
             plot.set_configuration(config);
 
             new_plot_(colorbar_id, &plot.to_js_object()).unwrap();
+            // Purge on cleanup: responsive:true adds a window resize
+            // listener that otherwise retains the div (and through the
+            // detached DOM tree, the whole unmounted page -- the map leak
+            // in doc/decimation/probe-results/churn.md). The element is
+            // captured now since it may be detached by cleanup time.
+            let gd = crate::plotly::graph_div(colorbar_id);
+            move || {
+                if let Some(gd) = gd {
+                    crate::plotly::purge_element(&gd)
+                }
+            }
         },
         (cmap_params, colored_datastream),
     );

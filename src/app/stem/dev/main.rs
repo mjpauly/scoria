@@ -3,6 +3,11 @@
 //! To print debug log messages set RUST_LOG to the desired log level like so:
 //! RUST_LOG=info ibazel run :dev
 //!
+//! Synthetic-data probe mode, used by the memory probe harness
+//! (doc/decimation/memory-limits.md, "Probe harness"):
+//! bazel run :dev -- --synth 100000 --shape walk --style lines --port 0
+
+mod synth;
 
 use std::path::PathBuf;
 
@@ -17,23 +22,51 @@ extern crate stem;
 async fn main() -> Result<(), std::io::Error> {
     println!("Run dir: {}", std::env::current_dir().unwrap().display());
 
-    stem::local::local_setup_with_dev_db("dev_fs/", 8081).await;
+    // --port overrides the mode's default, e.g. to run a second instance
+    let args: Vec<String> = std::env::args().collect();
+    let port: Option<u16> = args
+        .iter()
+        .position(|a| a == "--port")
+        .and_then(|i| args.get(i + 1))
+        .map(|p| p.parse().expect("port"));
 
-    // stem::core::handle_url_scheme("scoria://place?name=Ferry+Building&lng=-122.39339582391952&lat=37.79552680112931&icon=%E2%9B%B4%EF%B8%8F".into());
-    // stem::core::handle_url_scheme("scoria://place?name=Ferry+Building&lng=-122.39339582391952&lat=37.79552680112931&icon=%E2%9B%B4%EF%B8%8F&lists%5B0%5D=To+go&tags%5B0%5D%5B0%5D=Website&tags%5B0%5D%5B1%5D=https%3A%2F%2Fwww.ferrybuildingmarketplace.com%2F".into());
+    match synth::SynthConfig::from_args() {
+        Some(cfg) => {
+            // Must be in the env before the first map query reads it
+            std::env::set_var(
+                "STEM_DECIMATION_THRESHOLD",
+                cfg.threshold.to_string(),
+            );
+            // Fresh empty database, not the (large) dev db; port 0 lets
+            // the OS pick, reported in the PROBE_READY line
+            let port =
+                stem::local::local_setup("dev_fs/", port.unwrap_or(0)).await;
+            synth::seed_front_state(&cfg);
+            synth::insert_synth_data(&cfg).await;
+            // Marker for the probe harness: server up, data loaded
+            println!("PROBE_READY port={port}");
+        }
+        None => {
+            let port = port.unwrap_or(8081);
+            stem::local::local_setup_with_dev_db("dev_fs/", port).await;
 
-    // tokio::spawn(async {
-    // tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-    // stem::import::pins_geojson::import_pins(
-    // "dev_fs/tmp/saved_places.json".into(),
-    // )
-    // .await;
-    // });
+            // stem::core::handle_url_scheme("scoria://place?name=Ferry+Building&lng=-122.39339582391952&lat=37.79552680112931&icon=%E2%9B%B4%EF%B8%8F".into());
+            // stem::core::handle_url_scheme("scoria://place?name=Ferry+Building&lng=-122.39339582391952&lat=37.79552680112931&icon=%E2%9B%B4%EF%B8%8F&lists%5B0%5D=To+go&tags%5B0%5D%5B0%5D=Website&tags%5B0%5D%5B1%5D=https%3A%2F%2Fwww.ferrybuildingmarketplace.com%2F".into());
 
-    // Spawn our data generator
-    tokio::spawn(data_generator());
+            // tokio::spawn(async {
+            // tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+            // stem::import::pins_geojson::import_pins(
+            // "dev_fs/tmp/saved_places.json".into(),
+            // )
+            // .await;
+            // });
 
-    // import_mounted_db().await;
+            // Spawn our data generator
+            tokio::spawn(data_generator());
+
+            // import_mounted_db().await;
+        }
+    }
 
     println!("Running server until ctrl-c is sent.");
     // If we're using ibazel it will upgrade our SIGINT (ctrl-c) to SIGTERM, so
@@ -46,10 +79,6 @@ async fn main() -> Result<(), std::io::Error> {
     }
 
     println!("Shutting down the server.");
-    // `true` tells actix to do a graceful shutdown
-    // server_handle.stop(true).await;
-    // calling this now seems to not kill the server when expected? this now
-    // has the desired behavior when not calling this funtion.
 
     Ok(())
 }
@@ -65,8 +94,8 @@ async fn data_generator() {
             - (starting_n * update_rate as i64),
         // latitude: 35.68697,
         // longitude: 139.70140,
-        latitude: 37.5,
-        longitude: -122.3,
+        latitude: 37.8,
+        longitude: -122.5,
         horizontal_accuracy: random::<f64>() * 3.0 + 2.0,
 
         msl_altitude: 0.0,

@@ -14,6 +14,12 @@ import Sensing
 // agree on for the class's type when passed to the Sensing framwork.
 class ViewController: UIViewController, MyViewControllerProtocol, WKNavigationDelegate {
 
+    // Kept alive across gestures; recreating a generator per event makes the
+    // first tick of a swipe late or dropped.
+    let selectionFeedback = UISelectionFeedbackGenerator()
+    // medium matches the system long-press (Haptic Touch) feel
+    let holdFeedback = UIImpactFeedbackGenerator(style: .medium)
+
     func load() {
         let webView = setupWebView()
         webView.navigationDelegate = self
@@ -21,12 +27,13 @@ class ViewController: UIViewController, MyViewControllerProtocol, WKNavigationDe
         NSLayoutConstraint.activate([
             webView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             webView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            webView.bottomAnchor.constraint(equalTo: view.layoutMarginsGuide.bottomAnchor),
-            webView.topAnchor.constraint(equalTo: view.layoutMarginsGuide.topAnchor)
+            webView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            webView.topAnchor.constraint(equalTo: view.topAnchor)
         ])
 
         let contentController = webView.configuration.userContentController
         contentController.add(self, name: "pokeMessageHandler")
+        contentController.add(self, name: "hapticMessageHandler")
 
         // load the frontend webapp
         let port = server_port  // get server port from sensing module
@@ -49,6 +56,10 @@ class ViewController: UIViewController, MyViewControllerProtocol, WKNavigationDe
         let webView = WKWebView(frame: .zero, configuration: webConfiguration)
         webView.translatesAutoresizingMaskIntoConstraints = false
         webView.scrollView.bounces = false
+        // Full-bleed: don't inset the content by the safe area. Paired with
+        // viewport-fit=cover, the page draws edge to edge and positions its
+        // own content with the CSS env(safe-area-inset-*) variables.
+        webView.scrollView.contentInsetAdjustmentBehavior = .never
         webView.isOpaque = false
         webView.backgroundColor = UIColor.clear
 #if DEBUG_WEBVIEW
@@ -59,18 +70,15 @@ class ViewController: UIViewController, MyViewControllerProtocol, WKNavigationDe
 #endif
         return webView
     }
-    
-    //added for full screen
-    override func viewWillLayoutSubviews() {
-        super.viewWillLayoutSubviews()
 
-        additionalSafeAreaInsets.bottom -= view.safeAreaInsets.bottom
-        additionalSafeAreaInsets.top -= view.safeAreaInsets.top
-        // we can use viewport-fit=cover to fit over these regions, then use
-        // the CSS safe-area-insert- variables to position things away from
-        // the notch in landscape mode
-//        additionalSafeAreaInsets.left -= view.safeAreaInsets.left
-//        additionalSafeAreaInsets.right -= view.safeAreaInsets.right
+    // The webview's content process died (jetsam under memory pressure, a
+    // renderer crash, etc.). Without this the user is left staring at a
+    // blank view; reloading turns it into a flicker. The backend state is
+    // unaffected (it lives in this process), so the page comes back to the
+    // same view. See doc/decimation/memory-limits.md, Phase 3.
+    func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+        print("WebView content process terminated; reloading")
+        webView.reload()
     }
 
     // Determine which navigation actions should result in opening in the browser
@@ -108,16 +116,34 @@ extension ViewController: WKScriptMessageHandler{
             return
         }
         //print(dict)  // show the dictionary containing the message we received
-        
+
+        if message.name == "hapticMessageHandler" {
+            // delivered on the main thread, as the generators require
+            switch dict["kind"] as? String {
+            case "prepare":
+                selectionFeedback.prepare()
+                holdFeedback.prepare()
+            case "tick":
+                selectionFeedback.selectionChanged()
+                // keep the engine warm for the next tick of the gesture
+                selectionFeedback.prepare()
+            case "hold":
+                holdFeedback.impactOccurred()
+            default:
+                break
+            }
+            return
+        }
+
         // send the message we received back to the webapp by changing the page's text
         //guard let message = dict["message"] else {
         if dict["message"] == nil {
             return
         }
-        
+
         // pass the poke to the sensing module
         handle_poke(viewController: self)
-        
+
         return
         
         // if we want bidirectional communication we can use this

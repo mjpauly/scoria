@@ -43,6 +43,32 @@ pub fn view_pos_from_map(map: &Map) -> ViewPosition {
     }
 }
 
+/// Owns the map plus every per-map JS callback. `into_js_value` leaks the
+/// Rust closure by design, which leaked ~15 MB per map unmount/remount
+/// (doc/decimation/probe-results/churn.md); owning the Closures here and
+/// dropping them with the map fixes that.
+pub struct MapHandle {
+    pub map: Rc<Map>,
+    /// Per-map callbacks, freed on drop. Box<dyn Any> erases the mixed
+    /// Closure<dyn Fn(...)> types.
+    pub closures: Vec<Box<dyn std::any::Any>>,
+}
+
+impl Drop for MapHandle {
+    fn drop(&mut self) {
+        // drop the probe hook's reference to this map
+        let window = web_sys::window().unwrap();
+        let _ = Reflect::set(
+            &window,
+            &JsValue::from_str("__stem_map"),
+            &JsValue::UNDEFINED,
+        );
+        // Tear the map down before the closures drop (fields drop after
+        // this body), so no event can fire into a freed trampoline.
+        self.map.remove();
+    }
+}
+
 pub fn new_map(
     plot_id: &str,
     style: &Value,
@@ -50,7 +76,7 @@ pub fn new_map(
     on_load_callback: Box<dyn Fn()>, // closure to run when the plot loads
     // closure to run with pan/zoom data
     on_view_change_callback: Box<dyn Fn(ViewPosition)>,
-) -> Rc<Map> {
+) -> MapHandle {
     // Create the map and start it loading
     let opts = json!({
         "container": plot_id,
@@ -60,6 +86,7 @@ pub fn new_map(
         "bearing": view_position.bearing,
         "pitch": view_position.pitch,
         "doubleClickZoom": false,
+        "maxZoom": common::map_style::MAP_MAXZOOM,
         "preserveDrawingBuffer": true, // required to save canvas as png
     });
     let map = Map::new(&val_to_jsval(&opts));
@@ -79,28 +106,68 @@ pub fn new_map(
     // closures and share the map reference.
     let map = Rc::new(map);
 
-    // register our on-load callback
-    map.on("load", &Closure::wrap(on_load_callback).into_js_value());
+    // Per-map callbacks are owned by the returned MapHandle rather than
+    // leaked with into_js_value, so they free on map teardown.
+    let mut closures: Vec<Box<dyn std::any::Any>> = Vec::new();
 
-    // Notify the yew component of the new view position whenever it changes.
+    // register our on-load callback
+    let on_load = Closure::wrap(on_load_callback);
+    map.on("load", on_load.as_ref());
+    closures.push(Box::new(on_load));
+
+    // Notify the yew component of the new view position when the camera comes
+    // to rest ("moveend" fires after pans, zooms, rotations, and their
+    // inertia). Updating on every "move" instead meant the first small
+    // movement of a pan triggered a data query, and the query for the view the
+    // user actually wanted then queued behind it, doubling the effective
+    // latency of a map movement.
     let on_view_change: Box<dyn Fn()> = {
         let map = map.clone();
         Box::new(move || on_view_change_callback(view_pos_from_map(&map)))
     };
-    map.on("move", &Closure::wrap(on_view_change).into_js_value());
+    let on_view_change = Closure::wrap(on_view_change);
+    map.on("moveend", on_view_change.as_ref());
+    closures.push(Box::new(on_view_change));
 
-    map
+    // Increment a window-global counter each time rendering settles, so
+    // external tooling (the memory probe harness) has a map-idle signal.
+    let on_idle: Box<dyn Fn()> = Box::new(|| {
+        let window = web_sys::window().unwrap();
+        let key = JsValue::from_str("__stem_idle_count");
+        let prev = Reflect::get(&window, &key)
+            .ok()
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.0);
+        let _ = Reflect::set(&window, &key, &JsValue::from_f64(prev + 1.0));
+    });
+    let on_idle = Closure::wrap(on_idle);
+    map.on("idle", on_idle.as_ref());
+    closures.push(Box::new(on_idle));
+
+    // Expose the live map for external tooling (the memory probe's churn
+    // mode pans via window.__stem_map). Overwritten on each map creation
+    // and cleared by MapHandle::drop.
+    let window = web_sys::window().unwrap();
+    let _ = Reflect::set(
+        &window,
+        &JsValue::from_str("__stem_map"),
+        map.as_ref().as_ref(),
+    );
+
+    MapHandle { map, closures }
 }
 
 // Create the point click callback to register on the map, which returns the id
 // of the mounted database layer clicked, the coordinates of the click, and the
 // color of the point.
+/// The caller owns the returned Closure; dropping it (after `off`) frees
+/// the callback.
 pub fn get_click_point_callback(
     mount_id: MountID,
     click_point: impl Fn((MountID, common::LngLat, Option<String>))
         + Clone
         + 'static,
-) -> JsValue {
+) -> Closure<dyn Fn(&JsValue)> {
     let cb = move |event: &JsValue| {
         let features =
             unwrap_js_result_or_log!(Reflect::get(event, &"features".into()));
@@ -132,7 +199,7 @@ pub fn get_click_point_callback(
 
         click_point((mount_id, common::LngLat { lng, lat }, color));
     };
-    Closure::wrap(Box::new(cb) as Box<dyn Fn(&JsValue)>).into_js_value()
+    Closure::wrap(Box::new(cb) as Box<dyn Fn(&JsValue)>)
 }
 
 pub fn add_popup(
@@ -165,17 +232,16 @@ pub fn add_popup(
 }
 
 /// Style the maplibre popup with the given background color and text color
-// TODO: delete old css rules
 fn style_popup(bg_color: &str, text_color: &str) {
-    let content_css = format!(
-        "background-color: {bg_color}; \
+    let mut css = format!(
+        ".maplibregl-popup-content {{ \
+        background-color: {bg_color}; \
         color: {text_color}; \
         padding: 2px 5px; \
-        opacity: 0.9;"
+        opacity: 0.9; }}"
     );
-    add_css_rule(".maplibregl-popup-content", &content_css);
 
-    // for the tip we need to add 4 rules, one for each popup orientation
+    // the tip needs a rule for each popup orientation
     let orientations = [
         ("top", "bottom"), // (anchor-{orientation}, border-{orientation})
         ("bottom", "top"),
@@ -187,78 +253,73 @@ fn style_popup(bg_color: &str, text_color: &str) {
         ("bottom-right", "top"),
     ];
     for (class_orientation, border_orientation) in orientations {
-        let tip_class = format!(
-            ".maplibregl-popup-anchor-{class_orientation} \
-            .maplibregl-popup-tip"
+        css += &format!(
+            " .maplibregl-popup-anchor-{class_orientation} \
+            .maplibregl-popup-tip {{ \
+            border-{border_orientation}-color: {bg_color}; \
+            opacity: 0.9; }}"
         );
-        let tip_css = format!(
-            "border-{border_orientation}-color: {bg_color}; \
-            opacity: 0.9;"
-        );
-        add_css_rule(&tip_class, &tip_css);
     }
+    set_popup_css(&css);
 }
 
-/// Add a css rules to the document given the class name and the rules to add.
-/// The rule is placed at the end of the last stylesheet, allowing for
-/// overriding earlier class definitions without using !important.
-pub fn add_css_rule(class_name: &str, rule: &str) {
+/// Element id of the app-owned style element holding the popup rules.
+static POPUP_STYLE_ID: &str = "popup-style";
+
+/// Write the popup css into a dedicated style element at the end of head,
+/// creating it on first use and replacing prior contents thereafter. Sitting
+/// after maplibre-gl.css in document order, its rules override the defaults
+/// without !important. Rules must not go in whichever stylesheet happens to
+/// be last: plotly appends its own modebar style element to head and deletes
+/// it, rules and all, on every plot redraw.
+fn set_popup_css(css: &str) {
     let document = web_sys::window().unwrap().document().unwrap();
-    let style_sheets = document.style_sheets();
-    let last_sheet_index = style_sheets.length();
-    let style_sheet = style_sheets
-        .get(last_sheet_index - 1)
-        .expect("Failed to get the last stylesheet");
-
-    if let Ok(css_style_sheet) =
-        style_sheet.dyn_into::<web_sys::CssStyleSheet>()
-    {
-        let rule_text = format!("{} {{ {} }}", class_name, rule);
-        let insert_index = css_style_sheet.css_rules().unwrap().length();
-
-        css_style_sheet
-            .insert_rule_with_index(&rule_text, insert_index)
-            .expect("Failed to insert CSS rule");
-    }
+    let style =
+        document
+            .get_element_by_id(POPUP_STYLE_ID)
+            .unwrap_or_else(|| {
+                let el = document
+                    .create_element("style")
+                    .expect("Failed to create style element");
+                el.set_id(POPUP_STYLE_ID);
+                document
+                    .query_selector("head")
+                    .unwrap()
+                    .expect("No head element")
+                    .append_child(&el)
+                    .expect("Failed to append style element");
+                el
+            });
+    style.set_text_content(Some(css));
 }
 
-/// Update the map's points and lines data sources. Forces the map to update.
+/// Refresh the map's per-mount tile sources after a query update.
+///
+/// In-place refresh mirroring maplibre >= 5.6 refreshTiles /
+/// reload(sourceDataChanged): reload each live tile in the "expired"
+/// state. Expired tiles refetch over the network but keep rendering their
+/// old data until the replacement arrives, so there is no flicker. The
+/// alternatives both fail: setTiles() clears the source (flicker), and
+/// plain reload() uses the "reloading" state, which the worker services
+/// by re-parsing its cached pbf without refetching (stale data). No
+/// cache-busting URL param is needed: tile responses are no-store, and
+/// maplibre keeps no cache of its own keyed on the URL.
 pub fn update_data(map: Rc<Map>, mounted_dbs_enabled: &[MountID]) {
-    for (source_id, source_url) in points_lines_ids_and_urls(
-        mounted_dbs_enabled,
-        &[LayerKind::Points, LayerKind::Lines],
-    ) {
-        map.get_source(&source_id).set_data(&source_url.into());
-    }
-}
-
-/// Build the combinations of source/layer ids and source urls for the points and
-/// lines for each enabled database.
-///
-/// Source and layer ids are identical.
-///
-/// e.g. DB 0 has source ids "points0" and "lines0", and source urls
-/// "./0/points.geojson" and "/0/lines.geojson"
-pub fn points_lines_ids_and_urls(
-    mounted_dbs_enabled: &[MountID],
-    layer_kinds: &[LayerKind],
-) -> Vec<(String, String)> {
-    let mut out = Vec::new();
+    let mapjs: &JsValue = map.as_ref().as_ref();
+    let style = unwrap_js_result_or_log!(Reflect::get(mapjs, &"style".into()));
+    let source_caches =
+        unwrap_js_result_or_log!(Reflect::get(&style, &"sourceCaches".into()));
     for id in mounted_dbs_enabled {
-        for kind in layer_kinds {
-            out.push((layer_id(id, kind), source_url(id, kind)));
+        let source_id = mvt_source_id(id);
+        if let Err(e) = reload_source_expired(&source_caches, &source_id) {
+            error!("mvt source expired-reload failed: {e:?}");
         }
     }
-    out
 }
 
 /// Layer and source ids are the same in our app (they can be distinct).
 pub fn layer_id(mount_id: &MountID, layer_kind: &LayerKind) -> String {
     format!("{layer_kind}{mount_id}")
-}
-
-pub fn source_url(mount_id: &MountID, layer_kind: &LayerKind) -> String {
-    format!("./{mount_id}/{layer_kind}.geojson")
 }
 
 pub enum LayerKind {
@@ -298,12 +359,9 @@ pub fn add_source_and_layers_to_style(
         selected_points::SOURCE_ID.to_string(),
         geojson_source_with_value(&empty_geojson()),
     );
-    // add all points and lines sources for each enabled database
-    for (source_id, source_url) in points_lines_ids_and_urls(
-        mounted_dbs_enabled,
-        &[LayerKind::Points, LayerKind::Lines],
-    ) {
-        sources_mut.insert(source_id, geojson_source_with_url(&source_url));
+    // add the vector tile source for each enabled database
+    for id in mounted_dbs_enabled {
+        sources_mut.insert(mvt_source_id(id), mvt_source(id));
     }
     if map_style.show_last_location {
         // The last location will be added when the map initializes
@@ -328,27 +386,27 @@ pub fn add_source_and_layers_to_style(
         layers_mut.push(pins::make_pins_layer());
     }
     // add all lines layers for each enabled database
-    for (layer_id, _) in
-        points_lines_ids_and_urls(mounted_dbs_enabled, &[LayerKind::Lines])
-    {
-        layers_mut.push(make_lines_layer(
-            &layer_id,
+    for id in mounted_dbs_enabled {
+        let layer = make_lines_layer(
+            &layer_id(id, &LayerKind::Lines),
+            &mvt_source_id(id),
             map_style.line_size,
             &map_style.solid_color,
             &map_style.colored_datastream,
-        ));
+        );
+        layers_mut.push(layer);
     }
     layers_mut.push(selected_points::make_layer(map_style));
     // add all points layers for each enabled database
-    for (layer_id, _) in
-        points_lines_ids_and_urls(mounted_dbs_enabled, &[LayerKind::Points])
-    {
-        layers_mut.push(make_points_layer(
-            &layer_id,
+    for id in mounted_dbs_enabled {
+        let layer = make_points_layer(
+            &layer_id(id, &LayerKind::Points),
+            &mvt_source_id(id),
             map_style.marker_size,
             &map_style.solid_color,
             &map_style.colored_datastream,
-        ));
+        );
+        layers_mut.push(layer);
     }
     if !map_style.pins_below_data {
         layers_mut.push(pins::make_pins_layer());
@@ -358,11 +416,55 @@ pub fn add_source_and_layers_to_style(
     }
 }
 
-fn geojson_source_with_url(url: &str) -> Value {
+fn mvt_source_id(mount_id: &MountID) -> String {
+    format!("mvt{mount_id}")
+}
+
+fn mvt_tiles_url(mount_id: &MountID) -> String {
+    let host = get_scoped_host();
+    format!("http://{host}/{mount_id}/tiles/{{z}}/{{x}}/{{y}}.mvt")
+}
+
+fn mvt_source(mount_id: &MountID) -> Value {
     json!({
-        "type": "geojson",
-        "data": url,
+        "type": "vector",
+        "tiles": [mvt_tiles_url(mount_id)],
+        "maxzoom": common::map_style::MVT_SOURCE_MAXZOOM,
     })
+}
+
+/// Refetch a source's tiles in place via maplibre's "expired" tile state,
+/// the mechanism behind refreshTiles in maplibre >= 5.6, hand-rolled for
+/// the vendored 4.7.1. Expired tiles stay renderable while the refetch is
+/// in flight, unlike SourceCache.reload()'s "reloading" state, which
+/// re-parses the worker's cached pbf without hitting the network.
+fn reload_source_expired(
+    source_caches: &JsValue,
+    source_id: &str,
+) -> Result<(), JsValue> {
+    let cache = Reflect::get(source_caches, &source_id.into())?;
+    if cache.is_undefined() {
+        return Err(js_sys::Error::new("no source cache").into());
+    }
+    // drop LRU-retained off-screen tiles so panning back refetches
+    let lru = Reflect::get(&cache, &"_cache".into())?;
+    let reset =
+        Reflect::get(&lru, &"reset".into())?.dyn_into::<js_sys::Function>()?;
+    reset.call0(&lru)?;
+    // reload the live tiles; skipping "loading" tiles is fine since the
+    // backend serves the current tileset to in-flight requests too
+    let tiles = Reflect::get(&cache, &"_tiles".into())?;
+    if !tiles.is_object() {
+        return Err(js_sys::Error::new("no _tiles object").into());
+    }
+    let reload_tile = Reflect::get(&cache, &"_reloadTile".into())?
+        .dyn_into::<js_sys::Function>()?;
+    for key in js_sys::Object::keys(tiles.unchecked_ref()).iter() {
+        // async on the JS side; resolution is handled by maplibre's
+        // internal tile-loaded event flow
+        reload_tile.call2(&cache, &key, &"expired".into())?;
+    }
+    Ok(())
 }
 
 fn screen_source() -> Value {
@@ -435,16 +537,21 @@ fn log_rescale_opacity(val: f64) -> f64 {
     (base.powf(val) - 1.0) / (base - 1.0)
 }
 
+/// Minimum clickable radius of a data point, in pixels.
+const CLICK_TARGET_PX: f64 = 10.0;
+
 fn make_points_layer(
     id: &str,
-    marker_size: usize,
+    source: &str,
+    marker_size: f64,
     marker_color: &Rgba,
     colored_datastream: &ColoredDataStream,
 ) -> Value {
     json!({
         "id": id,
         "type": "circle",
-        "source": id,
+        "source": source,
+        "source-layer": "points",
         "paint": {
             "circle-radius": marker_size,
             "circle-color":
@@ -454,9 +561,10 @@ fn make_points_layer(
                     json!(marker_color.rgb)
                 },
             "circle-opacity": log_rescale_opacity(marker_color.a),
-            // An invisible stroke of 10px to makes the data points easier to
-            // click.
-            "circle-stroke-width": 10,
+            // An invisible stroke padding small markers out to a click
+            // target of CLICK_TARGET_PX. Keep in sync with the tile point
+            // buffer in back/map/mvt.rs.
+            "circle-stroke-width": (CLICK_TARGET_PX - marker_size).max(0.0),
             "circle-stroke-color": "#ffffff",
             "circle-stroke-opacity": 0.,
         }
@@ -465,6 +573,7 @@ fn make_points_layer(
 
 fn make_lines_layer(
     id: &str,
+    source: &str,
     line_size: usize,
     marker_color: &Rgba,
     colored_datastream: &ColoredDataStream,
@@ -472,7 +581,8 @@ fn make_lines_layer(
     json!({
         "id": id,
         "type": "line",
-        "source": id, // source id same as layer id
+        "source": source,
+        "source-layer": "lines",
         "paint": {
             "line-width": line_size,
             "line-color":
@@ -542,6 +652,21 @@ pub fn update_last_location(map: Rc<Map>, loc: Option<common::LngLat>) {
         .set_data(&val_to_jsval(&geojson_point(loc)));
 }
 
+/// Re-set the last location once the new style loads, since restyling
+/// recreates the geojson source empty.
+pub fn update_last_location_after_restyle(
+    map: Rc<Map>,
+    loc: Option<common::LngLat>,
+) {
+    // once_into_js frees the closure after its single invocation
+    map.clone().once(
+        "styledata",
+        &Closure::once_into_js(move || {
+            update_last_location(map, loc);
+        }),
+    );
+}
+
 fn geojson_source_with_value(value: &Value) -> Value {
     json!({
         "type": "geojson",
@@ -552,7 +677,8 @@ fn geojson_source_with_value(value: &Value) -> Value {
 /// Generate an image from the current map view and return the data to a
 /// callback.
 pub fn generate_image(map: Rc<Map>) {
-    let callback = Closure::wrap(Box::new(move |blob: web_sys::Blob| {
+    // once_into_js frees the closure after its single invocation
+    let callback = Closure::once_into_js(move |blob: web_sys::Blob| {
         yew::platform::spawn_local(async move {
             let resp = match Request::post("./save_image")
                 .header("Content-Type", "image/png")
@@ -575,14 +701,11 @@ pub fn generate_image(map: Rc<Map>) {
                 )
             }
         });
-    }) as Box<dyn Fn(web_sys::Blob)>);
+    });
 
     let canvas = map.get_canvas();
     // use jpeg, which defaults to quality ~0.9
     canvas
-        .to_blob_with_type(
-            callback.into_js_value().unchecked_ref(),
-            "image/jpeg",
-        )
+        .to_blob_with_type(callback.unchecked_ref(), "image/jpeg")
         .unwrap();
 }

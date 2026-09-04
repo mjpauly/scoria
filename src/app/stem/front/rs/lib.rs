@@ -36,6 +36,7 @@ use yew_router::prelude::*;
 
 use websocket::WebsocketService;
 
+use crate::components::db_loading_banner::DbLoadingBanner;
 use crate::components::toast::Toast;
 
 /// Top level App component for the UI.
@@ -62,6 +63,12 @@ pub fn App() -> Html {
     // Notify backend whenever the UI state changes
     ui_state::init_front_listener(wss.clone());
 
+    // In debug builds, fall back to simulated safe-area insets when the
+    // environment provides none, for screenshotting in Firefox's device
+    // simulation
+    #[cfg(debug_assertions)]
+    web::sim_insets::apply_fallback();
+
     // Get the frontend key / scope to use as the router basename
     let basename = format!("/{}", router::get_scope());
 
@@ -71,6 +78,7 @@ pub fn App() -> Html {
                     font-light text-neutral-200 select-none">
             <ContextProvider<WebsocketService> context={wss}>
                 <Toast />
+                <DbLoadingBanner />
                 <BrowserRouter basename={basename}>
                     <Switch<router::Route> render={router::switch} />
                     <pending_events::PendingEventHandler />

@@ -459,14 +459,22 @@ pub fn ColoredTimeSeriesPlot() -> Html {
     let plot_id = "timeseries-div";
     use_effect_with_deps(
         move |d| {
-            // log::debug!("a");
             plotly::react(
                 plot_id,
                 &val_to_jsval(d),
                 &val_to_jsval(&layout),
                 &val_to_jsval(&config),
             );
-            // log::debug!("b");
+            // Purge on cleanup: responsive:true adds a window resize
+            // listener that otherwise retains the div and the detached
+            // page tree (see doc/decimation/probe-results/churn.md). The
+            // element is captured now since it may be detached by cleanup.
+            let gd = plotly::graph_div(plot_id);
+            move || {
+                if let Some(gd) = gd {
+                    plotly::purge_element(&gd)
+                }
+            }
         },
         data,
     );

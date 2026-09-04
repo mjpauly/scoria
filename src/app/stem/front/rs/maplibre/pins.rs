@@ -17,11 +17,11 @@ use std::time::Duration;
 use common::{pin::Pin, LngLat};
 use js_sys::{Array, Reflect};
 use serde_json::{json, Value};
-use unicode_segmentation::UnicodeSegmentation;
 use wasm_bindgen::{prelude::*, JsCast};
 
 use crate::maplibre::binds;
 use crate::maplibre::{val_to_jsval, PINS_LAYER_ID, PINS_SOURCE_ID};
+use crate::web::haptics;
 
 /// Get the list of pins to actually show on the map.
 ///
@@ -58,12 +58,12 @@ pub fn update_pins(map: &Rc<binds::Map>, pins: &[Pin]) -> Result<(), JsValue> {
 }
 
 pub fn update_pins_after_restyle(map: Rc<binds::Map>, pins: Vec<Pin>) {
+    // once_into_js frees the closure after its single invocation
     map.clone().once(
         "styledata",
-        &Closure::wrap(Box::new(move || {
+        &Closure::once_into_js(move || {
             update_pins(&map, &pins).unwrap();
-        }) as Box<dyn Fn()>)
-        .into_js_value(),
+        }),
     );
 }
 
@@ -78,13 +78,7 @@ fn load_emoji_image(map: &Rc<binds::Map>, emoji: &str) -> Result<(), JsValue> {
     // canvas sizes (set `icon-size in layout to set display size)
     let h = 200; // canvas height in px
     let char_size = h * 4 / 5; // character size
-    let char_width = if cfg!(feature = "android_config") {
-        // on android emojis are significantly wider for some reason
-        h
-    } else {
-        char_size
-    };
-    let w = 20 + char_width * count_characters(emoji) as u32; // canvas width
+    let font = format!("{}px Arial", char_size);
 
     let window = web_sys::window().unwrap();
 
@@ -94,25 +88,36 @@ fn load_emoji_image(map: &Rc<binds::Map>, emoji: &str) -> Result<(), JsValue> {
         .unwrap()
         .create_element("canvas")?
         .dyn_into::<web_sys::HtmlCanvasElement>()?;
-    canvas.set_width(w);
-    canvas.set_height(h);
     let context = canvas
         .get_context("2d")?
         .unwrap()
         .dyn_into::<web_sys::CanvasRenderingContext2d>()?;
+
+    // Measure the actual rendered width rather than estimating it, since emoji
+    // advance widths vary by platform and glyph.
+    context.set_font(&font);
+    let text_width = context.measure_text(emoji)?.width();
+    let w = 20 + text_width.ceil() as u32; // canvas width
+
+    canvas.set_width(w);
+    canvas.set_height(h);
 
     // display the bounding rectangle for debugging
     // context.rect(0., 0., w as f64, h as f64);
     // context.set_fill_style(&JsValue::from("red"));
     // context.fill();
 
-    context.set_font(&format!("{}px Arial", char_size));
-    // center horizontally
-    context.set_text_align("center");
+    // resizing the canvas resets the context state, so set the font again
+    context.set_font(&font);
+    // Center horizontally by hand. WebKit ignores `text-align: center` for
+    // emoji sequences containing a variation selector or zero-width joiner
+    // (e.g. U+2B50 U+FE0F) and draws them left-aligned, which clips them.
+    context.set_text_align("left");
+    let x = (w as f64 - text_width) / 2.;
     // ideographic is just about the bottom of the emoji
     // https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D/textBaseline
     context.set_text_baseline("ideographic");
-    context.fill_text(emoji, (w / 2) as f64, (h as f64) * 0.95)?;
+    context.fill_text(emoji, x, (h as f64) * 0.95)?;
 
     map.add_image(
         &icon_id,
@@ -120,21 +125,6 @@ fn load_emoji_image(map: &Rc<binds::Map>, emoji: &str) -> Result<(), JsValue> {
     );
 
     Ok(())
-}
-
-/// Count the number of graphemes (user-perceived characters) in a string.
-///
-/// Emoji usually have a "variation selector" combining mark that indicates how
-/// it should be displayed, or can be joined with other emoji using a zero-width
-/// joiner. Counting graphemes gives a better estimate of the width of the
-/// string.
-///
-/// E.g. a `heart on fire emoji` (❤️‍🔥) consists of a `heart` (❤)
-/// character, an `image` variation selector that indicates it should be
-/// rendered like an emoji with color (❤️), a `zero-width joiner`, and a `fire`
-/// (🔥) emoji. It takes 13 bytes of space.
-fn count_characters(emoji: &str) -> usize {
-    emoji.graphemes(true).count()
 }
 
 /// Get the image identifier for an emoji.
@@ -208,16 +198,20 @@ pub fn register_callbacks(
     map: &Rc<binds::Map>,
     pin_onclick: impl Fn(Option<i64>) + Clone + 'static,
     on_create_pin: impl Fn(LngLat) + Clone + 'static,
-) {
-    register_click_callback(map, pin_onclick);
+) -> Vec<Box<dyn std::any::Any>> {
+    // The returned Closures must be owned by the caller (the MapHandle);
+    // dropping them frees the callbacks with the map.
+    let mut closures: Vec<Box<dyn std::any::Any>> = Vec::new();
+    closures.push(register_click_callback(map, pin_onclick));
     // and for creating a pin on a long press
-    register_create_pin_callback(map, on_create_pin);
+    closures.extend(register_create_pin_callback(map, on_create_pin));
+    closures
 }
 
 fn register_click_callback(
     map: &Rc<binds::Map>,
     callback: impl Fn(Option<i64>) + Clone + 'static,
-) {
+) -> Box<dyn std::any::Any> {
     let pin_callback = move |event: &JsValue| {
         let features = Reflect::get(event, &"features".into()).unwrap();
         let first = features.dyn_ref::<Array>().unwrap().at(0);
@@ -227,12 +221,9 @@ fn register_click_callback(
         let id = id_obj.as_f64().map(|x| x as i64);
         callback(id);
     };
-    map.on_layer(
-        "click",
-        PINS_LAYER_ID,
-        &Closure::wrap(Box::new(pin_callback) as Box<dyn Fn(&JsValue)>)
-            .into_js_value(),
-    );
+    let cb = Closure::wrap(Box::new(pin_callback) as Box<dyn Fn(&JsValue)>);
+    map.on_layer("click", PINS_LAYER_ID, cb.as_ref());
+    Box::new(cb)
 }
 
 // set to true when a touch interaction starts, but gets set to false if
@@ -243,19 +234,26 @@ static TIMEOUT: Mutex<bool> = Mutex::new(false);
 fn register_create_pin_callback(
     map: &Rc<binds::Map>,
     callback: impl Fn(LngLat) + Clone + 'static,
-) {
+) -> Vec<Box<dyn std::any::Any>> {
     let pin_callback = move |event: JsValue| {
         let callback = callback.clone();
         yew::platform::spawn_local(async move {
             *TIMEOUT.lock().unwrap() = true;
             // check every 100ms for ~1s if the creation has be canceled
-            for _ in 0..8 {
+            for i in 0..8 {
                 yew::platform::time::sleep(Duration::from_millis(100)).await;
                 if !*TIMEOUT.lock().unwrap() {
                     // canceled by another interaction
                     return;
                 }
+                // warm the haptic engine only once the hold is 100ms from
+                // registering, not on every pan/zoom touch
+                if i == 6 {
+                    haptics::prepare();
+                }
             }
+            // the hold has registered
+            haptics::hold();
 
             let loc = Reflect::get(&event, &"lngLat".into()).unwrap();
             let x = loc.unchecked_into::<binds::LngLat>();
@@ -266,18 +264,19 @@ fn register_create_pin_callback(
         });
     };
     let create_pin_closure =
-        Closure::wrap(Box::new(pin_callback) as Box<dyn Fn(JsValue)>)
-            .into_js_value();
-    map.on("touchstart", &create_pin_closure);
-    map.on("mousedown", &create_pin_closure);
+        Closure::wrap(Box::new(pin_callback) as Box<dyn Fn(JsValue)>);
+    map.on("touchstart", create_pin_closure.as_ref());
+    map.on("mousedown", create_pin_closure.as_ref());
     let cancel_closure = Closure::wrap(Box::new(|_: &JsValue| {
         *TIMEOUT.lock().unwrap() = false;
-    }) as Box<dyn Fn(&JsValue)>)
-    .into_js_value();
-    map.on("touchend", &cancel_closure);
-    map.on("touchcancel", &cancel_closure);
-    map.on("touchmove", &cancel_closure);
-    map.on("mouseup", &cancel_closure);
-    map.on("mousemove", &cancel_closure);
-    map.on("move", &cancel_closure);
+    }) as Box<dyn Fn(&JsValue)>);
+    map.on("touchend", cancel_closure.as_ref());
+    map.on("touchcancel", cancel_closure.as_ref());
+    map.on("touchmove", cancel_closure.as_ref());
+    map.on("mouseup", cancel_closure.as_ref());
+    map.on("mousemove", cancel_closure.as_ref());
+    map.on("move", cancel_closure.as_ref());
+    let closures: Vec<Box<dyn std::any::Any>> =
+        vec![Box::new(create_pin_closure), Box::new(cancel_closure)];
+    closures
 }

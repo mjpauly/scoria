@@ -8,6 +8,7 @@ use web_sys::HtmlInputElement;
 use yew::prelude::*;
 use yewdux::prelude::*;
 
+use crate::components::time_stepper::TimeStepper;
 use crate::components::{DATETIME_INPUT_STYLE, SECONDARY_BUTTON_STYLE};
 use crate::ui_state::{BackState, FrontState};
 use crate::unwrapping::unwrap_result_or_log;
@@ -32,7 +33,7 @@ fn parse_datetime_input(val: &str, tz: &str) -> Result<Zoned, jiff::Error> {
     dt.intz(tz)
 }
 
-fn now(tz: &str) -> Zoned {
+pub(crate) fn now(tz: &str) -> Zoned {
     Timestamp::now()
         .intz(tz)
         .unwrap_or_else(|_| Timestamp::now().intz("UTC").unwrap())
@@ -160,6 +161,8 @@ pub fn TimeRangePicker() -> Html {
                 class={format!("m-1 py-1.5 px-3 {}", SECONDARY_BUTTON_STYLE)}>
                     {"Today"}
             </button>
+
+            <TimeStepper />
 
             // <p class="text-neutral-500 mx-2">
                 // {"Time Zone: "}{&map_tz.0}

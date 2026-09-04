@@ -432,3 +432,9 @@ codesign -s - -v -f --entitlements =(echo -n '<?xml version="1.0" encoding="UTF-
 
 The path to the binary and the working directory can be entered into Instruments
 so that it can launch it and log the stack trace from startup.
+
+### Show tile boundaries
+
+```
+__stem_map.showTileBoundaries = true
+```

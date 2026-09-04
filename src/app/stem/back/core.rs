@@ -13,7 +13,7 @@ use tracing::error;
 use crate::app_state::{set_back_state, AppState};
 use crate::database::{self, OSLocationData};
 use crate::map::automap::update_automap;
-use crate::map::geojson::{update_geojson, BOUND_EXPANSION};
+use crate::map::map_data::{update_map_data, BOUND_EXPANSION_PX};
 use crate::metrics::dashboard::update_dashboard;
 use crate::ws_session::send_message_to_front;
 use crate::{logs, ws_session};
@@ -31,7 +31,7 @@ pub async fn log_location(loc: OSLocationData) {
     if let Some(addr) = maybe_addr {
         addr.do_send(ws_session::SendState);
         let new_loc = Some(loc.into());
-        tokio::spawn(update_geojson(new_loc.clone(), false));
+        tokio::spawn(update_map_data(new_loc.clone(), false));
         tokio::spawn(update_automap());
         tokio::spawn(update_dashboard(new_loc));
     }
@@ -43,7 +43,7 @@ pub async fn log_location(loc: OSLocationData) {
 /// Note that if this is the first time opening the app, we might not have the
 /// front state yet!
 pub fn update_on_foregrounding() {
-    tokio::spawn(update_geojson(None, true));
+    tokio::spawn(update_map_data(None, true));
     tokio::spawn(update_automap());
     tokio::spawn(async {
         if let Err(e) = logs::update_last_logged_error().await {
@@ -83,8 +83,7 @@ pub fn new_data_is_visible(
     let in_bounds = !view_bounded
         || map_state
             .view_pos
-            .bounds
-            .expand(BOUND_EXPANSION)
+            .expanded_bounds(BOUND_EXPANSION_PX)
             .contains(&loc.lnglat());
     let not_filtered_out =
         !map_state.filters.iter().any(|f| f.should_remove(loc));

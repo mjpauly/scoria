@@ -15,7 +15,7 @@ use crate::components::{
 };
 use crate::components::{HomeBarSpacer, TopNav};
 use crate::components::{InfoMessage, TOGGLE_SWITCH_STYLE};
-use crate::ui_state::{BackState, FrontState};
+use crate::ui_state::{BackState, DerivedState, FrontState};
 use crate::websocket::WebsocketService;
 
 #[function_component]
@@ -23,7 +23,14 @@ pub fn ReportProblem() -> Html {
     let dispatch = Dispatch::<FrontState>::new();
     let problem_report =
         use_selector(|s: &FrontState| s.problem_report.clone());
-    let last_error = use_selector(|s: &BackState| s.last_logged_error.clone());
+    let last_error =
+        use_selector(|s: &DerivedState| s.last_logged_error.clone());
+    let reviewed_log =
+        use_selector(|s: &BackState| s.reviewed_error_log.clone());
+    let error_reviewed = match &*last_error {
+        Some(e) => reviewed_log.as_deref() == Some(e.log_file.as_str()),
+        None => true,
+    };
 
     let email_onchange = dispatch.reduce_mut_callback_with(
         move |s: &mut FrontState, e: Event| {
@@ -76,11 +83,14 @@ pub fn ReportProblem() -> Html {
                 wss.send_msg(ToBack::ReviewedLastError);
 
                 let email = problem_report.email.clone();
-                let body = if let (Some((err, _)), true) =
+                let body = if let (Some(err), true) =
                     (&*last_error, problem_report.attach_log)
                 {
                     // append log messages to report body
-                    format!("{}\n\n--LOG--\n\n{err}", problem_report.body)
+                    format!(
+                        "{}\n\n--LOG--\n\n{}",
+                        problem_report.body, err.contents
+                    )
                 } else if problem_report.attach_log {
                     format!("{}\n\n--LOG--\n\nNo errors.", problem_report.body)
                 } else {
@@ -152,8 +162,7 @@ pub fn ReportProblem() -> Html {
                     </p>
                 } else {
 
-                if let Some((_, reviewed)) = &*last_error {
-                    if !reviewed {
+                if !error_reviewed {
                     // last error not reviewed
                     <InfoMessage>
                         <div class="flex flex-col items-start">
@@ -170,7 +179,6 @@ pub fn ReportProblem() -> Html {
                             </button>
                         </div>
                     </InfoMessage>
-                    }
                 }
 
                 // description
@@ -249,8 +257,8 @@ pub fn ReportProblem() -> Html {
                         class="pb-2 text-neutral-400 font-mono overflow-x-scroll
                         whitespace-pre-wrap text-left text-xs"
                     >
-                        if let Some((err, _)) = &*last_error {
-                            {err}
+                        if let Some(err) = &*last_error {
+                            {&err.contents}
                         } else {
                             {"No errors."}
                         }

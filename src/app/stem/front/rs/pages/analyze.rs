@@ -186,6 +186,10 @@ fn SettingsPicker() -> Html {
 fn PlotComponent() -> Html {
     // maplibre map handle
     let map = use_state(|| Option::<Rc<maplibre::binds::Map>>::None);
+    // Owns the map and its callbacks. Dropped when yew disposes the hook
+    // state on unmount: MapHandle::drop removes the map and frees the
+    // closures (leak fix, doc/decimation/probe-results/churn.md).
+    let map_handle = use_state(|| Option::<Rc<maplibre::MapHandle>>::None);
 
     // === Popup Callbacks === //
 
@@ -201,13 +205,18 @@ fn PlotComponent() -> Html {
                 .reduce_mut(|s: &mut FrontState| s.map.popup_color = params.2);
         }
     };
+    // Owns the popup's Show Day click closure; replaced (freeing the old
+    // one) on each new popup, and freed on unmount.
+    let show_day_closure =
+        use_state(|| Option::<wasm_bindgen::closure::Closure<dyn Fn()>>::None);
     // adds the popup to the map when the popup contents come from the backend
     let on_get_nearest_location = {
         let map = map.clone();
         move |msg: &ToFront| {
             if let ToFront::NearestLocation(mount_id, loc, zdt) = msg {
                 if let Some(map) = (*map).clone() {
-                    handle_nearest_location(map, mount_id, loc, zdt);
+                    show_day_closure
+                        .set(handle_nearest_location(map, mount_id, loc, zdt));
                 }
             }
         }
@@ -324,7 +333,7 @@ fn PlotComponent() -> Html {
                         let on_view_change = Box::new(move |data| {
                             front_dispatch.reduce_mut(|s| s.map.view_pos = data)
                         });
-                        let newmap = maplibre::new_map(
+                        let mut handle = maplibre::new_map(
                             plot_id,
                             style,
                             &view_position,
@@ -332,40 +341,40 @@ fn PlotComponent() -> Html {
                             on_view_change,
                         );
                         // register the callbacks for click/create pin
-                        maplibre::pins::register_callbacks(
-                            &newmap,
-                            pin_onclick,
-                            on_create_pin,
+                        handle.closures.extend(
+                            maplibre::pins::register_callbacks(
+                                &handle.map,
+                                pin_onclick,
+                                on_create_pin,
+                            ),
                         );
-                        map.set(Some(newmap));
+                        map.set(Some(handle.map.clone()));
+                        map_handle.set(Some(Rc::new(handle)));
                     }
                 }
             },
             style.clone(),
         )
     };
-    // cleanup the map when we navigate away
-    use_effect_with_deps(
-        move |map| {
-            let map = map.clone();
-            move || {
-                if let Some(map) = &*map {
-                    map.remove();
-                }
-            }
-        },
-        map.clone(),
-    );
+    // Map cleanup on navigate-away happens when yew drops the map_handle
+    // state: MapHandle::drop removes the map and frees its callbacks.
+
     // on load, retrieve the view bounds and send the bounds to the backend
     {
         let front_dispatch = Dispatch::<FrontState>::new();
         let map = map.clone();
+        let mounted_dbs_enabled = mounted_dbs_enabled.clone();
         use_effect_with_deps(
             move |map_initialized| {
                 if **map_initialized {
-                    let view_pos =
-                        maplibre::view_pos_from_map(&(*map).clone().unwrap());
-                    front_dispatch.reduce_mut(|s| s.map.view_pos = view_pos)
+                    let map = (*map).clone().unwrap();
+                    let view_pos = maplibre::view_pos_from_map(&map);
+                    front_dispatch.reduce_mut(|s| s.map.view_pos = view_pos);
+                    // Refresh the data sources. A MapDataUpdated message that
+                    // arrived while the map was initializing was dropped, and
+                    // the initial tile fetches may have raced with the
+                    // backend regenerating the map data
+                    maplibre::update_data(map, &mounted_dbs_enabled);
                 }
             },
             map_initialized.clone(),
@@ -374,13 +383,13 @@ fn PlotComponent() -> Html {
 
     // === Update map on new data === //
 
-    // Update when the backend tells us the geojson is up-to-date
-    let on_geojson_update = {
+    // Update when the backend tells us the map data is up-to-date
+    let on_map_data_update = {
         let map = map.clone();
         let map_initialized = map_initialized.clone();
         let mounted_dbs_enabled = mounted_dbs_enabled.clone();
         move |msg: &ToFront| {
-            if *msg == ToFront::GeojsonUpdated && *map_initialized {
+            if *msg == ToFront::MapDataUpdated && *map_initialized {
                 // OK to unwrap map when guarded by if *map_initialized, since
                 // this is a contract we uphold
                 maplibre::update_data(
@@ -391,7 +400,7 @@ fn PlotComponent() -> Html {
         }
     };
     use_backend_event_with_deps(
-        on_geojson_update,
+        on_map_data_update,
         (map_initialized.clone(), mounted_dbs_enabled.clone()),
     );
 
@@ -403,14 +412,24 @@ fn PlotComponent() -> Html {
         let mounted_dbs_enabled = mounted_dbs_enabled.clone();
         // the layer ids and the callbacks previously registered, so they can be
         // removed from the map
-        let click_callbacks_registered =
-            use_state(Vec::<(String, wasm_bindgen::JsValue)>::new);
+        // Owning the Closures here (instead of leaked JsValues) frees each
+        // batch when it is replaced or the component unmounts.
+        let click_callbacks_registered = use_state(
+            Vec::<(
+                String,
+                wasm_bindgen::closure::Closure<dyn Fn(&wasm_bindgen::JsValue)>,
+            )>::new,
+        );
         use_effect_with_deps(
             move |(map_initialized, mounted_dbs_enabled)| {
                 if **map_initialized {
                     // remove all the old callbacks
                     for (layer_id, old_cb) in &*click_callbacks_registered {
-                        (*map).clone().unwrap().off("click", layer_id, old_cb);
+                        (*map).clone().unwrap().off(
+                            "click",
+                            layer_id,
+                            old_cb.as_ref(),
+                        );
                     }
                     let mut new_cbs = Vec::new();
                     for mount_id in &**mounted_dbs_enabled {
@@ -422,10 +441,11 @@ fn PlotComponent() -> Html {
                             mount_id,
                             &maplibre::LayerKind::Points,
                         );
-                        (*map)
-                            .clone()
-                            .unwrap()
-                            .on_layer("click", &layer_id, &js_cb);
+                        (*map).clone().unwrap().on_layer(
+                            "click",
+                            &layer_id,
+                            js_cb.as_ref(),
+                        );
                         new_cbs.push((layer_id, js_cb));
                     }
                     click_callbacks_registered.set(new_cbs);
@@ -515,6 +535,7 @@ fn PlotComponent() -> Html {
     // === Restyle map === //
     {
         let map = map.clone();
+        let show_last_location = map_style.show_last_location;
         use_effect_with_deps(
             move |style| {
                 if *map_initialized {
@@ -530,6 +551,12 @@ fn PlotComponent() -> Html {
                             (*map).clone().unwrap(),
                             (*selected).clone(),
                         );
+                        if show_last_location {
+                            maplibre::update_last_location_after_restyle(
+                                (*map).clone().unwrap(),
+                                last_loc_lnglat,
+                            );
+                        }
                     }
                 }
             },
@@ -541,11 +568,19 @@ fn PlotComponent() -> Html {
 
     let flytodata_onclick = {
         let map = map.clone();
-        let data_center = use_selector(|state: &BackState| state.data_center);
+        let wss = use_context::<WebsocketService>().unwrap();
         Callback::from(move |_e: MouseEvent| {
-            if let Some(center) = &*data_center {
-                maplibre::fly_to((*map).clone().unwrap(), center.0, center.1)
-            }
+            let map = map.clone();
+            let wss = wss.clone();
+            wasm_bindgen_futures::spawn_local(async move {
+                if let Some(center) = wss.get_data_view_params().await {
+                    maplibre::fly_to(
+                        (*map).clone().unwrap(),
+                        center.0,
+                        center.1,
+                    )
+                }
+            });
         })
     };
 
@@ -562,24 +597,26 @@ fn PlotComponent() -> Html {
         maplibre::generate_image((*map).clone().unwrap());
     });
 
+    // --map-ctrl-left (styles.css) also positions the maplibre compass
+    // control, keeping the buttons aligned with it.
+    let map_button_class = "p-2 rounded-lg bg-black w-min opacity-50 \
+        absolute z-40 left-[var(--map-ctrl-left)]";
+
     html! {
         <>
         <div id={plot_id} class="w-screen flex-1 min-h-0 relative z-0">
             <button onclick={flytodata_onclick}
-                class="p-2 rounded-lg bg-black w-min opacity-50 \
-                    absolute bottom-[3.375rem] left-safe-or-2.5 z-40">
+                class={classes!(map_button_class, "bottom-[3.375rem]")}>
                 <Icon icon_id={IconId::BootstrapFullscreen}
                     class="h-6 w-6 text-[#aaaaaa]" />
             </button>
             <button onclick={flytome_onclick}
-                class="p-2 rounded-lg bg-black w-min opacity-50 \
-                    absolute bottom-[6.125rem] left-safe-or-2.5 z-40">
+                class={classes!(map_button_class, "bottom-[6.125rem]")}>
                 <Icon icon_id={IconId::FontAwesomeSolidLocationArrow}
                     class="h-6 w-6 text-[#aaaaaa]" />
             </button>
             <button onclick={saveimage_onclick}
-                class="p-2 rounded-lg bg-black w-min opacity-50 \
-                    absolute bottom-[8.875rem] left-safe-or-2.5 z-40">
+                class={classes!(map_button_class, "bottom-[8.875rem]")}>
                 <Icon icon_id={IconId::BootstrapCameraFill}
                     class="h-6 w-6 text-[#aaaaaa]" />
             </button>

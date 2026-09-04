@@ -13,23 +13,20 @@
 //! return message saying db deleted, where frontend record gets deleted.
 
 use anyhow::{Context, Result};
-use sqlx::SqlitePool;
-use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::{fs, os::unix::prelude::PermissionsExt};
 use tracing::error;
 
 use common::mounted::{MountID, MAIN_DB_MOUNT_ID};
+use common::state::DbStatus;
 
-use crate::app_state::{
-    get_derived_state, get_front_state, set_derived_state, AppState,
-};
+use crate::app_state::{get_front_state, set_derived_state, AppState};
 use crate::logs::LogErrorAndContinue;
 use crate::paths::{get_mount_root_dir, DB_FNAME};
 use crate::tz::get_system_tz;
 use crate::ws_session;
 
-use super::open_db;
+use super::{get_db_for_id, open_db_with_status};
 
 /// Open connections to all databases currently mounted on disk, excluding the
 /// main database. This is run on foregrounding, since the mounted databases are
@@ -41,33 +38,16 @@ pub async fn open_all_mounted() {
         .log_error_and_continue();
 }
 
-/// Fallible routine for opening connections to each database.
+/// Fallible routine for opening connections to each database. Each open
+/// runs in the background (migrations can take seconds), reporting its
+/// status in derived state and inserting its pool when ready.
 async fn try_open_all_mounted() -> Result<()> {
-    // update backend state with connections to all mounted dbs, and derived
-    // state with list of all dbs on disk and any errors if applicable
-    let mut db_connections = BTreeMap::new();
-    let mut dbs_on_disk = BTreeMap::new();
-    // copy over the main database, then fully overwrite the state with what we
-    // find on disk
-    if let Some(conn) = AppState::global()
-        .dbs
-        .lock()
-        .unwrap()
-        .get(&MAIN_DB_MOUNT_ID)
-        .cloned()
-    {
-        db_connections.insert(MAIN_DB_MOUNT_ID, conn);
-    }
-    if let Some(msg) = get_derived_state(|s| {
-        s.mounted_dbs_on_disk.get(&MAIN_DB_MOUNT_ID).cloned()
-    }) {
-        dbs_on_disk.insert(MAIN_DB_MOUNT_ID, msg);
-    }
     let mount_root_dir = get_mount_root_dir();
     // might already exist, skip inspecting error
     let _ = fs::create_dir(&mount_root_dir);
     let entries =
         fs::read_dir(&mount_root_dir).context("reading mount root dir")?;
+    let mut ids = Vec::new();
     for entry in entries {
         let entry = match entry.context("reading dir entry") {
             Ok(entry) => entry,
@@ -78,33 +58,71 @@ async fn try_open_all_mounted() -> Result<()> {
         };
         let db_id = entry.file_name();
         let db_id_str = db_id.to_string_lossy();
-        let mount_dir = entry.path();
+        let mount_dir = mount_root_dir.join(&db_id);
         let Ok(id) = db_id_str
             .parse::<MountID>()
-            .context("parsing dir name as mount id")
+            .context("parsing mount dir name as id")
             .map_err(|e| error!("{e:?}"))
         else {
             // can't parse as id -> remove unknown directory
             remove_mount_dir(&mount_dir);
             continue;
         };
-        let maybe_conn = try_open_db(&mount_dir)
-            .await
-            .context("error opening mounted database");
-        match maybe_conn {
+        ids.push(id);
+    }
+    // drop mounts that are no longer on disk (keeps the main database)
+    AppState::global()
+        .dbs
+        .lock()
+        .unwrap()
+        .retain(|id, _| *id == MAIN_DB_MOUNT_ID || ids.contains(id));
+    set_derived_state(|s| {
+        s.mounted_dbs_on_disk
+            .retain(|id, _| *id == MAIN_DB_MOUNT_ID || ids.contains(id));
+    });
+    for id in ids {
+        // already open from a previous foregrounding
+        if get_db_for_id(id).is_some() {
+            continue;
+        }
+        spawn_open_mounted(id, mount_root_dir.join(id.to_string()));
+    }
+    Ok(())
+}
+
+/// Open the database in `mount_dir` in the background, tracking its status
+/// in derived state under `id` and inserting its pool once ready.
+fn spawn_open_mounted(id: MountID, mount_dir: PathBuf) {
+    set_derived_state(|s| {
+        s.mounted_dbs_on_disk.insert(
+            id,
+            DbStatus::Opening {
+                stage: "starting".into(),
+                progress: None,
+            },
+        )
+    });
+    tokio::spawn(async move {
+        let db_path = mount_dir.join(DB_FNAME);
+        let result =
+            open_db_with_status(db_path.to_string_lossy().to_string(), id)
+                .await
+                .context("error opening mounted database");
+        let status = match result {
             Ok(conn) => {
-                db_connections.insert(id, conn);
-                dbs_on_disk.insert(id, None);
+                AppState::global().dbs.lock().unwrap().insert(id, conn);
+                DbStatus::Ready
             }
             Err(e) => {
                 error!("{e:?}");
-                dbs_on_disk.insert(id, Some(format!("{e:?}")));
+                DbStatus::Error(format!("{e:?}"))
             }
         };
-    }
-    *AppState::global().dbs.lock().unwrap() = db_connections;
-    set_derived_state(|s| s.mounted_dbs_on_disk = dbs_on_disk);
-    Ok(())
+        set_derived_state(|s| s.mounted_dbs_on_disk.insert(id, status));
+        if AppState::global().ws_addr.lock().unwrap().is_some() {
+            crate::core::update_on_foregrounding();
+        }
+    });
 }
 
 /// On backgrounding, close connections to all mounted databases.
@@ -136,14 +154,6 @@ async fn try_close_all_mounted() -> Result<()> {
     Ok(())
 }
 
-async fn try_open_db(mount_dir: &Path) -> Result<SqlitePool> {
-    let db_path = mount_dir.join(DB_FNAME);
-    let conn = open_db(db_path.to_string_lossy().to_string())
-        .await
-        .context("opening mounted db")?;
-    Ok(conn)
-}
-
 /// Remove a mount directory, without any special error handling other than
 /// logging. Used to cancel an already failing mount process.
 fn remove_mount_dir(mount_dir: &Path) {
@@ -163,18 +173,16 @@ pub async fn mount_db(path: PathBuf) {
                 return;
             }
         };
-    let conn = match copy_and_migrate_db(&path, &new_mount_dir).await {
-        Ok(c) => c,
-        Err(e) => {
-            error!("mounting db: {e:?}");
-            remove_mount_dir(&new_mount_dir);
-            ws_session::send_error_popup("failed to mount database");
-            return;
-        }
-    };
-    let state = AppState::global();
-    let mut mounted = state.dbs.lock().unwrap();
-    mounted.insert(new_id, conn);
+    let new_path = new_mount_dir.join(DB_FNAME);
+    if let Err(e) = fs::copy(&path, &new_path)
+        .context("copying file")
+        .and_then(|_| set_writable(&new_path).context("making file writable"))
+    {
+        error!("mounting db: {e:?}");
+        remove_mount_dir(&new_mount_dir);
+        ws_session::send_error_popup("failed to mount database");
+        return;
+    }
     let fname = path
         .file_name()
         .map(|n| n.to_string_lossy().to_string())
@@ -187,22 +195,8 @@ pub async fn mount_db(path: PathBuf) {
         });
     set_derived_state(|s| {
         s.last_mounted = Some((new_id, fname));
-        s.mounted_dbs_on_disk.insert(new_id, None);
-    })
-}
-
-/// Copy and migration of database. If this fails the mount is cancelled.
-async fn copy_and_migrate_db(
-    src_path: &PathBuf,
-    new_mount_dir: &Path,
-) -> Result<SqlitePool> {
-    let new_path = new_mount_dir.join(DB_FNAME);
-    fs::copy(src_path, &new_path).context("copying file")?;
-    set_writable(&new_path).context("making file writable")?;
-    let conn = open_db(new_path.to_string_lossy().to_string())
-        .await
-        .context("opening mounted db")?;
-    Ok(conn)
+    });
+    spawn_open_mounted(new_id, new_mount_dir);
 }
 
 /// fs::copy copies permission bits, so we need to make sure the file is
@@ -251,6 +245,8 @@ pub async fn delete_mounted_db(id: MountID) {
     if let Some(conn) = maybe_conn {
         conn.close().await;
     }
+    // evict the mount's derived map data
+    crate::map::mvt::remove_tileset(id).await;
     let mount_root_dir = get_mount_root_dir();
     let mount_dir = mount_root_dir.join(id.to_string());
     if let Err(e) = fs::remove_dir_all(mount_dir).context("removing mount dir")
@@ -275,9 +271,10 @@ pub fn db_debug_name(id: &MountID) -> String {
 pub mod tests {
     use crate::app_state::{get_derived_state, AppState};
     use crate::database::mounted::open_all_mounted;
-    use crate::database::open_db;
+    use crate::database::{open_db, wait_for_dbs};
     use crate::init;
     use crate::local::local_fs_setup;
+    use common::state::DbStatus;
 
     #[tokio::test]
     async fn valid_db_on_disk_opens_without_error() {
@@ -291,6 +288,7 @@ pub mod tests {
         open_db(db_path).await.unwrap().close().await;
         init(paths, "1.test.0".into()).await;
         open_all_mounted().await;
+        wait_for_dbs().await;
         // should have a valid connection
         assert!(AppState::global()
             .dbs
@@ -303,7 +301,7 @@ pub mod tests {
             .mounted_dbs_on_disk
             .get(&mount_id)
             .unwrap()
-            .is_none()));
+            .is_ready()));
     }
 
     #[tokio::test]
@@ -326,6 +324,7 @@ pub mod tests {
 
         init(paths, "1.test.0".into()).await;
         open_all_mounted().await;
+        wait_for_dbs().await;
         // no valid connection
         assert!(AppState::global()
             .dbs
@@ -334,10 +333,9 @@ pub mod tests {
             .get(&mount_id)
             .is_none());
         // and there an errors
-        assert!(get_derived_state(|s| s
-            .mounted_dbs_on_disk
-            .get(&mount_id)
-            .unwrap()
-            .is_some()));
+        assert!(get_derived_state(|s| matches!(
+            s.mounted_dbs_on_disk.get(&mount_id).unwrap(),
+            DbStatus::Error(_)
+        )));
     }
 }

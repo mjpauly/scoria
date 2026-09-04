@@ -3,10 +3,13 @@
 package info.scoria
 
 import android.app.Activity
+import android.content.ContentValues
 import android.content.Intent
 import android.net.Uri
+import android.os.Environment
 import android.os.Handler
 import android.os.Looper
+import android.provider.MediaStore
 import android.util.Log
 import androidx.core.content.FileProvider
 import java.io.File
@@ -40,8 +43,9 @@ val MIME_TYPE = "*/*" // Not all file manager apps seem to accept any mime
 
 class ScoriaFileProvider : FileProvider() {
     companion object {
-        // static member for tracking the temporary file to clean after sharing
-        var sharedFileToCleanup: Path? = null
+        // static member for tracking the temporary files to clean after
+        // sharing
+        var sharedFilesToCleanup: List<Path> = emptyList()
     }
 }
 
@@ -66,42 +70,62 @@ public fun getFormattedDateTime(): String {
     return formattedDateTime
 }
 
-// Rename a file from `source` into the cache dir with new final path component
-// `newFname`, then share it
+// Copy files into the cache dir with new final path components, then share
+// them. `extraFiles` are (source, new name) pairs shared alongside `source`.
 public fun shareWithName(
     activity: Activity,
     source: Path,
     newFname: String,
+    extraFiles: List<Pair<Path, String>> = emptyList(),
 ) {
-    val renamed =
-        Path(activity.getCacheDir().getAbsolutePath()).resolve(newFname)
+    val cacheDir = Path(activity.getCacheDir().getAbsolutePath())
+    val renamed = mutableListOf<Path>()
     try {
-        source.copyTo(renamed, true)
+        for ((src, name) in listOf(source to newFname) + extraFiles) {
+            val dst = cacheDir.resolve(name)
+            src.copyTo(dst, true)
+            renamed.add(dst)
+        }
     } catch (e: Exception) {
         Stem.logError("Failed to rename file during export: ${e}")
         return
     }
-    shareFile(activity, renamed)
+    shareFiles(activity, renamed)
 }
 
 // Share a file that is already in the cache dir with the correct name
-public fun shareFile(activity: Activity, path: Path) {
-    val contentUri = FileProvider.getUriForFile(
-        activity, 
-        "info.scoria.fileprovider", 
-        path.toFile()
-    )
-    val sendIntent: Intent = Intent().apply {
-        action = Intent.ACTION_SEND
-        putExtra(Intent.EXTRA_STREAM, contentUri)
-        type = MIME_TYPE
+public fun shareFile(activity: Activity, path: Path, mimeType: String = MIME_TYPE) {
+    shareFiles(activity, listOf(path), mimeType)
+}
+
+// Share files that are already in the cache dir with the correct names
+public fun shareFiles(activity: Activity, paths: List<Path>, mimeType: String = MIME_TYPE) {
+    val contentUris = ArrayList(paths.map { path ->
+        FileProvider.getUriForFile(
+            activity,
+            "info.scoria.fileprovider",
+            path.toFile()
+        )
+    })
+    val sendIntent: Intent = if (contentUris.size == 1) {
+        Intent().apply {
+            action = Intent.ACTION_SEND
+            putExtra(Intent.EXTRA_STREAM, contentUris[0])
+            type = mimeType
+        }
+    } else {
+        Intent().apply {
+            action = Intent.ACTION_SEND_MULTIPLE
+            putParcelableArrayListExtra(Intent.EXTRA_STREAM, contentUris)
+            type = mimeType
+        }
     }
     sendIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     // create a chooser around the intent to let the user pick how to open it
     val shareIntent = Intent.createChooser(sendIntent, "Save to:")
     activity.startActivityForResult(shareIntent, SHARE_CODE)
 
-    ScoriaFileProvider.sharedFileToCleanup = path
+    ScoriaFileProvider.sharedFilesToCleanup = paths
 }
 
 // Initiate a file request. The result is handled in `onActivityResult`.
@@ -201,7 +225,44 @@ public fun exportImage(activity: Activity) {
         Stem.logError("Failed to rename export image file")
         return
     }
-    shareFile(activity, renamed.toPath())
+    saveImageToGallery(activity, renamed)
+    shareFile(activity, renamed.toPath(), "image/jpeg")
+}
+
+// Persist an image into the media store (Pictures/Scoria) so it shows up in
+// gallery apps. Captures persist like screenshots do; the share sheet is only
+// for sending the image onward. No permission is needed for an app to insert
+// its own images.
+public fun saveImageToGallery(activity: Activity, file: File) {
+    val values = ContentValues().apply {
+        put(MediaStore.Images.Media.DISPLAY_NAME, file.name)
+        put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
+        put(
+            MediaStore.Images.Media.RELATIVE_PATH,
+            Environment.DIRECTORY_PICTURES + "/Scoria"
+        )
+        // hide the entry from other apps until the bytes are written
+        put(MediaStore.Images.Media.IS_PENDING, 1)
+    }
+    val resolver = activity.contentResolver
+    val uri = resolver.insert(
+        MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values
+    )
+    if (uri == null) {
+        Stem.logError("Failed to create gallery entry for exported image")
+        return
+    }
+    try {
+        resolver.openOutputStream(uri)?.use { out ->
+            file.inputStream().use { it.copyTo(out) }
+        } ?: throw FileNotFoundException("null output stream for $uri")
+        values.clear()
+        values.put(MediaStore.Images.Media.IS_PENDING, 0)
+        resolver.update(uri, values, null, null)
+    } catch (e: Exception) {
+        Stem.logError("Failed to save exported image to gallery: ${e}")
+        resolver.delete(uri, null, null)
+    }
 }
 
 // Upon starting of the app we 
@@ -209,13 +270,13 @@ public fun cleanupSharedFile() {
     val handler = Handler(Looper.getMainLooper())
     // give the receiving app 10 seconds to copy the file before deleting it
     handler.postDelayed({
-        ScoriaFileProvider.sharedFileToCleanup?.also { path ->
+        ScoriaFileProvider.sharedFilesToCleanup.forEach { path ->
             val isDeleted = path.toFile().delete()
             if (!isDeleted) {
                 Stem.logError("Failed to delete temp file after export")
             }
         }
-        ScoriaFileProvider.sharedFileToCleanup = null
+        ScoriaFileProvider.sharedFilesToCleanup = emptyList()
     }, SHARE_DEL_FILE_DELAY)
 }
 

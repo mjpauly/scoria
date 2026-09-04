@@ -19,6 +19,8 @@
 			</array>
 		</dict>
 	</dict>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Lets you save exported map images to your photo library.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>Your location data is securely stored on your device and lets you analyze your location history.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>

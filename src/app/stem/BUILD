@@ -60,6 +60,7 @@ rust_library(
         "@stem_crate_index//:base64",
         "@stem_crate_index//:bon",
         "@stem_crate_index//:csv",
+        "@stem_crate_index//:futures-core",
         "@stem_crate_index//:geo",
         "@stem_crate_index//:geo-clipper",
         "@stem_crate_index//:geojson",
@@ -173,7 +174,10 @@ rust_test(
 # for hot reloading
 rust_binary(
     name = "dev",
-    srcs = ["dev/main.rs"],
+    srcs = [
+        "dev/main.rs",
+        "dev/synth.rs",
+    ],
     edition = "2021",
     data = [
         "db/data.db",
@@ -186,12 +190,21 @@ rust_binary(
     }),
     deps = [
         ":stem",
+        ":common",
         "@stem_crate_index//:jiff",
         "@stem_crate_index//:tokio",
         "@stem_crate_index//:log",
         "@stem_crate_index//:time",
         "@stem_crate_index//:rand",
     ],
+)
+
+# Memory probe harness: measures browser-side memory per byte of geojson via
+# headless Chromium over CDP. See doc/decimation/memory-limits.md, Phase 2.
+# Run with: bazel run //src/app/stem:memory_probe -- --help
+sh_binary(
+    name = "memory_probe",
+    srcs = ["dev/memory_probe.sh"],
 )
 
 # Development database generator for sqlx query macros. Database is placed in

@@ -42,12 +42,151 @@
 //! fail to compare correctly, since "T" always compares greater than " ". Using
 //! seconds since the unix epoch is less error prone.
 //!
+//! The grid migration (migrations/20260827000000_grid_cells.sql) adds
+//! Web Mercator grid coordinates gx/gy and virtual cell columns
+//! cy{L}/cx{L} = gy/gx >> (22 - L) for L in 8, 10, 12 (database/grid.rs).
+//!
 //! # Interface
 //!
 //! As explained in the schema section, times stored in the database are stored
 //! as their unix epoch. When returning data to callers, the LocationRow is
 //! converted to a common::Location where the time is encoded as a
 //! time::OffsetDateTime.
+//!
+//! # Map query routing
+//!
+//! Every map update builds one FilteredQuery per mounted database: bounds
+//! (the expanded viewport), an optional time range, optional datastream
+//! filters, a decimation threshold, the hard cap, and in spatial mode a
+//! SpatialCell.
+//! fetch_decimated_result_with_db turns that into records; the rest of this
+//! section is about which index does the work. Measurements behind the
+//! choices: doc/decimation/probe-results/time-range-bench.md.
+//!
+//! ## Access paths
+//!
+//! - rowid (id): the table itself, in insertion order, which is time order
+//!   except after an out-of-order import. A scan in rowid order is the
+//!   fastest way to read a large fraction of the table.
+//! - The timestamp autoindex (from UNIQUE): entries (timestamp, rowid), so
+//!   a time range is one contiguous run, and reading its rows is sequential
+//!   in the table too.
+//! - The grid level indexes location_cell{8,10,12} on (cy, cx, timestamp),
+//!   0.5 px cells at view zoom 8/10/12, entries carrying the rowid. A
+//!   rectangle in view is a set of cy rows, each a contiguous cx run.
+//!
+//! lngtimeindex (longitude, timestamp) was the spatial path before the
+//! grid: a longitude band across all latitudes with a row read per entry
+//! for the latitude check. On every shape measured it was within ~30% of
+//! the grid or slower, so the grid_indexes migration drops it.
+//!
+//! The rule behind everything: a route's cost is proportional to the index
+//! entries it walks, plus a row read for each entry that survives the
+//! index-only predicates. Pick the route that walks the fewest.
+//!
+//! ## Common inputs (route_inputs)
+//!
+//! rows_in_range, counted on the timestamp index with `LIMIT cap + 1` so
+//! it costs at most `cap` entries; None when the range is open on both
+//! ends. A count above the cap means "large, unknown". The
+//! cap is TIME_PATH_MAX_ROWS (300k) in spatial mode and TEMPORAL_COUNT_CAP
+//! (1M) in temporal mode.
+//!
+//! TimeHint: the time bounds used to be wrapped in likelihood(X, 1.0) so
+//! the planner would stay off the timestamp index. That is now a
+//! parameter: UseIndex emits bare comparisons (the planner takes the
+//! timestamp index), AvoidIndex keeps the hint. Grid queries pin their
+//! index with INDEXED BY, so the hint matters only for the time route.
+//!
+//! ## Temporal mode (fetch_temporal)
+//!
+//! Temporal decimation counts the matching points to pick decim, then
+//! fetches every decim-th by `id % decim`. Both enumerate everything in
+//! the view and range. Two routes:
+//!
+//! - Time (fetch_temporal_time): count_query and bounded_decim_query with
+//!   UseIndex. Walks the timestamp range, reads rows in rowid order,
+//!   applies bounds, filters and the modulo. Cost ~ rows in range,
+//!   sequential. With no range it is a table scan, which is right when the
+//!   view holds most of the data.
+//! - Grid (fetch_temporal_grid): fetch_count_grid then fetch_bounded_grid,
+//!   both on grid_filter_query. Cost ~ all-time points in the view
+//!   rectangle, index-only except edge cells; the time range and
+//!   datastream filters apply afterwards and don't reduce what is walked.
+//!
+//! Decision:
+//!   n_time = rows_in_range (over cap or None => cap + 1)
+//!   n_view = fetch_count_grid(LIMIT min(n_time, cap), no filters)
+//!   Grid if n_view < n_time; Grid if both capped and no range; else Time.
+//!
+//! n_view is bounded by n_time, so the estimates cost at most twice the
+//! cheaper route's own scan. The view count is deliberately unfiltered:
+//! the grid route walks every index entry in view whatever the range, so
+//! its cost is the all-time count. A view-within-range count would be a
+//! subset of rows-in-range, never exceed it, and pick Grid even on narrow
+//! views where it is 20x slower. Ties go to Time because its scan is
+//! sequential, and once both counts are capped the difference is a
+//! constant factor that favours the sequential scan when a range is set
+//! (275 ms vs 591 fully zoomed out). Both capped with no range means over
+//! a million points in view and the alternative is an unindexed scan, so
+//! Grid. The 1M cap: index-only counts cost ~15-30 ms per million entries,
+//! affordable against 150-300 ms queries, and high enough that a narrow
+//! view with a huge range still shows its 4x difference.
+//!
+//! grid_filter_query: grid::filter_level picks the coarsest level whose
+//! cells span the rectangle's smaller side at least 16 times, else L12
+//! (coarser means fewer cy rows to seek; too coarse and most of the
+//! rectangle is edge cells whose rows must be read). A recursive CTE
+//! generates the cy rows and joins the level index one row at a time, a
+//! seek per row rather than a scan of the cy band. Interior cells are
+//! accepted from the index; edge cells read the row for exact gx/gy
+//! bounds, so the count is exact at every zoom (an L8 cell at z22 is the
+//! whole screen; without the edge check the count would be up to 8x high
+//! and decim too coarse in dense clusters). Being index-only, the count
+//! needs no `id % 10` sampling.
+//!
+//! ## Spatial mode (fetch_spatial)
+//!
+//! Keeps the newest point per screen cell once the view is over the
+//! bucketing trigger (min(threshold, hard cap)); under it every point is
+//! returned as-is. Two routes for the bucketing:
+//!
+//! - Time: fetch_bucketed(shift, UseIndex), a GROUP BY on
+//!   gy/gx >> shift over the rows in range with bounds and filters. Cost ~
+//!   rows in range, ~150-200 ns each.
+//! - Grid walk (fetch_bucketed_grid / grid_bucketed_query): the loose
+//!   index scan, seeking from occupied index cell to occupied index cell
+//!   in the rectangle, one more seek per cell for its newest passing row,
+//!   grouped by query cell. Cost ~ 3-4 us per occupied index cell in view,
+//!   independent of the time range. For query cells finer than L12 (zoom
+//!   above ~13) the Filter form uses L8 as a bounds prefilter with exact
+//!   gx/gy bounds and groups on row coordinates.
+//!
+//! Decision: Time if rows_in_range <= TIME_PATH_MAX_ROWS, else the walk.
+//! A threshold rather than a count comparison because the walk's cost is
+//! occupied cells in view, and the only way to count those is the walk;
+//! points in view is an upper bound that is loose exactly in dense
+//! clusters. The measured crossover is ~700-800k rows at z6-z13 and
+//! ~150k at z16, so 300k is within 2x of optimal everywhere, and near the
+//! crossover both paths cost ~100-150 ms. It is biased low because the
+//! time path's cost is capped by the threshold while the walk's worst
+//! case is the full all-time cost.
+//!
+//! The trigger check and the under-trigger fetch follow the same route:
+//! timestamp index on Time; fetch_count_grid(LIMIT trigger + 1, with
+//! filters) and fetch_bounded_grid(1) on Grid.
+//!
+//! ## Fallbacks
+//!
+//! The grid always exists by the time a query can run (open_db backfills
+//! and builds the indexes before the pool is handed out). A grid query
+//! error falls back to the time route rather than failing the map update.
+//!
+//! Both modes ask which index walks fewer entries, but only temporal mode
+//! can answer by counting, because its grid cost (points in view) is
+//! countable index-only. Spatial mode's grid cost (occupied cells) is not,
+//! so it uses the one quantity it can measure cheaply, rows in range,
+//! against a constant from the sweep.
 //!
 
 use std::path::PathBuf;
@@ -62,14 +201,17 @@ use common::{
     LngLat, TimeRange, ToFront,
 };
 use jiff::Timestamp;
-use sqlx::{migrate::Migrator, FromRow, QueryBuilder, Sqlite, SqlitePool};
-use tracing::{error, info};
+use sqlx::{
+    migrate::Migrator, sqlite::SqliteRow, FromRow, QueryBuilder, Row, Sqlite,
+    SqlitePool,
+};
+use tracing::{debug, error, info};
 
 use crate::{
-    app_state::{get_front_state, AppState},
-    database::{mounted::db_debug_name, pins::update_derived_pins},
+    app_state::{get_derived_state, get_front_state, AppState},
+    database::{grid, mounted::db_debug_name, pins::update_derived_pins},
     logs::LogErrorAndContinue,
-    map::geojson::update_geojson,
+    map::map_data::update_map_data,
     runtime::get_runtime,
     ws_session::{send_error_popup, send_message_to_front, send_success_popup},
 };
@@ -104,9 +246,55 @@ pub struct LocationRow {
     pub was_imported: bool,
 }
 
+/// Narrow row returned by the decimated multi-row fetches: only what the
+/// map and metrics paths read, so large fetches skip most of the
+/// per-column decode cost (doc/decimation/probe-results/
+/// grid-walk-alternatives.md, "Select width"). field1/field2 hold the
+/// caller-chosen extra columns (FilteredQuery::field1/field2), CAST to
+/// REAL; the caller keeps track of which column each holds. Full rows
+/// for a narrow point come from fetch_full_locations or get_location_at
+/// via the UNIQUE timestamp.
+#[derive(Clone, Debug, PartialEq)]
+pub struct NarrowPoint {
+    pub id: i64,
+    pub timestamp: time::OffsetDateTime,
+    pub latitude: f64,
+    pub longitude: f64,
+    pub field1: Option<f64>,
+    pub field2: Option<f64>,
+}
+
+impl NarrowPoint {
+    pub fn lnglat(&self) -> LngLat {
+        LngLat {
+            lng: self.longitude,
+            lat: self.latitude,
+        }
+    }
+}
+
+impl FromRow<'_, SqliteRow> for NarrowPoint {
+    fn from_row(row: &SqliteRow) -> Result<Self, sqlx::Error> {
+        let ts: i64 = row.try_get("timestamp")?;
+        Ok(Self {
+            id: row.try_get("id")?,
+            timestamp: time::OffsetDateTime::from_unix_timestamp(ts).map_err(
+                |e| sqlx::Error::ColumnDecode {
+                    index: "timestamp".into(),
+                    source: e.into(),
+                },
+            )?,
+            latitude: row.try_get("latitude")?,
+            longitude: row.try_get("longitude")?,
+            field1: row.try_get("field1")?,
+            field2: row.try_get("field2")?,
+        })
+    }
+}
+
 /// C FFI struct definition with special ways of encoding unavailable data
 #[repr(C)]
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct OSLocationData {
     // always available fields
     pub timestamp: i64,
@@ -204,21 +392,46 @@ pub fn get_db_for_id(id: MountID) -> Option<SqlitePool> {
 /// during app startup since migrations can cause large amounts of space to be
 /// unused if they involve copying data to a new table.
 pub async fn checkpoint_db(conn: &SqlitePool) {
-    sqlx::query("VACUUM; PRAGMA wal_checkpoint(TRUNCATE);")
+    sqlx::query("VACUUM;")
         .execute(conn)
         .await
-        .context("checkpointing and vacuuming db")
+        .context("vacuuming db")
         .log_error_and_continue();
+    // a concurrent reader (a location insert, a map query) can hold the
+    // checkpoint off; the WAL drains through autocheckpoints then
+    if let Err(e) = checkpoint_wal(conn).await {
+        tracing::warn!("checkpointing db: {e}");
+    }
+}
+
+/// Move every WAL frame into the database file and truncate the WAL, so
+/// the database file alone holds all committed data. Errors if a reader
+/// or writer held the checkpoint off past the busy timeout. Needs no
+/// particular schema, so it runs before migrations and on export.
+pub async fn checkpoint_wal(conn: &SqlitePool) -> Result<()> {
+    let (busy, _log, _checkpointed): (i64, i64, i64) =
+        sqlx::query_as("PRAGMA wal_checkpoint(TRUNCATE);")
+            .fetch_one(conn)
+            .await?;
+    if busy != 0 {
+        anyhow::bail!("checkpoint blocked by another connection");
+    }
+    Ok(())
 }
 
 /// Log a location event in the database.
-pub async fn log_location_with_db(
+pub async fn log_location_with_db<'e, E>(
     loc: impl Into<common::Location>,
-    conn: &SqlitePool,
-) -> Result<()> {
+    conn: E,
+) -> Result<()>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
+{
     // Convert to a common::Location, which has the correct fields
     let parsed: common::Location = loc.into();
     let timestamp = parsed.timestamp.unix_timestamp();
+    let (gx, gy) = grid::grid_coords(&parsed.lnglat());
+    let (gx, gy) = (gx as i64, gy as i64);
     sqlx::query!(
         "INSERT INTO location (
             timestamp,
@@ -228,10 +441,11 @@ pub async fn log_location_with_db(
             story,
             speed, speed_accuracy,
             course, course_accuracy,
-            is_simulated_by_software, is_produced_by_accessory
+            is_simulated_by_software, is_produced_by_accessory,
+            gx, gy
         )
         VALUES
-            (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
         timestamp,
         parsed.latitude,
         parsed.longitude,
@@ -246,15 +460,64 @@ pub async fn log_location_with_db(
         parsed.course_accuracy,
         parsed.is_simulated_by_software,
         parsed.is_produced_by_accessory,
+        gx,
+        gy,
     )
     .execute(conn)
     .await?;
     Ok(())
 }
 
+/// Log a location in the main database. While the database is still
+/// opening (init_main_db) the location is queued and inserted once it is.
 pub async fn log_location(loc: OSLocationData) -> Result<()> {
-    let conn = get_main_db_pool()?;
+    use common::state::DbStatus;
+    // fast path: the pool is there
+    if let Ok(conn) = get_main_db_pool() {
+        return log_location_with_db(loc, &conn).await;
+    }
+    // The pool is re-checked under the queue's lock, since publish_main_db
+    // inserts it under that lock once the queue is drained; a location
+    // queued after the drain would otherwise be stranded. Without the pool,
+    // the status is what says why: Opening (queue it) or Error.
+    let state = AppState::global();
+    let conn = {
+        let mut pending = state.pending_locations.lock().unwrap();
+        if let Ok(conn) = get_main_db_pool() {
+            conn
+        } else {
+            let status = get_derived_state(|s| {
+                s.mounted_dbs_on_disk.get(&MAIN_DB_MOUNT_ID).cloned()
+            });
+            match status {
+                Some(DbStatus::Opening { .. }) => {
+                    pending.push(loc);
+                    return Ok(());
+                }
+                Some(DbStatus::Error(e)) => {
+                    anyhow::bail!("main database failed to open: {e}")
+                }
+                // Ready is set only after the pool is inserted
+                Some(DbStatus::Ready) | None => {
+                    anyhow::bail!("main database not open")
+                }
+            }
+        }
+    };
     log_location_with_db(loc, &conn).await
+}
+
+/// Insert many locations into the main database in one transaction. Used for
+/// bulk synthetic data generation (doc/decimation/memory-limits.md, "Probe
+/// harness").
+pub async fn log_locations_bulk(locs: Vec<OSLocationData>) -> Result<()> {
+    let conn = get_main_db_pool()?;
+    let mut tx = conn.begin().await?;
+    for loc in locs {
+        log_location_with_db(loc, &mut *tx).await?;
+    }
+    tx.commit().await?;
+    Ok(())
 }
 
 /// Get the last record in the database
@@ -426,7 +689,8 @@ pub async fn import_database_records(import_db_path: PathBuf) {
             course, course_accuracy,
             is_simulated_by_software, is_produced_by_accessory,
             was_imported
-        FROM toMerge.location;
+        FROM toMerge.location
+        ORDER BY timestamp;
 
         INSERT INTO pins (
             lng, lat, name, icon, lists, tags, boundary
@@ -449,6 +713,10 @@ pub async fn import_database_records(import_db_path: PathBuf) {
 
     let n_final = count_all_records(&conn).await;
     let n_imported = n_final - n_initial;
+    // imported rows arrive without grid coords
+    if let Err(e) = grid::backfill(&conn, |_, _| {}).await {
+        error!("Failed to backfill grid coords after import: {e:?}");
+    }
 
     reset_last_automap_update(&first_import_timestamp);
 
@@ -513,7 +781,7 @@ pub fn delete_selected_locations() {
             }
         }
         send_delete_result_popup(n_to_delete, n_deleted);
-        update_geojson(None, true).await;
+        update_map_data(None, true).await;
     });
 }
 
@@ -605,7 +873,7 @@ pub fn copy_selected_locations() {
             }
         }
         send_copy_result_popup(n_to_copy, n_copied, n_selected);
-        update_geojson(None, true).await;
+        update_map_data(None, true).await;
     });
 }
 
@@ -677,6 +945,84 @@ impl std::convert::From<LocationRow> for common::Location {
     }
 }
 
+/// A spatial decimation cell: grid cells gx/gy >> shift (database/grid.rs).
+///
+/// Spatial decimation keeps only the most recent point in each cell, which is
+/// lossless for point rendering when the cell is about the size of a pixel.
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct SpatialCell {
+    pub grid_shift: u32,
+}
+
+impl SpatialCell {
+    /// Cell that is at least `pixels` wide on a Web Mercator map at the
+    /// given zoom.
+    pub fn from_zoom(zoom: f64, pixels: f64) -> Self {
+        Self {
+            grid_shift: grid::query_shift(zoom, pixels),
+        }
+    }
+}
+
+/// Inclusive rectangle in grid units (database/grid.rs).
+struct GridRect {
+    x0: u32,
+    x1: u32,
+    y0: u32,
+    y1: u32,
+}
+
+/// Spatial mode: rows in the time range under which the query filters by
+/// time first (timestamp index, then cells on the rows in range) rather
+/// than walking the grid. The time path costs O(rows in range); the walk
+/// costs O(occupied cells in view) whatever the time range, and occupied
+/// cells have no cheap estimate. The crossover is 150k-800k rows
+/// depending on zoom (doc/decimation/probe-results/time-range-bench.md);
+/// one constant is within 2x of optimal everywhere, and both paths cost
+/// ~100 ms there.
+pub const TIME_PATH_MAX_ROWS: u64 = 300_000;
+
+/// Temporal mode: cap on the route estimates (rows in range, points in
+/// view). Index-only counts cost ~15-30 ms per million entries, so this
+/// can be higher than TIME_PATH_MAX_ROWS; past it the routes are within
+/// ~2x of each other.
+pub const TEMPORAL_COUNT_CAP: u64 = 1_000_000;
+
+/// Whether the planner should use the timestamp index for the time range.
+/// Grid queries pin their index with INDEXED BY, but the walk's subqueries
+/// hint against it (likelihood 1.0) so a wide range doesn't pull them onto
+/// a scan of the range; the time route wants exactly that index.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum TimeHint {
+    AvoidIndex,
+    UseIndex,
+}
+
+/// Which index serves the map query. See fetch_decimated_result_with_db.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Route {
+    /// Timestamp index: rows in the time range, then bounds or cells.
+    Time,
+    /// Grid level indexes (database/grid.rs).
+    Grid,
+}
+
+/// Records returned by a decimated fetch, with how they were decimated.
+pub struct DecimatedResult {
+    pub records: Vec<NarrowPoint>,
+    /// True if the records are a thinned sample of the matching points:
+    /// every nth point in temporal mode, or bucketed in spatial mode.
+    pub decimated: bool,
+    /// True if the records were spatially bucketed, in which case they are not
+    /// a time-uniform sample and consecutive points should not be joined with
+    /// lines.
+    pub spatially_bucketed: bool,
+    /// True if the hard_cap memory backstop bound the result: a coarser
+    /// sample than the threshold alone would give in temporal mode, the
+    /// oldest cells dropped in spatial mode.
+    pub memory_capped: bool,
+}
+
 #[derive(Default, bon::Builder)]
 pub struct FilteredQuery {
     start: Option<jiff::Timestamp>,
@@ -688,10 +1034,28 @@ pub struct FilteredQuery {
     /// (only works for decimation queries). Does not affect the decimation.
     #[builder(default)]
     get_adjacent: bool,
-    /// Limit on the number of data points returned. This drives the decimation
-    /// factor for decimation queries, and the number of points returned for
-    /// first_n queries.
+    /// Number of points returned by first_n queries.
     limit: Option<u64>,
+    /// Point count above which decimation queries thin the result. In
+    /// temporal mode it is also the target: the decimation factor is chosen
+    /// so the result lands under it. In spatial mode it is only the trigger;
+    /// the result size is the number of occupied cells.
+    decimation_threshold: Option<u64>,
+    /// If set, decimation queries over the threshold keep the most recent
+    /// point per cell instead of every nth point. get_adjacent is ignored
+    /// when bucketing.
+    spatial_cell: Option<SpatialCell>,
+    /// Database column fetched into NarrowPoint::field1 by the decimated
+    /// fetches, CAST to REAL. The caller keeps track of what it means.
+    field1: Option<&'static str>,
+    /// Same for NarrowPoint::field2.
+    field2: Option<&'static str>,
+    /// Never-bind memory backstop (doc/decimation/memory-limits.md,
+    /// "Backend memory backstop"). Clamps the decimation threshold, and bounds
+    /// bucketed fetches to the most recent hard_cap cells (re-sorted
+    /// ascending), since the threshold doesn't bound the result there.
+    /// DecimatedResult::memory_capped reports when it binds.
+    hard_cap: Option<u64>,
 }
 
 use filtered_query_builder::{IsUnset, SetEnd, SetStart, State};
@@ -711,17 +1075,35 @@ impl<S: State> FilteredQueryBuilder<S> {
 }
 
 impl<'a> FilteredQuery {
+    /// Select list of the narrow decimated fetches: the fixed NarrowPoint
+    /// columns plus the caller's field1/field2. The CAST makes INTEGER
+    /// columns decode as f64 (sqlx type-checks against the value's
+    /// storage class, not the declared affinity) and is a no-op on REAL
+    /// ones. `p` prefixes every column with a table alias where needed.
+    fn select_list(&self, p: &str) -> String {
+        let field = |col: Option<&str>, name: &str| match col {
+            Some(c) => format!("CAST({p}{c} AS REAL) AS {name}"),
+            None => format!("NULL AS {name}"),
+        };
+        format!(
+            "{p}id, {p}timestamp, {p}latitude, {p}longitude, {}, {}",
+            field(self.field1, "field1"),
+            field(self.field2, "field2"),
+        )
+    }
+
     /// Create a query that counts the number of records inside the view bounds
     fn count_query(
         &self,
         explain_query_plan: bool,
         decim: i64,
+        hint: TimeHint,
     ) -> QueryBuilder<'a, Sqlite> {
         let mut q = new_query(explain_query_plan);
         q.push("SELECT count(*) FROM location WHERE 1");
         add_bounds_to_query(&self.bounds, &mut q);
         add_decim_to_query(decim, &mut q);
-        self.add_basic_filters(&mut q);
+        self.add_basic_filters_hint(&mut q, hint);
         q
     }
 
@@ -731,12 +1113,43 @@ impl<'a> FilteredQuery {
         &self,
         explain_query_plan: bool,
         decim: i64,
+        hint: TimeHint,
     ) -> QueryBuilder<'a, Sqlite> {
         let mut q = new_query(explain_query_plan);
-        q.push("SELECT * FROM location WHERE 1");
+        q.push(format!(
+            "SELECT {} FROM location WHERE 1",
+            self.select_list("")
+        ));
         add_bounds_to_query(&self.bounds, &mut q);
         add_decim_to_query(decim, &mut q);
-        self.add_basic_filters(&mut q);
+        self.add_basic_filters_hint(&mut q, hint);
+        q
+    }
+
+    /// Create a query that fetches the most recent record in each spatial cell
+    /// inside the view bounds. The bare columns of a SQLite aggregate query
+    /// (including expressions over them, like the select list's CASTs) come
+    /// from the row holding max(timestamp), so this yields that row's values.
+    fn bucketed_query(
+        &self,
+        explain_query_plan: bool,
+        shift: u32,
+        hint: TimeHint,
+    ) -> QueryBuilder<'a, Sqlite> {
+        let mut q = new_query(explain_query_plan);
+        q.push(format!(
+            "SELECT {}, max(timestamp) FROM location WHERE 1",
+            self.select_list("")
+        ));
+        add_bounds_to_query(&self.bounds, &mut q);
+        self.add_basic_filters_hint(&mut q, hint);
+        q.push(format!(" GROUP BY gy >> {shift}, gx >> {shift}"));
+        if let Some(cap) = self.hard_cap {
+            // Most recent cells first so the cap keeps recent data.
+            // Re-sorted ascending in Rust.
+            q.push(" ORDER BY max(timestamp) DESC LIMIT ");
+            q.push_bind(cap as i64);
+        }
         q
     }
 
@@ -748,7 +1161,10 @@ impl<'a> FilteredQuery {
         timestamp: i64,
     ) -> QueryBuilder<'a, Sqlite> {
         let mut q = new_query(explain_query_plan);
-        q.push("SELECT * FROM location WHERE 1");
+        q.push(format!(
+            "SELECT {} FROM location WHERE 1",
+            self.select_list("")
+        ));
         self.add_basic_filters(&mut q);
         add_decim_to_query(decim, &mut q);
         q.push(" AND timestamp < ");
@@ -765,7 +1181,10 @@ impl<'a> FilteredQuery {
         timestamp: i64,
     ) -> QueryBuilder<'a, Sqlite> {
         let mut q = new_query(explain_query_plan);
-        q.push("SELECT * FROM location WHERE 1");
+        q.push(format!(
+            "SELECT {} FROM location WHERE 1",
+            self.select_list("")
+        ));
         self.add_basic_filters(&mut q);
         add_decim_to_query(decim, &mut q);
         q.push(" AND timestamp > ");
@@ -777,28 +1196,127 @@ impl<'a> FilteredQuery {
     /// Add the simpler filters to the query that don't require special
     /// consideration. (Time and user-defined filters)
     fn add_basic_filters(&self, q: &mut QueryBuilder<Sqlite>) {
-        add_start_time_to_query(&self.start, q);
-        add_end_time_to_query(&self.end, q);
+        self.add_basic_filters_hint(q, TimeHint::AvoidIndex);
+    }
+
+    fn add_basic_filters_hint(
+        &self,
+        q: &mut QueryBuilder<Sqlite>,
+        hint: TimeHint,
+    ) {
+        add_start_time_to_query(&self.start, q, hint);
+        add_end_time_to_query(&self.end, q, hint);
         add_filters_to_query(&self.filters, q);
+    }
+
+    /// Rows in the time range, counted on the timestamp index and stopping
+    /// at `limit + 1`. None when the range is open on both ends.
+    async fn time_range_rows(
+        &self,
+        conn: &SqlitePool,
+        limit: u64,
+    ) -> Option<u64> {
+        if self.start.is_none() && self.end.is_none() {
+            return None;
+        }
+        let mut q = new_query(false);
+        q.push("SELECT count(*) FROM (SELECT 1 FROM location WHERE 1");
+        add_start_time_to_query(&self.start, &mut q, TimeHint::UseIndex);
+        add_end_time_to_query(&self.end, &mut q, TimeHint::UseIndex);
+        q.push(" LIMIT ");
+        q.push_bind(limit as i64 + 1);
+        q.push(")");
+        q.build_query_scalar::<i64>()
+            .fetch_one(conn)
+            .await
+            .ok()
+            .map(|n| n as u64)
+    }
+
+    /// Route input: the rows in the time range up to the mode's cap (None
+    /// with no range).
+    async fn route_inputs(&self, conn: &SqlitePool) -> Option<u64> {
+        let cap = match self.spatial_cell {
+            Some(_) => TIME_PATH_MAX_ROWS,
+            None => TEMPORAL_COUNT_CAP,
+        };
+        self.time_range_rows(conn, cap).await
     }
 
     /// Count the number of points in the visible region, and use that to
     /// calculate the decimation factor for the query. The count is sped up by
     /// sampling every 10th point, then multiplying this count by 10. (Speeds up
-    /// 330 ms -> 120 ms.)
-    async fn fetch_decim(&self, conn: &SqlitePool) -> i64 {
+    /// 330 ms -> 120 ms.) Returns (decimation factor, memory_capped): the
+    /// threshold is clamped to hard_cap, and memory_capped is set when that
+    /// clamp coarsens the sample beyond what the threshold alone would give.
+    async fn fetch_decim(
+        &self,
+        conn: &SqlitePool,
+        hint: TimeHint,
+    ) -> (i64, bool) {
         let factor = 10;
-        let mut q = self.count_query(false, factor);
+        let mut q = self.count_query(false, factor, hint);
         let query_as = q.build_query_as::<CountResult>();
 
-        // let before = std::time::Instant::now();
         let reduced_count = query_as.fetch_one(conn).await.unwrap().0;
-        // println!("count query took: {:.6?}\n", before.elapsed());
 
         // Since we decimate this count, we need to make sure the it's not 0
-        let count = reduced_count.max(1) * factor;
-        let thresh = self.limit.unwrap_or(10000) as i64;
-        (count + thresh - 1) / thresh
+        self.decim_from_count(reduced_count.max(1) * factor)
+    }
+
+    /// Decimation factor for a count of matching points, and whether the
+    /// hard_cap clamp coarsened it beyond what the threshold alone would
+    /// give.
+    fn decim_from_count(&self, count: i64) -> (i64, bool) {
+        let count = count.max(1);
+        // (count - 1)/n + 1 = ceil without overflowing huge thresholds
+        let decim_for = |n: i64| (count - 1) / n + 1;
+        let thresh = self.threshold() as i64;
+        match self.hard_cap.map(|c| (c as i64).max(1)) {
+            Some(cap) if cap < thresh => {
+                let decim = decim_for(cap);
+                (decim, decim > decim_for(thresh))
+            }
+            _ => (decim_for(thresh), false),
+        }
+    }
+
+    fn threshold(&self) -> u64 {
+        self.decimation_threshold.unwrap_or(10000)
+    }
+
+    /// Point count above which spatial mode buckets: min(threshold,
+    /// hard_cap).
+    fn bucketing_trigger(&self) -> i64 {
+        self.threshold().min(self.hard_cap.unwrap_or(u64::MAX)) as i64
+    }
+
+    /// Whether more than the bucketing trigger points match: a count that
+    /// stops scanning once it passes that many rows.
+    async fn fetch_over_trigger(
+        &self,
+        conn: &SqlitePool,
+        hint: TimeHint,
+    ) -> bool {
+        let n = self.bucketing_trigger();
+        let mut q = new_query(false);
+        q.push("SELECT count(*) FROM (SELECT 1 FROM location WHERE 1");
+        add_bounds_to_query(&self.bounds, &mut q);
+        self.add_basic_filters_hint(&mut q, hint);
+        q.push(" LIMIT ");
+        q.push_bind(n + 1);
+        q.push(")");
+        // On a query error, bucket: the memory backstop must fail toward
+        // fewer points, not an unbounded fetch
+        let count: i64 = q
+            .build_query_scalar()
+            .fetch_one(conn)
+            .await
+            .unwrap_or_else(|e| {
+                error!("trigger count query failed, assuming over: {e}");
+                n + 1
+            });
+        count > n
     }
 
     /// Fetch the points in the bounded region
@@ -806,18 +1324,371 @@ impl<'a> FilteredQuery {
         &self,
         conn: &SqlitePool,
         decim: i64,
-    ) -> Vec<LocationRow> {
-        let mut q = self.bounded_decim_query(false, decim);
-        let query_as = q.build_query_as::<LocationRow>();
-        // let before = std::time::Instant::now();
+        hint: TimeHint,
+    ) -> Vec<NarrowPoint> {
+        let mut q = self.bounded_decim_query(false, decim, hint);
+        let query_as = q.build_query_as::<NarrowPoint>();
         let mut bounded_recs = query_as.fetch_all(conn).await.unwrap();
-        // println!("bounded query took: {:.6?}\n", before.elapsed());
 
         // Use Rust's timsort-like alg to quickly sort the mostly sorted result
-        bounded_recs
-            .sort_by(|ra, rb| ra.timestamp.partial_cmp(&rb.timestamp).unwrap());
+        bounded_recs.sort_by_key(|r| r.timestamp);
 
         bounded_recs
+    }
+
+    /// 2-D bounds filter over `rect` on a grid level index, for the
+    /// temporal-mode count and fetch. A recursive CTE over the cell rows of
+    /// the rectangle joins the index one row at a time (one seek per row
+    /// rather than a scan of the whole cy band). Cells strictly inside the
+    /// rectangle are accepted from the index alone; edge cells read the
+    /// row for the exact bounds, so the result is exact at any zoom. The
+    /// level comes from grid::filter_level. `select` is the select list.
+    fn grid_filter_query(
+        &self,
+        rect: &GridRect,
+        select: &str,
+        prefix: &str,
+    ) -> QueryBuilder<'a, Sqlite> {
+        let level = grid::filter_level(rect.x1 - rect.x0, rect.y1 - rect.y0);
+        let s = grid::level_shift(level);
+        let idx = grid::index_name(level);
+        let (cx0, cx1) = ((rect.x0 >> s) as i64, (rect.x1 >> s) as i64);
+        let (cy0, cy1) = ((rect.y0 >> s) as i64, (rect.y1 >> s) as i64);
+        // the interior of the rectangle, in cells
+        let (icx0, icx1) = (cx0 + 1, cx1 - 1);
+        let (icy0, icy1) = (cy0 + 1, cy1 - 1);
+        let (x0, x1, y0, y1) = (rect.x0, rect.x1, rect.y0, rect.y1);
+        let mut q = new_query(false);
+        q.push(prefix);
+        q.push(format!(
+            r#"
+WITH RECURSIVE r(cy) AS (
+  SELECT {cy0}
+  UNION ALL
+  SELECT cy + 1 FROM r WHERE cy < {cy1}
+)
+SELECT {select}
+FROM r
+JOIN location INDEXED BY {idx}
+  ON cy{level} = r.cy AND cx{level} BETWEEN {cx0} AND {cx1}
+WHERE (
+  -- cells strictly inside the rectangle pass on the index alone
+  (cy{level} BETWEEN {icy0} AND {icy1} AND
+   cx{level} BETWEEN {icx0} AND {icx1})
+  -- edge cells check the row's exact grid coordinates
+  OR (gy BETWEEN {y0} AND {y1} AND gx BETWEEN {x0} AND {x1})
+)"#
+        ));
+        q
+    }
+
+    /// Exact count of matching points via the grid (no sampling: the count
+    /// is index-only apart from edge cells). With `limit`, counting stops
+    /// past it (per rectangle), for a cheap "fewer than" test; with
+    /// `filters` false the time range and datastream filters are left out,
+    /// keeping the count index-only (the cost estimate of the grid route,
+    /// which scans the view's index entries whatever the filters). None on
+    /// a query error.
+    async fn fetch_count_grid(
+        &self,
+        conn: &SqlitePool,
+        limit: Option<i64>,
+        filters: bool,
+    ) -> Option<i64> {
+        let mut total = 0;
+        for rect in self.grid_rects() {
+            let mut q = match limit {
+                Some(_) => {
+                    self.grid_filter_query(&rect, "1", "SELECT count(*) FROM (")
+                }
+                None => self.grid_filter_query(&rect, "count(*)", ""),
+            };
+            if filters {
+                self.add_basic_filters(&mut q);
+            }
+            if let Some(limit) = limit {
+                q.push(" LIMIT ");
+                q.push_bind(limit + 1);
+                q.push(")");
+            }
+            match q.build_query_scalar::<i64>().fetch_one(conn).await {
+                Ok(n) => total += n,
+                Err(e) => {
+                    error!("grid count query failed, falling back: {e}");
+                    return None;
+                }
+            }
+        }
+        Some(total)
+    }
+
+    /// Grid version of fetch_bounded. None on a query error.
+    async fn fetch_bounded_grid(
+        &self,
+        conn: &SqlitePool,
+        decim: i64,
+    ) -> Option<Vec<NarrowPoint>> {
+        let mut recs = Vec::new();
+        for rect in self.grid_rects() {
+            let select = self.select_list("location.");
+            let mut q = self.grid_filter_query(&rect, &select, "");
+            add_decim_to_query(decim, &mut q);
+            self.add_basic_filters(&mut q);
+            match q.build_query_as::<NarrowPoint>().fetch_all(conn).await {
+                Ok(rows) => recs.extend(rows),
+                Err(e) => {
+                    error!("grid bounded query failed, falling back: {e}");
+                    return None;
+                }
+            }
+        }
+        recs.sort_by_key(|r| r.timestamp);
+        Some(recs)
+    }
+
+    /// Fetch the most recent point in each spatial cell, sorted by timestamp.
+    /// The bool is true if hard_cap truncated the result to the most recent
+    /// cells.
+    async fn fetch_bucketed(
+        &self,
+        conn: &SqlitePool,
+        shift: u32,
+        hint: TimeHint,
+    ) -> (Vec<NarrowPoint>, bool) {
+        let mut q = self.bucketed_query(false, shift, hint);
+        let query_as = q.build_query_as::<NarrowPoint>();
+        let mut recs = query_as.fetch_all(conn).await.unwrap();
+        // Hitting the cap reads as truncation; the false positive when the
+        // cell count lands exactly on the cap is harmless (it's one row
+        // from true anyway).
+        let memory_capped =
+            self.hard_cap.is_some_and(|cap| recs.len() as u64 >= cap);
+        recs.sort_by_key(|r| r.timestamp);
+        (recs, memory_capped)
+    }
+
+    /// Grid version of fetch_bucketed: the newest point per grid query cell
+    /// in view, via the level indexes (database/grid.rs). Bounds beyond
+    /// +-180 become a second x range. The hard_cap keeps the most recent
+    /// cells, as in fetch_bucketed. None on a query error, so the caller
+    /// can fall back to the time route instead of failing the map update.
+    async fn fetch_bucketed_grid(
+        &self,
+        conn: &SqlitePool,
+        shift: u32,
+    ) -> Option<(Vec<NarrowPoint>, bool)> {
+        let mut recs = Vec::new();
+        for rect in self.grid_rects() {
+            let mut q = self.grid_bucketed_query(&rect, shift);
+            let query_as = q.build_query_as::<NarrowPoint>();
+            match query_as.fetch_all(conn).await {
+                Ok(rows) => recs.extend(rows),
+                Err(e) => {
+                    error!("grid bucketed query failed, falling back: {e}");
+                    return None;
+                }
+            }
+        }
+        // most recent cells first, so the cap keeps recent data
+        recs.sort_by_key(|r| std::cmp::Reverse(r.timestamp));
+        let memory_capped =
+            self.hard_cap.is_some_and(|cap| recs.len() as u64 >= cap);
+        if let Some(cap) = self.hard_cap {
+            recs.truncate(cap as usize);
+        }
+        recs.sort_by_key(|r| r.timestamp);
+        Some((recs, memory_capped))
+    }
+
+    /// Grid rectangles (inclusive, in grid units) covering the view bounds.
+    /// One rectangle normally; two when the view spills past the
+    /// antimeridian onto an aliased copy of the world; the whole world when
+    /// unbounded or spilling both ways.
+    fn grid_rects(&self) -> Vec<GridRect> {
+        let world = GridRect {
+            x0: 0,
+            x1: u32::MAX,
+            y0: 0,
+            y1: u32::MAX,
+        };
+        let Some(b) = &self.bounds else {
+            return vec![world];
+        };
+        let alias_positive = b.sw.lng < -180.;
+        let alias_negative = b.ne.lng > 180.;
+        if alias_positive && alias_negative {
+            return vec![world];
+        }
+        // y grows southward
+        let (_, y0) = grid::grid_coords(&LngLat {
+            lng: 0.,
+            lat: b.ne.lat,
+        });
+        let (_, y1) = grid::grid_coords(&LngLat {
+            lng: 0.,
+            lat: b.sw.lat,
+        });
+        let x_of = |lng: f64| {
+            grid::grid_coords(&LngLat {
+                lng: lng.clamp(-180., 180.),
+                lat: 0.,
+            })
+            .0
+        };
+        // clamp(180) maps to x = 0 after wrapping, so use the max for it
+        let x_hi = |lng: f64| if lng >= 180. { u32::MAX } else { x_of(lng) };
+        let mut rects = vec![GridRect {
+            x0: x_of(b.sw.lng),
+            x1: x_hi(b.ne.lng),
+            y0,
+            y1,
+        }];
+        if alias_positive {
+            rects.push(GridRect {
+                x0: x_of(b.sw.lng + 360.),
+                x1: u32::MAX,
+                y0,
+                y1,
+            });
+        }
+        if alias_negative {
+            rects.push(GridRect {
+                x0: 0,
+                x1: x_hi(b.ne.lng - 360.),
+                y0,
+                y1,
+            });
+        }
+        rects
+    }
+
+    /// The newest row per query cell (grid units >> `shift`) inside `rect`,
+    /// as narrow rows (select_list).
+    ///
+    /// Walk form (index cell not coarser than the query cell): a recursive CTE
+    /// seeks from occupied index cell to occupied index cell inside the
+    /// rectangle (a loose index scan; SQLite won't plan one itself), takes
+    /// each cell's newest passing timestamp with one more seek, groups
+    /// those by query cell, and joins the winners' rows back on the UNIQUE
+    /// timestamp. Cost is O(occupied index cells) instead of O(points in
+    /// view). Positions are packed (cy << 32 | cx) so one scalar subquery
+    /// per step carries both (safe: cell coordinates are at most 22 bits);
+    /// "real" marks positions that are occupied cells inside the x range
+    /// rather than jump targets.
+    ///
+    /// Filter form (query cell finer than every index): the coarsest index
+    /// is the 2-D bounds filter and the grouping reads gx/gy from rows.
+    fn grid_bucketed_query(
+        &self,
+        rect: &GridRect,
+        shift: u32,
+    ) -> QueryBuilder<'a, Sqlite> {
+        const M: u64 = 0xffff_ffff;
+        let mut q = new_query(false);
+        match grid::index_for(shift) {
+            grid::IndexUse::Walk { level } => {
+                let idx = grid::index_name(level);
+                let s = grid::level_shift(level);
+                let d = shift - s;
+                let (cx0, cx1) = (rect.x0 >> s, rect.x1 >> s);
+                let (cy0, cy1) = (rect.y0 >> s, rect.y1 >> s);
+                // packed (cy << 32 | cx) of the first occupied cell after
+                // position `from`, on rows up to cy1
+                let seek = |from: &str| {
+                    format!(
+                        r#"
+  (SELECT (cy{level} << 32) + cx{level}
+   FROM location INDEXED BY {idx}
+   WHERE (cy{level}, cx{level}) > (({from}) >> 32, ({from}) & {M})
+     AND cy{level} <= {cy1}
+   ORDER BY cy{level}, cx{level} LIMIT 1)"#
+                    )
+                };
+                // next position after the found cell w.nxt: the cell
+                // itself if inside the x range, else a jump to just before
+                // cx0 on the same row (cell was left of the range) or on
+                // the next row (right of it)
+                let pos = format!(
+                    r#"
+  (CASE WHEN (w.nxt & {M}) < {cx0}
+          THEN (w.nxt >> 32 << 32) + {cx0} - 1
+        WHEN (w.nxt & {M}) > {cx1}
+          THEN (((w.nxt >> 32) + 1) << 32) + {cx0} - 1
+        ELSE w.nxt END)"#
+                );
+                let p0 = format!("(({cy0} << 32) + {cx0} - 1)");
+                q.push(format!(
+                    r#"
+WITH RECURSIVE w(pos, real, nxt) AS (
+  -- seed: just before the rectangle's first cell (real = 0)
+  SELECT {p0}, 0, {seek_first}
+  UNION ALL
+  SELECT {pos},
+  -- real: nxt is an occupied cell inside the x range, not a jump
+  (w.nxt & {M}) BETWEEN {cx0} AND {cx1}, {seek_next}
+  FROM w WHERE w.nxt IS NOT NULL
+)
+-- newest passing timestamp of each walked cell, grouped by query cell
+SELECT {select} FROM (
+  SELECT max(latest) AS ts FROM (
+    SELECT
+      (SELECT timestamp FROM location INDEXED BY {idx}
+       WHERE cy{level} = w.pos >> 32 AND cx{level} = w.pos & {M}"#,
+                    select = self.select_list("l."),
+                    seek_first = seek(&p0),
+                    seek_next = seek(&pos),
+                ));
+                self.add_basic_filters(&mut q);
+                q.push(format!(
+                    r#"
+       ORDER BY timestamp DESC LIMIT 1) AS latest,
+      (w.pos >> 32) >> {d} AS qy,
+      (w.pos & {M}) >> {d} AS qx
+    FROM w WHERE real
+  ) WHERE latest IS NOT NULL
+  GROUP BY qy, qx
+) g
+-- timestamp is UNIQUE: one autoindex seek per winning row
+JOIN location l ON l.timestamp = g.ts"#
+                ));
+            }
+            grid::IndexUse::Filter { level } => {
+                let idx = grid::index_name(level);
+                let s = grid::level_shift(level);
+                q.push(format!(
+                    r#"
+SELECT {select} FROM (
+  SELECT id, max(timestamp)
+  FROM location INDEXED BY {idx}
+  -- the coarse index narrows to the rectangle; gx/gy are exact
+  WHERE cy{level} BETWEEN {cy0} AND {cy1}
+    AND cx{level} BETWEEN {cx0} AND {cx1}
+    AND gy BETWEEN {y0} AND {y1}
+    AND gx BETWEEN {x0} AND {x1}"#,
+                    select = self.select_list("l."),
+                    cy0 = rect.y0 >> s,
+                    cy1 = rect.y1 >> s,
+                    cx0 = rect.x0 >> s,
+                    cx1 = rect.x1 >> s,
+                    y0 = rect.y0,
+                    y1 = rect.y1,
+                    x0 = rect.x0,
+                    x1 = rect.x1,
+                ));
+                self.add_basic_filters(&mut q);
+                q.push(format!(
+                    r#"
+  GROUP BY gy >> {shift}, gx >> {shift}
+) g
+JOIN location l ON l.id = g.id"#
+                ));
+            }
+        }
+        if let Some(cap) = self.hard_cap {
+            q.push(" ORDER BY l.timestamp DESC LIMIT ");
+            q.push_bind(cap as i64);
+        }
+        q
     }
 
     /// Fetch the points adjacent to the bounded region.
@@ -825,8 +1696,8 @@ impl<'a> FilteredQuery {
         &self,
         conn: &SqlitePool,
         decim: i64,
-        mut recs: Vec<LocationRow>,
-    ) -> Vec<LocationRow> {
+        mut recs: Vec<NarrowPoint>,
+    ) -> Vec<NarrowPoint> {
         // let before = std::time::Instant::now();
         let mut new_recs = vec![]; // (index to insert, rec)
         for (i, rec) in recs.iter().enumerate() {
@@ -846,13 +1717,13 @@ impl<'a> FilteredQuery {
                     fetch_after = false;
                 }
             }
-            let should_push_new_rec = |new_rec: &LocationRow, idx, before| {
+            let should_push_new_rec = |new_rec: &NarrowPoint, idx, before| {
                 // check existing records to see if we fetched a duplicate
                 if (i != 0 && before) || (i != recs.len() - 1 && !before) {
                     let already_there_idx =
                         if before { idx - 1 } else { idx + 1 };
                     if let Some(already_there) = recs.get(already_there_idx) {
-                        let already_there: &LocationRow = already_there;
+                        let already_there: &NarrowPoint = already_there;
                         if already_there.id == new_rec.id {
                             return false; // duplicate, don't push
                         }
@@ -861,9 +1732,9 @@ impl<'a> FilteredQuery {
                 true
             };
             if fetch_before {
-                let mut q =
-                    self.adjacent_before_query(false, decim, rec.timestamp);
-                let query_as = q.build_query_as::<LocationRow>();
+                let ts = rec.timestamp.unix_timestamp();
+                let mut q = self.adjacent_before_query(false, decim, ts);
+                let query_as = q.build_query_as::<NarrowPoint>();
                 let mut maybe_new = query_as.fetch_all(conn).await.unwrap();
                 if let Some(new_rec) = maybe_new.pop() {
                     if should_push_new_rec(&new_rec, i, true) {
@@ -872,9 +1743,9 @@ impl<'a> FilteredQuery {
                 }
             }
             if fetch_after {
-                let mut q =
-                    self.adjacent_after_query(false, decim, rec.timestamp);
-                let query_as = q.build_query_as::<LocationRow>();
+                let ts = rec.timestamp.unix_timestamp();
+                let mut q = self.adjacent_after_query(false, decim, ts);
+                let query_as = q.build_query_as::<NarrowPoint>();
                 let mut maybe_new = query_as.fetch_all(conn).await.unwrap();
                 if let Some(new_rec) = maybe_new.pop() {
                     if should_push_new_rec(&new_rec, i, false) {
@@ -903,24 +1774,222 @@ impl<'a> FilteredQuery {
         recs
     }
 
-    /// Fetch points while decimating to keep under the limit
-    pub async fn fetch_decimated_with_db(
+    /// Fetch points while decimating to keep under the threshold. When
+    /// everything fits under it, all points are returned regardless of the
+    /// decimation mode.
+    ///
+    /// Routing (doc/decimation/probe-results/time-range-bench.md): every
+    /// route walks index entries, and the cheaper route is the one with
+    /// fewer. Rows in the time range (timestamp index) and, in temporal
+    /// mode, points in view (grid index) are counted index-only with a
+    /// LIMIT; spatial mode's walk cost has no cheap estimate, so it uses
+    /// a threshold on rows in range instead.
+    pub async fn fetch_decimated_result_with_db(
         &self,
         conn: &SqlitePool,
-    ) -> Vec<common::Location> {
-        let decim = self.fetch_decim(conn).await;
-        let mut recs = self.fetch_bounded(conn, decim).await;
+    ) -> DecimatedResult {
+        let rows = self.route_inputs(conn).await;
+        match self.spatial_cell {
+            Some(cell) => self.fetch_spatial(conn, cell, rows).await,
+            None => self.fetch_temporal(conn, rows).await,
+        }
+    }
+
+    /// Temporal decimation: every nth point under the threshold. Grid when
+    /// the view holds fewer points than the range holds rows; ties and
+    /// both over the cap go to the time route when a range is set (a
+    /// sequential scan in rowid order, which beats any index once the
+    /// view holds most of the data), else the grid.
+    async fn fetch_temporal(
+        &self,
+        conn: &SqlitePool,
+        rows_in_range: Option<u64>,
+    ) -> DecimatedResult {
+        const CAP: i64 = TEMPORAL_COUNT_CAP as i64;
+        // capped or unbounded range counts as over the cap
+        let n_time = rows_in_range.map_or(CAP + 1, |n| n as i64);
+        let limit = n_time.min(CAP);
+        let n_view = self
+            .fetch_count_grid(conn, Some(limit), false)
+            .await
+            .unwrap_or(limit + 1);
+        let route =
+            if n_view < n_time || (n_view > CAP && rows_in_range.is_none()) {
+                Route::Grid
+            } else {
+                Route::Time
+            };
+        let (decim, memory_capped, mut recs) = match route {
+            Route::Grid => match self.fetch_temporal_grid(conn).await {
+                Some(r) => r,
+                None => self.fetch_temporal_time(conn).await,
+            },
+            Route::Time => self.fetch_temporal_time(conn).await,
+        };
+        let fmt = |n: i64| {
+            if n > CAP {
+                format!(">{CAP}")
+            } else {
+                n.to_string()
+            }
+        };
+        debug!(
+            "temporal decimation {route:?}: time/view {}/{}, decim {decim}, \
+             {} rows",
+            fmt(n_time),
+            fmt(n_view),
+            recs.len()
+        );
         if self.bounds.is_some() && self.get_adjacent {
             recs = self.fetch_adjacent(conn, decim, recs).await;
         }
-        to_common_locations(recs)
+        DecimatedResult {
+            records: recs,
+            decimated: decim > 1,
+            spatially_bucketed: false,
+            memory_capped,
+        }
     }
 
-    pub async fn fetch_decimated(&self) -> Vec<common::Location> {
+    /// Temporal decimation through the timestamp index (or a table scan
+    /// without a range, in rowid order either way).
+    async fn fetch_temporal_time(
+        &self,
+        conn: &SqlitePool,
+    ) -> (i64, bool, Vec<NarrowPoint>) {
+        let (decim, memory_capped) =
+            self.fetch_decim(conn, TimeHint::UseIndex).await;
+        let recs = self.fetch_bounded(conn, decim, TimeHint::UseIndex).await;
+        (decim, memory_capped, recs)
+    }
+
+    /// Temporal decimation through the grid: exact count, then the
+    /// decimated fetch. None on a query error.
+    async fn fetch_temporal_grid(
+        &self,
+        conn: &SqlitePool,
+    ) -> Option<(i64, bool, Vec<NarrowPoint>)> {
+        let count = self.fetch_count_grid(conn, None, true).await?;
+        let (decim, memory_capped) = self.decim_from_count(count);
+        let recs = self.fetch_bounded_grid(conn, decim).await?;
+        Some((decim, memory_capped, recs))
+    }
+
+    /// fetch_bounded on the given route: the grid indexes when `route` is
+    /// Grid (falling back to the time route on a query error), else the
+    /// time route with `hint`.
+    async fn fetch_bounded_routed(
+        &self,
+        conn: &SqlitePool,
+        decim: i64,
+        route: Route,
+        hint: TimeHint,
+    ) -> Vec<NarrowPoint> {
+        if route == Route::Grid {
+            if let Some(recs) = self.fetch_bounded_grid(conn, decim).await {
+                return recs;
+            }
+        }
+        self.fetch_bounded(conn, decim, hint).await
+    }
+
+    /// fetch_bucketed on the given route, with the same fallback as
+    /// fetch_bounded_routed.
+    async fn fetch_bucketed_routed(
+        &self,
+        conn: &SqlitePool,
+        shift: u32,
+        route: Route,
+        hint: TimeHint,
+    ) -> (Vec<NarrowPoint>, bool) {
+        if route == Route::Grid {
+            if let Some(r) = self.fetch_bucketed_grid(conn, shift).await {
+                return r;
+            }
+        }
+        self.fetch_bucketed(conn, shift, hint).await
+    }
+
+    /// Spatial decimation: the newest point per cell once over the trigger.
+    async fn fetch_spatial(
+        &self,
+        conn: &SqlitePool,
+        cell: SpatialCell,
+        rows_in_range: Option<u64>,
+    ) -> DecimatedResult {
+        let route = match rows_in_range {
+            Some(n) if n <= TIME_PATH_MAX_ROWS => Route::Time,
+            _ => Route::Grid,
+        };
+        let hint = match route {
+            Route::Time => TimeHint::UseIndex,
+            Route::Grid => TimeHint::AvoidIndex,
+        };
+        // Only whether the view is over the bucketing trigger is needed,
+        // which a LIMIT-bounded count answers in O(trigger) rows: on the
+        // grid, else the timestamp index or a scan
+        let over = if route == Route::Grid {
+            let trigger = self.bucketing_trigger();
+            match self.fetch_count_grid(conn, Some(trigger), true).await {
+                Some(n) => n > trigger,
+                None => self.fetch_over_trigger(conn, hint).await,
+            }
+        } else {
+            self.fetch_over_trigger(conn, hint).await
+        };
+        if !over {
+            let mut recs =
+                self.fetch_bounded_routed(conn, 1, route, hint).await;
+            if self.bounds.is_some() && self.get_adjacent {
+                recs = self.fetch_adjacent(conn, 1, recs).await;
+            }
+            return DecimatedResult {
+                records: recs,
+                decimated: false,
+                spatially_bucketed: false,
+                memory_capped: false,
+            };
+        }
+        let shift = cell.grid_shift;
+        let (recs, memory_capped) =
+            self.fetch_bucketed_routed(conn, shift, route, hint).await;
+        debug!(
+            "spatial decimation {route:?}: {} in range, {} cells",
+            rows_in_range.map_or("no range".to_string(), |n| n.to_string()),
+            recs.len()
+        );
+        DecimatedResult {
+            records: recs,
+            decimated: true,
+            spatially_bucketed: true,
+            memory_capped,
+        }
+    }
+
+    /// Fetch points while decimating to keep under the threshold
+    pub async fn fetch_decimated_with_db(
+        &self,
+        conn: &SqlitePool,
+    ) -> Vec<NarrowPoint> {
+        self.fetch_decimated_result_with_db(conn).await.records
+    }
+
+    pub async fn fetch_decimated(&self) -> Vec<NarrowPoint> {
         let Ok(conn) = get_main_db_pool() else {
             return Vec::new();
         };
         self.fetch_decimated_with_db(&conn).await
+    }
+
+    /// fetch_decimated, hydrated to full Locations by a second lookup on
+    /// the UNIQUE timestamps. For callers that need more than the narrow
+    /// columns (export); the map path never pays for the full rows.
+    pub async fn fetch_decimated_full(&self) -> Vec<common::Location> {
+        let Ok(conn) = get_main_db_pool() else {
+            return Vec::new();
+        };
+        let narrow = self.fetch_decimated_with_db(&conn).await;
+        fetch_full_locations(&conn, &narrow).await
     }
 
     fn first_n_query(
@@ -1014,6 +2083,51 @@ fn to_common_locations(recs: Vec<LocationRow>) -> Vec<common::Location> {
     recs.into_iter().map(|l| l.into()).collect()
 }
 
+/// Full Location rows for narrow points, looked up on the UNIQUE
+/// timestamp in chunks. Sorted by timestamp; rows that failed to fetch
+/// are logged and dropped.
+pub async fn fetch_full_locations(
+    conn: &SqlitePool,
+    points: &[NarrowPoint],
+) -> Vec<common::Location> {
+    // well under any SQLITE_MAX_VARIABLE_NUMBER build setting
+    const CHUNK: usize = 500;
+    let mut recs = Vec::with_capacity(points.len());
+    for chunk in points.chunks(CHUNK) {
+        let mut q = new_query(false);
+        q.push("SELECT * FROM location WHERE timestamp IN (");
+        let mut sep = q.separated(", ");
+        for p in chunk {
+            sep.push_bind(p.timestamp.unix_timestamp());
+        }
+        q.push(")");
+        match q.build_query_as::<LocationRow>().fetch_all(conn).await {
+            Ok(rows) => recs.extend(rows),
+            Err(e) => error!("full location fetch failed: {e}"),
+        }
+    }
+    recs.sort_by_key(|r| r.timestamp);
+    to_common_locations(recs)
+}
+
+/// The full row at a timestamp (UNIQUE), for showing every field of a
+/// narrow point.
+pub async fn get_location_at(
+    conn: &SqlitePool,
+    timestamp: time::OffsetDateTime,
+) -> Option<common::Location> {
+    sqlx::query_as::<_, LocationRow>(
+        "SELECT * FROM location WHERE timestamp = ?",
+    )
+    .bind(timestamp.unix_timestamp())
+    .fetch_optional(conn)
+    .await
+    .map_err(|e| error!("location at timestamp fetch failed: {e}"))
+    .ok()
+    .flatten()
+    .map(Into::into)
+}
+
 #[derive(FromRow)]
 struct CountResult(i64);
 
@@ -1072,18 +2186,36 @@ impl ExplainQueryPlan {
 /// Assumes a condition has already been added to the WHERE clause, as `AND` is
 /// prepended for both the upper and lower bounds on the time filter.
 ///
-/// We use likelihood(X, p), to indicate that the timestamp condition X should
-/// not be used for indexing. This way we will default to using the longitude
-/// index. Small p means the condition would be selective, and that an index
-/// should be used. Valid values are in the range [0.0, 1.0].
+/// With TimeHint::AvoidIndex the condition is wrapped in likelihood(X, 1.0)
+/// to tell the planner it isn't selective, so the timestamp index isn't
+/// used for it. UseIndex leaves the bare comparison, which the planner
+/// serves from the timestamp index.
 fn add_start_time_to_query(
     start_time: &Option<jiff::Timestamp>,
     query: &mut QueryBuilder<Sqlite>,
+    hint: TimeHint,
 ) {
     if let Some(start) = start_time {
-        query.push(" AND likelihood(timestamp >= ");
-        query.push_bind(start.as_second());
-        query.push(", 1.0)");
+        add_time_condition(query, " AND timestamp >= ", start, hint);
+    }
+}
+
+fn add_time_condition(
+    query: &mut QueryBuilder<Sqlite>,
+    cond: &str,
+    t: &jiff::Timestamp,
+    hint: TimeHint,
+) {
+    match hint {
+        TimeHint::UseIndex => {
+            query.push(cond);
+            query.push_bind(t.as_second());
+        }
+        TimeHint::AvoidIndex => {
+            query.push(cond.replace("timestamp", "likelihood(timestamp"));
+            query.push_bind(t.as_second());
+            query.push(", 1.0)");
+        }
     }
 }
 
@@ -1092,11 +2224,10 @@ fn add_start_time_to_query(
 fn add_end_time_to_query(
     end_time: &Option<jiff::Timestamp>,
     query: &mut QueryBuilder<Sqlite>,
+    hint: TimeHint,
 ) {
     if let Some(end) = end_time {
-        query.push(" AND likelihood(timestamp < ");
-        query.push_bind(end.as_second());
-        query.push(", 1.0)");
+        add_time_condition(query, " AND timestamp < ", end, hint);
     }
 }
 
@@ -1125,6 +2256,10 @@ fn add_filters_to_query(
 
 /// Add a decimation condition to a query.
 fn add_decim_to_query(decim: i64, q: &mut QueryBuilder<Sqlite>) {
+    // a bound parameter isn't constant-folded, so skip the trivial case
+    if decim <= 1 {
+        return;
+    }
     q.push(" AND id % ");
     q.push_bind(decim);
     q.push(" == 0 ");
@@ -1273,7 +2408,7 @@ pub mod tests {
         };
         let records = FilteredQuery::builder()
             .bounds(bounds)
-            .limit(10000)
+            .decimation_threshold(10000)
             .build()
             .fetch_decimated()
             .await;
@@ -1282,7 +2417,7 @@ pub mod tests {
         let records = FilteredQuery::builder()
             .bounds(bounds)
             .get_adjacent(true)
-            .limit(10000)
+            .decimation_threshold(10000)
             .build()
             .fetch_decimated()
             .await;
@@ -1318,7 +2453,7 @@ pub mod tests {
         };
         let records = FilteredQuery::builder()
             .bounds(bounds)
-            .limit(10000)
+            .decimation_threshold(10000)
             .build()
             .fetch_decimated()
             .await;
@@ -1327,11 +2462,669 @@ pub mod tests {
         let records = FilteredQuery::builder()
             .bounds(bounds)
             .get_adjacent(true)
-            .limit(10000)
+            .decimation_threshold(10000)
             .build()
             .fetch_decimated()
             .await;
         assert_eq!(records.len(), 5);
+    }
+
+    /// Latitude, longitude of a grid coordinate (inverse of grid_coords).
+    fn lnglat_from_grid(gx: u32, gy: u32) -> (f64, f64) {
+        let scale = 2f64.powi(grid::GRID_BITS as i32);
+        let lng = gx as f64 / scale * 360. - 180.;
+        let lat = (std::f64::consts::PI * (1. - 2. * gy as f64 / scale))
+            .sinh()
+            .atan()
+            .to_degrees();
+        (lat, lng)
+    }
+
+    /// Log `n` points north-east from (0, 0) along the diagonal, one per
+    /// 2^14 grid units, each at the centre of its 2^14 cell (so none sit
+    /// on a cell boundary at any coarser shift either).
+    async fn log_diagonal(n: i64) {
+        for i in 0..n {
+            let mut loc = get_test_data(i as usize);
+            let d = (i as u32) << 14 | 1 << 13;
+            let (lat, lng) = lnglat_from_grid(1 << 31 | d, (1 << 31) - d);
+            loc.latitude = lat;
+            loc.longitude = lng;
+            log_location(loc).await.unwrap();
+        }
+    }
+
+    #[tokio::test]
+    async fn test_bucketed_query() {
+        test_setup("test_bucketed_query/").await;
+        // 20 points one 2^14 cell apart; a 2^16 cell holds 4 of them
+        log_diagonal(20).await;
+        let conn = get_main_db_pool().unwrap();
+        let cell = SpatialCell { grid_shift: 16 };
+
+        // over the limit: the most recent point per cell, in time order
+        let result = FilteredQuery::builder()
+            .decimation_threshold(5)
+            .spatial_cell(cell)
+            .build()
+            .fetch_decimated_result_with_db(&conn)
+            .await;
+        assert!(result.spatially_bucketed);
+        let timestamps: Vec<_> = result
+            .records
+            .iter()
+            .map(|r| r.timestamp.unix_timestamp())
+            .collect();
+        assert_eq!(timestamps, vec![3 * 5, 7 * 5, 11 * 5, 15 * 5, 19 * 5]);
+
+        // bounds compose with bucketing: the first 10 points, 3 cells
+        let (lat, lng) =
+            lnglat_from_grid(1 << 31 | 10 << 14, (1 << 31) - (10 << 14));
+        let bounds = LngLatBounds {
+            sw: LngLat { lng: 0., lat: 0. },
+            ne: LngLat { lng, lat },
+        };
+        let result = FilteredQuery::builder()
+            .bounds(bounds)
+            .decimation_threshold(5)
+            .spatial_cell(cell)
+            .build()
+            .fetch_decimated_result_with_db(&conn)
+            .await;
+        assert!(result.spatially_bucketed);
+        assert_eq!(result.records.len(), 3);
+
+        // under the limit: everything is returned untouched
+        let result = FilteredQuery::builder()
+            .decimation_threshold(10000)
+            .spatial_cell(cell)
+            .build()
+            .fetch_decimated_result_with_db(&conn)
+            .await;
+        assert!(!result.spatially_bucketed);
+        assert_eq!(result.records.len(), 20);
+    }
+
+    /// field1/field2 fetch the caller's columns through every route: CAST
+    /// so INTEGER columns (story) decode as f64 (sqlx 0.8 type-checks
+    /// against the value's storage class), NULL when unset, and bucketed
+    /// rows take them from the row holding max(timestamp).
+    #[tokio::test]
+    async fn test_narrow_fields() {
+        test_setup("test_narrow_fields/").await;
+        // story and speed equal the point's index (timestamp / 5)
+        log_diagonal(20).await;
+        let conn = get_main_db_pool().unwrap();
+
+        // unset fields come back as None
+        let recs = FilteredQuery::builder()
+            .decimation_threshold(10000)
+            .build()
+            .fetch_decimated_with_db(&conn)
+            .await;
+        assert_eq!(recs.len(), 20);
+        assert!(recs
+            .iter()
+            .all(|r| r.field1.is_none() && r.field2.is_none()));
+
+        // temporal fetch: story (INTEGER) decodes as f64 via the CAST
+        let recs = FilteredQuery::builder()
+            .decimation_threshold(10000)
+            .field1("story")
+            .field2("speed")
+            .build()
+            .fetch_decimated_with_db(&conn)
+            .await;
+        for r in &recs {
+            let i = (r.timestamp.unix_timestamp() / 5) as f64;
+            assert_eq!(r.field1, Some(i));
+            assert_eq!(r.field2, Some(i));
+        }
+
+        // bucketed on both routes: values come from each cell's newest row
+        let cell = SpatialCell { grid_shift: 16 };
+        let grid_route = FilteredQuery::builder()
+            .decimation_threshold(5)
+            .spatial_cell(cell)
+            .field1("story")
+            .build();
+        let time_route = FilteredQuery::builder()
+            .start(jiff::Timestamp::from_second(0).unwrap())
+            .decimation_threshold(5)
+            .spatial_cell(cell)
+            .field1("story")
+            .build();
+        for query in [grid_route, time_route] {
+            let result = query.fetch_decimated_result_with_db(&conn).await;
+            assert!(result.spatially_bucketed);
+            let vals: Vec<_> =
+                result.records.iter().map(|r| r.field1).collect();
+            let expected: Vec<_> = [3., 7., 11., 15., 19.].map(Some).to_vec();
+            assert_eq!(vals, expected);
+        }
+    }
+
+    /// The hard_cap memory backstop binds only when it must: on the cluster
+    /// pathology (many occupied cells at a tiny pitch) and on a cap below the
+    /// temporal limit (memory-limits.md, "Backend memory backstop").
+    #[tokio::test]
+    async fn test_hard_cap() {
+        test_setup("test_hard_cap/").await;
+        // 30 points one cell per point: every point occupies its own
+        // cell, so the bucketed path's cell-count bound is no bound
+        log_diagonal(30).await;
+        let conn = get_main_db_pool().unwrap();
+        let cell = SpatialCell { grid_shift: 14 };
+
+        // bucketed, cap binds: the most recent 10 cells, ascending in time
+        let result = FilteredQuery::builder()
+            .decimation_threshold(5)
+            .spatial_cell(cell)
+            .hard_cap(10)
+            .build()
+            .fetch_decimated_result_with_db(&conn)
+            .await;
+        assert!(result.spatially_bucketed);
+        assert!(result.memory_capped);
+        let ts: Vec<_> = result
+            .records
+            .iter()
+            .map(|r| r.timestamp.unix_timestamp())
+            .collect();
+        assert_eq!(ts, (20i64..30).map(|i| i * 5).collect::<Vec<_>>());
+
+        // bucketed, cap above the cell count: never binds
+        let result = FilteredQuery::builder()
+            .decimation_threshold(5)
+            .spatial_cell(cell)
+            .hard_cap(1000)
+            .build()
+            .fetch_decimated_result_with_db(&conn)
+            .await;
+        assert!(result.spatially_bucketed);
+        assert!(!result.memory_capped);
+        assert_eq!(result.records.len(), 30);
+
+        // temporal, cap below the limit: coarser sample, flagged
+        let result = FilteredQuery::builder()
+            .decimation_threshold(20)
+            .hard_cap(10)
+            .build()
+            .fetch_decimated_result_with_db(&conn)
+            .await;
+        assert!(!result.spatially_bucketed);
+        assert!(result.memory_capped);
+        assert!(result.records.len() <= 10);
+
+        // temporal, cap above the limit: inert
+        let result = FilteredQuery::builder()
+            .decimation_threshold(20)
+            .hard_cap(10_000)
+            .build()
+            .fetch_decimated_result_with_db(&conn)
+            .await;
+        assert!(!result.memory_capped);
+        assert!(result.records.len() >= 15);
+    }
+
+    /// Deterministic synthetic track: a random walk with a few dwell
+    /// clusters, around (37.8, -122.5), offshore of SF. Returns the rows
+    /// logged.
+    async fn log_grid_test_track(n: usize) {
+        let mut rng = 0x2545_f491_4f6c_dd1du64;
+        let mut next = move || {
+            rng ^= rng << 13;
+            rng ^= rng >> 7;
+            rng ^= rng << 17;
+            (rng >> 11) as f64 / (1u64 << 53) as f64
+        };
+        let (mut lat, mut lng) = (37.8, -122.5);
+        for i in 0..n {
+            let mut loc = get_test_data(i + 1);
+            if i % 50 < 30 {
+                // dwell: jitter around the current spot
+                loc.latitude = lat + (next() - 0.5) * 1e-4;
+                loc.longitude = lng + (next() - 0.5) * 1e-4;
+            } else {
+                lat += (next() - 0.5) * 2e-3;
+                lng += (next() - 0.5) * 2e-3;
+                loc.latitude = lat;
+                loc.longitude = lng;
+            }
+            loc.horizontal_accuracy = (i % 7) as f64 * 10.;
+            log_location(loc).await.unwrap();
+        }
+    }
+
+    /// Reference: newest id per grid query cell via a plain GROUP BY over
+    /// the same grid cells, with the same bounds/time/filter clauses.
+    async fn grid_reference(
+        conn: &SqlitePool,
+        query: &FilteredQuery,
+        shift: u32,
+    ) -> Vec<i64> {
+        let mut q = new_query(false);
+        q.push("SELECT id, max(timestamp) FROM location WHERE 1");
+        add_bounds_to_query(&query.bounds, &mut q);
+        query.add_basic_filters(&mut q);
+        q.push(format!(" GROUP BY gy >> {shift}, gx >> {shift}"));
+        let mut ids: Vec<i64> = q
+            .build_query_as::<(i64, i64)>()
+            .fetch_all(conn)
+            .await
+            .unwrap()
+            .into_iter()
+            .map(|r| r.0)
+            .collect();
+        ids.sort();
+        ids
+    }
+
+    /// The loose index scan returns exactly the GROUP BY answer at every
+    /// index relationship (matched, coarser query, finer query), with
+    /// bounds, a time range, and a filter.
+    #[tokio::test]
+    async fn test_grid_bucketed_matches_group_by() {
+        test_setup("test_grid_bucketed_matches_group_by/").await;
+        log_grid_test_track(600).await;
+        let conn = get_main_db_pool().unwrap();
+
+        let bounds = LngLatBounds {
+            sw: LngLat {
+                lng: -122.52,
+                lat: 37.78,
+            },
+            ne: LngLat {
+                lng: -122.48,
+                lat: 37.82,
+            },
+        };
+        let filter = Filter {
+            id: 0,
+            datastream: DataStream::HorizAccuracy,
+            op: FilterOp::GreaterThan,
+            threshold: 45.,
+            enabled: true,
+        };
+        let queries = [
+            FilteredQuery::builder().build(),
+            FilteredQuery::builder().bounds(bounds).build(),
+            FilteredQuery::builder()
+                .bounds(bounds)
+                .start(jiff::Timestamp::from_second(100 * 5).unwrap())
+                .end(jiff::Timestamp::from_second(500 * 5).unwrap())
+                .filters(vec![filter])
+                .build(),
+        ];
+        // matched (L12, L10, L8), coarser query than L8/L10/L12, finer
+        // than every index
+        let shifts = [10, 12, 14, 11, 13, 16, 20, 9, 6];
+        for query in &queries {
+            for shift in shifts {
+                let expected = grid_reference(&conn, query, shift).await;
+                assert!(!expected.is_empty());
+                let (recs, memory_capped) =
+                    query.fetch_bucketed_grid(&conn, shift).await.unwrap();
+                assert!(!memory_capped);
+                let mut ids: Vec<_> = recs.iter().map(|r| r.id).collect();
+                ids.sort();
+                assert_eq!(ids, expected, "shift {shift}");
+                // ascending time order, as the tileset build expects
+                assert!(recs
+                    .windows(2)
+                    .all(|w| w[0].timestamp < w[1].timestamp));
+            }
+        }
+
+        // hard_cap keeps the most recent cells and flags truncation
+        let query = FilteredQuery::builder().hard_cap(10).build();
+        let expected = grid_reference(&conn, &query, 12).await;
+        let (recs, memory_capped) =
+            query.fetch_bucketed_grid(&conn, 12).await.unwrap();
+        assert!(memory_capped);
+        assert_eq!(recs.len(), 10);
+        let newest: Vec<_> = recs.iter().map(|r| r.id).collect();
+        let mut top: Vec<_> = expected.clone();
+        top.sort_by_key(|id| std::cmp::Reverse(*id)); // ids are time-ordered
+        top.truncate(10);
+        top.sort();
+        assert_eq!(newest, top);
+
+        // the full decimated path takes the grid route when bucketing
+        let result = FilteredQuery::builder()
+            .decimation_threshold(5)
+            .spatial_cell(SpatialCell::from_zoom(12., 0.5))
+            .build()
+            .fetch_decimated_result_with_db(&conn)
+            .await;
+        assert!(result.spatially_bucketed);
+        let expected = grid_reference(
+            &conn,
+            &FilteredQuery::builder().build(),
+            grid::query_shift(12., 0.5),
+        )
+        .await;
+        assert_eq!(result.records.len(), expected.len());
+    }
+
+    /// With a time range under TIME_PATH_MAX_ROWS the query routes through
+    /// the timestamp index, and bucketing there gives exactly the grid
+    /// walk's answer (same cells, same bounds/filters).
+    #[tokio::test]
+    async fn test_time_route_matches_grid_walk() {
+        test_setup("test_time_route_matches_grid_walk/").await;
+        log_grid_test_track(600).await;
+        let conn = get_main_db_pool().unwrap();
+        let bounds = LngLatBounds {
+            sw: LngLat {
+                lng: -122.52,
+                lat: 37.78,
+            },
+            ne: LngLat {
+                lng: -122.48,
+                lat: 37.82,
+            },
+        };
+        let filter = Filter {
+            id: 0,
+            datastream: DataStream::HorizAccuracy,
+            op: FilterOp::GreaterThan,
+            threshold: 45.,
+            enabled: true,
+        };
+        let queries = [
+            FilteredQuery::builder()
+                .start(jiff::Timestamp::from_second(100 * 5).unwrap())
+                .build(),
+            FilteredQuery::builder()
+                .bounds(bounds)
+                .end(jiff::Timestamp::from_second(500 * 5).unwrap())
+                .build(),
+            FilteredQuery::builder()
+                .bounds(bounds)
+                .start(jiff::Timestamp::from_second(100 * 5).unwrap())
+                .end(jiff::Timestamp::from_second(500 * 5).unwrap())
+                .filters(vec![filter])
+                .build(),
+        ];
+        for query in &queries {
+            let rows = query.route_inputs(&conn).await;
+            assert!(rows.is_some_and(|n| n <= TIME_PATH_MAX_ROWS));
+            for shift in [10, 12, 14, 16, 20, 6] {
+                let expected = grid_reference(&conn, query, shift).await;
+                assert!(!expected.is_empty());
+                let (recs, memory_capped) = query
+                    .fetch_bucketed(&conn, shift, TimeHint::UseIndex)
+                    .await;
+                assert!(!memory_capped);
+                let mut ids: Vec<_> = recs.iter().map(|r| r.id).collect();
+                ids.sort();
+                assert_eq!(ids, expected, "shift {shift}");
+                assert!(recs
+                    .windows(2)
+                    .all(|w| w[0].timestamp < w[1].timestamp));
+            }
+        }
+        // no time range: no row count
+        let query = FilteredQuery::builder().bounds(bounds).build();
+        assert_eq!(query.route_inputs(&conn).await, None);
+        // the full decimated path on the time route
+        let shift = grid::query_shift(12., 0.5);
+        let query = FilteredQuery::builder()
+            .bounds(bounds)
+            .start(jiff::Timestamp::from_second(100 * 5).unwrap())
+            .decimation_threshold(5)
+            .spatial_cell(SpatialCell::from_zoom(12., 0.5))
+            .build();
+        let result = query.fetch_decimated_result_with_db(&conn).await;
+        assert!(result.spatially_bucketed);
+        let expected = grid_reference(&conn, &query, shift).await;
+        assert_eq!(result.records.len(), expected.len());
+    }
+
+    /// Temporal decimation through the grid and through the timestamp
+    /// index both give the plain scan's count and rows.
+    #[tokio::test]
+    async fn test_temporal_routes_match_scan() {
+        test_setup("test_temporal_routes_match_scan/").await;
+        log_grid_test_track(600).await;
+        let conn = get_main_db_pool().unwrap();
+        let bounds = LngLatBounds {
+            sw: LngLat {
+                lng: -122.52,
+                lat: 37.78,
+            },
+            ne: LngLat {
+                lng: -122.48,
+                lat: 37.82,
+            },
+        };
+        // a narrow rect, so the filter level is the finest and the edge
+        // cells matter
+        let narrow = LngLatBounds {
+            sw: LngLat {
+                lng: -122.501,
+                lat: 37.799,
+            },
+            ne: LngLat {
+                lng: -122.499,
+                lat: 37.801,
+            },
+        };
+        let filter = Filter {
+            id: 0,
+            datastream: DataStream::HorizAccuracy,
+            op: FilterOp::GreaterThan,
+            threshold: 45.,
+            enabled: true,
+        };
+        let time = jiff::Timestamp::from_second(100 * 5).unwrap();
+        let queries = [
+            FilteredQuery::builder().build(),
+            FilteredQuery::builder().bounds(bounds).build(),
+            FilteredQuery::builder().bounds(narrow).build(),
+            FilteredQuery::builder()
+                .bounds(bounds)
+                .filters(vec![filter])
+                .build(),
+            FilteredQuery::builder().bounds(bounds).start(time).build(),
+            FilteredQuery::builder()
+                .bounds(narrow)
+                .end(time)
+                .filters(vec![filter])
+                .build(),
+        ];
+        for query in &queries {
+            let mut q = query.count_query(false, 1, TimeHint::AvoidIndex);
+            let expected: i64 =
+                q.build_query_scalar().fetch_one(&conn).await.unwrap();
+            assert!(expected > 0);
+            // bounded and exact grid counts agree with the scan
+            let n = query.fetch_count_grid(&conn, None, true).await.unwrap();
+            assert_eq!(n, expected);
+            let n = query
+                .fetch_count_grid(&conn, Some(expected), true)
+                .await
+                .unwrap();
+            assert_eq!(n, expected);
+            let n = query.fetch_count_grid(&conn, Some(2), true).await.unwrap();
+            assert_eq!(n, expected.min(3));
+            // the unfiltered count is the all-time count in view
+            let mut q = FilteredQuery::builder()
+                .maybe_bounds(query.bounds)
+                .build()
+                .count_query(false, 1, TimeHint::AvoidIndex);
+            let all: i64 =
+                q.build_query_scalar().fetch_one(&conn).await.unwrap();
+            let n = query.fetch_count_grid(&conn, None, false).await.unwrap();
+            assert_eq!(n, all);
+            // time route decimation agrees with the scan
+            let (a, _) = query.fetch_decim(&conn, TimeHint::UseIndex).await;
+            let (b, _) = query.fetch_decim(&conn, TimeHint::AvoidIndex).await;
+            assert_eq!(a, b);
+            for decim in [1, 3, 7] {
+                let expected: Vec<_> = query
+                    .fetch_bounded(&conn, decim, TimeHint::AvoidIndex)
+                    .await
+                    .iter()
+                    .map(|r| r.id)
+                    .collect();
+                for recs in [
+                    query.fetch_bounded_grid(&conn, decim).await.unwrap(),
+                    query.fetch_bounded(&conn, decim, TimeHint::UseIndex).await,
+                ] {
+                    let got: Vec<_> = recs.iter().map(|r| r.id).collect();
+                    assert_eq!(got, expected, "decim {decim}");
+                }
+            }
+        }
+        // the full path returns the same rows as before
+        let query = FilteredQuery::builder()
+            .bounds(bounds)
+            .decimation_threshold(50)
+            .build();
+        let recs = query.fetch_decimated_with_db(&conn).await;
+        let (decim, _) = query.fetch_decim(&conn, TimeHint::AvoidIndex).await;
+        let old = query
+            .fetch_bounded(&conn, decim, TimeHint::AvoidIndex)
+            .await;
+        assert_eq!(recs.len(), old.len());
+    }
+
+    /// Every seek in the grid query goes through a level index (INDEXED BY
+    /// makes a fallback an error, this pins the plan shape too), and the
+    /// only table access is the final rowid join.
+    #[tokio::test]
+    async fn test_grid_query_plan() {
+        test_setup("test_grid_query_plan/").await;
+        log_grid_test_track(20).await;
+        let conn = get_main_db_pool().unwrap();
+        let bounds = LngLatBounds {
+            sw: LngLat {
+                lng: -122.52,
+                lat: 37.78,
+            },
+            ne: LngLat {
+                lng: -122.48,
+                lat: 37.82,
+            },
+        };
+        let query = FilteredQuery::builder()
+            .bounds(bounds)
+            .end(jiff::Timestamp::from_second(1000).unwrap())
+            .build();
+        for (shift, level) in [(12, 10), (13, 10), (16, 8), (6, 8)] {
+            let rect = query.grid_rects().remove(0);
+            let q = query.grid_bucketed_query(&rect, shift);
+            let sql = q.sql().to_string();
+            println!("--- shift {shift} ---\n{sql}");
+            let plan: Vec<(i64, i64, i64, String)> =
+                sqlx::query_as(&format!("EXPLAIN QUERY PLAN {sql}"))
+                    .bind(1000i64)
+                    .fetch_all(&conn)
+                    .await
+                    .unwrap();
+            let steps: Vec<&str> = plan.iter().map(|p| p.3.as_str()).collect();
+            let idx = grid::index_name(level);
+            assert!(steps.iter().any(|st| st.contains(&idx)), "{steps:?}");
+            // table access only via the level index or the final winner
+            // join: the timestamp autoindex in the walk form, rowid in the
+            // filter form
+            for st in steps.iter().filter(|st| st.contains("location")) {
+                assert!(
+                    st.contains(&idx)
+                        || st.contains("sqlite_autoindex_location")
+                        || st.contains("INTEGER PRIMARY KEY"),
+                    "unexpected table access: {st}"
+                );
+            }
+        }
+        // temporal-mode filter: one index seek per cell row of the CTE
+        let rect = query.grid_rects().remove(0);
+        let mut q = query.grid_filter_query(&rect, "count(*)", "");
+        query.add_basic_filters(&mut q);
+        let sql = q.sql().to_string();
+        let plan: Vec<(i64, i64, i64, String)> =
+            sqlx::query_as(&format!("EXPLAIN QUERY PLAN {sql}"))
+                .bind(1000i64)
+                .fetch_all(&conn)
+                .await
+                .unwrap();
+        let steps: Vec<&str> = plan.iter().map(|p| p.3.as_str()).collect();
+        let level = grid::filter_level(rect.x1 - rect.x0, rect.y1 - rect.y0);
+        let idx = grid::index_name(level);
+        assert!(
+            steps
+                .iter()
+                .any(|st| st.contains(&idx) && st.contains("cy")),
+            "{steps:?}"
+        );
+        assert!(
+            steps.iter().all(|st| !st.contains("SCAN location")),
+            "{steps:?}"
+        );
+    }
+
+    /// Rows inserted without grid coords (an import, or a pre-migration
+    /// database) are backfilled in batches, resumably.
+    #[tokio::test]
+    async fn test_grid_backfill() {
+        test_setup("test_grid_backfill/").await;
+        let conn = get_main_db_pool().unwrap();
+        for i in 0..50 {
+            let idx = i as f64;
+            sqlx::query(
+                "INSERT INTO location (timestamp, latitude, longitude, horizontal_accuracy) VALUES (?, ?, ?, 1.0)",
+            )
+            .bind(i * 5)
+            .bind(37. + idx * 1e-3)
+            .bind(-122. + idx * 1e-3)
+            .execute(&conn)
+            .await
+            .unwrap();
+        }
+        log_location(get_test_data(1000)).await.unwrap();
+        let mut reports = Vec::new();
+        let filled = grid::backfill(&conn, |n, total| reports.push((n, total)))
+            .await
+            .unwrap();
+        assert_eq!(filled, 50);
+        assert_eq!(reports, vec![(50, 50)]);
+        let nulls: i64 = sqlx::query_scalar(
+            "SELECT count(*) FROM location WHERE gx IS NULL OR gy IS NULL",
+        )
+        .fetch_one(&conn)
+        .await
+        .unwrap();
+        assert_eq!(nulls, 0);
+        // backfilled coords agree with insert-time coords
+        let rows = sqlx::query_as::<_, (f64, f64, i64, i64)>(
+            "SELECT latitude, longitude, gx, gy FROM location",
+        )
+        .fetch_all(&conn)
+        .await
+        .unwrap();
+        for (lat, lng, gx, gy) in rows {
+            let (ex, ey) = grid::grid_coords(&LngLat { lng, lat });
+            assert_eq!((gx, gy), (ex as i64, ey as i64));
+        }
+        // nothing left to fill
+        let filled = grid::backfill(&conn, |_, _| {}).await.unwrap();
+        assert_eq!(filled, 0);
+    }
+
+    /// The startup checkpoint after an open (migrations, backfill, index
+    /// builds on several pool connections) completes: nothing in the pool
+    /// holds a read snapshot that would block TRUNCATE.
+    #[tokio::test]
+    async fn test_checkpoint_after_open() {
+        test_setup("test_checkpoint_after_open/").await;
+        let conn = get_main_db_pool().unwrap();
+        for i in 0..100 {
+            log_location(get_test_data(i)).await.unwrap();
+        }
+        sqlx::query("VACUUM;").execute(&conn).await.unwrap();
+        checkpoint_wal(&conn).await.unwrap();
     }
 
     #[tokio::test]

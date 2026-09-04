@@ -1,6 +1,7 @@
 //! The list of currently mounted databases.
 
 use common::mounted::{MountID, MountedDB, MAIN_DB_MOUNT_ID};
+use common::state::DbStatus;
 use common::ToBack;
 use yew::prelude::*;
 use yew_icons::{Icon, IconId};
@@ -23,16 +24,16 @@ pub fn MountedDBList() -> Html {
         use_selector(|s: &FrontState| s.mounted_db_settings.clone());
     let editing = use_state(|| false);
     let mounted_html = mounted_db_settings.iter().map(|(id, db)| {
-        let maybe_error = dbs_on_disk.get(id).cloned().flatten();
+        let status = dbs_on_disk.get(id).cloned();
         html! {
             if *id == MAIN_DB_MOUNT_ID {
-                <MainDBSetting db={db.clone()} error={maybe_error}/>
+                <MainDBSetting db={db.clone()} status={status}/>
             } else {
                 <MountedDBSetting
                     id={*id}
                     db={db.clone()}
                     editing={*editing}
-                    error={maybe_error}
+                    status={status}
                 />
             }
         }
@@ -94,7 +95,7 @@ pub fn MountedDBList() -> Html {
 pub struct MountedDBSettingProps {
     pub id: MountID,
     pub db: MountedDB,
-    pub error: Option<String>, // error to display, if any
+    pub status: Option<DbStatus>, // None if not found on disk
     pub editing: bool,
 }
 
@@ -144,10 +145,7 @@ pub fn MountedDBSetting(p: &MountedDBSettingProps) -> Html {
                 } else {
                     <span class="text-left">{&db.name}</span>
                 }
-                if p.error.is_some() {
-                    <Icon icon_id={IconId::BootstrapExclamationTriangle}
-                        class="text-red-500" />
-                }
+                <StatusIcon status={p.status.clone()} />
                 if p.editing {
                     <button onclick={delete_onclick}>
                         <Icon icon_id={IconId::BootstrapTrash}
@@ -160,11 +158,7 @@ pub fn MountedDBSetting(p: &MountedDBSettingProps) -> Html {
                     />
                 }
             </div>
-            if let Some(e) = &p.error {
-                <ErrorMessage>
-                    <span class="whitespace-pre-wrap">{e}</span>
-                </ErrorMessage>
-            }
+            <StatusDetail status={p.status.clone()} />
         </div>
     }
 }
@@ -172,7 +166,7 @@ pub fn MountedDBSetting(p: &MountedDBSettingProps) -> Html {
 #[derive(Properties, PartialEq)]
 pub struct MainDBSettingProps {
     pub db: MountedDB,
-    pub error: Option<String>, // error to display, if any
+    pub status: Option<DbStatus>,
 }
 
 /// Setting to enable/disable the main database. Cannot be deleted, since that
@@ -191,20 +185,60 @@ pub fn MainDBSetting(p: &MainDBSettingProps) -> Html {
         <div class="flex flex-col gap-2 py-2 px-4 w-full active:bg-neutral-800">
             <div class="flex items-center justify-between w-full">
                 <span class="italic">{&db.name}</span>
-                if p.error.is_some() {
-                    <Icon icon_id={IconId::BootstrapExclamationTriangle}
-                        class="text-red-500" />
-                }
+                <StatusIcon status={p.status.clone()} />
                 <ToggleSwitch
                     checked={db.enabled}
                     onclick={onclick}
                 />
             </div>
-            if let Some(e) = &p.error {
-                <ErrorMessage>
-                    <span class="whitespace-pre-wrap">{e}</span>
-                </ErrorMessage>
-            }
+            <StatusDetail status={p.status.clone()} />
         </div>
+    }
+}
+
+#[derive(Properties, PartialEq)]
+pub struct StatusProps {
+    pub status: Option<DbStatus>,
+}
+
+/// Icon next to the name: a warning on error, a spinner while opening.
+#[function_component]
+fn StatusIcon(p: &StatusProps) -> Html {
+    match &p.status {
+        Some(DbStatus::Error(_)) => html! {
+            <Icon icon_id={IconId::BootstrapExclamationTriangle}
+                class="text-red-500" />
+        },
+        Some(DbStatus::Opening { .. }) => html! {
+            <div class="h-4 w-4 rounded-full border-2 border-neutral-400 \
+                border-t-transparent animate-spin" />
+        },
+        _ => html! {},
+    }
+}
+
+/// Detail line under the name: the error, or the opening stage.
+#[function_component]
+fn StatusDetail(p: &StatusProps) -> Html {
+    match &p.status {
+        Some(DbStatus::Error(e)) => html! {
+            <ErrorMessage>
+                <span class="whitespace-pre-wrap">{e}</span>
+            </ErrorMessage>
+        },
+        Some(DbStatus::Opening { stage, progress }) => html! {
+            <span class="text-sm text-neutral-400">
+                {opening_text(stage, *progress)}
+            </span>
+        },
+        _ => html! {},
+    }
+}
+
+/// "Loading: stage 42%" text for an opening database.
+pub fn opening_text(stage: &str, progress: Option<f32>) -> String {
+    match progress {
+        Some(p) => format!("Loading: {stage} {:.0}%", p * 100.),
+        None => format!("Loading: {stage}"),
     }
 }

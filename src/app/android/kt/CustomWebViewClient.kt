@@ -14,16 +14,26 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.util.Log
+import android.view.ViewGroup
 import android.webkit.JavascriptInterface
+import android.webkit.RenderProcessGoneDetail
 import android.webkit.WebResourceRequest
-import android.webkit.WebView 
-import android.webkit.WebViewClient 
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import androidx.annotation.RequiresApi
 
 
-class CustomWebViewClient(private val activity: Activity) : WebViewClient() {
+class CustomWebViewClient(
+    private val activity: Activity,
+    private val onRendererGone: () -> Unit,
+    private val onPageLoaded: (WebView) -> Unit,
+) : WebViewClient() {
 
     private val TAG = "WebViewClient"
+
+    override fun onPageFinished(view: WebView?, url: String?) {
+        view?.let(onPageLoaded)
+    }
 
     @SuppressWarnings("deprecation")
     public override fun shouldOverrideUrlLoading(
@@ -43,6 +53,23 @@ class CustomWebViewClient(private val activity: Activity) : WebViewClient() {
         return handleUri(uri)
     }
 
+    // The webview's renderer process died (killed under memory pressure, a
+    // crash, etc.). Returning true keeps our process alive, but this WebView
+    // instance is dead and must be destroyed; the callback builds a fresh
+    // one. Backend state lives in our process, so the page comes back to
+    // the same view. See doc/decimation/memory-limits.md, "Webview
+    // resilience and leaks".
+    override fun onRenderProcessGone(
+        view: WebView,
+        detail: RenderProcessGoneDetail
+    ): Boolean {
+        Log.w(TAG, "WebView renderer gone, didCrash=${detail.didCrash()}")
+        (view.parent as? ViewGroup)?.removeView(view)
+        view.destroy()
+        onRendererGone()
+        return true
+    }
+
     private fun handleUri(uri: Uri): Boolean {
         Log.i(TAG, "Uri =" + uri)
         val host: String = uri.getHost()!!
@@ -60,11 +87,20 @@ class CustomWebViewClient(private val activity: Activity) : WebViewClient() {
     }
 }
 
-class WebAppInterface(val callback: () -> Unit, private val context: Context) {
+class WebAppInterface(
+    val callback: () -> Unit,
+    val hapticCallback: (String) -> Unit,
+    private val context: Context,
+) {
 
     @JavascriptInterface
     fun poke() {
         callback()
+    }
+
+    @JavascriptInterface
+    fun haptic(kind: String) {
+        hapticCallback(kind)
     }
     
     // Android WebView doesn't implement clipboard, so we use an escape hatch.

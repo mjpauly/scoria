@@ -7,7 +7,7 @@ use itertools::Itertools;
 use crate::{
     app_state::{get_back_state, AppState},
     database,
-    map::geojson,
+    map::map_data,
     paths, ws_session,
 };
 use common::{
@@ -61,12 +61,15 @@ async fn get_records_to_write(
     let query = database::FilteredQuery::builder()
         .time_range(map_state.time_range)
         .filters(map_state.filters.clone())
-        .limit(export_opts.max_points)
+        .decimation_threshold(export_opts.max_points)
         .maybe_bounds(export_opts.view_bounded.then(|| {
-            map_state.view_pos.bounds.expand(geojson::BOUND_EXPANSION)
+            map_state
+                .view_pos
+                .expanded_bounds(map_data::BOUND_EXPANSION_PX)
         }))
         .build();
-    let records = query.fetch_decimated().await;
+    // the decimated fetch returns narrow rows; export wants every column
+    let records = query.fetch_decimated_full().await;
     ExportData {
         records,
         time_range: map_state.time_range,

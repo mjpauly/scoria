@@ -24,7 +24,7 @@ use common::state::{ok_or_default, DerivedState, MapState, PendingEvents};
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
-use tokio::sync::Mutex as AsyncMutex;
+use tokio::sync::RwLock as AsyncRwLock;
 use tracing::error;
 
 use crate::logs::LogErrorAndContinue;
@@ -34,6 +34,7 @@ use common::{BackState, FrontState};
 
 /// File where persistent state is stored (joined to library_dir)
 static STATE_FNAME: &str = "persistent_state.json";
+static STATE_TMP_FNAME: &str = "persistent_state.json.tmp";
 
 #[cfg(not(test))]
 static APP_STATE: OnceCell<Arc<AppState>> = OnceCell::new();
@@ -51,6 +52,8 @@ pub struct AppState {
     // since it's ordered, which is nice for displaying, and has fast access to
     // the first element.
     pub dbs: Mutex<BTreeMap<MountID, SqlitePool>>,
+    // locations logged while the main database was still opening
+    pub pending_locations: Mutex<Vec<crate::database::OSLocationData>>,
 
     // Address of the websocket actor so we can send messages to it
     pub ws_addr: Mutex<Option<actix::Addr<ws_session::WsSession>>>,
@@ -77,11 +80,14 @@ pub struct AppState {
 pub struct MapData {
     // locks to limit only one task to do update computations and one task to
     // wait for the previous to finish
-    pub geojson_wait_lock: tokio::sync::Mutex<()>,
-    pub geojson_update_lock: tokio::sync::Mutex<()>,
-    // mounted database geojson strings (points, lines) to pass to frontend via
-    // http route
-    pub mount_geojsons: AsyncMutex<BTreeMap<MountID, (String, String)>>,
+    pub map_data_wait_lock: tokio::sync::Mutex<()>,
+    pub map_data_update_lock: tokio::sync::Mutex<()>,
+    // per-mount working set for the vector tile route (mvt.rs), in z0
+    // web-mercator coordinates. RwLock + Arc so concurrent tile requests
+    // can slice in parallel without holding the map lock
+    pub mount_tilesets: AsyncRwLock<
+        BTreeMap<MountID, std::sync::Arc<crate::map::mvt::TileSet>>,
+    >,
     // previous map state to determine if an update is needed
     pub prev_map_state: tokio::sync::Mutex<Option<MapState>>,
     // previous map state when timeline was lasts updated
@@ -91,9 +97,9 @@ pub struct MapData {
 impl Default for MapData {
     fn default() -> Self {
         Self {
-            geojson_wait_lock: tokio::sync::Mutex::new(()),
-            geojson_update_lock: tokio::sync::Mutex::new(()),
-            mount_geojsons: AsyncMutex::new(BTreeMap::new()),
+            map_data_wait_lock: tokio::sync::Mutex::new(()),
+            map_data_update_lock: tokio::sync::Mutex::new(()),
+            mount_tilesets: AsyncRwLock::new(BTreeMap::new()),
             prev_map_state: tokio::sync::Mutex::new(None),
             prev_map_state_dashboard: tokio::sync::Mutex::new(None),
         }
@@ -219,15 +225,17 @@ impl AppState {
             Ok(input) => match serde_json::from_str(&input) {
                 Ok(parsed) => {
                     tracing::debug!(
-                        "Successfully loaded app state:\n {parsed:?}\n
-                         File contents were \"{input}\"",
+                        "Successfully loaded app state:\n{parsed:?}"
                     );
                     parsed
                 }
                 Err(e) => {
+                    // don't log the whole file: it ends up in the log, which
+                    // the problem report attaches, so keep it bounded
                     error!(
-                        "Failed to parse state: {e}.\n
-                        File contents were \"{input}\"",
+                        "Failed to parse state ({} bytes): {e}. Near: {}",
+                        input.len(),
+                        error_context(&input, e.line(), e.column()),
                     );
                     PersistentState::default()
                 }
@@ -254,6 +262,7 @@ impl AppState {
                 persistent: Mutex::new(persistent),
                 derived: Mutex::new(Default::default()),
                 wrapper_messages: Mutex::new(Default::default()),
+                pending_locations: Mutex::new(Vec::new()),
                 map_data: Default::default(),
                 pending_events: Mutex::new(Default::default()),
             }))
@@ -265,11 +274,14 @@ impl AppState {
     /// if they occur.
     pub fn save_to_file() {
         let state_file = get_library_dir().join(STATE_FNAME);
+        // write to a sibling then rename, so a kill mid-write can't leave a
+        // truncated state file
+        let tmp_file = get_library_dir().join(STATE_TMP_FNAME);
         let mut file = match OpenOptions::new()
             .create(true)
             .write(true)
             .truncate(true) // delete previous contents that are longer
-            .open(state_file)
+            .open(&tmp_file)
         {
             Ok(file) => file,
             Err(e) => {
@@ -286,10 +298,35 @@ impl AppState {
                 return;
             }
         };
-        file.write_all(state_str.as_bytes())
-            .context("writing persistent state to file")
+        if let Err(e) = file.write_all(state_str.as_bytes()) {
+            error!("Failed to write persistent state: {e}.");
+            return;
+        }
+        drop(file);
+        fs::rename(tmp_file, state_file)
+            .context("renaming persistent state file")
             .log_error_and_continue();
     }
+}
+
+/// A window of `input` around the 1-based line and column of a parse error.
+fn error_context(input: &str, line: usize, column: usize) -> String {
+    const RADIUS: usize = 200;
+    let line_start = input
+        .split_inclusive('\n')
+        .take(line.saturating_sub(1))
+        .map(|l| l.len())
+        .sum::<usize>();
+    let pos = (line_start + column.saturating_sub(1)).min(input.len());
+    let mut start = pos.saturating_sub(RADIUS);
+    let mut end = (pos + RADIUS).min(input.len());
+    while !input.is_char_boundary(start) {
+        start -= 1;
+    }
+    while !input.is_char_boundary(end) {
+        end += 1;
+    }
+    format!("{:?}", &input[start..end])
 }
 
 #[cfg(test)]
@@ -407,6 +444,19 @@ mod tests {
             parsed.back.cmap_params.cmap,
             common::cmaps::Cmap::default()
         );
+    }
+
+    /// The parse error context stays small and lands on the error position.
+    #[test]
+    fn error_context_window() {
+        let input = "{\"a\":1,\n\"b\":".to_string() + &"x".repeat(1000);
+        let e = serde_json::from_str::<serde_json::Value>(&input).unwrap_err();
+        let ctx = super::error_context(&input, e.line(), e.column());
+        assert!(ctx.contains("\\\"b\\\":x"), "{ctx}");
+        assert!(ctx.len() < 450, "{ctx}");
+        // out-of-range positions must not panic
+        super::error_context("", 5, 5);
+        super::error_context("héllo", 1, 3);
     }
 
     /// An unexpected enum value can cause "trailing character" errors when

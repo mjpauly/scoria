@@ -54,7 +54,7 @@ pub enum ToFront {
     ),
     BackState(BackState),
     DerivedState(DerivedState),
-    GeojsonUpdated,
+    MapDataUpdated,
     NearestLocation(MountID, Location, jiff::Zoned), // zoned datetime also sent
     NewPinId(i64), // id of a new pin after assignment
     SwiftPoke,
@@ -67,9 +67,14 @@ pub enum ToFront {
 pub enum Request {
     // Get the time range that encompasses all location data of mounted DBs
     DBFullTimeRange,
+    // Center and zoom fitting all data in the current time range and filters,
+    // for the zoom-all-data button. Queried on demand: the bounds scan is too
+    // costly to run eagerly on every map update.
+    DataViewParams,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Response {
     DBFullTimeRange(Result<Option<TimeRange>, String>),
+    DataViewParams(Option<(LngLat, f64)>), // (center, zoom)
 }

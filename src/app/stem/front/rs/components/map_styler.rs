@@ -5,7 +5,7 @@ use std::u8;
 
 use obfstr::obfstr;
 use strum::IntoEnumIterator;
-use web_sys::{HtmlInputElement, HtmlSelectElement};
+use web_sys::{HtmlInputElement, HtmlSelectElement, PointerEvent};
 use yew::prelude::*;
 use yewdux::prelude::*;
 
@@ -15,6 +15,7 @@ use crate::components::{
 use crate::router::get_scoped_host;
 use crate::ui_state::FrontState;
 use crate::unwrapping::{unwrap_option_or_log, unwrap_result_or_log};
+use crate::web::haptics;
 use common::map_style::{
     BasemapStyle, ColoredDataStream, MARKER_SIZE_MAX, MARKER_SIZE_MIN,
 };
@@ -82,8 +83,11 @@ pub fn MapStyler() -> Html {
             let elem: HtmlInputElement =
                 unwrap_option_or_log!(e.target_dyn_into());
             let val: &str = &elem.value();
-            s.map.style.marker_size =
-                unwrap_result_or_log!(val.to_string().parse());
+            let size = unwrap_result_or_log!(val.to_string().parse());
+            if size != s.map.style.marker_size {
+                haptics::tick();
+            }
+            s.map.style.marker_size = size;
         },
     );
     let line_size_onchange = dispatch.reduce_mut_callback_with(
@@ -91,10 +95,15 @@ pub fn MapStyler() -> Html {
             let elem: HtmlInputElement =
                 unwrap_option_or_log!(e.target_dyn_into());
             let val: &str = &elem.value();
-            s.map.style.line_size =
-                unwrap_result_or_log!(val.to_string().parse());
+            let size = unwrap_result_or_log!(val.to_string().parse());
+            if size != s.map.style.line_size {
+                haptics::tick();
+            }
+            s.map.style.line_size = size;
         },
     );
+    // warm the haptic engine when a size slider is grabbed
+    let slider_prepare = Callback::from(|_: PointerEvent| haptics::prepare());
     let basemap_onchange = dispatch.reduce_mut_callback_with(
         move |s: &mut FrontState, e: Event| {
             let elem: HtmlSelectElement =
@@ -150,7 +159,9 @@ pub fn MapStyler() -> Html {
                     value={format!("{}", style.marker_size)}
                     min={MARKER_SIZE_MIN.to_string()}
                     max={MARKER_SIZE_MAX.to_string()}
+                    step="0.5"
                     class={format!("m-1 ml-6 {}", RANGE_INPUT_STYLE)}
+                    onpointerdown={slider_prepare.clone()}
                     oninput={marker_size_onchange} />
             </div>
             <div class="flex items-center justify-between h-8 flex-wrap">
@@ -159,6 +170,7 @@ pub fn MapStyler() -> Html {
                     value={format!("{}", style.line_size)}
                     min="0" max="10"
                     class={format!("m-1 ml-6 {}", RANGE_INPUT_STYLE)}
+                    onpointerdown={slider_prepare}
                     oninput={line_size_onchange} />
             </div>
             if style.colored_datastream == ColoredDataStream::None {

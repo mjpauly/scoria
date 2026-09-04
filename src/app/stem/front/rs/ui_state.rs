@@ -187,7 +187,7 @@ pub fn get_update_callback() -> Callback {
         // These messages handled by other message listeners
         ToFront::Startup(..) => (),
         ToFront::PendingEvents(_) => (),
-        ToFront::GeojsonUpdated => (),
+        ToFront::MapDataUpdated => (),
         ToFront::NearestLocation(..) => (),
         ToFront::NewPinId(_) => (),
         ToFront::PopUp(_) => (),
@@ -226,7 +226,7 @@ fn init_derived_listener() {
 /// This listener updates the front state with database settings. It listens for
 /// changes to dbs_on_disk, and adds/removes dbs from the front state as needed.
 struct DerivedStateListener {
-    previous_dbs_on_disk: BTreeMap<MountID, Option<String>>,
+    previous_dbs_on_disk: BTreeMap<MountID, common::state::DbStatus>,
 }
 impl Listener for DerivedStateListener {
     type Store = DerivedState;

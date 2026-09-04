@@ -79,7 +79,20 @@ public func check_export_sqlite_log(viewController: UIViewController) {
         let db_url = base.appendingPathComponent(db_fname)
 
         let desired_fname = "Scoria_Export_\(getFormattedDateTime()).sqlite"
-        shareFileWithDifferentName(originalURL: db_url, desiredFilename: desired_fname, viewController: viewController)
+        // Rust checkpoints the WAL into the database file before setting
+        // the flag. The WAL is truncated to zero bytes on success, so a
+        // large one means the checkpoint could not run (the database
+        // could not be opened) and its frames only exist there: share it
+        // alongside, named so SQLite finds it next to the database. The
+        // threshold leaves room for the few locations logged in the seconds
+        // between the checkpoint and this check (at most one per second,
+        // one ~4 KB frame each).
+        let wal_url = base.appendingPathComponent(db_fname + "-wal")
+        var extra_files: [(URL, String)] = []
+        if let size = try? FileManager.default.attributesOfItem(atPath: wal_url.path)[.size] as? UInt64, size > 100_000 {
+            extra_files.append((wal_url, desired_fname + "-wal"))
+        }
+        shareFileWithDifferentName(originalURL: db_url, desiredFilename: desired_fname, viewController: viewController, extraFiles: extra_files)
     }
 }
 
@@ -142,7 +155,7 @@ func check_export_image(viewController: UIViewController) {
             let desiredFilename = "Scoria_Image_\(getFormattedDateTime()).jpeg"
             let new_url = dir.appendingPathComponent(desiredFilename)
             try FileManager.default.moveItem(at: url, to: new_url)
-            shareFile(file: new_url, viewController: viewController, deleteAfterShare: true)
+            shareImageFile(file: new_url, viewController: viewController, deleteAfterShare: true)
         } catch {
             print_and_log_error(s: "failed to rename image export file")
         }

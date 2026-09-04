@@ -20,13 +20,24 @@ impl WebsocketService {
         &self,
     ) -> Result<Option<common::TimeRange>, String> {
         let response = self.send_request(Request::DBFullTimeRange).await;
-        #[allow(irrefutable_let_patterns)] // just a small enum right now
-        let Response::DBFullTimeRange(result) = response
-        else {
-            // anyhow::bail!("unexpected response type for DBFullTimeRange request");
+        let Response::DBFullTimeRange(result) = response else {
             return Err(
                 "unexpected response type for DBFullTimeRange request".into()
             );
+        };
+        result
+    }
+
+    /// Center and zoom fitting all data in the current time range and
+    /// filters, for the zoom-all-data button. None if there is no data or
+    /// the response type is wrong.
+    pub async fn get_data_view_params(&self) -> Option<(common::LngLat, f64)> {
+        let response = self.send_request(Request::DataViewParams).await;
+        let Response::DataViewParams(result) = response else {
+            tracing::error!(
+                "unexpected response type for DataViewParams request"
+            );
+            return None;
         };
         result
     }

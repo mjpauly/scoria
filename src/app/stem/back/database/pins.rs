@@ -194,8 +194,8 @@ mod tests {
         vec![
             Pin {
                 lnglat: LngLat {
-                    lng: -122.15,
-                    lat: 37.44,
+                    lng: -122.50,
+                    lat: 37.80,
                 },
                 name: "ALPACA".into(),
                 icon: "😺".into(),
@@ -203,8 +203,8 @@ mod tests {
             },
             Pin {
                 lnglat: LngLat {
-                    lng: -122.16,
-                    lat: 37.45,
+                    lng: -122.51,
+                    lat: 37.81,
                 },
                 name: "Charlie".into(),
                 icon: "🍨".into(),
@@ -212,8 +212,8 @@ mod tests {
             },
             Pin {
                 lnglat: LngLat {
-                    lng: -122.16,
-                    lat: 37.44,
+                    lng: -122.51,
+                    lat: 37.80,
                 },
                 lists: vec![
                     "Favs".into(),
@@ -225,8 +225,8 @@ mod tests {
             },
             Pin {
                 lnglat: LngLat {
-                    lng: -122.12,
-                    lat: 37.41,
+                    lng: -122.47,
+                    lat: 37.77,
                 },
                 name: "Delta".into(),
                 icon: "⬛️".into(),
@@ -234,8 +234,8 @@ mod tests {
             },
             Pin {
                 lnglat: LngLat {
-                    lng: -122.05,
-                    lat: 37.34,
+                    lng: -122.40,
+                    lat: 37.70,
                 },
                 name: "Bravo".into(),
                 ..Default::default()

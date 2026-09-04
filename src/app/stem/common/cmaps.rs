@@ -20,6 +20,23 @@ impl Cmap {
             Self::TwilightShifted => &TWILIGHT_SHIFTED,
         }
     }
+
+    /// Cyclic colormaps have matching endpoints so wrapping values (course,
+    /// time of day) wrap in color too.
+    pub fn is_cyclic(&self) -> bool {
+        matches!(self, Self::Twilight | Self::TwilightShifted)
+    }
+}
+
+/// Which end of the colormap to leave unused so data keeps contrast against
+/// the basemap (MapStyle::cmap_trim). The fraction is how much of the scale
+/// to cut off.
+#[derive(PartialEq, Debug, Default, Copy, Clone, Serialize, Deserialize)]
+pub enum CmapTrim {
+    #[default]
+    None,
+    DarkEnd(f64),
+    BrightEnd(f64),
 }
 
 /// The set of settings that define how a colormap should be applied to values.
@@ -31,6 +48,8 @@ pub struct CmapParams {
     /// have a cmin/cmax
     pub cminmax: Option<Cminmax>,
     pub cmap: Cmap,
+    #[serde(default)]
+    pub trim: CmapTrim,
 }
 
 #[derive(PartialEq, Debug, Default, Copy, Clone, Serialize, Deserialize)]
@@ -56,6 +75,22 @@ impl CmapParams {
         Self {
             cminmax,
             cmap: self.cmap,
+            trim: self.trim,
+        }
+    }
+
+    /// The 0-1 subrange of the colormap left in use after the contrast trim.
+    /// Cyclic colormaps are never trimmed: their endpoints must stay matched
+    /// for values that wrap.
+    pub fn subrange(&self) -> (f64, f64) {
+        if self.cmap.is_cyclic() {
+            return (0., 1.);
+        }
+        // non-cyclic colormaps ascend dark to bright (checked in tests)
+        match self.trim {
+            CmapTrim::None => (0., 1.),
+            CmapTrim::DarkEnd(t) => (t, 1.),
+            CmapTrim::BrightEnd(t) => (0., 1. - t),
         }
     }
 }
@@ -70,8 +105,7 @@ pub fn hex_color_is_bright(hex: &str) -> bool {
     r + b + g > 382
 }
 
-/// Simple search for a close color for the input value (range in 0-1). Could be
-/// sped up with binary_search_by
+/// Simple search for a close color for the input value (range in 0-1).
 pub fn find_nearest(cmap: &'static [(f64, &str)], val: f64) -> &'static str {
     // We assume there's no NaNs, so we can unwrap the partial_cmp
     let res = cmap.binary_search_by(|probe| {
@@ -96,6 +130,9 @@ pub fn get_data_color(val: f64, params: &CmapParams) -> &'static str {
     // If cmax==cmin this will return NaN, which means partial_cmp's Option will
     // default to Equal, giving us the middle value in the colormap.
     let normalized = (val - cmin) / (cmax - cmin);
+    // squeeze into the contrast-trimmed subrange of the colormap
+    let (lo, hi) = params.subrange();
+    let normalized = lo + normalized * (hi - lo);
     find_nearest(params.cmap.cmap_array(), normalized)
 }
 
@@ -1644,3 +1681,63 @@ pub static TWILIGHT_SHIFTED: [(f64, &str); 510] = [
     (0.9980392156862745, "#301437"),
     (1.0, "#2f1436"),
 ];
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn params(cmap: Cmap, trim: CmapTrim) -> CmapParams {
+        CmapParams {
+            cminmax: Some(Cminmax { cmin: 0., cmax: 1. }),
+            cmap,
+            trim,
+        }
+    }
+
+    #[test]
+    fn untrimmed_uses_full_range() {
+        let p = params(Cmap::Plasma, CmapTrim::None);
+        assert_eq!(get_data_color(0., &p), PLASMA[0].1);
+        assert_eq!(get_data_color(1., &p), PLASMA[255].1);
+    }
+
+    /// Plasma ascends dark to bright, so a bright-end trim caps the top of
+    /// the subrange and a dark-end trim lifts the bottom.
+    #[test]
+    fn subrange_picks_the_right_end() {
+        let bright = params(Cmap::Plasma, CmapTrim::BrightEnd(0.2));
+        assert_eq!(bright.subrange(), (0., 0.8));
+        let dark = params(Cmap::Plasma, CmapTrim::DarkEnd(0.2));
+        assert_eq!(dark.subrange(), (0.2, 1.));
+    }
+
+    #[test]
+    fn trims_move_the_endpoint_colors() {
+        let bright = params(Cmap::Plasma, CmapTrim::BrightEnd(0.2));
+        assert_eq!(get_data_color(0., &bright), PLASMA[0].1);
+        assert_eq!(get_data_color(1., &bright), find_nearest(&PLASMA, 0.8));
+        let dark = params(Cmap::Plasma, CmapTrim::DarkEnd(0.2));
+        assert_eq!(get_data_color(0., &dark), find_nearest(&PLASMA, 0.2));
+        assert_eq!(get_data_color(1., &dark), PLASMA[255].1);
+    }
+
+    /// subrange() assumes non-cyclic colormaps ascend dark to bright.
+    #[test]
+    fn noncyclic_cmaps_ascend_dark_to_bright() {
+        for cmap in [Cmap::Plasma, Cmap::Viridis] {
+            let arr = cmap.cmap_array();
+            assert!(!hex_color_is_bright(arr[0].1));
+            assert!(hex_color_is_bright(arr.last().unwrap().1));
+        }
+    }
+
+    /// Cyclic colormaps ignore the trim so wrapping values keep matching
+    /// colors at both ends.
+    #[test]
+    fn cyclic_cmaps_are_exempt() {
+        let p = params(Cmap::Twilight, CmapTrim::DarkEnd(0.2));
+        assert_eq!(p.subrange(), (0., 1.));
+        assert_eq!(get_data_color(0., &p), TWILIGHT[0].1);
+        assert_eq!(get_data_color(1., &p), TWILIGHT.last().unwrap().1);
+    }
+}

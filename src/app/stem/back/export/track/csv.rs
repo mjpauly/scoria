@@ -65,10 +65,10 @@ struct CSVLocationRecord<'a> {
 impl<'a> CSVLocationRecord<'a> {
     fn from_location(
         other: &'a Location,
-        datetime_fn: &impl Fn(&Location) -> Zoned,
+        datetime_fn: &impl Fn(time::OffsetDateTime, common::LngLat) -> Zoned,
     ) -> Self {
         Self {
-            timestamp: datetime_fn(other).to_string(),
+            timestamp: datetime_fn(other.timestamp, other.lnglat()).to_string(),
             timestamp_as_seconds: other.timestamp.unix_timestamp(),
 
             latitude: &other.latitude,

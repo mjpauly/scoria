@@ -1,5 +1,7 @@
-//! Navigation components for switching between pages. px are used where buffer
-//! is created for the device's home bar and top notch.
+//! Navigation components for switching between pages. Buffer for the device's
+//! home bar and top notch comes from the --safe-area-* insets (styles.css).
+//! On Android the WebView's margins already avoid the system navigation bar,
+//! so its injected bottom inset is effectively zero.
 
 use yew::prelude::*;
 use yew::MouseEvent;
@@ -11,17 +13,9 @@ use crate::router::Route;
 use crate::ui_state::FrontState;
 
 // Spacing for bottom navigation (tabs or forward/backwards buttons) to not
-// impinge on the homebar. Spacing is automatically set for iOS devices.
-// On Android the system navigation is more configurable, so we instead set the
-// WebView insets to avoid the navigation bar altogether.
-#[cfg(feature = "android_config")]
-const BOTTOM_NAV_SPACE: &str = "";
-#[cfg(feature = "android_config")]
-const TAB_BAR_SPACE: &str = "";
-#[cfg(not(feature = "android_config"))]
-const BOTTOM_NAV_SPACE: &str = "tall:h-[24px]";
-#[cfg(not(feature = "android_config"))]
-const TAB_BAR_SPACE: &str = "tall:pb-[24px]";
+// impinge on the homebar.
+const BOTTOM_NAV_SPACE: &str = "h-[var(--safe-area-bottom)]";
+const TAB_BAR_SPACE: &str = "pb-[var(--safe-area-bottom)]";
 
 /// Top navigation bar, with room for the device's top notch. Buttons are passed
 /// in as props.
@@ -30,14 +24,8 @@ pub fn TopNav(props: &NavProps) -> Html {
     html! {
         <nav class="sticky top-0 backdrop-blur-xl bg-black/20 z-20 \
             flex flex-col">
-            // px don't scale with dynamic font size, which is good since
-            // this div is just there to ensure the menu items are below
-            // the device's top notch
-            //
-            // 20px is the buffer for square screen sizes, like the iPhone SE,
-            // and 48 for rounded screens like the other iPhone models. See
-            // the tailwind config for the definition.
-            <div class="h-[20px] tall:h-[48px]"></div>
+            // ensures the menu items are below the device's top notch
+            <div class="h-[var(--safe-area-top)]"></div>
             <div class="flex justify-between w-full">
                 { for props.children.iter() }
             </div>
@@ -114,8 +102,6 @@ pub fn TabBar() -> Html {
             Callback::from(move |_e: MouseEvent| navigator.push(&route))
         };
         // Extra padding on the bottom to give more room for the home bar
-        // bottom padding is not scaled with rem since we don't need it to
-        // change with font size
         let mut style = vec!["pt-2", TAB_BAR_SPACE];
         if let Some(r) = &curr_route {
             // Style the current button blue if we are on it
@@ -146,7 +132,7 @@ pub fn TabBar() -> Html {
 #[function_component]
 pub fn HomeBarSpacer() -> Html {
     html! {
-        <div class="tall:h-[30px]">
+        <div class="h-[var(--safe-area-bottom)]">
         </div>
     }
 }

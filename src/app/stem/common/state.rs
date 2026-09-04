@@ -23,7 +23,7 @@ use crate::{
     notif_pref::NotificationPreference,
     pin::{Pin, PinSettings},
     plot_data::TimeSeriesPlot,
-    time_range::{TimeDeltaRange, TZ},
+    time_range::{StepTarget, TimeDeltaRange, TimeStep, TZ},
     timeline::{Timeline, TimelineConfig},
     units::{time::TimePreference, UnitPreference},
     view_position::ViewPosition,
@@ -66,6 +66,26 @@ where
     }
 }
 
+/// Where a database on disk is in being opened. Opening runs in the
+/// background so the app launches while a large database migrates; queries
+/// against a database run only once it is Ready.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum DbStatus {
+    /// What the open is doing, and the fraction done where that's known.
+    Opening {
+        stage: String,
+        progress: Option<f32>,
+    },
+    Ready,
+    Error(String),
+}
+
+impl DbStatus {
+    pub fn is_ready(&self) -> bool {
+        matches!(self, DbStatus::Ready)
+    }
+}
+
 /// State driven by the backend which is derived from other state, like the
 /// database.
 ///
@@ -77,10 +97,22 @@ pub struct DerivedState {
     pub dashboard_metrics: DashboardMetrics,
     pub colored_timeseries_plot: BTreeMap<MountID, TimeSeriesPlot>,
     pub timeline: Timeline,
-    // ids of databases on disk, with an optional error if it can't be opened
-    // (contains the main database at index 0)
-    pub mounted_dbs_on_disk: BTreeMap<MountID, Option<String>>,
+    // databases on disk and their open status (contains the main database
+    // at index 0)
+    pub mounted_dbs_on_disk: BTreeMap<MountID, DbStatus>,
     pub last_mounted: Option<(MountID, String)>, // id + name of last mounted db
+    // most recent hourly log file containing an error, if any
+    pub last_logged_error: Option<LoggedError>,
+}
+
+/// Contents of an hourly log file in which an error was logged. Rebuilt from
+/// disk rather than persisted, since it can be large.
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+pub struct LoggedError {
+    // file name, e.g. log.2026-09-02-03, which identifies the hour
+    pub log_file: String,
+    // the file contents, possibly truncated to the tail
+    pub contents: String,
 }
 
 /// Events that accumulate before UI is active, but which are handled in the UI.
@@ -114,8 +146,6 @@ pub struct BackState {
 
     // data-derived state for the map view
     #[serde(deserialize_with = "ok_or_default")]
-    pub data_center: Option<(LngLat, f64)>, // (LngLat, zoom)
-    #[serde(deserialize_with = "ok_or_default")]
     pub cmap_params: CmapParams,
 
     // time of last data point where automap was updated
@@ -130,15 +160,51 @@ pub struct BackState {
     #[serde(deserialize_with = "ok_or_default")]
     pub map_cache_size: u64,
 
-    // the most recent error that was recorded, if it exists, and whether it was
-    // reviewed by the user already (if yes, no prompting to review it)
+    // name of the hourly log file (DerivedState::last_logged_error) the user
+    // last reviewed. errors in a later file prompt the user to review again.
     #[serde(deserialize_with = "ok_or_default")]
-    pub last_logged_error: Option<(String, bool)>,
+    pub reviewed_error_log: Option<String>,
 
     // the tz to use for the map time range, using tz pref. if localized, uses
     // the tz in the center of the map
     #[serde(deserialize_with = "ok_or_default")]
     pub map_tz: TZ,
+
+    // stats from the most recent map data query, as a diagnostic
+    #[serde(deserialize_with = "ok_or_default")]
+    pub last_map_query: Option<MapQueryStats>,
+}
+
+/// Diagnostic stats from a map data query, summed over the mounted databases.
+#[derive(Debug, Copy, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct MapQueryStats {
+    pub n_points: usize,
+    /// Number of line segments in the tileset. Not derivable from n_points:
+    /// lines may be off, and out-of-bounds segments are skipped.
+    pub n_segs: usize,
+    /// Approximate bytes of the backend tile working set, the N-scaling
+    /// memory cost of the query result. u64, not usize: this struct is
+    /// deserialized on 32-bit wasm, where a usize slot truncates or fails
+    /// past 4 GiB.
+    pub tileset_bytes: u64,
+    pub duration_ms: u64,
+    /// True if any mounted database's result was decimated (every nth
+    /// point in temporal mode, bucketed in spatial mode).
+    pub decimated: bool,
+    /// The per-mount memory backstop the query ran with, so a follow-up
+    /// query (get_location_near) can reproduce the exact decimation.
+    pub hard_cap: u64,
+    /// True if the backend memory backstop bound any mount's result: a
+    /// coarser sample in temporal mode, the oldest cells dropped in
+    /// spatial mode. Never expected in normal use
+    /// (doc/decimation/memory-limits.md); surfaced so the
+    /// backstop can't bind silently.
+    pub memory_capped: bool,
+    /// Physical footprint of the app/server process after the update
+    /// (dirty + compressed), the number the iOS per-process jetsam limit
+    /// is enforced against. 0 if unavailable.
+    pub footprint_bytes: u64,
 }
 
 /// Driven by frontend
@@ -280,6 +346,11 @@ pub struct MapState {
     pub popup_color: Option<String>, // color of popup background to display
     #[serde(deserialize_with = "ok_or_default")]
     pub timeline_config: TimelineConfig,
+    // Step size and target ends for the time range stepper controls
+    #[serde(deserialize_with = "ok_or_default")]
+    pub time_step: TimeStep,
+    #[serde(deserialize_with = "ok_or_default")]
+    pub time_step_target: StepTarget,
 }
 
 #[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize)]
@@ -312,6 +383,8 @@ impl Default for MapState {
             open_in_google_maps: Default::default(),
             popup_color: Default::default(),
             timeline_config: Default::default(),
+            time_step: Default::default(),
+            time_step_target: Default::default(),
         }
     }
 }

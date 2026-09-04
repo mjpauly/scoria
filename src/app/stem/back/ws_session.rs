@@ -12,7 +12,7 @@ use actix_web::{web, Error, HttpRequest, HttpResponse};
 use actix_web_actors::ws;
 use common::popups;
 use common::state::{PersistedRoute, PersistedSettingsRoute};
-use common::ws_messages::Request;
+use common::ws_messages::{Request, Response};
 use common::{ToBack, ToFront};
 use tracing::{info, warn};
 
@@ -23,7 +23,9 @@ use crate::export::track::export_selected;
 use crate::logs::update_last_logged_error;
 use crate::map::automap::update_automap;
 use crate::map::basemap::evict_old_map_data;
-use crate::map::geojson::{get_location_near, update_geojson};
+use crate::map::map_data::{
+    get_data_view_params, get_location_near, update_map_data,
+};
 use crate::metrics::dashboard::update_dashboard_on_state_change;
 use crate::runtime::get_runtime;
 use crate::tz::update_map_tz;
@@ -152,7 +154,7 @@ impl WsSession {
                     .as_ref()
                     .map(|s| (s.route, s.settings_route));
 
-                get_runtime().spawn(update_geojson(None, false));
+                get_runtime().spawn(update_map_data(None, false));
                 if main_route == PersistedRoute::SettingsSubpage
                     && settings_route == PersistedSettingsRoute::MapSettings
                 {
@@ -220,11 +222,16 @@ impl WsSession {
                     .should_go_to_location_settings = true;
             }
             ToBack::ReviewedLastError => {
-                set_back_state(|back| {
-                    if let Some((_, reviewed)) = &mut back.last_logged_error {
-                        *reviewed = true
-                    }
+                let log_file = get_derived_state(|derived| {
+                    derived
+                        .last_logged_error
+                        .as_ref()
+                        .map(|e| e.log_file.clone())
                 });
+                if log_file.is_some() {
+                    set_back_state(|back| back.reviewed_error_log = log_file);
+                    AppState::save_to_file();
+                }
             }
             ToBack::GetLocationNear(mount_id, location) => {
                 let recipient = ctx.address().recipient();
@@ -315,6 +322,9 @@ impl WsSession {
             let response = match request {
                 Request::DBFullTimeRange => {
                     requests::get_db_full_time_range().await
+                }
+                Request::DataViewParams => {
+                    Response::DataViewParams(get_data_view_params().await)
                 }
             };
             recipient.do_send(MsgToFront(ToFront::Response(id, response)));

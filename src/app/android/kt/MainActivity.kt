@@ -11,8 +11,10 @@ import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
 import android.util.Log
+import android.view.HapticFeedbackConstants
 import android.view.View
 import android.view.ViewGroup.MarginLayoutParams
+import android.view.WindowManager
 import android.webkit.WebView 
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
@@ -33,6 +35,12 @@ class MainActivity : AppCompatActivity(), UpdateConfigCallback {
 
     private var mService: LocationService? = null
     private var mServiceIntent: Intent? = null
+    private var serverUrl: String? = null
+    private var started = false
+    private var safeTopCssPx: Float = 0f
+    private var safeLeftCssPx: Float = 0f
+    private var safeRightCssPx: Float = 0f
+    private var safeBottomCssPx: Float = 0f
 
     private val locationPermissionRequest = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -54,6 +62,11 @@ class MainActivity : AppCompatActivity(), UpdateConfigCallback {
         super.onCreate(savedInstanceState)
         Log.i(TAG, "onCreate")
         enableEdgeToEdge()
+        // Draw into the display cutout in landscape instead of letterboxing
+        // with a black bar; the page keeps clear of it via the injected
+        // safe-inset variables.
+        window.attributes.layoutInDisplayCutoutMode =
+            WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
         Stem.handleStartup(
             getFilesDir().getAbsolutePath(),
             getCacheDir().getAbsolutePath(),
@@ -73,6 +86,7 @@ class MainActivity : AppCompatActivity(), UpdateConfigCallback {
     override fun onStart() {
         super.onStart()
         Log.i(TAG, "onStart")
+        started = true
 
         // permissions may change even while in the background
         updateLocationConfig()
@@ -81,17 +95,39 @@ class MainActivity : AppCompatActivity(), UpdateConfigCallback {
 
         val serverConf = Stem.handleEnterForeground()
         val uscope = serverConf.scope.toULong()
-        val url = "http://127.0.0.1:${serverConf.port}/${uscope}/"
-        // Log.i(TAG, "connecting to ${url}")
+        serverUrl = "http://127.0.0.1:${serverConf.port}/${uscope}/"
+        // Log.i(TAG, "connecting to ${serverUrl}")
+        initWebView(serverUrl!!)
+    }
 
+    private fun initWebView(url: String) {
         val wv = findViewById<WebView>(R.id.webview)
         setInsets(wv)
-        wv.webViewClient = CustomWebViewClient(this)
+        wv.webViewClient = CustomWebViewClient(
+            this,
+            { handleRendererGone() },
+            { injectSafeInsets(it) },
+        )
         wv.getSettings().javaScriptEnabled = true
+        // Suppress the system long-press buzz the WebView performs on its
+        // own gesture detection; it fires on any press-and-hold, even over
+        // blank areas. Our deliberate haptics go through the decor view in
+        // handleHaptic, so they are unaffected.
+        wv.isHapticFeedbackEnabled = false
         wv.addJavascriptInterface(
-            WebAppInterface({ handlePoke() }, this), "Android"
+            WebAppInterface({ handlePoke() }, { handleHaptic(it) }, this),
+            "Android"
         )
         wv.loadUrl(url)
+    }
+
+    // The dead webview was already destroyed; re-inflate the layout for a
+    // fresh one and reload. While stopped, skip: the UI server may be down,
+    // and onStart rebuilds the webview anyway.
+    private fun handleRendererGone() {
+        if (!started) return
+        setContentView(R.layout.activity_main)
+        serverUrl?.let { initWebView(it) }
     }
 
     /* Setup the view with the desired inserts */
@@ -107,14 +143,46 @@ class MainActivity : AppCompatActivity(), UpdateConfigCallback {
             mlp.bottomMargin = max(sysBarInsets.bottom, keyboardInsets.bottom)
             mlp.rightMargin = sysBarInsets.right
             v.setLayoutParams(mlp)
+            // The webview extends under the status bar / cutout at the top
+            // and under the cutout at the sides in landscape. WebViews older
+            // than 140 report env(safe-area-inset-*) as 0, so pass the insets
+            // to the page as CSS variables as well. The margins above already
+            // keep the webview clear of the system bars, so only the part of
+            // a cutout reaching past them needs offsetting in CSS.
+            val cutoutInsets =
+                windowInsets.getInsets(WindowInsetsCompat.Type.displayCutout())
+            val density = resources.displayMetrics.density
+            safeTopCssPx = max(sysBarInsets.top, cutoutInsets.top) / density
+            safeLeftCssPx =
+                max(0, cutoutInsets.left - mlp.leftMargin) / density
+            safeRightCssPx =
+                max(0, cutoutInsets.right - mlp.rightMargin) / density
+            safeBottomCssPx =
+                max(0, cutoutInsets.bottom - mlp.bottomMargin) / density
+            injectSafeInsets(v as WebView)
             // Don't want the window insets to pass down to descendant views
             WindowInsetsCompat.CONSUMED
         }
     }
 
+    // Expose the insets to the page as --safe-* variables. Also re-run on
+    // page load: the properties don't survive a (re)load, and the insets
+    // listener may fire before the page exists.
+    fun injectSafeInsets(wv: WebView) {
+        wv.evaluateJavascript(
+            "var s = document.documentElement.style;" +
+                "s.setProperty('--safe-top', '${safeTopCssPx}px');" +
+                "s.setProperty('--safe-left', '${safeLeftCssPx}px');" +
+                "s.setProperty('--safe-right', '${safeRightCssPx}px');" +
+                "s.setProperty('--safe-bottom', '${safeBottomCssPx}px');",
+            null
+        )
+    }
+
     override fun onStop() {
         super.onStop()
         Log.i(TAG, "onStop")
+        started = false
         Stem.handleEnterBackground()
 
         // free webview resources by loading a blank black page
@@ -135,6 +203,23 @@ class MainActivity : AppCompatActivity(), UpdateConfigCallback {
         Log.i(TAG, "onNewIntent")
         intent.data?.let {
             Stem.urlScheme(it.toString());
+        }
+    }
+
+    // Haptic feedback requested by the webapp. performHapticFeedback
+    // respects the system haptics setting, unlike a raw Vibrator.
+    private fun handleHaptic(kind: String) {
+        val constant = when (kind) {
+            "tick" -> HapticFeedbackConstants.CLOCK_TICK
+            "hold" -> HapticFeedbackConstants.LONG_PRESS
+            // "prepare" only matters on iOS
+            else -> return
+        }
+        // JavascriptInterface calls arrive on a background thread. The decor
+        // view, not the webview: view haptics are disabled on the webview to
+        // mute the system long-press buzz.
+        runOnUiThread {
+            window.decorView.performHapticFeedback(constant)
         }
     }
 
@@ -182,10 +267,24 @@ class MainActivity : AppCompatActivity(), UpdateConfigCallback {
             val db_fname = "data.db"
             val base = Path(getFilesDir().getAbsolutePath())
             val srcPath = base.resolve(db_fname)
+            val exportName = getDbExportName()
+            // Rust checkpoints the WAL into the database file before setting
+            // the flag, truncating it to zero bytes on success, so a large
+            // one means the checkpoint could not run and its frames only
+            // exist there: share it alongside, named so SQLite finds it next
+            // to the database. The threshold leaves room for the few
+            // locations logged since the checkpoint (~4 KB frame each).
+            val walPath = base.resolve(db_fname + "-wal")
+            val extraFiles = if (walPath.toFile().length() > 100_000) {
+                listOf(walPath to (exportName + "-wal"))
+            } else {
+                emptyList()
+            }
             shareWithName(
                 this,
                 srcPath,
-                getDbExportName(),
+                exportName,
+                extraFiles,
             )
         }
     }

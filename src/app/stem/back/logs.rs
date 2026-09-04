@@ -37,7 +37,12 @@
 //! tracing-subscriber's default feature `tracing-log` allows
 //! SubscriberInitExt::init() to enable `log` crate compatibility.
 
-use std::{cmp::Ordering, fmt::Display};
+use std::{
+    cmp::Ordering,
+    fmt::Display,
+    io::{Read, Seek, SeekFrom},
+    path::Path,
+};
 
 use tracing::Subscriber;
 use tracing_appender::rolling::{RollingFileAppender, Rotation};
@@ -45,8 +50,10 @@ use tracing_subscriber::{
     fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter,
 };
 
+use common::state::LoggedError;
+
 use crate::{
-    app_state::AppState,
+    app_state::set_derived_state,
     paths::{get_logs_dir, get_logs_dir_helper, Paths},
 };
 
@@ -129,12 +136,15 @@ pub fn log_frontend_error(s: String) {
 // pattern to match in the log files
 const ERROR_PATTERN: &str = "Z ERROR ";
 
-/// Update the last error that was logged as tracked in the app state so that
-/// it's visible to the frontend. If the new error is significantly newer, then
-/// we reset the `reviewed` part. The tracked error is only the contents of the
-/// most recent log file with errors detected in it. Since the log files rotate
-/// hourly, errors that occur after an hour result in resetting the `reviewed`
-/// flag to false.
+/// Most bytes of a log file kept for review and problem reports. Keeps the
+/// tail, since that's where the newest messages are.
+const MAX_LOG_BYTES: u64 = 64 * 1024;
+
+/// Update the last error that was logged, as tracked in the derived state so
+/// it's visible to the frontend. The tracked error is the contents of the most
+/// recent hourly log file with errors in it. Whether the user reviewed it is
+/// tracked separately by file name in `BackState::reviewed_error_log`, so
+/// errors in a later hour's file prompt the user again.
 pub async fn update_last_logged_error() -> std::io::Result<()> {
     let logdir = get_logs_dir();
     let entries = std::fs::read_dir(logdir)?;
@@ -146,47 +156,37 @@ pub async fn update_last_logged_error() -> std::io::Result<()> {
     }
     // sort by modified time descending (recently modified first)
     files.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(Ordering::Equal));
-    for file in files {
-        let contents = std::fs::read_to_string(file.0)?;
+    let mut found = None;
+    for (path, _) in files {
+        let contents = read_tail(&path, MAX_LOG_BYTES)?;
         if contents.contains(ERROR_PATTERN) {
-            // save that hour's log contents for review and crash reporting.
-            // last_error = Some(contents);
-            let app_state = AppState::global();
-            let last_logged_error = &mut app_state
-                .persistent
-                .lock()
-                .unwrap()
-                .back
-                .last_logged_error;
-            if let Some(prev) = last_logged_error {
-                // previous error exists
-                if !is_newer(&contents, &prev.0) {
-                    // new log contents not significantly newer than previous ->
-                    // just update the string, not whether the error was
-                    // reviewed
-                    prev.0 = contents;
-                    return Ok(());
-                }
-            }
-            // this error is newer or it's the first one -> replace previous
-            // error in app state and set `reviewec` to false
-            *last_logged_error = Some((contents, false));
-            return Ok(());
+            let log_file = path
+                .file_name()
+                .map(|f| f.to_string_lossy().into_owned())
+                .unwrap_or_default();
+            found = Some(LoggedError { log_file, contents });
+            break;
         }
     }
+    set_derived_state(|derived| derived.last_logged_error = found);
     Ok(())
 }
 
-// number of characters in the time representation in the log file
-const LOG_TIME_LEN: usize = 27;
-
-/// Compares the first few characters of two log file strings to see if the left
-/// is newer than the right or not. This definition means that a new error is
-/// not considered newer until the next rolling log file is started.
-/// Nonetheless, we still update the string, we just don't reset the `reviewed`
-/// status of the error.
-fn is_newer(a: &str, b: &str) -> bool {
-    let a = &a[..LOG_TIME_LEN];
-    let b = &b[..LOG_TIME_LEN];
-    a.cmp(b) == Ordering::Greater
+/// Read up to the last `max_bytes` of a file, starting at a line boundary if
+/// truncated.
+fn read_tail(path: &Path, max_bytes: u64) -> std::io::Result<String> {
+    let mut file = std::fs::File::open(path)?;
+    let len = file.metadata()?.len();
+    let truncated = len > max_bytes;
+    if truncated {
+        file.seek(SeekFrom::Start(len - max_bytes))?;
+    }
+    let mut bytes = Vec::with_capacity(len.min(max_bytes) as usize);
+    file.read_to_end(&mut bytes)?;
+    let mut contents = String::from_utf8_lossy(&bytes).into_owned();
+    if truncated {
+        let start = contents.find('\n').map(|i| i + 1).unwrap_or(0);
+        contents = format!("[log truncated]\n{}", &contents[start..]);
+    }
+    Ok(contents)
 }

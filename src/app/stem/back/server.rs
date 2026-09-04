@@ -36,8 +36,7 @@ use rand::RngCore;
 use crate::app_state::AppState;
 use crate::export::image::export_image;
 use crate::files;
-use crate::map::geojson::geojson_route;
-use crate::map::{automap::screen, basemap::map_data_route};
+use crate::map::{automap::screen, basemap::map_data_route, mvt::mvt_route};
 use crate::ws_session::ws_route;
 
 const ONE_DAY: Duration = Duration::days(1);
@@ -142,7 +141,7 @@ fn build(listener: TcpListener, frontend_key: FrontendKey) -> Server {
                     .service(always_auth_png)
                     // dynamic routes
                     .service(health_check)
-                    .service(geojson_route)
+                    .service(mvt_route)
                     .service(map_data_route)
                     .service(screen)
                     .service(save_image)

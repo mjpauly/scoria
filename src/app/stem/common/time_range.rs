@@ -57,6 +57,127 @@ impl TimeRange {
     pub fn contains(&self, timestamp: &Timestamp) -> bool {
         &self.start <= timestamp && timestamp < &self.end
     }
+
+    /// Step start and/or end by the given calendar span, applied in the
+    /// given timezone so day and larger units follow the wall clock across
+    /// DST transitions. Returns None if the step would put start after end.
+    pub fn stepped(
+        &self,
+        span: Span,
+        target: StepTarget,
+        tz: &str,
+    ) -> Result<Option<Self>, jiff::Error> {
+        let mut new = *self;
+        if target.moves_start() {
+            new.start = self.start.intz(tz)?.checked_add(span)?.timestamp();
+        }
+        if target.moves_end() {
+            new.end = self.end.intz(tz)?.checked_add(span)?.timestamp();
+        }
+        Ok((new.start <= new.end).then_some(new))
+    }
+}
+
+/// Preset step sizes for the time range stepper controls.
+#[derive(
+    Copy, Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize,
+)]
+pub enum TimeStep {
+    Sec1,
+    Sec5,
+    Min1,
+    Min5,
+    Hour1,
+    #[default]
+    Day1,
+    Day7,
+    Month1,
+    Year1,
+}
+
+impl TimeStep {
+    pub const ALL: [Self; 9] = [
+        Self::Sec1,
+        Self::Sec5,
+        Self::Min1,
+        Self::Min5,
+        Self::Hour1,
+        Self::Day1,
+        Self::Day7,
+        Self::Month1,
+        Self::Year1,
+    ];
+
+    pub fn value(&self) -> i64 {
+        match self {
+            Self::Sec1 | Self::Min1 | Self::Hour1 | Self::Day1 => 1,
+            Self::Sec5 | Self::Min5 => 5,
+            Self::Day7 => 7,
+            Self::Month1 | Self::Year1 => 1,
+        }
+    }
+
+    pub fn unit(&self) -> &'static str {
+        match self {
+            Self::Sec1 | Self::Sec5 => "s",
+            Self::Min1 | Self::Min5 => "min",
+            Self::Hour1 => "h",
+            Self::Day1 | Self::Day7 => "d",
+            Self::Month1 => "mo",
+            Self::Year1 => "y",
+        }
+    }
+
+    /// The step's span, scaled by `n` (which may be negative).
+    pub fn span(&self, n: i64) -> Span {
+        let amount = self.value() * n;
+        match self {
+            Self::Sec1 | Self::Sec5 => Span::new().seconds(amount),
+            Self::Min1 | Self::Min5 => Span::new().minutes(amount),
+            Self::Hour1 => Span::new().hours(amount),
+            Self::Day1 | Self::Day7 => Span::new().days(amount),
+            Self::Month1 => Span::new().months(amount),
+            Self::Year1 => Span::new().years(amount),
+        }
+    }
+}
+
+impl std::fmt::Display for TimeStep {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}{}", self.value(), self.unit())
+    }
+}
+
+impl std::str::FromStr for TimeStep {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Self::ALL
+            .into_iter()
+            .find(|step| step.to_string() == s)
+            .ok_or_else(|| format!("unknown time step: {s}"))
+    }
+}
+
+/// Which ends of the time range the stepper controls move.
+#[derive(
+    Copy, Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize,
+)]
+pub enum StepTarget {
+    Start,
+    #[default]
+    Both,
+    End,
+}
+
+impl StepTarget {
+    pub fn moves_start(&self) -> bool {
+        matches!(self, Self::Start | Self::Both)
+    }
+
+    pub fn moves_end(&self) -> bool {
+        matches!(self, Self::End | Self::Both)
+    }
 }
 
 impl Default for TimeRange {
@@ -141,7 +262,9 @@ impl TimeDeltaRange {
 
     pub fn week() -> Self {
         Self {
-            start_offset: -Span::new().weeks(1),
+            // The snapping to day start/end adds an extra day, so 6d keeps the
+            // range at 1 week long.
+            start_offset: -Span::new().days(6),
             end_offset: Span::new(),
             snap_start_to_day: true,
             snap_end_to_day: true,
@@ -152,6 +275,19 @@ impl TimeDeltaRange {
     pub fn date(date: Date, tz: &str) -> Result<Self, jiff::Error> {
         let now = Timestamp::now().intz(tz)?;
         let delta = now.until(&date.at(12, 0, 0, 0).intz(tz)?)?; // noon
+        Ok(Self {
+            start_offset: delta,
+            end_offset: delta,
+            snap_start_to_day: true,
+            snap_end_to_day: true,
+        })
+    }
+
+    /// Show the day containing the given instant, snapped to the day.
+    /// Which day contains the instant depends on the day separation time,
+    /// applied by `to_time_range`.
+    pub fn day_containing(ts: Timestamp) -> Result<Self, jiff::Error> {
+        let delta = Timestamp::now().until(ts)?;
         Ok(Self {
             start_offset: delta,
             end_offset: delta,
@@ -179,5 +315,129 @@ impl Default for TimeDeltaRange {
     /// be what initializes the time_range.
     fn default() -> Self {
         Self::today()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use jiff::civil::date;
+
+    const TZ_NAME: &str = "America/New_York";
+
+    fn day_of(dt: jiff::civil::DateTime, sep: Time) -> TimeRange {
+        let ts = dt.intz(TZ_NAME).unwrap().timestamp();
+        let range = TimeDeltaRange::day_containing(ts)
+            .unwrap()
+            .to_time_range(TZ_NAME, sep)
+            .unwrap();
+        assert!(range.contains(&ts));
+        range
+    }
+
+    #[test]
+    fn day_containing_after_separator() {
+        let sep = Time::constant(4, 0, 0, 0);
+        let range = day_of(date(2023, 6, 15).at(13, 0, 0, 0), sep);
+        let start = range.start.intz(TZ_NAME).unwrap();
+        let end = range.end.intz(TZ_NAME).unwrap();
+        assert_eq!(start.datetime(), date(2023, 6, 15).at(4, 0, 0, 0));
+        assert_eq!(end.datetime(), date(2023, 6, 16).at(4, 0, 0, 0));
+    }
+
+    #[test]
+    fn day_containing_before_separator() {
+        let sep = Time::constant(4, 0, 0, 0);
+        // 01:30 is before the 04:00 separator, so it belongs to the day
+        // starting the previous calendar date
+        let range = day_of(date(2023, 6, 15).at(1, 30, 0, 0), sep);
+        let start = range.start.intz(TZ_NAME).unwrap();
+        let end = range.end.intz(TZ_NAME).unwrap();
+        assert_eq!(start.datetime(), date(2023, 6, 14).at(4, 0, 0, 0));
+        assert_eq!(end.datetime(), date(2023, 6, 15).at(4, 0, 0, 0));
+    }
+
+    fn zdt(dt: jiff::civil::DateTime) -> Timestamp {
+        dt.intz(TZ_NAME).unwrap().timestamp()
+    }
+
+    #[test]
+    fn stepped_day_over_dst() {
+        // 2024-03-10 is the US spring-forward date
+        let range = TimeRange {
+            start: zdt(date(2024, 3, 9).at(12, 0, 0, 0)),
+            end: zdt(date(2024, 3, 9).at(18, 0, 0, 0)),
+        };
+        let stepped = range
+            .stepped(TimeStep::Day1.span(1), StepTarget::Both, TZ_NAME)
+            .unwrap()
+            .unwrap();
+        // lands on the same wall-clock times despite the 23-hour day
+        assert_eq!(
+            stepped.start.intz(TZ_NAME).unwrap().datetime(),
+            date(2024, 3, 10).at(12, 0, 0, 0)
+        );
+        assert_eq!(
+            stepped.end.intz(TZ_NAME).unwrap().datetime(),
+            date(2024, 3, 10).at(18, 0, 0, 0)
+        );
+        assert_eq!(
+            stepped.start.as_second() - range.start.as_second(),
+            23 * 3600
+        );
+    }
+
+    #[test]
+    fn stepped_month_clamps_to_month_end() {
+        let range = TimeRange {
+            start: zdt(date(2024, 1, 31).at(10, 0, 0, 0)),
+            end: zdt(date(2024, 1, 31).at(12, 0, 0, 0)),
+        };
+        let stepped = range
+            .stepped(TimeStep::Month1.span(1), StepTarget::Both, TZ_NAME)
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            stepped.start.intz(TZ_NAME).unwrap().datetime(),
+            date(2024, 2, 29).at(10, 0, 0, 0)
+        );
+    }
+
+    #[test]
+    fn stepped_moves_only_the_target() {
+        let range = TimeRange {
+            start: zdt(date(2024, 6, 1).at(0, 0, 0, 0)),
+            end: zdt(date(2024, 6, 2).at(0, 0, 0, 0)),
+        };
+        let stepped = range
+            .stepped(TimeStep::Hour1.span(-2), StepTarget::Start, TZ_NAME)
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            stepped.start.intz(TZ_NAME).unwrap().datetime(),
+            date(2024, 5, 31).at(22, 0, 0, 0)
+        );
+        assert_eq!(stepped.end, range.end);
+    }
+
+    #[test]
+    fn stepped_start_cannot_cross_end() {
+        let range = TimeRange {
+            start: zdt(date(2024, 6, 1).at(0, 0, 0, 0)),
+            end: zdt(date(2024, 6, 1).at(0, 30, 0, 0)),
+        };
+        let stepped = range
+            .stepped(TimeStep::Hour1.span(1), StepTarget::Start, TZ_NAME)
+            .unwrap();
+        assert_eq!(stepped, None);
+    }
+
+    #[test]
+    fn day_containing_midnight_separator() {
+        let range = day_of(date(2023, 6, 15).at(13, 0, 0, 0), Time::MIN);
+        let start = range.start.intz(TZ_NAME).unwrap();
+        let end = range.end.intz(TZ_NAME).unwrap();
+        assert_eq!(start.datetime(), date(2023, 6, 15).at(0, 0, 0, 0));
+        assert_eq!(end.datetime(), date(2023, 6, 16).at(0, 0, 0, 0));
     }
 }
