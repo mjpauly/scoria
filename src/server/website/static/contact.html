@@ -1,3 +1,5 @@
+                    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js"
+                        async defer></script>
                     <h1>Contact</h1>
                     <p>
                         Use this form to get in touch with us. If you'd like to
@@ -25,6 +27,10 @@
                                 class="block rounded-md bg-neutral-800 px-2
                                 py-0.5 text-neutral-300">
                         </label>
+
+                        <div class="cf-turnstile mt-4 flex justify-center"
+                            data-sitekey="{{TURNSTILE_SITE_KEY}}"
+                            data-theme="dark"></div>
 
                         <input type="submit" value="Submit"
                             class="mt-4 rounded-lg bg-neutral-600 px-4 py-2

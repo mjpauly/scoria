@@ -1,18 +1,74 @@
 use actix_web::http::header::ACCESS_CONTROL_ALLOW_ORIGIN;
 use actix_web::{
-    http::header::ContentType, post, web, HttpResponse, Responder,
+    http::header::ContentType, post, web, HttpRequest, HttpResponse, Responder,
 };
 use anyhow::{bail, Context, Result};
+use secrecy::ExposeSecret;
 use sqlx::PgPool;
 use uuid::Uuid;
 
+use crate::configuration::TurnstileSettings;
 use crate::routes::static_files::{TEMPLATE_BOTTOM_FILE, TEMPLATE_TOP_FILE};
+
+/// Subject sent by in-app problem reports. Those skip the Turnstile check
+/// (the app can't render the widget) and get a CORS header so the device can
+/// read the response.
+const APP_REPORT_SUBJECT: &str = "App Problem Report wdiCCGLEBxcedhYxUOTqWhR";
+
+const TURNSTILE_VERIFY_URL: &str =
+    "https://challenges.cloudflare.com/turnstile/v0/siteverify";
 
 #[derive(serde::Deserialize)]
 pub struct FormData {
     subject: String,
     body: String,
     email: String,
+    /// Hidden input injected by the Turnstile widget.
+    #[serde(rename = "cf-turnstile-response")]
+    turnstile_response: Option<String>,
+}
+
+#[derive(serde::Deserialize)]
+struct SiteVerifyResponse {
+    success: bool,
+    #[serde(default, rename = "error-codes")]
+    error_codes: Vec<String>,
+}
+
+/// Outcome of the Turnstile check, distinguishing a bad token from our own
+/// failure to reach Cloudflare.
+enum Verification {
+    Passed,
+    Rejected(Vec<String>),
+}
+
+async fn verify_turnstile(
+    token: &str,
+    remote_ip: Option<&str>,
+    client: &reqwest::Client,
+    settings: &TurnstileSettings,
+) -> Result<Verification> {
+    let mut params = vec![
+        ("secret", settings.secret_key.expose_secret().as_str()),
+        ("response", token),
+    ];
+    if let Some(ip) = remote_ip {
+        params.push(("remoteip", ip));
+    }
+    let resp: SiteVerifyResponse = client
+        .post(TURNSTILE_VERIFY_URL)
+        .form(&params)
+        .send()
+        .await
+        .context("Turnstile siteverify request failed")?
+        .json()
+        .await
+        .context("Turnstile siteverify returned invalid JSON")?;
+    Ok(if resp.success {
+        Verification::Passed
+    } else {
+        Verification::Rejected(resp.error_codes)
+    })
 }
 
 pub fn parse(mut s: String, max_len: usize) -> Result<String> {
@@ -43,8 +99,11 @@ pub fn parse(mut s: String, max_len: usize) -> Result<String> {
 
 #[post("/contact")]
 pub async fn contact_form_submitted(
+    req: HttpRequest,
     form: web::Form<FormData>,
     pool: web::Data<PgPool>,
+    http_client: web::Data<reqwest::Client>,
+    turnstile: web::Data<TurnstileSettings>,
 ) -> impl Responder {
     let build_response_body = |content| {
         String::from(TEMPLATE_TOP_FILE)
@@ -54,31 +113,60 @@ pub async fn contact_form_submitted(
             + TEMPLATE_BOTTOM_FILE
     };
 
-    // expected subject if it's a report from the app:
-    let app_report_subject = "App Problem Report wdiCCGLEBxcedhYxUOTqWhR";
-    // if came from in-app bug report, allow cross origin so device can read
-    // back the response.
-    let allow_origin = form.subject == app_report_subject;
+    let is_app_report = form.subject == APP_REPORT_SUBJECT;
+    let reply = |mut builder: actix_web::HttpResponseBuilder, content| {
+        builder.content_type(ContentType::html());
+        if is_app_report {
+            builder.insert_header((ACCESS_CONTROL_ALLOW_ORIGIN, "*"));
+        }
+        builder.body(build_response_body(content))
+    };
 
-    let ok_response = "Submitted! Thanks for reaching out";
-    let err_response = "Something went wrong...";
+    if !is_app_report {
+        let Some(token) = form.turnstile_response.as_deref() else {
+            return reply(
+                HttpResponse::BadRequest(),
+                "Please complete the verification challenge and try again.",
+            );
+        };
+        let remote_ip =
+            req.connection_info().realip_remote_addr().map(String::from);
+        let verification = verify_turnstile(
+            token,
+            remote_ip.as_deref(),
+            &http_client,
+            &turnstile,
+        )
+        .await;
+        match verification {
+            Ok(Verification::Passed) => {}
+            Ok(Verification::Rejected(codes)) => {
+                println!("Turnstile rejected submission: {:?}", codes);
+                return reply(
+                    HttpResponse::BadRequest(),
+                    "Verification failed. Please go back and try again.",
+                );
+            }
+            Err(e) => {
+                println!("Turnstile verification error: {:?}", e);
+                return reply(
+                    HttpResponse::InternalServerError(),
+                    "Something went wrong...",
+                );
+            }
+        }
+    }
+
     match persist_feedback(form, pool).await {
         Ok(_) => {
-            let mut reply = HttpResponse::Ok();
-            reply.content_type(ContentType::html());
-            if allow_origin {
-                reply.insert_header((ACCESS_CONTROL_ALLOW_ORIGIN, "*"));
-            }
-            reply.body(build_response_body(ok_response))
+            reply(HttpResponse::Ok(), "Submitted! Thanks for reaching out")
         }
         Err(e) => {
             println!("Failed to persist feedback: {:?}", e);
-            let mut reply = HttpResponse::InternalServerError();
-            reply.content_type(ContentType::html());
-            if allow_origin {
-                reply.insert_header((ACCESS_CONTROL_ALLOW_ORIGIN, "*"));
-            }
-            reply.body(build_response_body(err_response))
+            reply(
+                HttpResponse::InternalServerError(),
+                "Something went wrong...",
+            )
         }
     }
 }

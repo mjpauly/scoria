@@ -4,10 +4,16 @@
 ibazel run :website_bin
 ```
 
-Submit the contact form:
+Submit the contact form. Locally the server uses Cloudflare's Turnstile test
+keys, so any token is accepted, but the field must be present:
 ```
-curl -i -X POST -d 'subject=Test_subject_1&body=Body_1&email=' 127.0.0.1:8000/contact
+curl -i -X POST -d 'subject=Test_subject_1&body=Body_1&email=&cf-turnstile-response=x' 127.0.0.1:8000/contact
 ```
+
+In-app problem reports (see `aft/routes/contact.rs`) skip the Turnstile check.
+In production the keys come from `APP_TURNSTILE__SITE_KEY` and
+`APP_TURNSTILE__SECRET_KEY` (see `spec.yaml`); the widget is created in the
+Cloudflare dashboard under Turnstile for `scoria.info`.
 
 # Cross Compiling
 

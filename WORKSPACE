@@ -396,8 +396,13 @@ crates_repository(
             features = ["v4", "fast-rng", "macro-diagnostics",]
         ),
 
-        # dev + testing
-        "reqwest": crate.spec(version = "0.11.15"),
+        # Used to verify Turnstile tokens. Default features pull in native-tls
+        # (OpenSSL), which doesn't cross-compile, so use rustls.
+        "reqwest": crate.spec(
+            version = "0.11.15",
+            default_features = False,
+            features = ["rustls-tls", "json"],
+        ),
 
     },
     splicing_config = splicing_config(resolver_version = "2"),

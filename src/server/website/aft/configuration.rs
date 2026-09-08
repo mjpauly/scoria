@@ -7,6 +7,16 @@ use sqlx::postgres::PgSslMode;
 pub struct Settings {
     pub database: DatabaseSettings,
     pub application: ApplicationSettings,
+    pub turnstile: TurnstileSettings,
+}
+
+/// Cloudflare Turnstile keys for the contact form.
+#[derive(Clone)]
+pub struct TurnstileSettings {
+    /// Public key embedded in the contact page.
+    pub site_key: String,
+    /// Used server-side to verify tokens.
+    pub secret_key: Secret<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -93,6 +103,13 @@ pub fn get_configuration() -> Settings {
                 database_name: "feedback".into(),
                 require_ssl: false,
             },
+            // Cloudflare's dummy keys: the widget renders and always passes.
+            turnstile: TurnstileSettings {
+                site_key: "1x00000000000000000000AA".into(),
+                secret_key: Secret::new(
+                    "1x0000000000000000000000000000000AA".into(),
+                ),
+            },
         }
     } else {
         Settings {
@@ -114,6 +131,12 @@ pub fn get_configuration() -> Settings {
                 database_name: std::env::var("APP_DATABASE__DATABASE_NAME")
                     .unwrap(),
                 require_ssl: true,
+            },
+            turnstile: TurnstileSettings {
+                site_key: std::env::var("APP_TURNSTILE__SITE_KEY").unwrap(),
+                secret_key: Secret::new(
+                    std::env::var("APP_TURNSTILE__SECRET_KEY").unwrap(),
+                ),
             },
         }
     }

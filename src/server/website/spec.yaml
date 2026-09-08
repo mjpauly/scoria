@@ -39,6 +39,13 @@ services:
       - key: APP_ENVIRONMENT
         scope: RUN_TIME
         value: production
+      - key: APP_TURNSTILE__SITE_KEY
+        scope: RUN_TIME
+        value: REPLACE_WITH_TURNSTILE_SITE_KEY
+      - key: APP_TURNSTILE__SECRET_KEY
+        scope: RUN_TIME
+        type: SECRET
+        value: REPLACE_IN_DASHBOARD
 domains:
 - domain: scoria.info
   type: PRIMARY

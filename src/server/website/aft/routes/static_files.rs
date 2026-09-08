@@ -2,6 +2,8 @@ use actix_web::http::header::ContentType;
 use actix_web::routes;
 use actix_web::{dev::HttpServiceFactory, get, web, HttpResponse, Responder};
 
+use crate::configuration::TurnstileSettings;
+
 static INDEX_FILE: &str = include_str!(env!("INDEX_FILE"));
 static FEED_FILE: &str = include_str!(env!("FEED_FILE"));
 static POSTS_FILE: &str = include_str!(env!("POSTS_FILE"));
@@ -126,10 +128,10 @@ async fn privacy_policy() -> impl Responder {
 }
 
 #[get("/contact")]
-async fn contact() -> impl Responder {
-    HttpResponse::Ok()
-        .content_type(ContentType::html())
-        .body(CONTACT_FILE)
+async fn contact(turnstile: web::Data<TurnstileSettings>) -> impl Responder {
+    HttpResponse::Ok().content_type(ContentType::html()).body(
+        CONTACT_FILE.replace("{{TURNSTILE_SITE_KEY}}", &turnstile.site_key),
+    )
 }
 
 #[get("/terms")]

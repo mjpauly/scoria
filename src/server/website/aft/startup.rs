@@ -7,6 +7,7 @@ use sqlx::PgPool;
 
 use crate::configuration::DatabaseSettings;
 use crate::configuration::Settings;
+use crate::configuration::TurnstileSettings;
 use crate::routes::*;
 
 pub struct Application {
@@ -29,6 +30,7 @@ impl Application {
             listener,
             connection_pool,
             configuration.application.base_url,
+            configuration.turnstile,
         )?;
 
         Ok(Self { port, server })
@@ -60,11 +62,21 @@ pub fn run(
     listener: TcpListener,
     db_pool: PgPool,
     base_url: String,
+    turnstile: TurnstileSettings,
 ) -> Result<Server, std::io::Error> {
     // capture db_pool with `move`, but make sure it is cloned for each
     // actix worker (it is just a referenced-counted pointer)
     let db_pool = web::Data::new(db_pool);
     let base_url = web::Data::new(ApplicationBaseUrl(base_url));
+    let turnstile = web::Data::new(turnstile);
+    // Outbound client for Turnstile verification. Bounded so a slow
+    // Cloudflare can't hold a worker for long.
+    let http_client = web::Data::new(
+        reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(5))
+            .build()
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?,
+    );
     let server = HttpServer::new(move || {
         App::new()
             .route("/health_check", web::get().to(health_check))
@@ -74,6 +86,8 @@ pub fn run(
             .service(get_apk_file_services())
             .app_data(db_pool.clone())
             .app_data(base_url.clone())
+            .app_data(turnstile.clone())
+            .app_data(http_client.clone())
     })
     .listen(listener)?
     .run();

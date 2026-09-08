@@ -126,6 +126,7 @@ rust_library(
         "@website_crate_index//:anyhow",
         "@website_crate_index//:futures-util",
         "@website_crate_index//:mime",
+        "@website_crate_index//:reqwest",
         "@website_crate_index//:secrecy",
         "@website_crate_index//:serde",
         "@website_crate_index//:sqlx",
